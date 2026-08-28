@@ -1,0 +1,18 @@
+<!doctype html>
+<html lang="pt-BR">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Excalisidian</title>
+    <!-- Antes de qualquer script de módulo: as fontes do Excalidraw são servidas da raiz de
+         public/ (RNF5, app offline), não de CDN. Ver scripts/copiar-assets-excalidraw.mjs. -->
+    <script>
+      window.EXCALIDRAW_ASSET_PATH = "/";
+    </script>
+  </head>
+
+  <body>
+    <div id="root"></div>
+    <script type="module" src="/src/main.tsx"></script>
+  </body>
+</html>

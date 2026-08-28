@@ -1,0 +1,1208 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<meta name="design_doc_mode" content="canvas">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,400..600&family=Instrument+Sans:wght@400;500;600&family=IBM+Plex+Mono:wght@400;500&display=swap" rel="stylesheet">
+<script src="https://unpkg.com/lucide@latest/dist/umd/lucide.js"></script>
+<style>
+  body{margin:0;background:#D6CFBE;overflow:auto}
+  a{color:#3E5C46}
+  a:hover{color:#3E5C46;text-decoration:underline}
+  .ex-board *{box-sizing:border-box}
+  @keyframes ex-blink{0%,50%{opacity:1}51%,100%{opacity:0}}
+</style>
+</helmet>
+
+<div style="width:100%">
+<div style="display:flex;gap:56px;padding:56px;width:max-content;font-family:'Instrument Sans',system-ui,sans-serif">
+
+
+<div style="display:flex;flex-direction:column;gap:10px">
+<div style="font-family:'IBM Plex Mono',monospace;font-size:11px;font-weight:500;letter-spacing:0.09em;text-transform:uppercase;color:#4A443C">01 — Editor de nota</div>
+<div class="ex-board" style="--papel:#EFEAE1;--superficie:#FBF9F5;--lavagem:#E5DFD4;--regua:#DCD5C8;--regua-forte:#8C8578;--tinta:#1C1917;--tinta-media:#4A443C;--tinta-suave:#655E54;--musgo:#3E5C46;--ocre:#A87A1C;--bordo:#7A2E22;width:1440px;height:900px;background:var(--papel);position:relative;display:flex;flex-direction:column;box-shadow:0 8px 24px -10px rgba(28,25,23,0.3)">
+
+  <div style="height:38px;flex-shrink:0;display:flex;align-items:center;justify-content:space-between;padding:0 14px">
+    <div style="display:flex;flex-direction:column;gap:3px">
+      <span style="font-family:Fraunces,Georgia,serif;font-weight:600;font-size:16px;color:var(--tinta)">Excalisidian</span>
+      <div style="width:42%;height:2px;background:var(--musgo)"></div>
+    </div>
+    <div style="display:flex;gap:16px;align-items:center">
+      <div style="width:11px;height:1px;background:var(--tinta-media)"></div>
+      <div style="width:10px;height:10px;border:1px solid var(--tinta-media)"></div>
+      <div style="position:relative;width:10px;height:10px">
+        <div style="position:absolute;top:5px;left:0;width:10px;height:1px;background:var(--tinta-media);transform:rotate(45deg)"></div>
+        <div style="position:absolute;top:5px;left:0;width:10px;height:1px;background:var(--tinta-media);transform:rotate(-45deg)"></div>
+      </div>
+    </div>
+  </div>
+
+  <div style="flex:1;display:flex;overflow:hidden">
+    
+    <div style="width:264px;flex-shrink:0;background:var(--superficie);border-right:1px solid var(--regua);display:flex;flex-direction:column">
+      <div style="height:40px;flex-shrink:0;display:flex;align-items:center;gap:10px;padding:0 12px;border-bottom:1px solid var(--regua)">
+        <i data-lucide="file-plus" width="15" height="15" color="var(--tinta-media)" stroke-width="1.5"></i>
+        <i data-lucide="square-pen" width="15" height="15" color="var(--tinta-media)" stroke-width="1.5"></i>
+        <i data-lucide="folder-plus" width="15" height="15" color="var(--tinta-media)" stroke-width="1.5"></i>
+        <i data-lucide="arrow-up-narrow-wide" width="15" height="15" color="var(--tinta-media)" stroke-width="1.5"></i>
+      </div>
+      <div style="flex:1;padding:6px 0;overflow:auto">
+        <div style="display:flex;align-items:center;gap:6px;height:30px;padding-left:12px;color:var(--tinta-media);font-size:13px">
+          <i data-lucide="chevron-down" width="13" height="13" color="var(--tinta-suave)" stroke-width="1.5"></i>
+          <i data-lucide="folder-open" width="15" height="15" color="var(--tinta-media)" stroke-width="1.5"></i>
+          <span>Projetos</span>
+        </div>
+        <div style="display:flex;align-items:center;gap:6px;height:30px;padding-left:28px;color:var(--tinta-media);font-size:13px">
+          <i data-lucide="file-text" width="15" height="15" color="var(--tinta-media)" stroke-width="1.5"></i>
+          <span>Excalisidian.md</span>
+        </div>
+        <div style="position:relative;display:flex;align-items:center;gap:6px;height:30px;padding-left:28px;background:var(--lavagem);color:var(--tinta);font-size:13px">
+          <div style="position:absolute;left:0;top:0;bottom:0;width:2px;background:var(--musgo)"></div>
+          <i data-lucide="pen-line" width="15" height="15" color="var(--musgo)" stroke-width="1.5"></i>
+          <span>Arquitetura.excalidraw.md</span>
+        </div>
+        <div style="display:flex;align-items:center;gap:6px;height:30px;padding-left:28px;color:var(--tinta-media);font-size:13px">
+          <i data-lucide="file-text" width="15" height="15" color="var(--tinta-media)" stroke-width="1.5"></i>
+          <span>Backend.md</span>
+        </div>
+        <div style="display:flex;align-items:center;gap:6px;height:30px;padding-left:12px;color:var(--tinta-media);font-size:13px">
+          <i data-lucide="chevron-right" width="13" height="13" color="var(--tinta-suave)" stroke-width="1.5"></i>
+          <i data-lucide="folder" width="15" height="15" color="var(--tinta-media)" stroke-width="1.5"></i>
+          <span>Diário</span>
+        </div>
+        <div style="display:flex;align-items:center;gap:6px;height:30px;padding-left:12px;color:var(--tinta-media);font-size:13px">
+          <i data-lucide="chevron-right" width="13" height="13" color="var(--tinta-suave)" stroke-width="1.5"></i>
+          <i data-lucide="folder" width="15" height="15" color="var(--tinta-media)" stroke-width="1.5"></i>
+          <span>Referências</span>
+        </div>
+        <div style="display:flex;align-items:center;gap:6px;height:30px;padding-left:12px;color:var(--tinta-media);font-size:13px">
+          <i data-lucide="file-text" width="15" height="15" color="var(--tinta-media)" stroke-width="1.5"></i>
+          <span>Inbox.md</span>
+        </div>
+        <div style="display:flex;align-items:center;gap:6px;height:30px;padding-left:12px;color:var(--tinta-media);font-size:13px">
+          <i data-lucide="chevron-right" width="13" height="13" color="var(--tinta-suave)" stroke-width="1.5"></i>
+          <i data-lucide="folder" width="15" height="15" color="var(--tinta-media)" stroke-width="1.5"></i>
+          <span>anexos</span>
+        </div>
+      </div>
+      <div style="height:36px;flex-shrink:0;display:flex;align-items:center;gap:16px;padding:0 12px;border-top:1px solid var(--regua)">
+        <i data-lucide="search" width="15" height="15" color="var(--tinta-suave)" stroke-width="1.5"></i>
+        <i data-lucide="corner-down-left" width="15" height="15" color="var(--tinta-suave)" stroke-width="1.5"></i>
+        <i data-lucide="trash-2" width="15" height="15" color="var(--tinta-suave)" stroke-width="1.5"></i>
+        <i data-lucide="settings" width="15" height="15" color="var(--tinta-suave)" stroke-width="1.5"></i>
+      </div>
+    </div>
+
+    
+    <div style="flex:1;display:flex;flex-direction:column;overflow:hidden">
+      <div style="height:34px;flex-shrink:0;display:flex;background:var(--lavagem)">
+        <div style="display:flex;align-items:center;gap:6px;padding:0 12px;background:var(--superficie);border-right:1px solid var(--regua);font-size:13px;color:var(--tinta)">
+          <i data-lucide="pen-line" width="14" height="14" color="var(--tinta-media)" stroke-width="1.5"></i>
+          <span>Excalisidian.md</span>
+        </div>
+      </div>
+      <div style="flex:1;overflow:auto;padding:32px">
+        <div style="width:720px;margin:0 auto;display:flex">
+          <div style="width:76px;flex-shrink:0;border-right:1px solid var(--regua);display:flex;flex-direction:column">
+            <span style="font-family:'IBM Plex Mono',monospace;font-size:11px;font-weight:500;letter-spacing:0.09em;text-transform:uppercase;color:var(--tinta-suave)">H1</span>
+            <div style="height:64px"></div>
+            <div style="height:34px"></div>
+            <span style="font-family:'IBM Plex Mono',monospace;font-size:11px;font-weight:500;letter-spacing:0.09em;text-transform:uppercase;color:var(--tinta-suave);margin-top:24px">H2</span>
+            <div style="height:70px"></div>
+            <span style="font-family:'IBM Plex Mono',monospace;font-size:11px;font-weight:500;letter-spacing:0.09em;text-transform:uppercase;color:var(--tinta-suave);margin-top:20px">EMB</span>
+            <div style="height:300px"></div>
+            <span style="font-family:'IBM Plex Mono',monospace;font-size:11px;font-weight:500;letter-spacing:0.09em;text-transform:uppercase;color:var(--tinta-suave);margin-top:38px">^DEC-3</span>
+          </div>
+          <div style="flex:1;padding-left:24px;color:var(--tinta)">
+            <div style="font-family:Fraunces,Georgia,serif;font-weight:500;font-size:24px;line-height:1.2;color:var(--tinta)">Por que o canvas é markdown</div>
+            <div style="margin-top:16px;font-size:15px;line-height:1.55">Ver <a href="#" style="color:var(--musgo);text-decoration:none">[[Projetos/Arquitetura]]</a> e <a href="#" style="color:var(--musgo);text-decoration:none">[[Backend]]</a>, mas ainda falta <a href="#" style="color:var(--bordo);text-decoration:underline;text-decoration-style:dashed">[[Sincronização]]</a>.</div>
+            <div style="margin-top:24px;font-family:Fraunces,Georgia,serif;font-weight:500;font-size:19px;color:var(--tinta)">Consequências</div>
+            <ul style="margin:12px 0 0;padding-left:18px;font-size:15px;line-height:1.55">
+              <li>O desenho vira parte do texto, não um anexo</li>
+              <li>O link para um bloco funciona nos dois sentidos</li>
+              <li>A busca cobre nota e desenho ao mesmo tempo</li>
+            </ul>
+            <div style="margin-top:20px;font-family:'IBM Plex Mono',monospace;font-size:11px;font-weight:500;letter-spacing:0.09em;text-transform:uppercase;color:var(--tinta-suave)">ARQUITETURA.EXCALIDRAW.MD</div>
+            <div style="margin-top:6px;width:100%;height:300px;background:var(--papel);border:1px solid var(--regua);border-radius:3px;position:relative;overflow:hidden;background-image:radial-gradient(var(--regua) 1px, transparent 1px);background-size:20px 20px">
+              <div style="position:absolute;left:40px;top:60px;width:120px;height:56px;border:1px solid var(--tinta);border-radius:4px;transform:rotate(-1deg);display:flex;align-items:center;justify-content:center;font-size:13px;color:var(--tinta);background:var(--papel)">Editor</div>
+              <div style="position:absolute;left:240px;top:60px;width:120px;height:56px;border:1px solid var(--tinta);border-radius:4px;transform:rotate(0.6deg);display:flex;align-items:center;justify-content:center;font-size:13px;color:var(--tinta);background:var(--papel)">Índice</div>
+              <div style="position:absolute;left:140px;top:180px;width:120px;height:56px;border:1px solid var(--musgo);border-radius:4px;transform:rotate(-0.5deg);display:flex;align-items:center;justify-content:center;font-size:13px;color:var(--musgo);background:var(--papel)">Vault</div>
+              <div style="position:absolute;left:160px;top:88px;width:80px;height:1px;background:var(--tinta);transform:rotate(2deg)"></div>
+              <div style="position:absolute;left:198px;top:118px;width:1px;height:60px;background:var(--tinta)"></div>
+            </div>
+            <div style="margin-top:20px;font-size:15px;line-height:1.55">A decisão principal foi manter <span style="background:rgba(168,122,28,0.22)">tudo em arquivos de texto simples</span>, sem banco de dados próprio.</div>
+            <div style="margin-top:12px;font-size:13px;font-family:'IBM Plex Mono',monospace;background:var(--lavagem);border:1px solid var(--regua);border-radius:3px;padding:12px 14px;color:var(--tinta)">vault.watch("**/*.md")<br>&nbsp;&nbsp;.on("change", reindex)</div>
+            <div style="margin-top:20px;font-size:15px;line-height:1.55;position:relative;display:inline-block">
+              <span style="color:var(--tinta-suave)">**</span><span style="font-weight:600;color:var(--tinta)">decisão</span><span style="color:var(--tinta-suave)">**</span> tomada em 28/08.<span style="display:inline-block;width:2px;height:16px;background:var(--tinta);margin-left:2px;vertical-align:middle;animation:ex-blink 1s step-end infinite"></span>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div style="height:24px;flex-shrink:0;display:flex;align-items:center;justify-content:space-between;padding:0 14px;background:var(--superficie);border-top:1px solid var(--regua)">
+    <span style="font-family:'IBM Plex Mono',monospace;font-size:11px;font-weight:500;letter-spacing:0.09em;text-transform:uppercase;color:var(--tinta-suave)">PROJETOS/ARQUITETURA.MD</span>
+    <span style="font-family:'IBM Plex Mono',monospace;font-size:11px;font-weight:500;letter-spacing:0.09em;text-transform:uppercase;color:var(--tinta-suave)">1 240 PALAVRAS&nbsp;&nbsp;&nbsp;SALVO</span>
+  </div>
+</div>
+</div>
+
+<div style="display:flex;flex-direction:column;gap:10px">
+<div style="font-family:'IBM Plex Mono',monospace;font-size:11px;font-weight:500;letter-spacing:0.09em;text-transform:uppercase;color:#4A443C">02 — Canvas de desenho</div>
+<div class="ex-board" style="--papel:#EFEAE1;--superficie:#FBF9F5;--lavagem:#E5DFD4;--regua:#DCD5C8;--regua-forte:#8C8578;--tinta:#1C1917;--tinta-media:#4A443C;--tinta-suave:#655E54;--musgo:#3E5C46;--ocre:#A87A1C;--bordo:#7A2E22;width:1440px;height:900px;background:var(--papel);position:relative;display:flex;flex-direction:column;box-shadow:0 8px 24px -10px rgba(28,25,23,0.3)">
+
+  <div style="height:38px;flex-shrink:0;display:flex;align-items:center;justify-content:space-between;padding:0 14px">
+    <div style="display:flex;flex-direction:column;gap:3px">
+      <span style="font-family:Fraunces,Georgia,serif;font-weight:600;font-size:16px;color:var(--tinta)">Excalisidian</span>
+      <div style="width:42%;height:2px;background:var(--musgo)"></div>
+    </div>
+    <div style="display:flex;gap:16px;align-items:center">
+      <div style="width:11px;height:1px;background:var(--tinta-media)"></div>
+      <div style="width:10px;height:10px;border:1px solid var(--tinta-media)"></div>
+      <div style="position:relative;width:10px;height:10px">
+        <div style="position:absolute;top:5px;left:0;width:10px;height:1px;background:var(--tinta-media);transform:rotate(45deg)"></div>
+        <div style="position:absolute;top:5px;left:0;width:10px;height:1px;background:var(--tinta-media);transform:rotate(-45deg)"></div>
+      </div>
+    </div>
+  </div>
+
+  <div style="flex:1;display:flex;overflow:hidden">
+    <div style="width:264px;flex-shrink:0;background:var(--superficie);border-right:1px solid var(--regua);display:flex;flex-direction:column">
+      <div style="height:40px;flex-shrink:0;display:flex;align-items:center;gap:10px;padding:0 12px;border-bottom:1px solid var(--regua)">
+        <i data-lucide="file-plus" width="15" height="15" color="var(--tinta-media)" stroke-width="1.5"></i>
+        <i data-lucide="square-pen" width="15" height="15" color="var(--tinta-media)" stroke-width="1.5"></i>
+        <i data-lucide="folder-plus" width="15" height="15" color="var(--tinta-media)" stroke-width="1.5"></i>
+        <i data-lucide="arrow-up-narrow-wide" width="15" height="15" color="var(--tinta-media)" stroke-width="1.5"></i>
+      </div>
+      <div style="flex:1;padding:6px 0;overflow:auto">
+        <div style="display:flex;align-items:center;gap:6px;height:30px;padding-left:12px;color:var(--tinta-media);font-size:13px">
+          <i data-lucide="chevron-down" width="13" height="13" color="var(--tinta-suave)" stroke-width="1.5"></i>
+          <i data-lucide="folder-open" width="15" height="15" color="var(--tinta-media)" stroke-width="1.5"></i>
+          <span>Projetos</span>
+        </div>
+        <div style="display:flex;align-items:center;gap:6px;height:30px;padding-left:28px;color:var(--tinta-media);font-size:13px">
+          <i data-lucide="file-text" width="15" height="15" color="var(--tinta-media)" stroke-width="1.5"></i>
+          <span>Excalisidian.md</span>
+        </div>
+        <div style="position:relative;display:flex;align-items:center;gap:6px;height:30px;padding-left:28px;background:var(--lavagem);color:var(--tinta);font-size:13px">
+          <div style="position:absolute;left:0;top:0;bottom:0;width:2px;background:var(--musgo)"></div>
+          <i data-lucide="pen-line" width="15" height="15" color="var(--musgo)" stroke-width="1.5"></i>
+          <span>Arquitetura.excalidraw.md</span>
+        </div>
+        <div style="display:flex;align-items:center;gap:6px;height:30px;padding-left:28px;color:var(--tinta-media);font-size:13px">
+          <i data-lucide="file-text" width="15" height="15" color="var(--tinta-media)" stroke-width="1.5"></i>
+          <span>Backend.md</span>
+        </div>
+        <div style="display:flex;align-items:center;gap:6px;height:30px;padding-left:12px;color:var(--tinta-media);font-size:13px">
+          <i data-lucide="chevron-right" width="13" height="13" color="var(--tinta-suave)" stroke-width="1.5"></i>
+          <i data-lucide="folder" width="15" height="15" color="var(--tinta-media)" stroke-width="1.5"></i>
+          <span>Diário</span>
+        </div>
+        <div style="display:flex;align-items:center;gap:6px;height:30px;padding-left:12px;color:var(--tinta-media);font-size:13px">
+          <i data-lucide="chevron-right" width="13" height="13" color="var(--tinta-suave)" stroke-width="1.5"></i>
+          <i data-lucide="folder" width="15" height="15" color="var(--tinta-media)" stroke-width="1.5"></i>
+          <span>Referências</span>
+        </div>
+        <div style="display:flex;align-items:center;gap:6px;height:30px;padding-left:12px;color:var(--tinta-media);font-size:13px">
+          <i data-lucide="file-text" width="15" height="15" color="var(--tinta-media)" stroke-width="1.5"></i>
+          <span>Inbox.md</span>
+        </div>
+        <div style="display:flex;align-items:center;gap:6px;height:30px;padding-left:12px;color:var(--tinta-media);font-size:13px">
+          <i data-lucide="chevron-right" width="13" height="13" color="var(--tinta-suave)" stroke-width="1.5"></i>
+          <i data-lucide="folder" width="15" height="15" color="var(--tinta-media)" stroke-width="1.5"></i>
+          <span>anexos</span>
+        </div>
+      </div>
+      <div style="height:36px;flex-shrink:0;display:flex;align-items:center;gap:16px;padding:0 12px;border-top:1px solid var(--regua)">
+        <i data-lucide="search" width="15" height="15" color="var(--tinta-suave)" stroke-width="1.5"></i>
+        <i data-lucide="corner-down-left" width="15" height="15" color="var(--tinta-suave)" stroke-width="1.5"></i>
+        <i data-lucide="trash-2" width="15" height="15" color="var(--tinta-suave)" stroke-width="1.5"></i>
+        <i data-lucide="settings" width="15" height="15" color="var(--tinta-suave)" stroke-width="1.5"></i>
+      </div>
+    </div>
+
+    <div style="flex:1;display:flex;flex-direction:column;overflow:hidden">
+      <div style="height:34px;flex-shrink:0;display:flex;background:var(--lavagem)">
+        <div style="display:flex;align-items:center;gap:6px;padding:0 12px;background:var(--superficie);border-right:1px solid var(--regua);font-size:13px;color:var(--tinta)">
+          <i data-lucide="pen-line" width="14" height="14" color="var(--tinta-media)" stroke-width="1.5"></i>
+          <span>Arquitetura.excalidraw.md</span>
+        </div>
+      </div>
+      <div style="flex:1;display:flex;overflow:hidden;position:relative">
+        <div style="width:216px;flex-shrink:0;background:var(--superficie);border-right:1px solid var(--regua);overflow:auto">
+          <div style="padding:12px;border-bottom:1px solid var(--regua)">
+            <div style="font-family:'IBM Plex Mono',monospace;font-size:11px;font-weight:500;letter-spacing:0.09em;text-transform:uppercase;color:var(--tinta-suave);margin-bottom:8px">Traço</div>
+            <div style="display:flex;gap:8px">
+              <div style="width:24px;height:24px;border-radius:2px;background:#1C1917;border-bottom:2px solid var(--musgo);position:relative;top:2px"></div>
+              <div style="width:24px;height:24px;border-radius:2px;background:#3E5C46"></div>
+              <div style="width:24px;height:24px;border-radius:2px;background:#A87A1C"></div>
+              <div style="width:24px;height:24px;border-radius:2px;background:#7A2E22"></div>
+              <div style="width:24px;height:24px;border-radius:2px;background:#655E54"></div>
+            </div>
+          </div>
+          <div style="padding:12px;border-bottom:1px solid var(--regua)">
+            <div style="font-family:'IBM Plex Mono',monospace;font-size:11px;font-weight:500;letter-spacing:0.09em;text-transform:uppercase;color:var(--tinta-suave);margin-bottom:8px">Preenchimento</div>
+            <div style="display:flex;gap:8px">
+              <div style="width:24px;height:24px;border-radius:2px;border:1px solid var(--regua-forte);background-image:linear-gradient(45deg,var(--lavagem) 25%,transparent 25%,transparent 75%,var(--lavagem) 75%);background-size:6px 6px"></div>
+              <div style="width:24px;height:24px;border-radius:2px;background:#E5DFD4"></div>
+              <div style="width:24px;height:24px;border-radius:2px;background:#CFDBD1"></div>
+              <div style="width:24px;height:24px;border-radius:2px;background:#EDDCB4"></div>
+              <div style="width:24px;height:24px;border-radius:2px;background:#E7CEC8"></div>
+            </div>
+          </div>
+          <div style="padding:12px;border-bottom:1px solid var(--regua)">
+            <div style="font-family:'IBM Plex Mono',monospace;font-size:11px;font-weight:500;letter-spacing:0.09em;text-transform:uppercase;color:var(--tinta-suave);margin-bottom:8px">Espessura</div>
+            <div style="display:flex;gap:8px">
+              <div style="width:36px;height:28px;border:1px solid var(--regua-forte);border-radius:2px;display:flex;align-items:center;justify-content:center"><div style="width:16px;height:1px;background:var(--tinta)"></div></div>
+              <div style="width:36px;height:28px;border:1px solid var(--regua-forte);border-radius:2px;display:flex;align-items:center;justify-content:center"><div style="width:16px;height:2px;background:var(--tinta)"></div></div>
+              <div style="width:36px;height:28px;border:1px solid var(--regua-forte);border-radius:2px;display:flex;align-items:center;justify-content:center"><div style="width:16px;height:4px;background:var(--tinta)"></div></div>
+            </div>
+          </div>
+          <div style="padding:12px;border-bottom:1px solid var(--regua)">
+            <div style="font-family:'IBM Plex Mono',monospace;font-size:11px;font-weight:500;letter-spacing:0.09em;text-transform:uppercase;color:var(--tinta-suave);margin-bottom:8px">Estilo</div>
+            <div style="display:flex;gap:8px">
+              <div style="width:36px;height:28px;border:1px solid var(--regua-forte);border-radius:2px;display:flex;align-items:center;justify-content:center"><div style="width:16px;height:0;border-top:2px solid var(--tinta)"></div></div>
+              <div style="width:36px;height:28px;border:1px solid var(--regua-forte);border-radius:2px;display:flex;align-items:center;justify-content:center"><div style="width:16px;height:0;border-top:2px dashed var(--tinta)"></div></div>
+              <div style="width:36px;height:28px;border:1px solid var(--regua-forte);border-radius:2px;display:flex;align-items:center;justify-content:center"><div style="width:16px;height:0;border-top:2px dotted var(--tinta)"></div></div>
+            </div>
+          </div>
+          <div style="padding:12px;border-bottom:1px solid var(--regua)">
+            <div style="font-family:'IBM Plex Mono',monospace;font-size:11px;font-weight:500;letter-spacing:0.09em;text-transform:uppercase;color:var(--tinta-suave);margin-bottom:8px">Imperfeição</div>
+            <div style="display:flex;gap:8px">
+              <div style="width:36px;height:28px;border:1px solid var(--regua-forte);border-radius:2px"></div>
+              <div style="width:36px;height:28px;border:1px solid var(--musgo);border-radius:2px"></div>
+            </div>
+          </div>
+          <div style="padding:12px;border-bottom:1px solid var(--regua)">
+            <div style="font-family:'IBM Plex Mono',monospace;font-size:11px;font-weight:500;letter-spacing:0.09em;text-transform:uppercase;color:var(--tinta-suave);margin-bottom:8px">Cantos</div>
+            <div style="display:flex;gap:8px">
+              <div style="width:36px;height:28px;border:1px solid var(--musgo);border-radius:2px"></div>
+              <div style="width:36px;height:28px;border:1px solid var(--regua-forte);border-radius:2px"></div>
+            </div>
+          </div>
+          <div style="padding:12px;border-bottom:1px solid var(--regua)">
+            <div style="font-family:'IBM Plex Mono',monospace;font-size:11px;font-weight:500;letter-spacing:0.09em;text-transform:uppercase;color:var(--tinta-suave);margin-bottom:8px">Opacidade</div>
+            <div style="height:2px;background:var(--regua);position:relative;margin:12px 2px">
+              <div style="position:absolute;left:70%;top:-5px;width:12px;height:12px;background:var(--musgo)"></div>
+            </div>
+          </div>
+          <div style="padding:12px;border-bottom:1px solid var(--regua)">
+            <div style="font-family:'IBM Plex Mono',monospace;font-size:11px;font-weight:500;letter-spacing:0.09em;text-transform:uppercase;color:var(--tinta-suave);margin-bottom:8px">Camadas</div>
+            <div style="display:flex;gap:8px">
+              <div style="width:28px;height:28px;border:1px solid var(--regua-forte);border-radius:2px"></div>
+              <div style="width:28px;height:28px;border:1px solid var(--regua-forte);border-radius:2px"></div>
+              <div style="width:28px;height:28px;border:1px solid var(--regua-forte);border-radius:2px"></div>
+              <div style="width:28px;height:28px;border:1px solid var(--regua-forte);border-radius:2px"></div>
+            </div>
+          </div>
+          <div style="padding:12px">
+            <div style="font-family:'IBM Plex Mono',monospace;font-size:11px;font-weight:500;letter-spacing:0.09em;text-transform:uppercase;color:var(--tinta-suave);margin-bottom:8px">Ações</div>
+            <div style="display:flex;gap:10px;color:var(--tinta-media)">
+              <i data-lucide="copy" width="16" height="16" color="var(--tinta-media)" stroke-width="1.5"></i>
+              <i data-lucide="group" width="16" height="16" color="var(--tinta-media)" stroke-width="1.5"></i>
+              <i data-lucide="lock" width="16" height="16" color="var(--tinta-media)" stroke-width="1.5"></i>
+              <i data-lucide="trash-2" width="16" height="16" color="#7A2E22" stroke-width="1.5"></i>
+            </div>
+          </div>
+        </div>
+
+        <div style="flex:1;position:relative;background:var(--papel);background-image:radial-gradient(var(--regua) 1px, transparent 1px);background-size:20px 20px;overflow:hidden">
+
+          <div style="position:absolute;top:16px;left:50%;transform:translateX(-50%);display:flex;align-items:center;gap:2px;background:var(--superficie);border:1px solid var(--regua);border-radius:3px;box-shadow:0 24px 60px -20px rgba(28,25,23,0.35);padding:4px">
+            <div style="display:flex;gap:2px;padding-right:6px;border-right:1px solid var(--regua)">
+              <div style="width:32px;height:32px;display:flex;align-items:center;justify-content:center;position:relative"><i data-lucide="mouse-pointer-2" width="18" height="18" color="var(--tinta-media)" stroke-width="1.5"></i><span style="position:absolute;bottom:1px;right:2px;font-family:'IBM Plex Mono',monospace;font-size:9px;font-weight:500;color:var(--tinta-suave)">V</span></div>
+              <div style="width:32px;height:32px;display:flex;align-items:center;justify-content:center;position:relative"><i data-lucide="hand" width="18" height="18" color="var(--tinta-media)" stroke-width="1.5"></i><span style="position:absolute;bottom:1px;right:2px;font-family:'IBM Plex Mono',monospace;font-size:9px;font-weight:500;color:var(--tinta-suave)">H</span></div>
+            </div>
+            <div style="display:flex;gap:2px;padding:0 6px;border-right:1px solid var(--regua)">
+              <div style="width:32px;height:32px;display:flex;align-items:center;justify-content:center;position:relative"><i data-lucide="square" width="18" height="18" color="var(--tinta-media)" stroke-width="1.5"></i><span style="position:absolute;bottom:1px;right:2px;font-family:'IBM Plex Mono',monospace;font-size:9px;font-weight:500;color:var(--tinta-suave)">R</span></div>
+              <div style="width:32px;height:32px;display:flex;align-items:center;justify-content:center;position:relative"><i data-lucide="diamond" width="18" height="18" color="var(--tinta-media)" stroke-width="1.5"></i><span style="position:absolute;bottom:1px;right:2px;font-family:'IBM Plex Mono',monospace;font-size:9px;font-weight:500;color:var(--tinta-suave)">D</span></div>
+              <div style="width:32px;height:32px;display:flex;align-items:center;justify-content:center;position:relative"><i data-lucide="circle" width="18" height="18" color="var(--tinta-media)" stroke-width="1.5"></i><span style="position:absolute;bottom:1px;right:2px;font-family:'IBM Plex Mono',monospace;font-size:9px;font-weight:500;color:var(--tinta-suave)">O</span></div>
+              <div style="width:32px;height:32px;display:flex;align-items:center;justify-content:center;position:relative;background:var(--musgo);border-radius:2px"><i data-lucide="move-right" width="18" height="18" color="var(--superficie)" stroke-width="1.5"></i><span style="position:absolute;bottom:1px;right:2px;font-family:'IBM Plex Mono',monospace;font-size:9px;font-weight:500;color:var(--superficie)">A</span></div>
+              <div style="width:32px;height:32px;display:flex;align-items:center;justify-content:center;position:relative"><i data-lucide="minus" width="18" height="18" color="var(--tinta-media)" stroke-width="1.5"></i><span style="position:absolute;bottom:1px;right:2px;font-family:'IBM Plex Mono',monospace;font-size:9px;font-weight:500;color:var(--tinta-suave)">L</span></div>
+              <div style="width:32px;height:32px;display:flex;align-items:center;justify-content:center;position:relative"><i data-lucide="pencil" width="18" height="18" color="var(--tinta-media)" stroke-width="1.5"></i><span style="position:absolute;bottom:1px;right:2px;font-family:'IBM Plex Mono',monospace;font-size:9px;font-weight:500;color:var(--tinta-suave)">P</span></div>
+            </div>
+            <div style="display:flex;gap:2px;padding-left:6px">
+              <div style="width:32px;height:32px;display:flex;align-items:center;justify-content:center;position:relative"><i data-lucide="type" width="18" height="18" color="var(--tinta-media)" stroke-width="1.5"></i><span style="position:absolute;bottom:1px;right:2px;font-family:'IBM Plex Mono',monospace;font-size:9px;font-weight:500;color:var(--tinta-suave)">T</span></div>
+              <div style="width:32px;height:32px;display:flex;align-items:center;justify-content:center;position:relative"><i data-lucide="sticky-note" width="18" height="18" color="var(--tinta-media)" stroke-width="1.5"></i><span style="position:absolute;bottom:1px;right:2px;font-family:'IBM Plex Mono',monospace;font-size:9px;font-weight:500;color:var(--tinta-suave)">S</span></div>
+              <div style="width:32px;height:32px;display:flex;align-items:center;justify-content:center;position:relative"><i data-lucide="image" width="18" height="18" color="var(--tinta-media)" stroke-width="1.5"></i><span style="position:absolute;bottom:1px;right:2px;font-family:'IBM Plex Mono',monospace;font-size:9px;font-weight:500;color:var(--tinta-suave)">9</span></div>
+              <div style="width:32px;height:32px;display:flex;align-items:center;justify-content:center;position:relative"><i data-lucide="eraser" width="18" height="18" color="var(--tinta-media)" stroke-width="1.5"></i><span style="position:absolute;bottom:1px;right:2px;font-family:'IBM Plex Mono',monospace;font-size:9px;font-weight:500;color:var(--tinta-suave)">E</span></div>
+            </div>
+          </div>
+
+          <div style="position:absolute;left:90px;top:150px;width:150px;height:70px;border:1.5px solid var(--tinta);border-radius:6px;transform:rotate(-1deg);display:flex;align-items:center;justify-content:center;font-size:14px;color:var(--tinta)">Editor</div>
+          <div style="position:absolute;left:360px;top:130px;width:150px;height:70px;border:1.5px solid var(--tinta);border-radius:6px;transform:rotate(0.8deg);display:flex;align-items:center;justify-content:center;font-size:14px;color:var(--tinta)">Índice</div>
+          <div style="position:absolute;left:230px;top:320px;width:150px;height:70px;border:1.5px solid var(--musgo);border-radius:999px;transform:rotate(-0.6deg);display:flex;align-items:center;justify-content:center;font-size:14px;color:var(--musgo)">Watcher</div>
+
+          <div style="position:absolute;left:240px;top:185px;width:120px;height:0;border-top:1.5px solid var(--tinta);transform:rotate(10deg)"></div>
+          <div style="position:absolute;left:352px;top:210px;width:0;height:0;border:5px solid transparent;border-left-color:var(--tinta);transform:rotate(10deg)"></div>
+          <div style="position:absolute;left:260px;top:220px;font-size:11px;font-family:'IBM Plex Mono',monospace;color:var(--tinta-suave);text-transform:uppercase;letter-spacing:0.09em">escreve</div>
+
+          <div style="position:absolute;left:165px;top:216px;width:0;height:96px;border-left:1.5px solid var(--musgo)"></div>
+          <div style="position:absolute;left:295px;top:196px;width:0;height:120px;border-left:1.5px solid var(--musgo)"></div>
+
+          <div style="position:absolute;left:560px;top:120px;width:150px;height:110px;background:#EDDCB4;border:1px solid #EDDCB4;border-radius:2px;transform:rotate(1.2deg);padding:10px;font-size:13px;color:var(--tinta);box-shadow:0 8px 20px -8px rgba(28,25,23,0.25)">decidir: comprimir JSON?</div>
+          <div style="position:absolute;left:560px;top:250px;width:150px;height:110px;background:#CFDBD1;border:1px solid #CFDBD1;border-radius:2px;transform:rotate(-1deg);padding:10px;font-size:13px;color:var(--tinta);box-shadow:0 8px 20px -8px rgba(28,25,23,0.25)">testar 500 elementos</div>
+
+          <div style="position:absolute;left:90px;top:270px;display:flex;align-items:center;gap:5px;font-size:14px;color:var(--musgo)">
+            <i data-lucide="link" width="13" height="13" color="var(--musgo)" stroke-width="1.5"></i>
+            <span>[[Projetos/Backend]]</span>
+          </div>
+
+          <div style="position:absolute;left:770px;top:130px;width:180px;height:130px;border:1.5px solid var(--tinta);background:repeating-linear-gradient(45deg,var(--regua) 0,var(--regua) 1px,transparent 1px,transparent 8px);display:flex;align-items:center;justify-content:center">
+            <span style="font-family:'IBM Plex Mono',monospace;font-size:11px;letter-spacing:0.06em;text-transform:uppercase;color:var(--tinta-media);background:var(--papel);padding:2px 6px">imagem colada</span>
+            <div style="position:absolute;width:8px;height:8px;background:var(--musgo);top:-4px;left:-4px"></div>
+            <div style="position:absolute;width:8px;height:8px;background:var(--musgo);top:-4px;right:-4px"></div>
+            <div style="position:absolute;width:8px;height:8px;background:var(--musgo);bottom:-4px;left:-4px"></div>
+            <div style="position:absolute;width:8px;height:8px;background:var(--musgo);bottom:-4px;right:-4px"></div>
+          </div>
+
+          <div style="position:absolute;left:90px;top:150px;width:150px;height:70px;border:1px solid var(--musgo);transform:rotate(-1deg)">
+            <div style="position:absolute;width:8px;height:8px;background:var(--musgo);top:-4px;left:-4px"></div>
+            <div style="position:absolute;width:8px;height:8px;background:var(--musgo);top:-4px;right:-4px"></div>
+            <div style="position:absolute;width:8px;height:8px;background:var(--musgo);top:-4px;left:calc(50% - 4px)"></div>
+            <div style="position:absolute;width:8px;height:8px;background:var(--musgo);bottom:-4px;left:-4px"></div>
+            <div style="position:absolute;width:8px;height:8px;background:var(--musgo);bottom:-4px;right:-4px"></div>
+            <div style="position:absolute;width:8px;height:8px;background:var(--musgo);bottom:-4px;left:calc(50% - 4px)"></div>
+            <div style="position:absolute;width:8px;height:8px;background:var(--musgo);top:calc(50% - 4px);left:-4px"></div>
+            <div style="position:absolute;width:8px;height:8px;background:var(--musgo);top:calc(50% - 4px);right:-4px"></div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div style="height:24px;flex-shrink:0;display:flex;align-items:center;justify-content:space-between;padding:0 14px;background:var(--superficie);border-top:1px solid var(--regua)">
+    <span style="font-family:'IBM Plex Mono',monospace;font-size:11px;font-weight:500;letter-spacing:0.09em;text-transform:uppercase;color:var(--tinta-suave)">PROJETOS/ARQUITETURA.EXCALIDRAW.MD</span>
+    <span style="font-family:'IBM Plex Mono',monospace;font-size:11px;font-weight:500;letter-spacing:0.09em;text-transform:uppercase;color:var(--tinta-suave)">SALVO</span>
+  </div>
+</div>
+</div>
+
+
+<div style="display:flex;flex-direction:column;gap:10px">
+<div style="font-family:'IBM Plex Mono',monospace;font-size:11px;font-weight:500;letter-spacing:0.09em;text-transform:uppercase;color:#4A443C">03 — Tela dividida: nota e desenho</div>
+<div class="ex-board" style="--papel:#EFEAE1;--superficie:#FBF9F5;--lavagem:#E5DFD4;--regua:#DCD5C8;--regua-forte:#8C8578;--tinta:#1C1917;--tinta-media:#4A443C;--tinta-suave:#655E54;--musgo:#3E5C46;--ocre:#A87A1C;--bordo:#7A2E22;width:1440px;height:900px;background:var(--papel);position:relative;display:flex;flex-direction:column;box-shadow:0 8px 24px -10px rgba(28,25,23,0.3)">
+
+  <div style="height:38px;flex-shrink:0;display:flex;align-items:center;justify-content:space-between;padding:0 14px">
+    <div style="display:flex;flex-direction:column;gap:3px">
+      <span style="font-family:Fraunces,Georgia,serif;font-weight:600;font-size:16px;color:var(--tinta)">Excalisidian</span>
+      <div style="width:42%;height:2px;background:var(--musgo)"></div>
+    </div>
+    <div style="display:flex;gap:16px;align-items:center">
+      <div style="width:11px;height:1px;background:var(--tinta-media)"></div>
+      <div style="width:10px;height:10px;border:1px solid var(--tinta-media)"></div>
+      <div style="position:relative;width:10px;height:10px">
+        <div style="position:absolute;top:5px;left:0;width:10px;height:1px;background:var(--tinta-media);transform:rotate(45deg)"></div>
+        <div style="position:absolute;top:5px;left:0;width:10px;height:1px;background:var(--tinta-media);transform:rotate(-45deg)"></div>
+      </div>
+    </div>
+  </div>
+
+  <div style="flex:1;display:flex;overflow:hidden">
+    <div style="width:264px;flex-shrink:0;background:var(--superficie);border-right:1px solid var(--regua);display:flex;flex-direction:column">
+      <div style="height:40px;flex-shrink:0;display:flex;align-items:center;gap:10px;padding:0 12px;border-bottom:1px solid var(--regua)">
+        <i data-lucide="file-plus" width="15" height="15" color="var(--tinta-media)" stroke-width="1.5"></i>
+        <i data-lucide="square-pen" width="15" height="15" color="var(--tinta-media)" stroke-width="1.5"></i>
+        <i data-lucide="folder-plus" width="15" height="15" color="var(--tinta-media)" stroke-width="1.5"></i>
+        <i data-lucide="arrow-up-narrow-wide" width="15" height="15" color="var(--tinta-media)" stroke-width="1.5"></i>
+      </div>
+      <div style="flex:1;padding:6px 0;overflow:auto">
+        <div style="display:flex;align-items:center;gap:6px;height:30px;padding-left:12px;color:var(--tinta-media);font-size:13px">
+          <i data-lucide="chevron-down" width="13" height="13" color="var(--tinta-suave)" stroke-width="1.5"></i>
+          <i data-lucide="folder-open" width="15" height="15" color="var(--tinta-media)" stroke-width="1.5"></i>
+          <span>Projetos</span>
+        </div>
+        <div style="position:relative;display:flex;align-items:center;gap:6px;height:30px;padding-left:28px;background:var(--lavagem);color:var(--tinta);font-size:13px">
+          <div style="position:absolute;left:0;top:0;bottom:0;width:2px;background:var(--musgo)"></div>
+          <i data-lucide="file-text" width="15" height="15" color="var(--tinta-media)" stroke-width="1.5"></i>
+          <span>Excalisidian.md</span>
+        </div>
+        <div style="display:flex;align-items:center;gap:6px;height:30px;padding-left:28px;color:var(--tinta-media);font-size:13px">
+          <i data-lucide="pen-line" width="15" height="15" color="var(--tinta-media)" stroke-width="1.5"></i>
+          <span>Arquitetura.excalidraw.md</span>
+        </div>
+        <div style="display:flex;align-items:center;gap:6px;height:30px;padding-left:28px;color:var(--tinta-media);font-size:13px">
+          <i data-lucide="file-text" width="15" height="15" color="var(--tinta-media)" stroke-width="1.5"></i>
+          <span>Backend.md</span>
+        </div>
+      </div>
+      <div style="height:36px;flex-shrink:0;display:flex;align-items:center;gap:16px;padding:0 12px;border-top:1px solid var(--regua)">
+        <i data-lucide="search" width="15" height="15" color="var(--tinta-suave)" stroke-width="1.5"></i>
+        <i data-lucide="corner-down-left" width="15" height="15" color="var(--tinta-suave)" stroke-width="1.5"></i>
+        <i data-lucide="trash-2" width="15" height="15" color="var(--tinta-suave)" stroke-width="1.5"></i>
+        <i data-lucide="settings" width="15" height="15" color="var(--tinta-suave)" stroke-width="1.5"></i>
+      </div>
+    </div>
+
+    <div style="flex:1;display:flex;overflow:hidden;position:relative">
+      
+      <div style="width:589px;flex-shrink:0;display:flex;flex-direction:column;overflow:hidden">
+        <div style="height:34px;flex-shrink:0;display:flex;background:var(--lavagem)">
+          <div style="display:flex;align-items:center;gap:6px;padding:0 12px;background:var(--superficie);border-right:1px solid var(--regua);font-size:13px;color:var(--tinta)">
+            <i data-lucide="file-text" width="14" height="14" color="var(--tinta-media)" stroke-width="1.5"></i>
+            <span>Excalisidian.md</span>
+          </div>
+          <div style="display:flex;align-items:center;gap:6px;padding:0 12px;border-right:1px solid var(--regua);font-size:13px;color:var(--tinta-media)">
+            <i data-lucide="file-text" width="14" height="14" color="var(--tinta-media)" stroke-width="1.5"></i>
+            <span>Backend.md</span>
+            <div style="width:6px;height:6px;border-radius:999px;background:var(--ocre)"></div>
+          </div>
+        </div>
+        <div style="flex:1;overflow:auto;padding:28px 24px">
+          <div style="display:flex;height:100%">
+            <div style="width:24px;flex-shrink:0;border-right:1px solid var(--regua);display:flex;flex-direction:column">
+              <div style="height:130px"></div>
+              <span style="font-family:'IBM Plex Mono',monospace;font-size:11px;font-weight:500;letter-spacing:0.09em;text-transform:uppercase;color:var(--tinta-suave)">^</span>
+            </div>
+            <div style="flex:1;padding-left:20px;color:var(--tinta)">
+              <div style="font-family:Fraunces,Georgia,serif;font-weight:500;font-size:24px;line-height:1.2;color:var(--tinta)">Por que o canvas é markdown</div>
+              <div style="margin-top:16px;font-size:15px;line-height:1.55">Ver <a href="#" style="color:var(--musgo);text-decoration:none">[[Projetos/Arquitetura]]</a> e <a href="#" style="color:var(--musgo);text-decoration:none">[[Backend]]</a>.</div>
+              <div style="margin-top:24px;font-family:Fraunces,Georgia,serif;font-weight:500;font-size:19px;color:var(--tinta)">Consequências</div>
+              <div style="margin-top:12px;font-size:15px;line-height:1.55">Decisão tomada em 28/08.</div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <div style="width:1px;flex-shrink:0;background:var(--regua)"></div>
+
+      
+      <div style="flex:1;display:flex;flex-direction:column;overflow:hidden;position:relative">
+        <div style="height:34px;flex-shrink:0;display:flex;background:var(--lavagem)">
+          <div style="display:flex;align-items:center;gap:6px;padding:0 12px;background:var(--superficie);border-right:1px solid var(--regua);font-size:13px;color:var(--tinta)">
+            <i data-lucide="pen-line" width="14" height="14" color="var(--tinta-media)" stroke-width="1.5"></i>
+            <span>Arquitetura.excalidraw.md</span>
+          </div>
+        </div>
+        <div style="flex:1;position:relative;background:var(--papel);background-image:radial-gradient(var(--regua) 1px, transparent 1px);background-size:20px 20px;overflow:hidden">
+          <div style="position:absolute;top:12px;left:50%;transform:translateX(-50%);display:flex;align-items:center;gap:2px;background:var(--superficie);border:1px solid var(--regua);border-radius:3px;box-shadow:0 24px 60px -20px rgba(28,25,23,0.35);padding:4px">
+            <div style="display:flex;gap:2px;padding-right:5px;border-right:1px solid var(--regua)">
+              <div style="width:26px;height:26px;display:flex;align-items:center;justify-content:center"><i data-lucide="mouse-pointer-2" width="15" height="15" color="var(--tinta-media)" stroke-width="1.5"></i></div>
+              <div style="width:26px;height:26px;display:flex;align-items:center;justify-content:center"><i data-lucide="hand" width="15" height="15" color="var(--tinta-media)" stroke-width="1.5"></i></div>
+            </div>
+            <div style="display:flex;gap:2px;padding:0 5px;border-right:1px solid var(--regua)">
+              <div style="width:26px;height:26px;display:flex;align-items:center;justify-content:center"><i data-lucide="square" width="15" height="15" color="var(--tinta-media)" stroke-width="1.5"></i></div>
+              <div style="width:26px;height:26px;display:flex;align-items:center;justify-content:center"><i data-lucide="diamond" width="15" height="15" color="var(--tinta-media)" stroke-width="1.5"></i></div>
+              <div style="width:26px;height:26px;display:flex;align-items:center;justify-content:center;background:var(--musgo);border-radius:2px"><i data-lucide="move-right" width="15" height="15" color="var(--superficie)" stroke-width="1.5"></i></div>
+              <div style="width:26px;height:26px;display:flex;align-items:center;justify-content:center"><i data-lucide="pencil" width="15" height="15" color="var(--tinta-media)" stroke-width="1.5"></i></div>
+            </div>
+            <div style="display:flex;gap:2px;padding-left:5px">
+              <div style="width:26px;height:26px;display:flex;align-items:center;justify-content:center"><i data-lucide="type" width="15" height="15" color="var(--tinta-media)" stroke-width="1.5"></i></div>
+              <div style="width:26px;height:26px;display:flex;align-items:center;justify-content:center"><i data-lucide="sticky-note" width="15" height="15" color="var(--tinta-media)" stroke-width="1.5"></i></div>
+              <div style="width:26px;height:26px;display:flex;align-items:center;justify-content:center"><i data-lucide="eraser" width="15" height="15" color="var(--tinta-media)" stroke-width="1.5"></i></div>
+            </div>
+          </div>
+          <div style="position:absolute;left:40px;top:110px;width:110px;height:56px;border:1.5px solid var(--tinta);border-radius:5px;transform:rotate(-1deg);display:flex;align-items:center;justify-content:center;font-size:13px;color:var(--tinta)">Editor</div>
+          <div style="position:absolute;left:220px;top:90px;width:110px;height:56px;border:1.5px solid var(--tinta);border-radius:5px;transform:rotate(0.6deg);display:flex;align-items:center;justify-content:center;font-size:13px;color:var(--tinta)">Índice</div>
+          <div style="position:absolute;left:130px;top:220px;width:110px;height:56px;border:1.5px solid var(--musgo);border-radius:999px;transform:rotate(-0.6deg);display:flex;align-items:center;justify-content:center;font-size:13px;color:var(--musgo)">Watcher</div>
+          <div style="position:absolute;left:145px;top:146px;width:0;height:70px;border-left:1.5px solid var(--musgo)"></div>
+          <div style="position:absolute;left:195px;top:146px;width:0;height:70px;border-left:1.5px solid var(--musgo)"></div>
+
+          
+          <div style="position:absolute;left:220px;top:-2px;display:flex;align-items:center;gap:6px;padding:0 12px;height:34px;background:var(--superficie);border:1px solid var(--regua);border-radius:3px;font-size:13px;color:var(--tinta);transform:rotate(-0.7deg) scale(1.03);box-shadow:0 8px 20px -8px rgba(28,25,23,0.25);z-index:5">
+            <i data-lucide="file-text" width="14" height="14" color="var(--tinta-media)" stroke-width="1.5"></i>
+            <span>Backend.md</span>
+          </div>
+
+          
+          <div style="position:absolute;left:0;bottom:0;right:0;height:50%;background:rgba(62,92,70,0.12);border-top:1px solid var(--musgo)"></div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div style="height:24px;flex-shrink:0;display:flex;align-items:center;justify-content:space-between;padding:0 14px;background:var(--superficie);border-top:1px solid var(--regua)">
+    <span style="font-family:'IBM Plex Mono',monospace;font-size:11px;font-weight:500;letter-spacing:0.09em;text-transform:uppercase;color:var(--tinta-suave)">PROJETOS/EXCALISIDIAN.MD</span>
+    <span style="font-family:'IBM Plex Mono',monospace;font-size:11px;font-weight:500;letter-spacing:0.09em;text-transform:uppercase;color:var(--tinta-suave)">SALVO</span>
+  </div>
+</div>
+</div>
+
+
+<div style="display:flex;flex-direction:column;gap:10px">
+<div style="font-family:'IBM Plex Mono',monospace;font-size:11px;font-weight:500;letter-spacing:0.09em;text-transform:uppercase;color:#4A443C">04 — Quick switcher aberto</div>
+<div class="ex-board" style="--papel:#EFEAE1;--superficie:#FBF9F5;--lavagem:#E5DFD4;--regua:#DCD5C8;--regua-forte:#8C8578;--tinta:#1C1917;--tinta-media:#4A443C;--tinta-suave:#655E54;--musgo:#3E5C46;--ocre:#A87A1C;--bordo:#7A2E22;width:1440px;height:900px;background:var(--papel);position:relative;display:flex;flex-direction:column;box-shadow:0 8px 24px -10px rgba(28,25,23,0.3)">
+
+  <div style="height:38px;flex-shrink:0;display:flex;align-items:center;justify-content:space-between;padding:0 14px">
+    <div style="display:flex;flex-direction:column;gap:3px">
+      <span style="font-family:Fraunces,Georgia,serif;font-weight:600;font-size:16px;color:var(--tinta)">Excalisidian</span>
+      <div style="width:42%;height:2px;background:var(--musgo)"></div>
+    </div>
+  </div>
+  <div style="flex:1;display:flex;overflow:hidden">
+    <div style="width:264px;flex-shrink:0;background:var(--superficie);border-right:1px solid var(--regua)"></div>
+    <div style="flex:1;display:flex;flex-direction:column">
+      <div style="height:34px;flex-shrink:0;background:var(--lavagem)"></div>
+      <div style="flex:1"></div>
+    </div>
+  </div>
+  <div style="height:24px;flex-shrink:0;background:var(--superficie);border-top:1px solid var(--regua)"></div>
+
+  <div style="position:absolute;inset:0;background:rgba(28,25,23,0.3)"></div>
+
+  <div style="position:absolute;top:120px;left:50%;transform:translateX(-50%);width:620px;background:var(--superficie);border:1px solid var(--regua);border-radius:3px;box-shadow:0 24px 60px -20px rgba(28,25,23,0.35)">
+    <div style="height:52px;display:flex;align-items:center;gap:10px;padding:0 16px;border-bottom:1px solid var(--regua)">
+      <i data-lucide="search" width="18" height="18" color="var(--tinta-suave)" stroke-width="1.5"></i>
+      <span style="font-size:17px;color:var(--tinta)">arqui</span>
+    </div>
+    <div>
+      <div style="position:relative;display:flex;align-items:center;justify-content:space-between;height:44px;padding:0 16px;background:var(--lavagem)">
+        <div style="position:absolute;left:0;top:0;bottom:0;width:2px;background:var(--musgo)"></div>
+        <div style="display:flex;align-items:center;gap:8px">
+          <i data-lucide="pen-line" width="15" height="15" color="var(--tinta-media)" stroke-width="1.5"></i>
+          <span style="font-size:15px;font-weight:500;color:var(--tinta)"><span style="background:rgba(168,122,28,0.22)">Arqui</span>tetura.excalidraw.md</span>
+        </div>
+        <span style="font-family:'IBM Plex Mono',monospace;font-size:11px;font-weight:500;letter-spacing:0.09em;text-transform:uppercase;color:var(--tinta-suave)">PROJETOS</span>
+      </div>
+      <div style="display:flex;align-items:center;justify-content:space-between;height:44px;padding:0 16px;border-top:1px solid var(--regua)">
+        <div style="display:flex;align-items:center;gap:8px">
+          <i data-lucide="file-text" width="15" height="15" color="var(--tinta-media)" stroke-width="1.5"></i>
+          <span style="font-size:15px;font-weight:500;color:var(--tinta)"><span style="background:rgba(168,122,28,0.22)">Arqui</span>tetura de dados.md</span>
+        </div>
+        <span style="font-family:'IBM Plex Mono',monospace;font-size:11px;font-weight:500;letter-spacing:0.09em;text-transform:uppercase;color:var(--tinta-suave)">REFERÊNCIAS</span>
+      </div>
+      <div style="display:flex;align-items:center;justify-content:space-between;height:44px;padding:0 16px;border-top:1px solid var(--regua)">
+        <div style="display:flex;align-items:center;gap:8px">
+          <i data-lucide="file-text" width="15" height="15" color="var(--tinta-media)" stroke-width="1.5"></i>
+          <span style="font-size:15px;font-weight:500;color:var(--tinta)">Notas de <span style="background:rgba(168,122,28,0.22)">arqui</span>tetura.md</span>
+        </div>
+        <span style="font-family:'IBM Plex Mono',monospace;font-size:11px;font-weight:500;letter-spacing:0.09em;text-transform:uppercase;color:var(--tinta-suave)">DIÁRIO</span>
+      </div>
+      <div style="display:flex;align-items:center;justify-content:space-between;height:44px;padding:0 16px;border-top:1px solid var(--regua)">
+        <div style="display:flex;align-items:center;gap:8px">
+          <i data-lucide="file-text" width="15" height="15" color="var(--tinta-media)" stroke-width="1.5"></i>
+          <span style="font-size:15px;font-weight:500;color:var(--tinta)"><span style="background:rgba(168,122,28,0.22)">Arqui</span>vo morto.md</span>
+        </div>
+      </div>
+      <div style="display:flex;align-items:center;gap:8px;height:44px;padding:0 16px;border-top:1px solid var(--regua);color:var(--tinta-media)">
+        <i data-lucide="file-plus" width="15" height="15" color="var(--tinta-media)" stroke-width="1.5"></i>
+        <span style="font-size:15px">Criar «arqui»</span>
+      </div>
+    </div>
+    <div style="height:32px;display:flex;align-items:center;gap:20px;padding:0 16px;border-top:1px solid var(--regua)">
+      <span style="font-family:'IBM Plex Mono',monospace;font-size:11px;font-weight:500;letter-spacing:0.09em;text-transform:uppercase;color:var(--tinta-suave)">↑↓ NAVEGAR</span>
+      <span style="font-family:'IBM Plex Mono',monospace;font-size:11px;font-weight:500;letter-spacing:0.09em;text-transform:uppercase;color:var(--tinta-suave)">⏎ ABRIR</span>
+      <span style="font-family:'IBM Plex Mono',monospace;font-size:11px;font-weight:500;letter-spacing:0.09em;text-transform:uppercase;color:var(--tinta-suave)">CTRL+⏎ NOVA ABA</span>
+      <span style="font-family:'IBM Plex Mono',monospace;font-size:11px;font-weight:500;letter-spacing:0.09em;text-transform:uppercase;color:var(--tinta-suave)">ESC FECHAR</span>
+    </div>
+  </div>
+</div>
+</div>
+
+
+<div style="display:flex;flex-direction:column;gap:10px">
+<div style="font-family:'IBM Plex Mono',monospace;font-size:11px;font-weight:500;letter-spacing:0.09em;text-transform:uppercase;color:#4A443C">05 — Busca e backlinks</div>
+<div class="ex-board" style="--papel:#EFEAE1;--superficie:#FBF9F5;--lavagem:#E5DFD4;--regua:#DCD5C8;--regua-forte:#8C8578;--tinta:#1C1917;--tinta-media:#4A443C;--tinta-suave:#655E54;--musgo:#3E5C46;--ocre:#A87A1C;--bordo:#7A2E22;width:1440px;height:900px;background:var(--papel);position:relative;display:flex;flex-direction:column;box-shadow:0 8px 24px -10px rgba(28,25,23,0.3)">
+
+  <div style="height:38px;flex-shrink:0;display:flex;align-items:center;justify-content:space-between;padding:0 14px">
+    <div style="display:flex;flex-direction:column;gap:3px">
+      <span style="font-family:Fraunces,Georgia,serif;font-weight:600;font-size:16px;color:var(--tinta)">Excalisidian</span>
+      <div style="width:42%;height:2px;background:var(--musgo)"></div>
+    </div>
+  </div>
+
+  <div style="flex:1;display:flex;overflow:hidden">
+    
+    <div style="width:264px;flex-shrink:0;background:var(--superficie);border-right:1px solid var(--regua);display:flex;flex-direction:column">
+      <div style="padding:12px;border-bottom:1px solid var(--regua);display:flex;align-items:center;gap:8px">
+        <i data-lucide="search" width="15" height="15" color="var(--tinta-suave)" stroke-width="1.5"></i>
+        <span style="font-size:14px;color:var(--tinta)">canvas</span>
+      </div>
+      <div style="flex:1;overflow:auto">
+        <div style="padding:12px;border-bottom:1px solid var(--regua)">
+          <div style="display:flex;align-items:center;justify-content:space-between">
+            <div style="display:flex;align-items:center;gap:6px"><i data-lucide="pen-line" width="14" height="14" color="var(--tinta-media)" stroke-width="1.5"></i><span style="font-size:14px;font-weight:500;color:var(--tinta)">Arquitetura.excalidraw.md</span></div>
+            <span style="font-family:'IBM Plex Mono',monospace;font-size:11px;font-weight:500;letter-spacing:0.09em;text-transform:uppercase;color:var(--tinta-suave)">3</span>
+          </div>
+          <div style="font-family:'IBM Plex Mono',monospace;font-size:10px;letter-spacing:0.06em;text-transform:uppercase;color:var(--tinta-suave);margin:4px 0 6px">DESENHO</div>
+          <div style="font-size:13px;color:var(--tinta-media);line-height:1.5">o <span style="background:rgba(168,122,28,0.22)">canvas</span> usa fundo transparente sobre a grade</div>
+        </div>
+        <div style="padding:12px;border-bottom:1px solid var(--regua)">
+          <div style="display:flex;align-items:center;justify-content:space-between">
+            <div style="display:flex;align-items:center;gap:6px"><i data-lucide="file-text" width="14" height="14" color="var(--tinta-media)" stroke-width="1.5"></i><span style="font-size:14px;font-weight:500;color:var(--tinta)">Excalisidian.md</span></div>
+            <span style="font-family:'IBM Plex Mono',monospace;font-size:11px;font-weight:500;letter-spacing:0.09em;text-transform:uppercase;color:var(--tinta-suave)">2</span>
+          </div>
+          <div style="font-size:13px;color:var(--tinta-media);line-height:1.5;margin-top:6px">por que o <span style="background:rgba(168,122,28,0.22)">canvas</span> é markdown</div>
+          <div style="font-size:13px;color:var(--tinta-media);line-height:1.5">o <span style="background:rgba(168,122,28,0.22)">canvas</span> embutido acima</div>
+        </div>
+        <div style="padding:12px;border-bottom:1px solid var(--regua)">
+          <div style="display:flex;align-items:center;justify-content:space-between">
+            <div style="display:flex;align-items:center;gap:6px"><i data-lucide="file-text" width="14" height="14" color="var(--tinta-media)" stroke-width="1.5"></i><span style="font-size:14px;font-weight:500;color:var(--tinta)">Backend.md</span></div>
+            <span style="font-family:'IBM Plex Mono',monospace;font-size:11px;font-weight:500;letter-spacing:0.09em;text-transform:uppercase;color:var(--tinta-suave)">1</span>
+          </div>
+          <div style="font-size:13px;color:var(--tinta-media);line-height:1.5;margin-top:6px">expõe o índice do <span style="background:rgba(168,122,28,0.22)">canvas</span></div>
+        </div>
+        <div style="padding:12px">
+          <div style="display:flex;align-items:center;justify-content:space-between">
+            <div style="display:flex;align-items:center;gap:6px"><i data-lucide="file-text" width="14" height="14" color="var(--tinta-media)" stroke-width="1.5"></i><span style="font-size:14px;font-weight:500;color:var(--tinta)">Inbox.md</span></div>
+            <span style="font-family:'IBM Plex Mono',monospace;font-size:11px;font-weight:500;letter-spacing:0.09em;text-transform:uppercase;color:var(--tinta-suave)">1</span>
+          </div>
+          <div style="font-size:13px;color:var(--tinta-media);line-height:1.5;margin-top:6px">testar o <span style="background:rgba(168,122,28,0.22)">canvas</span> com 500 elementos</div>
+        </div>
+      </div>
+    </div>
+
+    
+    <div style="flex:1;display:flex;flex-direction:column;overflow:hidden">
+      <div style="height:34px;flex-shrink:0;display:flex;background:var(--lavagem)">
+        <div style="display:flex;align-items:center;gap:6px;padding:0 12px;background:var(--superficie);border-right:1px solid var(--regua);font-size:13px;color:var(--tinta)">
+          <i data-lucide="file-text" width="14" height="14" color="var(--tinta-media)" stroke-width="1.5"></i>
+          <span>Excalisidian.md</span>
+        </div>
+      </div>
+      <div style="flex:1;overflow:auto;padding:32px">
+        <div style="max-width:600px;margin:0 auto">
+          <div style="font-family:Fraunces,Georgia,serif;font-weight:500;font-size:24px;line-height:1.2;color:var(--tinta)">Por que o canvas é markdown</div>
+          <div style="margin-top:16px;font-size:15px;line-height:1.55;color:var(--tinta)">O desenho vira parte do texto, e o <a href="#" style="color:var(--musgo);text-decoration:none">canvas</a> embutido acima mostra a arquitetura.</div>
+        </div>
+      </div>
+    </div>
+
+    
+    <div style="width:320px;flex-shrink:0;background:var(--superficie);border-left:1px solid var(--regua);padding:20px">
+      <div style="font-family:Fraunces,Georgia,serif;font-weight:500;font-size:19px;color:var(--tinta)">Backlinks</div>
+      <div style="font-family:'IBM Plex Mono',monospace;font-size:11px;font-weight:500;letter-spacing:0.09em;text-transform:uppercase;color:var(--tinta-suave);margin-top:4px">4 NOTAS</div>
+      <div style="margin-top:16px;display:flex;flex-direction:column;gap:16px">
+        <div>
+          <div style="font-size:15px;font-weight:500;color:var(--tinta)">Backend.md</div>
+          <div style="font-size:13px;color:var(--tinta-media);line-height:1.5;margin-top:4px">Índice construído a partir do <span style="color:var(--musgo)">[[Excalisidian]]</span></div>
+        </div>
+        <div>
+          <div style="display:flex;align-items:center;gap:6px"><i data-lucide="pen-line" width="14" height="14" color="var(--tinta-media)" stroke-width="1.5"></i><span style="font-size:15px;font-weight:500;color:var(--tinta)">Arquitetura.excalidraw.md</span></div>
+          <div style="font-size:13px;color:var(--tinta-media);line-height:1.5;margin-top:4px">Elemento de texto que referencia <span style="color:var(--musgo)">[[Excalisidian]]</span></div>
+        </div>
+        <div>
+          <div style="font-size:15px;font-weight:500;color:var(--tinta)">Diário/28-08.md</div>
+          <div style="font-size:13px;color:var(--tinta-media);line-height:1.5;margin-top:4px">Anotei sobre <span style="color:var(--musgo)">[[Excalisidian]]</span> hoje</div>
+        </div>
+        <div>
+          <div style="font-size:15px;font-weight:500;color:var(--tinta)">Inbox.md</div>
+          <div style="font-size:13px;color:var(--tinta-media);line-height:1.5;margin-top:4px">Ver <span style="color:var(--musgo)">[[Excalisidian]]</span> antes de decidir</div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div style="height:24px;flex-shrink:0;display:flex;align-items:center;justify-content:space-between;padding:0 14px;background:var(--superficie);border-top:1px solid var(--regua)">
+    <span style="font-family:'IBM Plex Mono',monospace;font-size:11px;font-weight:500;letter-spacing:0.09em;text-transform:uppercase;color:var(--tinta-suave)">PROJETOS/EXCALISIDIAN.MD</span>
+    <span style="font-family:'IBM Plex Mono',monospace;font-size:11px;font-weight:500;letter-spacing:0.09em;text-transform:uppercase;color:var(--tinta-suave)">SALVO</span>
+  </div>
+</div>
+</div>
+
+
+<div style="display:flex;flex-direction:column;gap:10px">
+<div style="font-family:'IBM Plex Mono',monospace;font-size:11px;font-weight:500;letter-spacing:0.09em;text-transform:uppercase;color:#4A443C">06 — Lixeira</div>
+<div class="ex-board" style="--papel:#EFEAE1;--superficie:#FBF9F5;--lavagem:#E5DFD4;--regua:#DCD5C8;--regua-forte:#8C8578;--tinta:#1C1917;--tinta-media:#4A443C;--tinta-suave:#655E54;--musgo:#3E5C46;--ocre:#A87A1C;--bordo:#7A2E22;width:1440px;height:900px;background:var(--papel);position:relative;display:flex;flex-direction:column;box-shadow:0 8px 24px -10px rgba(28,25,23,0.3)">
+
+  <div style="height:38px;flex-shrink:0;display:flex;align-items:center;justify-content:space-between;padding:0 14px">
+    <div style="display:flex;flex-direction:column;gap:3px">
+      <span style="font-family:Fraunces,Georgia,serif;font-weight:600;font-size:16px;color:var(--tinta)">Excalisidian</span>
+      <div style="width:42%;height:2px;background:var(--musgo)"></div>
+    </div>
+  </div>
+
+  <div style="flex:1;display:flex;overflow:hidden">
+    <div style="width:264px;flex-shrink:0;background:var(--superficie);border-right:1px solid var(--regua);display:flex;flex-direction:column">
+      <div style="height:40px;flex-shrink:0;display:flex;align-items:center;gap:10px;padding:0 12px;border-bottom:1px solid var(--regua)">
+        <i data-lucide="file-plus" width="15" height="15" color="var(--tinta-media)" stroke-width="1.5"></i>
+        <i data-lucide="square-pen" width="15" height="15" color="var(--tinta-media)" stroke-width="1.5"></i>
+        <i data-lucide="folder-plus" width="15" height="15" color="var(--tinta-media)" stroke-width="1.5"></i>
+        <i data-lucide="arrow-up-narrow-wide" width="15" height="15" color="var(--tinta-media)" stroke-width="1.5"></i>
+      </div>
+      <div style="flex:1"></div>
+      <div style="height:36px;flex-shrink:0;display:flex;align-items:center;gap:16px;padding:0 12px;border-top:1px solid var(--regua)">
+        <i data-lucide="search" width="15" height="15" color="var(--tinta-suave)" stroke-width="1.5"></i>
+        <i data-lucide="corner-down-left" width="15" height="15" color="var(--tinta-suave)" stroke-width="1.5"></i>
+        <div style="background:var(--lavagem);border-radius:2px;padding:2px"><i data-lucide="trash-2" width="15" height="15" color="var(--musgo)" stroke-width="1.5"></i></div>
+        <i data-lucide="settings" width="15" height="15" color="var(--tinta-suave)" stroke-width="1.5"></i>
+      </div>
+    </div>
+
+    <div style="flex:1;overflow:auto;padding:40px">
+      <div style="max-width:720px;margin:0 auto">
+        <div style="display:flex;align-items:flex-end;justify-content:space-between">
+          <div>
+            <div style="font-family:Fraunces,Georgia,serif;font-weight:600;font-size:32px;color:var(--tinta)">Lixeira</div>
+            <div style="font-family:'IBM Plex Mono',monospace;font-size:11px;font-weight:500;letter-spacing:0.09em;text-transform:uppercase;color:var(--tinta-suave);margin-top:6px">12 ARQUIVOS · 4,2 MB</div>
+          </div>
+          <div style="border:1px solid var(--bordo);color:var(--bordo);border-radius:2px;padding:0 14px;height:36px;display:flex;align-items:center;font-size:14px">Esvaziar lixeira</div>
+        </div>
+        <div style="height:1px;background:var(--regua);margin-top:24px"></div>
+
+        <div style="display:flex;align-items:center;justify-content:space-between;height:56px;border-bottom:1px solid var(--regua)">
+          <div style="display:flex;align-items:center;gap:10px"><i data-lucide="file-text" width="16" height="16" color="var(--tinta-media)" stroke-width="1.5"></i>
+            <div><div style="font-size:15px;font-weight:500;color:var(--tinta)">Rascunho v1.md</div><div style="font-family:'IBM Plex Mono',monospace;font-size:11px;letter-spacing:0.09em;text-transform:uppercase;color:var(--tinta-suave)">PROJETOS/ANTIGOS</div></div>
+          </div>
+          <div style="display:flex;align-items:center;gap:20px"><span style="font-family:'IBM Plex Mono',monospace;font-size:11px;letter-spacing:0.09em;text-transform:uppercase;color:var(--tinta-suave)">28 AGO 23:14</span></div>
+        </div>
+        <div style="position:relative;display:flex;align-items:center;justify-content:space-between;height:56px;border-bottom:1px solid var(--regua);background:var(--lavagem);padding:0 4px">
+          <div style="display:flex;align-items:center;gap:10px"><i data-lucide="folder" width="16" height="16" color="var(--tinta-media)" stroke-width="1.5"></i>
+            <div><div style="font-size:15px;font-weight:500;color:var(--tinta)">Antigos</div><div style="font-family:'IBM Plex Mono',monospace;font-size:11px;letter-spacing:0.09em;text-transform:uppercase;color:var(--tinta-suave)">14 ARQUIVOS</div></div>
+          </div>
+          <div style="display:flex;align-items:center;gap:16px">
+            <span style="font-family:'IBM Plex Mono',monospace;font-size:11px;letter-spacing:0.09em;text-transform:uppercase;color:var(--tinta-suave)">27 AGO 09:02</span>
+            <div style="border:1px solid var(--regua-forte);border-radius:2px;padding:0 10px;height:28px;display:flex;align-items:center;font-size:13px;color:var(--tinta)">Restaurar</div>
+          </div>
+        </div>
+        <div style="display:flex;align-items:center;justify-content:space-between;height:56px;border-bottom:1px solid var(--regua)">
+          <div style="display:flex;align-items:center;gap:10px"><i data-lucide="file-text" width="16" height="16" color="var(--tinta-media)" stroke-width="1.5"></i>
+            <div><div style="font-size:15px;font-weight:500;color:var(--tinta)">Ideias soltas.md</div><div style="font-family:'IBM Plex Mono',monospace;font-size:11px;letter-spacing:0.09em;text-transform:uppercase;color:var(--tinta-suave)">INBOX</div></div>
+          </div>
+          <span style="font-family:'IBM Plex Mono',monospace;font-size:11px;letter-spacing:0.09em;text-transform:uppercase;color:var(--tinta-suave)">25 AGO 18:47</span>
+        </div>
+        <div style="display:flex;align-items:center;justify-content:space-between;height:56px;border-bottom:1px solid var(--regua)">
+          <div style="display:flex;align-items:center;gap:10px"><i data-lucide="pen-line" width="16" height="16" color="var(--tinta-media)" stroke-width="1.5"></i>
+            <div><div style="font-size:15px;font-weight:500;color:var(--tinta)">Rascunho.excalidraw.md</div><div style="font-family:'IBM Plex Mono',monospace;font-size:11px;letter-spacing:0.09em;text-transform:uppercase;color:var(--tinta-suave)">REFERÊNCIAS</div></div>
+          </div>
+          <span style="font-family:'IBM Plex Mono',monospace;font-size:11px;letter-spacing:0.09em;text-transform:uppercase;color:var(--tinta-suave)">22 AGO 11:30</span>
+        </div>
+        <div style="display:flex;align-items:center;justify-content:space-between;height:56px;border-bottom:1px solid var(--regua)">
+          <div style="display:flex;align-items:center;gap:10px"><i data-lucide="file-text" width="16" height="16" color="var(--tinta-media)" stroke-width="1.5"></i>
+            <div><div style="font-size:15px;font-weight:500;color:var(--tinta)">Tarefa antiga.md</div><div style="font-family:'IBM Plex Mono',monospace;font-size:11px;letter-spacing:0.09em;text-transform:uppercase;color:var(--tinta-suave)">DIÁRIO</div></div>
+          </div>
+          <span style="font-family:'IBM Plex Mono',monospace;font-size:11px;letter-spacing:0.09em;text-transform:uppercase;color:var(--tinta-suave)">18 AGO 08:15</span>
+        </div>
+        <div style="display:flex;align-items:center;justify-content:space-between;height:56px;border-bottom:1px solid var(--regua)">
+          <div style="display:flex;align-items:center;gap:10px"><i data-lucide="file-text" width="16" height="16" color="var(--tinta-media)" stroke-width="1.5"></i>
+            <div><div style="font-size:15px;font-weight:500;color:var(--tinta)">Reunião 12-08.md</div><div style="font-family:'IBM Plex Mono',monospace;font-size:11px;letter-spacing:0.09em;text-transform:uppercase;color:var(--tinta-suave)">DIÁRIO</div></div>
+          </div>
+          <span style="font-family:'IBM Plex Mono',monospace;font-size:11px;letter-spacing:0.09em;text-transform:uppercase;color:var(--tinta-suave)">12 AGO 15:50</span>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div style="height:24px;flex-shrink:0;display:flex;align-items:center;justify-content:space-between;padding:0 14px;background:var(--superficie);border-top:1px solid var(--regua)">
+    <span style="font-family:'IBM Plex Mono',monospace;font-size:11px;font-weight:500;letter-spacing:0.09em;text-transform:uppercase;color:var(--tinta-suave)">LIXEIRA</span>
+    <span style="font-family:'IBM Plex Mono',monospace;font-size:11px;font-weight:500;letter-spacing:0.09em;text-transform:uppercase;color:var(--tinta-suave)">12 ITENS</span>
+  </div>
+</div>
+</div>
+
+
+<div style="display:flex;flex-direction:column;gap:10px">
+<div style="font-family:'IBM Plex Mono',monospace;font-size:11px;font-weight:500;letter-spacing:0.09em;text-transform:uppercase;color:#4A443C">07 — Diálogo de confirmação destrutiva</div>
+<div class="ex-board" style="--papel:#EFEAE1;--superficie:#FBF9F5;--lavagem:#E5DFD4;--regua:#DCD5C8;--regua-forte:#8C8578;--tinta:#1C1917;--tinta-media:#4A443C;--tinta-suave:#655E54;--musgo:#3E5C46;--ocre:#A87A1C;--bordo:#7A2E22;width:1440px;height:900px;background:var(--papel);position:relative;display:flex;flex-direction:column;box-shadow:0 8px 24px -10px rgba(28,25,23,0.3)">
+
+  <div style="height:38px;flex-shrink:0;display:flex;align-items:center;padding:0 14px">
+    <div style="display:flex;flex-direction:column;gap:3px">
+      <span style="font-family:Fraunces,Georgia,serif;font-weight:600;font-size:16px;color:var(--tinta)">Excalisidian</span>
+      <div style="width:42%;height:2px;background:var(--musgo)"></div>
+    </div>
+  </div>
+  <div style="flex:1;display:flex;overflow:hidden">
+    <div style="width:264px;flex-shrink:0;background:var(--superficie);border-right:1px solid var(--regua)"></div>
+    <div style="flex:1;padding:40px">
+      <div style="max-width:720px;margin:0 auto">
+        <div style="display:flex;align-items:flex-end;justify-content:space-between">
+          <div>
+            <div style="font-family:Fraunces,Georgia,serif;font-weight:600;font-size:32px;color:var(--tinta)">Lixeira</div>
+            <div style="font-family:'IBM Plex Mono',monospace;font-size:11px;font-weight:500;letter-spacing:0.09em;text-transform:uppercase;color:var(--tinta-suave);margin-top:6px">12 ARQUIVOS · 4,2 MB</div>
+          </div>
+        </div>
+        <div style="height:1px;background:var(--regua);margin-top:24px"></div>
+      </div>
+    </div>
+  </div>
+  <div style="height:24px;flex-shrink:0;background:var(--superficie);border-top:1px solid var(--regua)"></div>
+
+  <div style="position:absolute;inset:0;background:rgba(28,25,23,0.3)"></div>
+
+  <div style="position:absolute;top:280px;left:50%;transform:translateX(-50%);width:480px;background:var(--superficie);border:1px solid var(--regua);border-radius:3px;box-shadow:0 24px 60px -20px rgba(28,25,23,0.35);padding:24px">
+    <div style="font-family:Fraunces,Georgia,serif;font-weight:500;font-size:19px;color:var(--tinta)">Esvaziar a lixeira?</div>
+    <div style="margin-top:12px;font-size:15px;line-height:1.55;color:var(--tinta-media)">12 arquivos serão excluídos permanentemente, incluindo a pasta «Antigos» com 14 arquivos dentro. Isso não pode ser desfeito.</div>
+    <div style="margin-top:14px;font-family:'IBM Plex Mono',monospace;font-size:11px;font-weight:500;letter-spacing:0.09em;text-transform:uppercase;color:var(--tinta-suave);line-height:1.8">RASCUNHO V1.MD<br>ANTIGOS<br>IDEIAS SOLTAS.MD<br>+ 9 OUTROS</div>
+    <div style="margin-top:24px;display:flex;justify-content:flex-end;gap:10px">
+      <div style="border:1px solid var(--regua-forte);border-radius:2px;padding:0 16px;height:36px;display:flex;align-items:center;font-size:14px;color:var(--tinta)">Cancelar</div>
+      <div style="border:1px solid var(--bordo);color:var(--bordo);border-radius:2px;padding:0 16px;height:36px;display:flex;align-items:center;font-size:14px">Excluir 12 arquivos</div>
+    </div>
+  </div>
+</div>
+</div>
+
+
+<div style="display:flex;flex-direction:column;gap:10px">
+<div style="font-family:'IBM Plex Mono',monospace;font-size:11px;font-weight:500;letter-spacing:0.09em;text-transform:uppercase;color:#4A443C">08 — Estados: vault vazio, conflito e erro</div>
+<div class="ex-board" style="--papel:#EFEAE1;--superficie:#FBF9F5;--lavagem:#E5DFD4;--regua:#DCD5C8;--regua-forte:#8C8578;--tinta:#1C1917;--tinta-media:#4A443C;--tinta-suave:#655E54;--musgo:#3E5C46;--ocre:#A87A1C;--bordo:#7A2E22;width:1440px;height:900px;background:var(--papel);position:relative;display:flex;flex-direction:column;box-shadow:0 8px 24px -10px rgba(28,25,23,0.3)">
+
+  
+  <div style="height:300px;flex-shrink:0;display:flex;overflow:hidden;position:relative;border-bottom:1px solid var(--regua)">
+    <span style="position:absolute;top:10px;left:14px;font-family:'IBM Plex Mono',monospace;font-size:11px;font-weight:500;letter-spacing:0.09em;text-transform:uppercase;color:var(--tinta-suave)">VAULT VAZIO</span>
+    <div style="width:264px;flex-shrink:0;background:var(--superficie);border-right:1px solid var(--regua);display:flex;flex-direction:column">
+      <div style="height:40px;flex-shrink:0;display:flex;align-items:center;gap:10px;padding:0 12px;border-bottom:1px solid var(--regua);margin-top:38px">
+        <i data-lucide="file-plus" width="15" height="15" color="var(--tinta-media)" stroke-width="1.5"></i>
+        <i data-lucide="square-pen" width="15" height="15" color="var(--tinta-media)" stroke-width="1.5"></i>
+        <i data-lucide="folder-plus" width="15" height="15" color="var(--tinta-media)" stroke-width="1.5"></i>
+        <i data-lucide="arrow-up-narrow-wide" width="15" height="15" color="var(--tinta-media)" stroke-width="1.5"></i>
+      </div>
+    </div>
+    <div style="flex:1;display:flex;align-items:center;justify-content:center">
+      <div style="width:520px;border-top:1px solid var(--regua);border-bottom:1px solid var(--regua);padding:24px 0;text-align:center;display:flex;flex-direction:column;align-items:center;gap:12px">
+        <div style="font-family:Fraunces,Georgia,serif;font-weight:500;font-size:19px;color:var(--tinta)">Este vault está em branco.</div>
+        <div style="font-size:13px;color:var(--tinta-media)">Crie a primeira nota ou o primeiro desenho.</div>
+        <div style="display:flex;gap:10px;margin-top:6px">
+          <div style="background:var(--musgo);color:var(--superficie);border-radius:2px;padding:0 16px;height:36px;display:flex;align-items:center;font-size:14px">Nova nota</div>
+          <div style="border:1px solid var(--regua-forte);color:var(--tinta);border-radius:2px;padding:0 16px;height:36px;display:flex;align-items:center;font-size:14px">Novo desenho</div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  
+  <div style="height:300px;flex-shrink:0;display:flex;flex-direction:column;overflow:hidden;position:relative;border-bottom:1px solid var(--regua)">
+    <span style="position:absolute;top:10px;left:14px;font-family:'IBM Plex Mono',monospace;font-size:11px;font-weight:500;letter-spacing:0.09em;text-transform:uppercase;color:var(--tinta-suave);z-index:1">CONFLITO COM O DISCO</span>
+    <div style="height:38px;flex-shrink:0"></div>
+    <div style="height:44px;flex-shrink:0;display:flex;align-items:center;justify-content:space-between;padding:0 24px;background:rgba(168,122,28,0.12);border-top:1px solid var(--ocre);border-bottom:1px solid var(--ocre)">
+      <div style="display:flex;align-items:center;gap:10px"><i data-lucide="alert-triangle" width="16" height="16" color="var(--ocre)" stroke-width="1.5"></i><span style="font-size:15px;color:var(--tinta)">Este arquivo mudou fora do Excalisidian.</span></div>
+      <div style="display:flex;gap:8px">
+        <div style="border:1px solid var(--regua-forte);border-radius:2px;padding:0 12px;height:28px;display:flex;align-items:center;font-size:13px;color:var(--tinta)">Recarregar do disco</div>
+        <div style="border-radius:2px;padding:0 12px;height:28px;display:flex;align-items:center;font-size:13px;color:var(--tinta-media)">Manter minha versão</div>
+      </div>
+    </div>
+    <div style="flex:1;padding:24px 40px">
+      <div style="max-width:600px;margin:0 auto;font-family:Fraunces,Georgia,serif;font-weight:500;font-size:24px;color:var(--tinta)">Por que o canvas é markdown</div>
+    </div>
+  </div>
+
+  
+  <div style="height:300px;flex-shrink:0;display:flex;flex-direction:column;overflow:hidden;position:relative">
+    <span style="position:absolute;top:10px;left:14px;font-family:'IBM Plex Mono',monospace;font-size:11px;font-weight:500;letter-spacing:0.09em;text-transform:uppercase;color:var(--tinta-suave);z-index:1">ERRO AO SALVAR</span>
+    <div style="height:38px;flex-shrink:0;display:flex;align-items:flex-end;padding:0 12px 6px">
+      <div style="display:flex;align-items:center;gap:6px;padding:0 10px;height:24px;background:var(--superficie);border-radius:2px 2px 0 0;font-size:12px;color:var(--tinta)">
+        <i data-lucide="file-text" width="12" height="12" color="var(--tinta-media)" stroke-width="1.5"></i>
+        <span>Arquitetura.md</span>
+        <div style="width:6px;height:6px;border-radius:999px;background:var(--bordo)"></div>
+      </div>
+    </div>
+    <div style="height:44px;flex-shrink:0;display:flex;align-items:center;justify-content:space-between;padding:0 24px;background:rgba(122,46,34,0.12);border-top:1px solid var(--bordo);border-bottom:1px solid var(--bordo)">
+      <span style="font-size:15px;color:var(--tinta)">Não foi possível salvar «Arquitetura». O arquivo pode estar aberto em outro programa.</span>
+      <div style="border:1px solid var(--regua-forte);border-radius:2px;padding:0 12px;height:28px;display:flex;align-items:center;font-size:13px;color:var(--tinta)">Tentar de novo</div>
+    </div>
+    <div style="flex:1;padding:24px 40px">
+      <div style="max-width:600px;margin:0 auto;font-family:Fraunces,Georgia,serif;font-weight:500;font-size:24px;color:var(--tinta)">Por que o canvas é markdown</div>
+    </div>
+  </div>
+</div>
+</div>
+
+
+<div style="display:flex;flex-direction:column;gap:10px">
+<div style="font-family:'IBM Plex Mono',monospace;font-size:11px;font-weight:500;letter-spacing:0.09em;text-transform:uppercase;color:#4A443C">09 — Editor de nota, tema escuro</div>
+<div class="ex-board" style="--papel:#16140F;--superficie:#1F1C16;--lavagem:#272319;--regua:#34302A;--regua-forte:#6E675C;--tinta:#EFEAE0;--tinta-media:#BDB6A9;--tinta-suave:#9A9384;--musgo:#86A98B;--ocre:#D3A845;--bordo:#C97B69;width:1440px;height:900px;background:var(--papel);position:relative;display:flex;flex-direction:column;box-shadow:0 24px 60px -16px rgba(0,0,0,0.7)">
+
+  <div style="height:38px;flex-shrink:0;display:flex;align-items:center;justify-content:space-between;padding:0 14px">
+    <div style="display:flex;flex-direction:column;gap:3px">
+      <span style="font-family:Fraunces,Georgia,serif;font-weight:600;font-size:16px;color:var(--tinta)">Excalisidian</span>
+      <div style="width:42%;height:2px;background:var(--musgo)"></div>
+    </div>
+    <div style="display:flex;gap:16px;align-items:center">
+      <div style="width:11px;height:1px;background:var(--tinta-media)"></div>
+      <div style="width:10px;height:10px;border:1px solid var(--tinta-media)"></div>
+      <div style="position:relative;width:10px;height:10px">
+        <div style="position:absolute;top:5px;left:0;width:10px;height:1px;background:var(--tinta-media);transform:rotate(45deg)"></div>
+        <div style="position:absolute;top:5px;left:0;width:10px;height:1px;background:var(--tinta-media);transform:rotate(-45deg)"></div>
+      </div>
+    </div>
+  </div>
+
+  <div style="flex:1;display:flex;overflow:hidden">
+    <div style="width:264px;flex-shrink:0;background:var(--superficie);border-right:1px solid var(--regua);display:flex;flex-direction:column">
+      <div style="height:40px;flex-shrink:0;display:flex;align-items:center;gap:10px;padding:0 12px;border-bottom:1px solid var(--regua)">
+        <i data-lucide="file-plus" width="15" height="15" color="var(--tinta-media)" stroke-width="1.5"></i>
+        <i data-lucide="square-pen" width="15" height="15" color="var(--tinta-media)" stroke-width="1.5"></i>
+        <i data-lucide="folder-plus" width="15" height="15" color="var(--tinta-media)" stroke-width="1.5"></i>
+        <i data-lucide="arrow-up-narrow-wide" width="15" height="15" color="var(--tinta-media)" stroke-width="1.5"></i>
+      </div>
+      <div style="flex:1;padding:6px 0;overflow:auto">
+        <div style="display:flex;align-items:center;gap:6px;height:30px;padding-left:12px;color:var(--tinta-media);font-size:13px">
+          <i data-lucide="chevron-down" width="13" height="13" color="var(--tinta-suave)" stroke-width="1.5"></i>
+          <i data-lucide="folder-open" width="15" height="15" color="var(--tinta-media)" stroke-width="1.5"></i>
+          <span>Projetos</span>
+        </div>
+        <div style="display:flex;align-items:center;gap:6px;height:30px;padding-left:28px;color:var(--tinta-media);font-size:13px">
+          <i data-lucide="file-text" width="15" height="15" color="var(--tinta-media)" stroke-width="1.5"></i>
+          <span>Excalisidian.md</span>
+        </div>
+        <div style="position:relative;display:flex;align-items:center;gap:6px;height:30px;padding-left:28px;background:var(--lavagem);color:var(--tinta);font-size:13px">
+          <div style="position:absolute;left:0;top:0;bottom:0;width:2px;background:var(--musgo)"></div>
+          <i data-lucide="pen-line" width="15" height="15" color="var(--musgo)" stroke-width="1.5"></i>
+          <span>Arquitetura.excalidraw.md</span>
+        </div>
+        <div style="display:flex;align-items:center;gap:6px;height:30px;padding-left:28px;color:var(--tinta-media);font-size:13px">
+          <i data-lucide="file-text" width="15" height="15" color="var(--tinta-media)" stroke-width="1.5"></i>
+          <span>Backend.md</span>
+        </div>
+        <div style="display:flex;align-items:center;gap:6px;height:30px;padding-left:12px;color:var(--tinta-media);font-size:13px">
+          <i data-lucide="chevron-right" width="13" height="13" color="var(--tinta-suave)" stroke-width="1.5"></i>
+          <i data-lucide="folder" width="15" height="15" color="var(--tinta-media)" stroke-width="1.5"></i>
+          <span>Diário</span>
+        </div>
+        <div style="display:flex;align-items:center;gap:6px;height:30px;padding-left:12px;color:var(--tinta-media);font-size:13px">
+          <i data-lucide="chevron-right" width="13" height="13" color="var(--tinta-suave)" stroke-width="1.5"></i>
+          <i data-lucide="folder" width="15" height="15" color="var(--tinta-media)" stroke-width="1.5"></i>
+          <span>Referências</span>
+        </div>
+        <div style="display:flex;align-items:center;gap:6px;height:30px;padding-left:12px;color:var(--tinta-media);font-size:13px">
+          <i data-lucide="file-text" width="15" height="15" color="var(--tinta-media)" stroke-width="1.5"></i>
+          <span>Inbox.md</span>
+        </div>
+        <div style="display:flex;align-items:center;gap:6px;height:30px;padding-left:12px;color:var(--tinta-media);font-size:13px">
+          <i data-lucide="chevron-right" width="13" height="13" color="var(--tinta-suave)" stroke-width="1.5"></i>
+          <i data-lucide="folder" width="15" height="15" color="var(--tinta-media)" stroke-width="1.5"></i>
+          <span>anexos</span>
+        </div>
+      </div>
+      <div style="height:36px;flex-shrink:0;display:flex;align-items:center;gap:16px;padding:0 12px;border-top:1px solid var(--regua)">
+        <i data-lucide="search" width="15" height="15" color="var(--tinta-suave)" stroke-width="1.5"></i>
+        <i data-lucide="corner-down-left" width="15" height="15" color="var(--tinta-suave)" stroke-width="1.5"></i>
+        <i data-lucide="trash-2" width="15" height="15" color="var(--tinta-suave)" stroke-width="1.5"></i>
+        <i data-lucide="settings" width="15" height="15" color="var(--tinta-suave)" stroke-width="1.5"></i>
+      </div>
+    </div>
+
+    <div style="flex:1;display:flex;flex-direction:column;overflow:hidden">
+      <div style="height:34px;flex-shrink:0;display:flex;background:var(--lavagem)">
+        <div style="display:flex;align-items:center;gap:6px;padding:0 12px;background:var(--superficie);border-right:1px solid var(--regua);font-size:13px;color:var(--tinta)">
+          <i data-lucide="pen-line" width="14" height="14" color="var(--tinta-media)" stroke-width="1.5"></i>
+          <span>Excalisidian.md</span>
+        </div>
+      </div>
+      <div style="flex:1;overflow:auto;padding:32px">
+        <div style="width:720px;margin:0 auto;display:flex">
+          <div style="width:76px;flex-shrink:0;border-right:1px solid var(--regua);display:flex;flex-direction:column">
+            <span style="font-family:'IBM Plex Mono',monospace;font-size:11px;font-weight:500;letter-spacing:0.09em;text-transform:uppercase;color:var(--tinta-suave)">H1</span>
+            <div style="height:64px"></div>
+            <div style="height:34px"></div>
+            <span style="font-family:'IBM Plex Mono',monospace;font-size:11px;font-weight:500;letter-spacing:0.09em;text-transform:uppercase;color:var(--tinta-suave);margin-top:24px">H2</span>
+            <div style="height:70px"></div>
+            <span style="font-family:'IBM Plex Mono',monospace;font-size:11px;font-weight:500;letter-spacing:0.09em;text-transform:uppercase;color:var(--tinta-suave);margin-top:20px">EMB</span>
+            <div style="height:300px"></div>
+            <span style="font-family:'IBM Plex Mono',monospace;font-size:11px;font-weight:500;letter-spacing:0.09em;text-transform:uppercase;color:var(--tinta-suave);margin-top:38px">^DEC-3</span>
+          </div>
+          <div style="flex:1;padding-left:24px;color:var(--tinta)">
+            <div style="font-family:Fraunces,Georgia,serif;font-weight:500;font-size:24px;line-height:1.2;color:var(--tinta)">Por que o canvas é markdown</div>
+            <div style="margin-top:16px;font-size:15px;line-height:1.55">Ver <a href="#" style="color:var(--musgo);text-decoration:none">[[Projetos/Arquitetura]]</a> e <a href="#" style="color:var(--musgo);text-decoration:none">[[Backend]]</a>, mas ainda falta <a href="#" style="color:var(--bordo);text-decoration:underline;text-decoration-style:dashed">[[Sincronização]]</a>.</div>
+            <div style="margin-top:24px;font-family:Fraunces,Georgia,serif;font-weight:500;font-size:19px;color:var(--tinta)">Consequências</div>
+            <ul style="margin:12px 0 0;padding-left:18px;font-size:15px;line-height:1.55">
+              <li>O desenho vira parte do texto, não um anexo</li>
+              <li>O link para um bloco funciona nos dois sentidos</li>
+              <li>A busca cobre nota e desenho ao mesmo tempo</li>
+            </ul>
+            <div style="margin-top:20px;font-family:'IBM Plex Mono',monospace;font-size:11px;font-weight:500;letter-spacing:0.09em;text-transform:uppercase;color:var(--tinta-suave)">ARQUITETURA.EXCALIDRAW.MD</div>
+            <div style="margin-top:6px;width:100%;height:300px;background:var(--papel);border:1px solid var(--regua);border-radius:3px;position:relative;overflow:hidden;background-image:radial-gradient(var(--regua) 1px, transparent 1px);background-size:20px 20px">
+              <div style="position:absolute;left:40px;top:60px;width:120px;height:56px;border:1px solid var(--tinta);border-radius:4px;transform:rotate(-1deg);display:flex;align-items:center;justify-content:center;font-size:13px;color:var(--tinta);background:var(--papel)">Editor</div>
+              <div style="position:absolute;left:240px;top:60px;width:120px;height:56px;border:1px solid var(--tinta);border-radius:4px;transform:rotate(0.6deg);display:flex;align-items:center;justify-content:center;font-size:13px;color:var(--tinta);background:var(--papel)">Índice</div>
+              <div style="position:absolute;left:140px;top:180px;width:120px;height:56px;border:1px solid var(--musgo);border-radius:4px;transform:rotate(-0.5deg);display:flex;align-items:center;justify-content:center;font-size:13px;color:var(--musgo);background:var(--papel)">Vault</div>
+              <div style="position:absolute;left:160px;top:88px;width:80px;height:1px;background:var(--tinta);transform:rotate(2deg)"></div>
+              <div style="position:absolute;left:198px;top:118px;width:1px;height:60px;background:var(--tinta)"></div>
+            </div>
+            <div style="margin-top:20px;font-size:15px;line-height:1.55">A decisão principal foi manter <span style="background:rgba(211,168,69,0.22)">tudo em arquivos de texto simples</span>, sem banco de dados próprio.</div>
+            <div style="margin-top:12px;font-size:13px;font-family:'IBM Plex Mono',monospace;background:var(--lavagem);border:1px solid var(--regua);border-radius:3px;padding:12px 14px;color:var(--tinta)">vault.watch("**/*.md")<br>&nbsp;&nbsp;.on("change", reindex)</div>
+            <div style="margin-top:20px;font-size:15px;line-height:1.55">
+              <span style="color:var(--tinta-suave)">**</span><span style="font-weight:600;color:var(--tinta)">decisão</span><span style="color:var(--tinta-suave)">**</span> tomada em 28/08.<span style="display:inline-block;width:2px;height:16px;background:var(--tinta);margin-left:2px;vertical-align:middle;animation:ex-blink 1s step-end infinite"></span>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div style="height:24px;flex-shrink:0;display:flex;align-items:center;justify-content:space-between;padding:0 14px;background:var(--superficie);border-top:1px solid var(--regua)">
+    <span style="font-family:'IBM Plex Mono',monospace;font-size:11px;font-weight:500;letter-spacing:0.09em;text-transform:uppercase;color:var(--tinta-suave)">PROJETOS/ARQUITETURA.MD</span>
+    <span style="font-family:'IBM Plex Mono',monospace;font-size:11px;font-weight:500;letter-spacing:0.09em;text-transform:uppercase;color:var(--tinta-suave)">1 240 PALAVRAS&nbsp;&nbsp;&nbsp;SALVO</span>
+  </div>
+</div>
+</div>
+
+
+<div style="display:flex;flex-direction:column;gap:10px">
+<div style="font-family:'IBM Plex Mono',monospace;font-size:11px;font-weight:500;letter-spacing:0.09em;text-transform:uppercase;color:#4A443C">10 — Canvas de desenho, tema escuro</div>
+<div class="ex-board" style="--papel:#16140F;--superficie:#1F1C16;--lavagem:#272319;--regua:#34302A;--regua-forte:#6E675C;--tinta:#EFEAE0;--tinta-media:#BDB6A9;--tinta-suave:#9A9384;--musgo:#86A98B;--ocre:#D3A845;--bordo:#C97B69;width:1440px;height:900px;background:var(--papel);position:relative;display:flex;flex-direction:column;box-shadow:0 24px 60px -16px rgba(0,0,0,0.7)">
+
+  <div style="height:38px;flex-shrink:0;display:flex;align-items:center;justify-content:space-between;padding:0 14px">
+    <div style="display:flex;flex-direction:column;gap:3px">
+      <span style="font-family:Fraunces,Georgia,serif;font-weight:600;font-size:16px;color:var(--tinta)">Excalisidian</span>
+      <div style="width:42%;height:2px;background:var(--musgo)"></div>
+    </div>
+    <div style="display:flex;gap:16px;align-items:center">
+      <div style="width:11px;height:1px;background:var(--tinta-media)"></div>
+      <div style="width:10px;height:10px;border:1px solid var(--tinta-media)"></div>
+      <div style="position:relative;width:10px;height:10px">
+        <div style="position:absolute;top:5px;left:0;width:10px;height:1px;background:var(--tinta-media);transform:rotate(45deg)"></div>
+        <div style="position:absolute;top:5px;left:0;width:10px;height:1px;background:var(--tinta-media);transform:rotate(-45deg)"></div>
+      </div>
+    </div>
+  </div>
+
+  <div style="flex:1;display:flex;overflow:hidden">
+    <div style="width:264px;flex-shrink:0;background:var(--superficie);border-right:1px solid var(--regua);display:flex;flex-direction:column">
+      <div style="height:40px;flex-shrink:0;display:flex;align-items:center;gap:10px;padding:0 12px;border-bottom:1px solid var(--regua)">
+        <i data-lucide="file-plus" width="15" height="15" color="var(--tinta-media)" stroke-width="1.5"></i>
+        <i data-lucide="square-pen" width="15" height="15" color="var(--tinta-media)" stroke-width="1.5"></i>
+        <i data-lucide="folder-plus" width="15" height="15" color="var(--tinta-media)" stroke-width="1.5"></i>
+        <i data-lucide="arrow-up-narrow-wide" width="15" height="15" color="var(--tinta-media)" stroke-width="1.5"></i>
+      </div>
+      <div style="flex:1;padding:6px 0;overflow:auto">
+        <div style="display:flex;align-items:center;gap:6px;height:30px;padding-left:12px;color:var(--tinta-media);font-size:13px">
+          <i data-lucide="chevron-down" width="13" height="13" color="var(--tinta-suave)" stroke-width="1.5"></i>
+          <i data-lucide="folder-open" width="15" height="15" color="var(--tinta-media)" stroke-width="1.5"></i>
+          <span>Projetos</span>
+        </div>
+        <div style="display:flex;align-items:center;gap:6px;height:30px;padding-left:28px;color:var(--tinta-media);font-size:13px">
+          <i data-lucide="file-text" width="15" height="15" color="var(--tinta-media)" stroke-width="1.5"></i>
+          <span>Excalisidian.md</span>
+        </div>
+        <div style="position:relative;display:flex;align-items:center;gap:6px;height:30px;padding-left:28px;background:var(--lavagem);color:var(--tinta);font-size:13px">
+          <div style="position:absolute;left:0;top:0;bottom:0;width:2px;background:var(--musgo)"></div>
+          <i data-lucide="pen-line" width="15" height="15" color="var(--musgo)" stroke-width="1.5"></i>
+          <span>Arquitetura.excalidraw.md</span>
+        </div>
+        <div style="display:flex;align-items:center;gap:6px;height:30px;padding-left:28px;color:var(--tinta-media);font-size:13px">
+          <i data-lucide="file-text" width="15" height="15" color="var(--tinta-media)" stroke-width="1.5"></i>
+          <span>Backend.md</span>
+        </div>
+      </div>
+      <div style="height:36px;flex-shrink:0;display:flex;align-items:center;gap:16px;padding:0 12px;border-top:1px solid var(--regua)">
+        <i data-lucide="search" width="15" height="15" color="var(--tinta-suave)" stroke-width="1.5"></i>
+        <i data-lucide="corner-down-left" width="15" height="15" color="var(--tinta-suave)" stroke-width="1.5"></i>
+        <i data-lucide="trash-2" width="15" height="15" color="var(--tinta-suave)" stroke-width="1.5"></i>
+        <i data-lucide="settings" width="15" height="15" color="var(--tinta-suave)" stroke-width="1.5"></i>
+      </div>
+    </div>
+
+    <div style="flex:1;display:flex;flex-direction:column;overflow:hidden">
+      <div style="height:34px;flex-shrink:0;display:flex;background:var(--lavagem)">
+        <div style="display:flex;align-items:center;gap:6px;padding:0 12px;background:var(--superficie);border-right:1px solid var(--regua);font-size:13px;color:var(--tinta)">
+          <i data-lucide="pen-line" width="14" height="14" color="var(--tinta-media)" stroke-width="1.5"></i>
+          <span>Arquitetura.excalidraw.md</span>
+        </div>
+      </div>
+      <div style="flex:1;display:flex;overflow:hidden;position:relative">
+        <div style="width:216px;flex-shrink:0;background:var(--superficie);border-right:1px solid var(--regua);overflow:auto">
+          <div style="padding:12px;border-bottom:1px solid var(--regua)">
+            <div style="font-family:'IBM Plex Mono',monospace;font-size:11px;font-weight:500;letter-spacing:0.09em;text-transform:uppercase;color:var(--tinta-suave);margin-bottom:8px">Traço</div>
+            <div style="display:flex;gap:8px">
+              <div style="width:24px;height:24px;border-radius:2px;background:#EFEAE0;border-bottom:2px solid var(--musgo);position:relative;top:2px"></div>
+              <div style="width:24px;height:24px;border-radius:2px;background:#86A98B"></div>
+              <div style="width:24px;height:24px;border-radius:2px;background:#D3A845"></div>
+              <div style="width:24px;height:24px;border-radius:2px;background:#C97B69"></div>
+              <div style="width:24px;height:24px;border-radius:2px;background:#9A9384"></div>
+            </div>
+          </div>
+          <div style="padding:12px;border-bottom:1px solid var(--regua)">
+            <div style="font-family:'IBM Plex Mono',monospace;font-size:11px;font-weight:500;letter-spacing:0.09em;text-transform:uppercase;color:var(--tinta-suave);margin-bottom:8px">Preenchimento</div>
+            <div style="display:flex;gap:8px">
+              <div style="width:24px;height:24px;border-radius:2px;border:1px solid var(--regua-forte);background-image:linear-gradient(45deg,var(--lavagem) 25%,transparent 25%,transparent 75%,var(--lavagem) 75%);background-size:6px 6px"></div>
+              <div style="width:24px;height:24px;border-radius:2px;background:#272319"></div>
+              <div style="width:24px;height:24px;border-radius:2px;background:#2C3A2F"></div>
+              <div style="width:24px;height:24px;border-radius:2px;background:#3D3323"></div>
+              <div style="width:24px;height:24px;border-radius:2px;background:#3A2823"></div>
+            </div>
+          </div>
+          <div style="padding:12px;border-bottom:1px solid var(--regua)">
+            <div style="font-family:'IBM Plex Mono',monospace;font-size:11px;font-weight:500;letter-spacing:0.09em;text-transform:uppercase;color:var(--tinta-suave);margin-bottom:8px">Espessura</div>
+            <div style="display:flex;gap:8px">
+              <div style="width:36px;height:28px;border:1px solid var(--regua-forte);border-radius:2px;display:flex;align-items:center;justify-content:center"><div style="width:16px;height:1px;background:var(--tinta)"></div></div>
+              <div style="width:36px;height:28px;border:1px solid var(--regua-forte);border-radius:2px;display:flex;align-items:center;justify-content:center"><div style="width:16px;height:2px;background:var(--tinta)"></div></div>
+              <div style="width:36px;height:28px;border:1px solid var(--regua-forte);border-radius:2px;display:flex;align-items:center;justify-content:center"><div style="width:16px;height:4px;background:var(--tinta)"></div></div>
+            </div>
+          </div>
+          <div style="padding:12px;border-bottom:1px solid var(--regua)">
+            <div style="font-family:'IBM Plex Mono',monospace;font-size:11px;font-weight:500;letter-spacing:0.09em;text-transform:uppercase;color:var(--tinta-suave);margin-bottom:8px">Ações</div>
+            <div style="display:flex;gap:10px">
+              <i data-lucide="copy" width="16" height="16" color="var(--tinta-media)" stroke-width="1.5"></i>
+              <i data-lucide="group" width="16" height="16" color="var(--tinta-media)" stroke-width="1.5"></i>
+              <i data-lucide="lock" width="16" height="16" color="var(--tinta-media)" stroke-width="1.5"></i>
+              <i data-lucide="trash-2" width="16" height="16" color="#C97B69" stroke-width="1.5"></i>
+            </div>
+          </div>
+        </div>
+
+        <div style="flex:1;position:relative;background:var(--papel);background-image:radial-gradient(var(--regua) 1px, transparent 1px);background-size:20px 20px;opacity:1;overflow:hidden">
+          <div style="position:absolute;top:16px;left:50%;transform:translateX(-50%);display:flex;align-items:center;gap:2px;background:var(--superficie);border:1px solid var(--regua);border-radius:3px;box-shadow:0 24px 60px -16px rgba(0,0,0,0.7);padding:4px">
+            <div style="display:flex;gap:2px;padding-right:6px;border-right:1px solid var(--regua)">
+              <div style="width:32px;height:32px;display:flex;align-items:center;justify-content:center;position:relative"><i data-lucide="mouse-pointer-2" width="18" height="18" color="var(--tinta-media)" stroke-width="1.5"></i><span style="position:absolute;bottom:1px;right:2px;font-family:'IBM Plex Mono',monospace;font-size:9px;font-weight:500;color:var(--tinta-suave)">V</span></div>
+              <div style="width:32px;height:32px;display:flex;align-items:center;justify-content:center;position:relative"><i data-lucide="hand" width="18" height="18" color="var(--tinta-media)" stroke-width="1.5"></i><span style="position:absolute;bottom:1px;right:2px;font-family:'IBM Plex Mono',monospace;font-size:9px;font-weight:500;color:var(--tinta-suave)">H</span></div>
+            </div>
+            <div style="display:flex;gap:2px;padding:0 6px;border-right:1px solid var(--regua)">
+              <div style="width:32px;height:32px;display:flex;align-items:center;justify-content:center;position:relative"><i data-lucide="square" width="18" height="18" color="var(--tinta-media)" stroke-width="1.5"></i><span style="position:absolute;bottom:1px;right:2px;font-family:'IBM Plex Mono',monospace;font-size:9px;font-weight:500;color:var(--tinta-suave)">R</span></div>
+              <div style="width:32px;height:32px;display:flex;align-items:center;justify-content:center;position:relative"><i data-lucide="diamond" width="18" height="18" color="var(--tinta-media)" stroke-width="1.5"></i><span style="position:absolute;bottom:1px;right:2px;font-family:'IBM Plex Mono',monospace;font-size:9px;font-weight:500;color:var(--tinta-suave)">D</span></div>
+              <div style="width:32px;height:32px;display:flex;align-items:center;justify-content:center;position:relative"><i data-lucide="circle" width="18" height="18" color="var(--tinta-media)" stroke-width="1.5"></i><span style="position:absolute;bottom:1px;right:2px;font-family:'IBM Plex Mono',monospace;font-size:9px;font-weight:500;color:var(--tinta-suave)">O</span></div>
+              <div style="width:32px;height:32px;display:flex;align-items:center;justify-content:center;position:relative;background:var(--musgo);border-radius:2px"><i data-lucide="move-right" width="18" height="18" color="var(--superficie)" stroke-width="1.5"></i><span style="position:absolute;bottom:1px;right:2px;font-family:'IBM Plex Mono',monospace;font-size:9px;font-weight:500;color:var(--superficie)">A</span></div>
+              <div style="width:32px;height:32px;display:flex;align-items:center;justify-content:center;position:relative"><i data-lucide="minus" width="18" height="18" color="var(--tinta-media)" stroke-width="1.5"></i><span style="position:absolute;bottom:1px;right:2px;font-family:'IBM Plex Mono',monospace;font-size:9px;font-weight:500;color:var(--tinta-suave)">L</span></div>
+              <div style="width:32px;height:32px;display:flex;align-items:center;justify-content:center;position:relative"><i data-lucide="pencil" width="18" height="18" color="var(--tinta-media)" stroke-width="1.5"></i><span style="position:absolute;bottom:1px;right:2px;font-family:'IBM Plex Mono',monospace;font-size:9px;font-weight:500;color:var(--tinta-suave)">P</span></div>
+            </div>
+            <div style="display:flex;gap:2px;padding-left:6px">
+              <div style="width:32px;height:32px;display:flex;align-items:center;justify-content:center;position:relative"><i data-lucide="type" width="18" height="18" color="var(--tinta-media)" stroke-width="1.5"></i><span style="position:absolute;bottom:1px;right:2px;font-family:'IBM Plex Mono',monospace;font-size:9px;font-weight:500;color:var(--tinta-suave)">T</span></div>
+              <div style="width:32px;height:32px;display:flex;align-items:center;justify-content:center;position:relative"><i data-lucide="sticky-note" width="18" height="18" color="var(--tinta-media)" stroke-width="1.5"></i><span style="position:absolute;bottom:1px;right:2px;font-family:'IBM Plex Mono',monospace;font-size:9px;font-weight:500;color:var(--tinta-suave)">S</span></div>
+              <div style="width:32px;height:32px;display:flex;align-items:center;justify-content:center;position:relative"><i data-lucide="image" width="18" height="18" color="var(--tinta-media)" stroke-width="1.5"></i><span style="position:absolute;bottom:1px;right:2px;font-family:'IBM Plex Mono',monospace;font-size:9px;font-weight:500;color:var(--tinta-suave)">9</span></div>
+              <div style="width:32px;height:32px;display:flex;align-items:center;justify-content:center;position:relative"><i data-lucide="eraser" width="18" height="18" color="var(--tinta-media)" stroke-width="1.5"></i><span style="position:absolute;bottom:1px;right:2px;font-family:'IBM Plex Mono',monospace;font-size:9px;font-weight:500;color:var(--tinta-suave)">E</span></div>
+            </div>
+          </div>
+
+          <div style="position:absolute;left:90px;top:150px;width:150px;height:70px;border:1.5px solid var(--tinta);border-radius:6px;transform:rotate(-1deg);display:flex;align-items:center;justify-content:center;font-size:14px;color:var(--tinta)">Editor</div>
+          <div style="position:absolute;left:360px;top:130px;width:150px;height:70px;border:1.5px solid var(--tinta);border-radius:6px;transform:rotate(0.8deg);display:flex;align-items:center;justify-content:center;font-size:14px;color:var(--tinta)">Índice</div>
+          <div style="position:absolute;left:230px;top:320px;width:150px;height:70px;border:1.5px solid var(--musgo);border-radius:999px;transform:rotate(-0.6deg);display:flex;align-items:center;justify-content:center;font-size:14px;color:var(--musgo)">Watcher</div>
+          <div style="position:absolute;left:240px;top:185px;width:120px;height:0;border-top:1.5px solid var(--tinta);transform:rotate(10deg)"></div>
+          <div style="position:absolute;left:352px;top:210px;width:0;height:0;border:5px solid transparent;border-left-color:var(--tinta);transform:rotate(10deg)"></div>
+          <div style="position:absolute;left:260px;top:220px;font-size:11px;font-family:'IBM Plex Mono',monospace;color:var(--tinta-suave);text-transform:uppercase;letter-spacing:0.09em">escreve</div>
+          <div style="position:absolute;left:165px;top:216px;width:0;height:96px;border-left:1.5px solid var(--musgo)"></div>
+          <div style="position:absolute;left:295px;top:196px;width:0;height:120px;border-left:1.5px solid var(--musgo)"></div>
+
+          <div style="position:absolute;left:560px;top:120px;width:150px;height:110px;background:#4A3E28;border:1px solid #4A3E28;border-radius:2px;transform:rotate(1.2deg);padding:10px;font-size:13px;color:var(--tinta);box-shadow:0 8px 20px -6px rgba(0,0,0,0.55)">decidir: comprimir JSON?</div>
+          <div style="position:absolute;left:560px;top:250px;width:150px;height:110px;background:#2F4034;border:1px solid #2F4034;border-radius:2px;transform:rotate(-1deg);padding:10px;font-size:13px;color:var(--tinta);box-shadow:0 8px 20px -6px rgba(0,0,0,0.55)">testar 500 elementos</div>
+
+          <div style="position:absolute;left:90px;top:270px;display:flex;align-items:center;gap:5px;font-size:14px;color:var(--musgo)">
+            <i data-lucide="link" width="13" height="13" color="var(--musgo)" stroke-width="1.5"></i>
+            <span>[[Projetos/Backend]]</span>
+          </div>
+
+          <div style="position:absolute;left:770px;top:130px;width:180px;height:130px;border:1.5px solid var(--tinta);background:repeating-linear-gradient(45deg,var(--regua) 0,var(--regua) 1px,transparent 1px,transparent 8px);display:flex;align-items:center;justify-content:center">
+            <span style="font-family:'IBM Plex Mono',monospace;font-size:11px;letter-spacing:0.06em;text-transform:uppercase;color:var(--tinta-media);background:var(--papel);padding:2px 6px">imagem colada</span>
+          </div>
+
+          <div style="position:absolute;left:90px;top:150px;width:150px;height:70px;border:1px solid var(--musgo);transform:rotate(-1deg)">
+            <div style="position:absolute;width:8px;height:8px;background:var(--musgo);top:-4px;left:-4px"></div>
+            <div style="position:absolute;width:8px;height:8px;background:var(--musgo);top:-4px;right:-4px"></div>
+            <div style="position:absolute;width:8px;height:8px;background:var(--musgo);top:-4px;left:calc(50% - 4px)"></div>
+            <div style="position:absolute;width:8px;height:8px;background:var(--musgo);bottom:-4px;left:-4px"></div>
+            <div style="position:absolute;width:8px;height:8px;background:var(--musgo);bottom:-4px;right:-4px"></div>
+            <div style="position:absolute;width:8px;height:8px;background:var(--musgo);bottom:-4px;left:calc(50% - 4px)"></div>
+            <div style="position:absolute;width:8px;height:8px;background:var(--musgo);top:calc(50% - 4px);left:-4px"></div>
+            <div style="position:absolute;width:8px;height:8px;background:var(--musgo);top:calc(50% - 4px);right:-4px"></div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div style="height:24px;flex-shrink:0;display:flex;align-items:center;justify-content:space-between;padding:0 14px;background:var(--superficie);border-top:1px solid var(--regua)">
+    <span style="font-family:'IBM Plex Mono',monospace;font-size:11px;font-weight:500;letter-spacing:0.09em;text-transform:uppercase;color:var(--tinta-suave)">PROJETOS/ARQUITETURA.EXCALIDRAW.MD</span>
+    <span style="font-family:'IBM Plex Mono',monospace;font-size:11px;font-weight:500;letter-spacing:0.09em;text-transform:uppercase;color:var(--tinta-suave)">SALVO</span>
+  </div>
+</div>
+</div>
+
+</div>
+</div>
+
+</x-dc>
+<script type="text/x-dc" data-dc-script>
+class Component extends DCLogic {
+  componentDidMount() {
+    if (window.lucide) window.lucide.createIcons();
+  }
+  renderVals() { return {}; }
+}
+</script>
+</body>
+</html>

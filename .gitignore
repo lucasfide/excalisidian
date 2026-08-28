@@ -1,0 +1,31 @@
+# Dependências
+node_modules
+dist
+dist-ssr
+*.local
+
+# Tauri / Rust
+src-tauri/target
+src-tauri/gen/schemas
+
+# Assets do Excalidraw copiados por postinstall (regenerados a cada npm install)
+/public/Assistant
+/public/Cascadia
+/public/ComicShanns
+/public/Excalifont
+/public/Liberation
+/public/Lilita
+/public/Nunito
+/public/Virgil
+/public/Xiaolai
+
+# Logs
+logs
+*.log
+npm-debug.log*
+
+# Editor
+.vscode/*
+!.vscode/extensions.json
+.idea
+.DS_Store

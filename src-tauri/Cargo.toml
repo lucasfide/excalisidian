@@ -1,0 +1,23 @@
+[package]
+name = "excalisidian"
+version = "0.1.0"
+description = "Excalisidian"
+authors = ["Lucas Fidelis de Cristo"]
+edition = "2021"
+
+[lib]
+# O sufixo `_lib` evita conflito com o nome do binário no Windows (rust-lang/cargo#8519).
+name = "excalisidian_lib"
+crate-type = ["staticlib", "cdylib", "rlib"]
+
+[build-dependencies]
+tauri-build = { version = "2", features = [] }
+
+[dependencies]
+tauri = { version = "2", features = [] }
+tauri-plugin-fs = { version = "2", features = ["watch"] }
+tauri-plugin-dialog = "2"
+tauri-plugin-store = "2"
+serde = { version = "1", features = ["derive"] }
+serde_json = "1"
+walkdir = "2"

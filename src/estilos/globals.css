@@ -1,0 +1,141 @@
+@import "tailwindcss";
+
+@custom-variant dark (&:where(.dark, .dark *));
+
+/* Fontes empacotadas com o app. Nada de CDN — RNF5. */
+@font-face {
+  font-family: "Fraunces";
+  src: url("/fontes/Fraunces.woff2") format("woff2-variations");
+  font-weight: 400 700;
+  font-display: block;
+}
+@font-face {
+  font-family: "Instrument Sans";
+  src: url("/fontes/InstrumentSans.woff2") format("woff2-variations");
+  font-weight: 400 600;
+  font-display: block;
+}
+@font-face {
+  font-family: "IBM Plex Mono";
+  src: url("/fontes/IBMPlexMono-Regular.woff2") format("woff2");
+  font-weight: 400;
+  font-display: block;
+}
+@font-face {
+  font-family: "IBM Plex Mono";
+  src: url("/fontes/IBMPlexMono-Medium.woff2") format("woff2");
+  font-weight: 500;
+  font-display: block;
+}
+
+:root {
+  --fonte-display: "Fraunces", Georgia, serif;
+  --fonte-sans: "Instrument Sans", system-ui, sans-serif;
+  --fonte-mono: "IBM Plex Mono", ui-monospace, monospace;
+}
+
+@theme {
+  /* --- Tokens de interface (tema claro: Papel) --- */
+  --color-papel: #efeae1;
+  --color-superficie: #fbf9f5;
+  --color-lavagem: #e5dfd4;
+  --color-regua: #dcd5c8;
+  --color-regua-forte: #8c8578;
+  --color-tinta: #1c1917;
+  --color-tinta-media: #4a443c;
+  --color-tinta-suave: #655e54;
+  --color-musgo: #3e5c46;
+  --color-ocre: #a87a1c;
+  --color-ocre-tinta: #7a5610;
+  --color-bordo: #7a2e22;
+
+  --radius-ficha: 3px;
+  --radius-controle: 2px;
+  --radius-pilula: 999px;
+
+  --shadow-ficha: 0 8px 20px -8px rgb(28 25 23 / 0.25);
+  --shadow-sobreposicao: 0 24px 60px -20px rgb(28 25 23 / 0.35);
+
+  --font-display: var(--fonte-display);
+  --font-sans: var(--fonte-sans);
+  --font-mono: var(--fonte-mono);
+
+  --ease-caderno: cubic-bezier(0.2, 0.7, 0.3, 1);
+
+  /* --- Tokens do canvas (tema claro) --- */
+  --color-traco-tinta: #1c1917;
+  --color-traco-musgo: #3e5c46;
+  --color-traco-ocre: #a87a1c;
+  --color-traco-bordo: #7a2e22;
+  --color-traco-suave: #655e54;
+
+  --color-fundo-neutro: #e5dfd4;
+  --color-fundo-musgo: #cfdbd1;
+  --color-fundo-ocre: #eddcb4;
+  --color-fundo-bordo: #e7cec8;
+
+  --color-postit-ocre: #eddcb4;
+  --color-postit-musgo: #cfdbd1;
+  --color-postit-bordo: #e7cec8;
+  --color-postit-neutro: #e5dfd4;
+}
+
+.dark {
+  /* --- Tokens de interface (tema escuro: Tinta) --- */
+  --color-papel: #16140f;
+  --color-superficie: #1f1c16;
+  --color-lavagem: #272319;
+  --color-regua: #34302a;
+  --color-regua-forte: #6e675c;
+  --color-tinta: #efeae0;
+  --color-tinta-media: #bdb6a9;
+  --color-tinta-suave: #9a9384;
+  --color-musgo: #86a98b;
+  --color-ocre: #d3a845;
+  --color-ocre-tinta: #d3a845;
+  --color-bordo: #c97b69;
+
+  --shadow-ficha: 0 8px 20px -6px rgb(0 0 0 / 0.55);
+  --shadow-sobreposicao: 0 24px 60px -16px rgb(0 0 0 / 0.7);
+
+  /* --- Tokens do canvas (tema escuro) --- */
+  --color-traco-tinta: #efeae0;
+  --color-traco-musgo: #86a98b;
+  --color-traco-ocre: #d3a845;
+  --color-traco-bordo: #c97b69;
+  --color-traco-suave: #9a9384;
+
+  --color-fundo-neutro: #272319;
+  --color-fundo-musgo: #2c3a2f;
+  --color-fundo-ocre: #3d3323;
+  --color-fundo-bordo: #3a2823;
+
+  --color-postit-ocre: #4a3e28;
+  --color-postit-musgo: #2f4034;
+  --color-postit-bordo: #4a2f28;
+  --color-postit-neutro: #312c22;
+}
+
+@layer base {
+  body {
+    background-color: var(--color-papel);
+    color: var(--color-tinta);
+    font-family: var(--font-sans);
+    font-size: 15px;
+    line-height: 1.55;
+    overflow: hidden;
+  }
+  :focus-visible {
+    outline: 2px solid var(--color-musgo);
+    outline-offset: 2px;
+  }
+}
+
+@utility meta {
+  font-family: var(--font-mono);
+  font-size: 11px;
+  font-weight: 500;
+  line-height: 1;
+  letter-spacing: 0.09em;
+  text-transform: uppercase;
+}
