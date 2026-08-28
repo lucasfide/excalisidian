@@ -1,21 +1,16 @@
-// Editor de nota (Fatia 1): CodeMirror 6 com markdown básico, quebra de linha, histórico e
-// os atalhos padrão. Live preview e a marginália entram na Fatia 2.
+// Editor de nota (Fatia 2): live preview inline estilo Obsidian.
 //
-// O componente é não-controlado por dentro: recria o documento só quando `caminho` muda
-// (troca de arquivo). Edições do usuário sobem por `onEditar`; o autosave é do pai.
+// O motor de live preview é o @atomic-editor/editor 0.6.2, copiado para src/editor/atomico/
+// (ver o LEIA-ME de lá). O contrato com o resto do app é o mesmo da Fatia 1, então
+// useAutosave, vaultStore e BarraStatus seguem sem alteração.
 
-import { useEffect, useRef } from "react";
-import { EditorState } from "@codemirror/state";
-import { EditorView, keymap, drawSelection } from "@codemirror/view";
+import { useRef } from "react";
 import {
-  defaultKeymap,
-  history,
-  historyKeymap,
-  indentWithTab,
-} from "@codemirror/commands";
-import { markdown } from "@codemirror/lang-markdown";
-
-import { temaEditor, realceEditor } from "./extensoes/tema";
+  AtomicCodeMirrorEditor,
+  type AtomicCodeMirrorEditorHandle,
+} from "./atomico";
+import { ATOMIC_CODE_LANGUAGES } from "./atomico/code-languages";
+import "./atomico/styles/inline-preview.css";
 
 interface Props {
   caminho: string;
@@ -30,50 +25,18 @@ export default function EditorNota({
   onEditar,
   onBlur,
 }: Props) {
-  const hostRef = useRef<HTMLDivElement | null>(null);
-  const viewRef = useRef<EditorView | null>(null);
-  const onEditarRef = useRef(onEditar);
-  const onBlurRef = useRef(onBlur);
-  onEditarRef.current = onEditar;
-  onBlurRef.current = onBlur;
+  const handleRef = useRef<AtomicCodeMirrorEditorHandle | null>(null);
 
-  useEffect(() => {
-    if (!hostRef.current) return;
-
-    const view = new EditorView({
-      parent: hostRef.current,
-      state: EditorState.create({
-        doc: conteudoInicial,
-        extensions: [
-          history(),
-          drawSelection(),
-          EditorView.lineWrapping,
-          markdown(),
-          temaEditor,
-          realceEditor,
-          keymap.of([...defaultKeymap, ...historyKeymap, indentWithTab]),
-          EditorView.updateListener.of((u) => {
-            if (u.docChanged) onEditarRef.current(u.state.doc.toString());
-          }),
-          EditorView.domEventHandlers({
-            blur: () => {
-              onBlurRef.current();
-              return false;
-            },
-          }),
-        ],
-      }),
-    });
-    viewRef.current = view;
-    view.focus();
-
-    return () => {
-      view.destroy();
-      viewRef.current = null;
-    };
-    // Recria só ao trocar de arquivo. O conteúdo inicial é lido uma vez na criação.
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [caminho]);
-
-  return <div ref={hostRef} className="h-full overflow-hidden" />;
+  return (
+    // O blur borbulha (focusout); serve para o flush do autosave ao sair do editor.
+    <div className="h-full overflow-hidden" onBlur={onBlur}>
+      <AtomicCodeMirrorEditor
+        documentId={caminho}
+        markdownSource={conteudoInicial}
+        onMarkdownChange={onEditar}
+        editorHandleRef={handleRef}
+        codeLanguages={ATOMIC_CODE_LANGUAGES}
+      />
+    </div>
+  );
 }
