@@ -3,13 +3,16 @@
 // verdade aqui, mas ainda sem marginália (Fatia 2), abas (Fatia 4) nem watcher (Fatia 5).
 
 import { useCallback, useEffect, useState } from "react";
+import { Toaster, toast } from "sonner";
 
 import { TauriVaultAdapter } from "../vault/TauriVaultAdapter";
 import { useVaultStore } from "../estado/vaultStore";
+import { renomearArquivo } from "../vault/renomear";
 import { useAutosave } from "../editor/useAutosave";
 import EditorNota from "../editor/EditorNota";
 import ArvoreArquivos from "../ui/excalisidian/ArvoreArquivos";
 import BarraStatus from "../ui/excalisidian/BarraStatus";
+import PainelBacklinks from "../ui/excalisidian/PainelBacklinks";
 
 type Tema = "sistema" | "claro" | "escuro";
 
@@ -57,6 +60,14 @@ export default function App() {
     return () => {
       ativo = false;
     };
+  }, []);
+
+  const renomear = useCallback(async (path: string) => {
+    const atual = path.slice(path.lastIndexOf("/") + 1).replace(/\.(draw\.)?md$/i, "");
+    const novo = window.prompt("Novo nome:", atual);
+    if (!novo || novo === atual) return;
+    const r = await renomearArquivo(path, novo);
+    if (!r.ok) toast.error(r.motivo ?? "Não foi possível renomear.");
   }, []);
 
   const escolher = useCallback(async () => {
@@ -136,9 +147,16 @@ export default function App() {
                 caminhoAberto={store.caminhoAberto}
                 onAlternarPasta={store.alternarPasta}
                 onAbrirArquivo={store.abrirArquivo}
+                onRenomear={renomear}
               />
             )}
           </div>
+          <PainelBacklinks />
+          {store.statusIndice === "indexando" && (
+            <div className="border-t border-regua px-3 py-1">
+              <span className="meta text-tinta-suave">reindexando…</span>
+            </div>
+          )}
         </aside>
 
         <main className="min-h-0 flex-1">
@@ -165,6 +183,19 @@ export default function App() {
         caminho={store.caminhoAberto}
         conteudo={store.conteudoEditor}
         estado={store.estadoSalvamento}
+      />
+      <Toaster
+        position="bottom-right"
+        toastOptions={{
+          style: {
+            background: "var(--color-superficie)",
+            color: "var(--color-tinta)",
+            border: "1px solid var(--color-regua)",
+            borderRadius: "var(--radius-ficha)",
+            fontFamily: "var(--fonte-sans)",
+            fontSize: "13px",
+          },
+        }}
       />
     </div>
   );

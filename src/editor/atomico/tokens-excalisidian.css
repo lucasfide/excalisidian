@@ -98,10 +98,21 @@
   border-left-color: var(--color-regua);
 }
 
-/* Link não resolvido: `bordo` com sublinhado tracejado (doc 06). O estado é aplicado pelo
- * wiki-links a partir da Fatia 3; a regra fica pronta aqui. */
-.atomic-cm-editor .cm-atomic-wiki-link[data-status="missing"],
-.atomic-cm-editor .cm-atomic-wiki-link[data-status="unresolved"] {
+/* Wikilinks (doc 06). Resolvido: `musgo`, sem sublinhado, sublinhado só no hover.
+ * Não resolvido: `bordo`, sublinhado tracejado. */
+.atomic-cm-editor .cm-atomic-wiki-link {
+  text-decoration: none;
+}
+.atomic-cm-editor .cm-atomic-wiki-link:hover {
+  text-decoration: underline;
+  text-decoration-thickness: 1px;
+  text-underline-offset: 0.15em;
+}
+.atomic-cm-editor .cm-atomic-wiki-link-missing,
+.atomic-cm-editor .cm-atomic-wiki-link-unresolved {
   color: var(--color-bordo);
-  text-decoration: underline dashed 1px;
+  text-decoration: underline;
+  text-decoration-style: dashed;
+  text-decoration-thickness: 1px;
+  text-underline-offset: 0.15em;
 }

@@ -51,6 +51,8 @@ interface Props {
   caminhoAberto: string | null;
   onAlternarPasta(path: string): void;
   onAbrirArquivo(path: string): void;
+  /** Menu de contexto mínimo (RF4.4 completo pendente): por ora só renomear. */
+  onRenomear(path: string): void;
 }
 
 export default function ArvoreArquivos({
@@ -59,6 +61,7 @@ export default function ArvoreArquivos({
   caminhoAberto,
   onAlternarPasta,
   onAbrirArquivo,
+  onRenomear,
 }: Props) {
   const linhas = useMemo(
     () => achatar(raiz, pastasAbertas),
@@ -89,6 +92,11 @@ export default function ArvoreArquivos({
                   ? onAlternarPasta(no.path)
                   : onAbrirArquivo(no.path)
               }
+              onContextMenu={(e) => {
+                if (no.tipo === "folder") return;
+                e.preventDefault();
+                onRenomear(no.path);
+              }}
               className={`absolute left-0 flex w-full items-center gap-2 py-1 pr-2 text-left text-[13px] ${
                 ativo
                   ? "bg-lavagem text-tinta"
