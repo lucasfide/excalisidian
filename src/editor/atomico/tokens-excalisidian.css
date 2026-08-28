@@ -1,0 +1,107 @@
+/* [excalisidian] Ponte de tema entre o editor vendorizado e o design system.
+ *
+ * O pacote expõe todo o visual por variáveis `--atomic-editor-*` com fallback embutido
+ * (paleta escura). Aqui elas são redefinidas em cima dos tokens de `src/estilos/globals.css`.
+ * Os tokens do design system já trocam sozinhos com a classe `.dark` no <html>, então um
+ * único bloco cobre tema claro e escuro — não há bloco `.dark` separado.
+ *
+ * Importado DEPOIS de `styles/inline-preview.css` em EditorNota.tsx, para vencer o
+ * fallback do pacote. Nenhum valor de cor literal — só tokens (regra do CLAUDE.md).
+ */
+
+.atomic-cm-editor {
+  /* Tipografia */
+  --atomic-editor-font: var(--fonte-sans);
+  --atomic-editor-font-mono: var(--fonte-mono);
+  --atomic-editor-body-size: 15px; /* doc 06: corpo */
+  --atomic-editor-body-leading: 1.55; /* doc 06: corpo */
+  --atomic-editor-measure: 720px; /* doc 06: coluna de texto */
+  --atomic-editor-radius: var(--radius-ficha);
+
+  /* Texto */
+  --atomic-editor-fg: var(--color-tinta);
+  --atomic-editor-fg-muted: var(--color-tinta-media);
+  --atomic-editor-fg-faint: var(--color-tinta-suave); /* sintaxe markdown visível */
+
+  /* Superfícies (painel de busca, tooltip) */
+  --atomic-editor-bg: var(--color-superficie);
+  --atomic-editor-bg-panel: var(--color-superficie);
+  --atomic-editor-bg-surface: var(--color-lavagem);
+  --atomic-editor-border: var(--color-regua-forte); /* borda de controle: 3:1 */
+
+  /* Marca / interação */
+  --atomic-editor-accent: var(--color-musgo);
+  --atomic-editor-accent-bright: var(--color-tinta); /* cursor */
+  --atomic-editor-accent-soft: var(--color-regua); /* trilho de citação */
+  --atomic-editor-link: var(--color-musgo); /* link resolvido */
+  --atomic-editor-link-hover: var(--color-musgo);
+
+  /* Código */
+  --atomic-editor-code-bg: var(--color-lavagem);
+  --atomic-editor-code-rail: var(--color-regua);
+
+  /* Seleção e busca */
+  --atomic-editor-selection-bg: color-mix(in srgb, var(--color-musgo) 22%, transparent);
+  --atomic-editor-search-bg: color-mix(in srgb, var(--color-ocre) 30%, transparent);
+  --atomic-editor-search-bg-active: color-mix(in srgb, var(--color-ocre) 50%, transparent);
+  --atomic-editor-initial-reveal-bg: color-mix(in srgb, var(--color-musgo) 16%, transparent);
+  --atomic-editor-initial-reveal-bg-strong: color-mix(in srgb, var(--color-musgo) 28%, transparent);
+
+  /* Realce de código em bloco cercado. O doc 06 não define uma paleta de sintaxe;
+   * usa-se aqui as seis cores de tinta do sistema, restrição editorial de propósito. */
+  --atomic-editor-hl-keyword: var(--color-musgo);
+  --atomic-editor-hl-string: var(--color-ocre-tinta);
+  --atomic-editor-hl-number: var(--color-bordo);
+  --atomic-editor-hl-comment: var(--color-tinta-suave);
+  --atomic-editor-hl-type: var(--color-ocre-tinta);
+  --atomic-editor-hl-function: var(--color-musgo);
+  --atomic-editor-hl-property: var(--color-tinta-media);
+  --atomic-editor-hl-regexp: var(--color-bordo);
+  --atomic-editor-hl-escape: var(--color-musgo);
+  --atomic-editor-hl-tag: var(--color-bordo);
+  --atomic-editor-hl-variable: var(--color-tinta);
+  --atomic-editor-hl-operator: var(--color-tinta-media);
+  --atomic-editor-hl-invalid: var(--color-bordo);
+}
+
+/* Headings na fonte de display, nos tamanhos do doc 06 (titulo-1/2/3). O pacote define
+ * font-size em `em` e peso 700; aqui fixa-se fonte, tamanho e peso conforme a tabela
+ * "Tipografia dentro do editor". */
+.atomic-cm-editor .cm-line.cm-atomic-h1 {
+  font-family: var(--fonte-display);
+  font-size: 24px;
+  font-weight: 500;
+  line-height: 1.2;
+}
+.atomic-cm-editor .cm-line.cm-atomic-h2 {
+  font-family: var(--fonte-display);
+  font-size: 19px;
+  font-weight: 500;
+  line-height: 1.3;
+}
+.atomic-cm-editor .cm-line.cm-atomic-h3 {
+  font-family: var(--fonte-display);
+  font-size: 16px;
+  font-weight: 500;
+  line-height: 1.4;
+}
+.atomic-cm-editor .cm-line.cm-atomic-h4,
+.atomic-cm-editor .cm-line.cm-atomic-h5,
+.atomic-cm-editor .cm-line.cm-atomic-h6 {
+  font-family: var(--fonte-display);
+  font-weight: 500;
+}
+
+/* Citação: doc 06 pede borda esquerda de 2px em `regua` (o pacote usa 3px). */
+.atomic-cm-editor .cm-line.cm-atomic-blockquote {
+  border-left-width: 2px;
+  border-left-color: var(--color-regua);
+}
+
+/* Link não resolvido: `bordo` com sublinhado tracejado (doc 06). O estado é aplicado pelo
+ * wiki-links a partir da Fatia 3; a regra fica pronta aqui. */
+.atomic-cm-editor .cm-atomic-wiki-link[data-status="missing"],
+.atomic-cm-editor .cm-atomic-wiki-link[data-status="unresolved"] {
+  color: var(--color-bordo);
+  text-decoration: underline dashed 1px;
+}

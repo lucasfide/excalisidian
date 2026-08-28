@@ -1,0 +1,44 @@
+/* Marginália (doc 06). Importado depois do CSS do pacote para reativar este gutter, que o
+ * tema do pacote esconde junto com os demais. */
+
+.atomic-cm-editor .cm-gutters {
+  display: flex; /* o pacote põe display:none em todos os gutters */
+  background: transparent;
+  border: none;
+}
+
+.atomic-cm-editor .cm-gutter.cm-marginalia {
+  width: 76px;
+  /* A hairline vertical contínua que atravessa o documento inteiro. */
+  border-right: 1px solid var(--color-regua);
+}
+
+.atomic-cm-editor .cm-marginalia .cm-gutterElement {
+  padding-right: 12px;
+  text-align: right;
+}
+
+.cm-marginalia-marca {
+  font-family: var(--fonte-mono);
+  font-size: 11px;
+  font-weight: 500;
+  line-height: 1;
+  letter-spacing: 0.09em;
+  text-transform: uppercase;
+  color: var(--color-tinta-suave);
+}
+
+/* Abaixo de 760px de largura do painel do editor, a margem colapsa para 24px e some com
+ * os marcadores de heading — só os ^id continuam (doc 06). Requer container-type no
+ * wrapper do EditorNota. */
+@container editor (max-width: 760px) {
+  .atomic-cm-editor .cm-gutter.cm-marginalia {
+    width: 24px;
+  }
+  .atomic-cm-editor .cm-marginalia .cm-gutterElement {
+    padding-right: 4px;
+  }
+  .cm-marginalia-marca[data-tipo="heading"] {
+    display: none;
+  }
+}

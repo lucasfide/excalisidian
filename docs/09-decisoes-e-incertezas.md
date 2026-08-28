@@ -109,6 +109,60 @@ As outras três vantagens que a versão anterior deste documento alegava **não 
 
 **Condição de reversão:** se um dia a interoperabilidade com o plugin do Obsidian se tornar um objetivo, `.excalidraw.md` volta a ser a extensão certa — e aí a decisão é de risco de marca, não técnica.
 
+### ADR-10 · Editor de live preview vendorizado, não escrito do zero
+
+**Decisão (Fatia 2, 28/08/2026):** o live preview do editor é o pacote
+`@atomic-editor/editor` 0.6.2, **copiado para dentro do repositório** em `src/editor/atomico/`
+(tag `v0.6.2`, commit `b6ed65f`, MIT), e não uma dependência do npm nem código escrito à mão.
+
+**Alternativa rejeitada:** escrever as *decorations* do CodeMirror do zero — o plano B do
+`docs/08`, estimado em semanas.
+
+**O que a avaliação encontrou** (feita por pesquisa direta do repositório e do código, não
+pelo meio dia de teste manual que o `docs/05` sugeria):
+
+- Corrige o **item 4 da Parte 3** deste documento: o pacote não tem "pouca tração" — são 135
+  estrelas, 13 forks e ~15.000 downloads/mês. O mantenedor único está confirmado.
+- Cobre a Fatia 2 inteira (`inline-preview.ts`, 45 KB — a peça cara) e adianta a Fatia 3
+  (`wiki-links.ts`, com `suggest()`/`resolve()`), a Fatia 6 não (tabelas WYSIWYG existem mas
+  não são requisito) e o `==destaque==`.
+- O princípio declarado do pacote — *"raw markdown is the source of truth; decorations
+  view-only; copy/paste/save byte-a-byte idênticos"* — é o **ADR-4** deste documento, já
+  implementado e com suíte de testes própria.
+- Portão de decisão validado no app: heading/negrito/itálico renderizam, a sintaxe reaparece
+  na linha do cursor, o autosave da Fatia 1 segue funcionando, e abrir e fechar uma nota sem
+  editar **não** gera diff no Git (round-trip fiel — protege o RNF7).
+
+**Por que vendorizar em vez de depender do npm:** um mantenedor único é risco real. Copiar o
+código elimina o risco de abandono, elimina migrações de versão futuras (mesma lógica do
+Excalidraw pinado em 0.18.1), e permite reescrever o tema por dentro (`atomic-theme.ts`,
+`styles/inline-preview.css` — ambos já são 100% dirigidos por variáveis `--atomic-editor-*`)
+mapeando para os tokens do `globals.css`, em vez de brigar com a especificidade do CSS dele.
+
+**Consequência ruim:** ~180 KB de TypeScript de terceiros no repositório, que ninguém aqui
+escreveu. Correções de bug do upstream não chegam de graça — é preciso comparar e portar à
+mão. A suíte de testes do upstream não foi trazida (exige `happy-dom` + testing-library no
+vitest); se um dia mexermos na lógica de *decoration* e não só no tema, ela vem junto.
+
+**Duas pendências abertas por causa da adoção, a tratar depois da Fatia 2:**
+
+1. **Marginália (doc 06) adiada.** O editor centraliza a coluna de texto por conta própria
+   (`.cm-content { margin-inline: auto }`); um gutter do CodeMirror fica preso na borda
+   esquerda do painel inteiro, longe do texto — não é a "margem do caderno" 76px à esquerda
+   das letras que o doc 06 pede. O código do gutter está pronto em
+   `src/editor/extensoes/marginalia.ts`; falta resolver a centralização (provável caminho:
+   desligar `margin-inline: auto` e centralizar o conjunto gutter+conteúdo num wrapper de
+   ~796px). É um desvio do doc 06 registrado aqui de propósito.
+2. **Frontmatter YAML renderiza como markdown.** `aliases:` e `created:` aparecem grandes,
+   e `[App]` vira link. O conteúdo em disco não é alterado (o motor é source-of-truth), só
+   a exibição fica errada. Tratar junto com o parsing de `FileMeta` na Fatia 3.
+
+**Condição de reversão:** se o código vendorizado se mostrar difícil de mexer, ou se um bug
+estrutural no live preview não for corrigível em tempo razoável, o caminho de volta é o plano
+B do `docs/08` — decorations próprias com cobertura reduzida (headings, ênfase, listas e
+links primeiro; o resto em sintaxe visível). O `EditorNota.tsx` isola o motor atrás de um
+contrato de 4 props, então a troca não toca `vaultStore`, `useAutosave` nem `BarraStatus`.
+
 ### ADR-9 · O nome do produto é um problema em aberto
 
 Isto não é uma decisão, é um alerta que apareceu ao resolver o ADR-8.
@@ -160,7 +214,7 @@ Trate cada item abaixo como suposição a validar antes de depender dele.
 1. **Versões de Vite, React e Tauri.** Os números no documento 05 vieram de consulta ao registry, mas confira no `npm install`. Se algum subiu de major, pare e reavalie — especialmente Vite e React.
 2. ~~Range de peerDependencies do Excalidraw.~~ **Resolvido na revisão:** o manifesto publicado da 0.18.1 declara `"react": "^17.0.2 || ^18.2.0 || ^19.0.0"` para `react` e `react-dom`. React 19 é suportado. A dúvida anterior era erro de leitura.
 3. **Nome exato da API Rust `FsExt::allow_directory`.** O padrão está documentado em discussões do Tauri, mas confirme a assinatura na versão do plugin que você instalar.
-4. **`@atomic-editor/editor` 0.6.2.** É um pacote com um mantenedor e pouca tração. Não é uma dependência que se assume; é um ponto de partida a testar em meio dia e, se servir, copiar para dentro do projeto.
+4. ~~**`@atomic-editor/editor` 0.6.2.**~~ **Resolvido na Fatia 2 — ver ADR-10.** A "pouca tração" era imprecisa (135 estrelas, ~15k downloads/mês); o mantenedor único procede. Foi adotado e vendorizado em `src/editor/atomico/`. Portão de decisão validado no app.
 5. **Ctrl+W como atalho de fábrica no Obsidian.** Não aparece na documentação oficial, só em tópicos de fórum. Para o Excalisidian é decisão nossa e não depende disso.
 6. **Hex exatos da paleta padrão do Excalidraw.** Houve divergência entre `#e03131` e `#fa5252` para o vermelho. Irrelevante na prática, porque o Excalisidian substitui a paleta inteira — e por isso esses valores foram removidos do documento 06 em vez de corrigidos.
 7. **"Canvas pontilhado".** O Excalidraw não tem fundo pontilhado nativo: o grid mode dele desenha linhas. O fundo de pontos do Excalisidian é implementação nossa.
