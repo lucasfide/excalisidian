@@ -230,6 +230,6 @@ Feito em 28/08/2026, na primeira sessão de código.
 
 **Build:** compila sem erro. `cargo check` 2m51s e `tauri dev` 3m54s na primeira vez (380 crates), segundos nas seguintes. Frontend `tsc` limpo e `vite build` ok.
 
-**Medição de pan/zoom com 500 elementos:** _(a preencher — Lucas rodou os testes da Fatia 0 e todos passaram; o número de FPS de pan/zoom ainda precisa ser anotado aqui numa próxima passada no app)._
+**Medição de pan/zoom com 500 elementos:** FPS mais baixo observado durante pan e zoom contínuos = **52 fps**. Faixa "aceitável" (fluido ≥ 55, aceitável ≥ 35, travando < 35). Sem engasgo perceptível na interação.
 
-**Conclusão provisória:** o canvas monta e renderiza 500 elementos no WebView2 sem travar a montagem. Se a medição de pan/zoom vier abaixo de ~35 fps, seguir o plano B do doc 05 §5 (reduzir a cena, revisar re-renders) — não trocar de shell.
+**Conclusão:** o canvas monta e renderiza 500 elementos no WebView2 a ~52 fps sob pan/zoom — aceitável para o MVP, sem necessidade de plano B. Nenhuma decisão de arquitetura muda. Revalidar na Fatia 6 com cena real (imagens + post-its) e checar se traço à mão livre pesado derruba o número; se cair abaixo de ~35, aplicar o plano B do doc 05 §5 (reduzir a cena, revisar re-renders, desmontar canvas fora de vista) — não trocar de shell.
