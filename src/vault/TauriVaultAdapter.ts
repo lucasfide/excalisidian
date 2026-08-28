@@ -1,12 +1,10 @@
 // Implementação da VaultAdapter sobre os comandos Rust e o @tauri-apps/plugin-fs.
 //
-// Fatia 0: só o que a fatia exige — escolher o vault, reaplicar o escopo no boot e listar
-// os arquivos. Escrita atômica, mover e watcher entram na Fatia 1 (escritaAtomica.ts) e na
-// Fatia 5 (watcher.rs); por enquanto lançam erro explícito.
+// O watcher (observar) entra na Fatia 5. Escrita passa sempre por escritaAtomica.ts.
 
 import { invoke } from "@tauri-apps/api/core";
 import { open } from "@tauri-apps/plugin-dialog";
-import { readTextFile, readFile, mkdir, exists } from "@tauri-apps/plugin-fs";
+import { readTextFile, readFile, mkdir, exists, rename } from "@tauri-apps/plugin-fs";
 import { load } from "@tauri-apps/plugin-store";
 
 import type {
@@ -14,6 +12,10 @@ import type {
   EventoArquivo,
   VaultAdapter,
 } from "./VaultAdapter";
+import {
+  escreverTextoAtomico,
+  escreverBinarioAtomico,
+} from "./escritaAtomica";
 
 const CHAVE_VAULT = "vaultPath";
 
@@ -23,15 +25,16 @@ function absoluto(raiz: string, rel: string): string {
   return `${raiz.replace(/[/\\]+$/, "")}/${limpo}`;
 }
 
-function naoImplementado(o: string): never {
-  throw new Error(`${o}: ainda não implementado (entra na Fatia 1).`);
-}
-
 export class TauriVaultAdapter implements VaultAdapter {
   private constructor(private readonly caminhoRaiz: string) {}
 
   raiz(): string {
     return this.caminhoRaiz;
+  }
+
+  /** Caminho absoluto no disco para um caminho relativo do vault. */
+  absoluto(path: string): string {
+    return absoluto(this.caminhoRaiz, path);
   }
 
   /**
@@ -76,20 +79,20 @@ export class TauriVaultAdapter implements VaultAdapter {
     return readFile(absoluto(this.caminhoRaiz, path));
   }
 
-  async escreverTexto(): Promise<void> {
-    naoImplementado("escreverTexto");
+  async escreverTexto(path: string, conteudo: string): Promise<void> {
+    await escreverTextoAtomico(absoluto(this.caminhoRaiz, path), conteudo);
   }
 
-  async escreverBinario(): Promise<void> {
-    naoImplementado("escreverBinario");
+  async escreverBinario(path: string, dados: Uint8Array): Promise<void> {
+    await escreverBinarioAtomico(absoluto(this.caminhoRaiz, path), dados);
   }
 
   async criarPasta(path: string): Promise<void> {
     await mkdir(absoluto(this.caminhoRaiz, path), { recursive: true });
   }
 
-  async mover(): Promise<void> {
-    naoImplementado("mover");
+  async mover(de: string, para: string): Promise<void> {
+    await rename(absoluto(this.caminhoRaiz, de), absoluto(this.caminhoRaiz, para));
   }
 
   async existe(path: string): Promise<boolean> {
