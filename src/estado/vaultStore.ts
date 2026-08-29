@@ -58,6 +58,10 @@ interface VaultState {
   resolver(alvo: string, origem: string): string | null;
   backlinksDe(path: string): Backlink[];
   alternarPasta(path: string): void;
+  /** Garante que toda pasta ancestral de `path` está aberta — nunca fecha nada. Usado
+   * quando a aba ativa muda, pra o arquivo aparecer destacado na árvore mesmo se estava
+   * dentro de uma pasta fechada (sem isto, `destacado` nunca tinha uma linha pra destacar). */
+  garantirAncestraisAbertos(path: string): void;
 }
 
 let cancelarWatcher: () => void = () => {};
@@ -218,5 +222,21 @@ export const useVaultStore = create<VaultState>((set, get) => ({
     if (abertas.has(path)) abertas.delete(path);
     else abertas.add(path);
     set({ pastasAbertas: abertas });
+  },
+
+  garantirAncestraisAbertos(path) {
+    const partes = path.split("/");
+    if (partes.length <= 1) return; // arquivo na raiz: nenhuma pasta pra abrir
+    const abertas = new Set(get().pastasAbertas);
+    let acumulado = "";
+    let mudou = false;
+    for (let i = 0; i < partes.length - 1; i++) {
+      acumulado = acumulado ? `${acumulado}/${partes[i]}` : partes[i];
+      if (!abertas.has(acumulado)) {
+        abertas.add(acumulado);
+        mudou = true;
+      }
+    }
+    if (mudou) set({ pastasAbertas: abertas });
   },
 }));

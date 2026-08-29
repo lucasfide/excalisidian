@@ -61,6 +61,12 @@ export default function App() {
     void usePrefsStore.getState().carregar();
   }, []);
 
+  // A aba ativa fica destacada na árvore (`ItemArvore.destacado`), mas isso só tem efeito se
+  // a linha existir — abre as pastas ancestrais pra ela aparecer mesmo se estava fechada.
+  useEffect(() => {
+    if (caminhoAtivo) useVaultStore.getState().garantirAncestraisAbertos(caminhoAtivo);
+  }, [caminhoAtivo]);
+
   useEffect(() => {
     aplicarTema(tema);
     const mq = window.matchMedia("(prefers-color-scheme: dark)");

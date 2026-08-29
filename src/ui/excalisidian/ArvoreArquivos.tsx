@@ -6,7 +6,7 @@
 // abas do dockview — ver Workspace.tsx). Reimplementar isso aqui com a mesma API arriscaria
 // herdar o mesmo bug.
 
-import { useMemo, useRef, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { useVirtualizer } from "@tanstack/react-virtual";
 import { FilePlus, SquarePen, FolderPlus, Pencil, Home, Move } from "lucide-react";
 
@@ -108,6 +108,16 @@ export default function ArvoreArquivos({
     estimateSize: () => ALTURA_LINHA,
     overscan: 12,
   });
+
+  // Rola até o arquivo da aba ativa quando ele aparece na lista — inclusive na primeira vez
+  // que aparece, por causa das pastas ancestrais que acabaram de abrir (App.tsx chama
+  // `garantirAncestraisAbertos`, o que muda `linhas` e dispara este efeito de novo).
+  useEffect(() => {
+    if (!caminhoAberto) return;
+    const indice = linhas.findIndex((l) => l.no.path === caminhoAberto);
+    if (indice !== -1) virt.scrollToIndex(indice, { align: "auto" });
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [caminhoAberto, linhas]);
 
   const fecharMenu = () => setMenu(null);
   const comMenuFechado = (acao: () => void) => () => {
