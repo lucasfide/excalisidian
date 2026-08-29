@@ -8,14 +8,23 @@ import { TauriVaultAdapter } from "../vault/TauriVaultAdapter";
 import { useVaultStore } from "../estado/vaultStore";
 import { useWorkspaceStore } from "../estado/workspaceStore";
 import { renomearArquivo } from "../vault/renomear";
+import { criarNota, criarDesenho, criarPasta, pastaAlvo } from "../vault/criar";
 import { useAutosave } from "../editor/useAutosave";
 import Workspace from "../layout/Workspace";
+import { Botao, EstadoVazio, Select, type OpcaoSelect } from "../ui";
 import ArvoreArquivos from "../ui/excalisidian/ArvoreArquivos";
 import BarraFerramentasSidebar from "../ui/excalisidian/BarraFerramentasSidebar";
 import BarraStatus from "../ui/excalisidian/BarraStatus";
+import Logotipo from "../ui/excalisidian/Logotipo";
 import PainelBacklinks from "../ui/excalisidian/PainelBacklinks";
 
 type Tema = "sistema" | "claro" | "escuro";
+
+const TEMAS: OpcaoSelect[] = [
+  { valor: "sistema", rotulo: "sistema" },
+  { valor: "claro", rotulo: "claro" },
+  { valor: "escuro", rotulo: "escuro" },
+];
 
 function aplicarTema(tema: Tema) {
   const escuro =
@@ -108,22 +117,19 @@ export default function App() {
     const erro = typeof boot === "object" ? boot.erro : null;
     return (
       <div className="flex h-screen items-center justify-center bg-papel px-8">
-        <div className="w-full max-w-md border-y border-regua py-8">
-          <h1 className="font-display text-[24px] font-medium text-tinta">
-            {erro ? "Não foi possível abrir o vault" : "Nenhum vault aberto"}
-          </h1>
-          <p className="mt-2 text-pequeno text-tinta-media">
-            {erro
-              ? erro
-              : "Escolha a pasta com suas notas. O Excalisidian pede isso uma vez e lembra nas próximas aberturas."}
-          </p>
-          <button
-            onClick={escolher}
-            className="mt-4 rounded-controle bg-musgo px-4 py-2 text-corpo text-superficie"
-          >
+        <EstadoVazio
+          className="w-full max-w-md"
+          tom={erro ? "erro" : "neutro"}
+          titulo={erro ? "Não foi possível abrir o vault" : "Nenhum vault aberto"}
+          apoio={
+            erro ??
+            "Escolha a pasta com suas notas. O Excalisidian pede isso uma vez e lembra nas próximas aberturas."
+          }
+        >
+          <Botao variante="primario" onClick={escolher}>
             Escolher pasta do vault
-          </button>
-        </div>
+          </Botao>
+        </EstadoVazio>
       </div>
     );
   }
@@ -132,17 +138,15 @@ export default function App() {
     <div className="flex h-screen flex-col bg-papel text-tinta">
       <div className="flex min-h-0 flex-1">
         <aside className="flex w-[264px] shrink-0 flex-col border-r border-regua bg-superficie">
-          <div className="border-b border-regua px-3 py-2">
-            <div className="flex items-center justify-between">
-              <div>
-                <div className="font-display text-[16px] font-semibold leading-none text-tinta">
-                  Excalisidian
-                </div>
-                <div className="mt-1 h-[2px] w-[42%] bg-musgo" />
-              </div>
-              <BarraFerramentasSidebar />
-            </div>
+          <div className="flex items-center justify-between border-b border-regua px-3 py-2">
+            <Logotipo />
+            <BarraFerramentasSidebar
+              onCriarNota={() => void criarNota()}
+              onCriarDesenho={() => void criarDesenho()}
+              onCriarPasta={() => void criarPasta()}
+            />
           </div>
+
           <div
             className="min-h-0 flex-1"
             onClick={(e) => {
@@ -159,26 +163,29 @@ export default function App() {
                 onSelecionarPasta={selecionarPasta}
                 onAbrirArquivo={abrirDocumento}
                 onRenomear={renomear}
+                onCriarNota={(dir) => void criarNota(dir)}
+                onCriarDesenho={(dir) => void criarDesenho(dir)}
+                onCriarPasta={(dir) => void criarPasta(dir)}
               />
             )}
           </div>
+
           {caminhoAtivo && <PainelBacklinks />}
+
           <div className="flex items-center justify-between gap-2 border-t border-regua px-3 py-1.5">
             <span className="meta truncate text-tinta-suave">
               {statusIndice === "indexando"
                 ? "reindexando…"
-                : `criar em: ${pastaSelecionada || "raiz"}`}
+                : `criar em: ${pastaAlvo() || "raiz"}`}
             </span>
-            <select
+            <Select
+              rotulo="Tema"
+              compacto
+              opcoes={TEMAS}
               value={tema}
               onChange={(e) => setTema(e.target.value as Tema)}
-              className="shrink-0 rounded-controle border border-regua-forte bg-superficie px-1 py-[2px] text-[11px] text-tinta-media"
-              title="Tema"
-            >
-              <option value="sistema">sistema</option>
-              <option value="claro">claro</option>
-              <option value="escuro">escuro</option>
-            </select>
+              className="shrink-0 text-tinta-media"
+            />
           </div>
         </aside>
 

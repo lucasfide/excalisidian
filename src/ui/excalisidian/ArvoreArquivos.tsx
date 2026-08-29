@@ -1,24 +1,14 @@
-// Árvore de arquivos da sidebar. Virtualizada, expandir/recolher, clique abre. Pasta
-// clicada vira a "pasta selecionada" (onde as ações de criar agem). Menu de contexto:
-// criar aqui / renomear. Doc 06: recuo de 16px por nível, hairline musgo de 2px no item
-// ativo/selecionado, ícone por tipo.
+// Árvore de arquivos da sidebar. Virtualizada, expandir/recolher, clique abre. Pasta clicada
+// vira a "pasta selecionada" (onde as ações de criar agem). Menu de contexto: criar aqui /
+// renomear.
 
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useMemo, useRef, useState } from "react";
 import { useVirtualizer } from "@tanstack/react-virtual";
-import {
-  FileText,
-  PenLine,
-  Image as ImageIcon,
-  Folder,
-  FolderOpen,
-  FilePlus,
-  SquarePen,
-  FolderPlus,
-  Pencil,
-} from "lucide-react";
+import { FilePlus, SquarePen, FolderPlus, Pencil } from "lucide-react";
 
 import type { NoArvore } from "../../vault/arvore";
-import { criarNota, criarDesenho, criarPasta } from "../../vault/criar";
+import { Menu, ItemMenu, SeparadorMenu, type PosicaoMenu } from "../index";
+import ItemArvore from "./ItemArvore";
 
 interface LinhaVisivel {
   no: NoArvore;
@@ -39,13 +29,11 @@ function achatar(raiz: NoArvore, pastasAbertas: Set<string>): LinhaVisivel[] {
   return linhas;
 }
 
-function Icone({ no, aberta }: { no: NoArvore; aberta: boolean }) {
-  const props = { size: 16, strokeWidth: 1.5, className: "shrink-0" };
-  if (no.tipo === "folder")
-    return aberta ? <FolderOpen {...props} /> : <Folder {...props} />;
-  if (no.tipo === "drawing") return <PenLine {...props} />;
-  if (no.tipo === "attachment") return <ImageIcon {...props} />;
-  return <FileText {...props} />;
+/** Pasta de um nó: a própria, se for pasta; senão a pasta que o contém. */
+function pastaDoNo(no: NoArvore): string {
+  if (no.tipo === "folder") return no.path;
+  const i = no.path.lastIndexOf("/");
+  return i === -1 ? "" : no.path.slice(0, i);
 }
 
 interface Props {
@@ -57,9 +45,12 @@ interface Props {
   onSelecionarPasta(path: string | null): void;
   onAbrirArquivo(path: string): void;
   onRenomear(path: string): void;
+  onCriarNota(dir: string): void;
+  onCriarDesenho(dir: string): void;
+  onCriarPasta(dir: string): void;
 }
 
-type Menu = { x: number; y: number; no: NoArvore } | null;
+type EstadoMenu = (PosicaoMenu & { no: NoArvore }) | null;
 
 export default function ArvoreArquivos({
   raiz,
@@ -70,23 +61,15 @@ export default function ArvoreArquivos({
   onSelecionarPasta,
   onAbrirArquivo,
   onRenomear,
+  onCriarNota,
+  onCriarDesenho,
+  onCriarPasta,
 }: Props) {
   const linhas = useMemo(
     () => achatar(raiz, pastasAbertas),
     [raiz, pastasAbertas],
   );
-  const [menu, setMenu] = useState<Menu>(null);
-
-  useEffect(() => {
-    if (!menu) return;
-    const fechar = () => setMenu(null);
-    window.addEventListener("click", fechar);
-    window.addEventListener("blur", fechar);
-    return () => {
-      window.removeEventListener("click", fechar);
-      window.removeEventListener("blur", fechar);
-    };
-  }, [menu]);
+  const [menu, setMenu] = useState<EstadoMenu>(null);
 
   const scrollRef = useRef<HTMLDivElement | null>(null);
   const virt = useVirtualizer({
@@ -96,23 +79,28 @@ export default function ArvoreArquivos({
     overscan: 12,
   });
 
-  const dirDoNo = (no: NoArvore) =>
-    no.tipo === "folder"
-      ? no.path
-      : no.path.includes("/")
-        ? no.path.slice(0, no.path.lastIndexOf("/"))
-        : "";
+  const fecharMenu = () => setMenu(null);
+  const comMenuFechado = (acao: () => void) => () => {
+    fecharMenu();
+    acao();
+  };
 
   return (
     <div ref={scrollRef} className="h-full overflow-auto">
       <div style={{ height: virt.getTotalSize(), position: "relative", width: "100%" }}>
         {virt.getVirtualItems().map((vi) => {
           const { no, nivel, aberta } = linhas[vi.index];
-          const ativo = no.path === caminhoAberto;
-          const selecionada = no.tipo === "folder" && no.path === pastaSelecionada;
+          const destacado =
+            no.path === caminhoAberto ||
+            (no.tipo === "folder" && no.path === pastaSelecionada);
           return (
-            <button
+            <ItemArvore
               key={no.path}
+              no={no}
+              nivel={nivel}
+              aberta={aberta}
+              destacado={destacado}
+              style={{ top: vi.start, height: vi.size }}
               onClick={() => {
                 if (no.tipo === "folder") {
                   onAlternarPasta(no.path);
@@ -125,93 +113,36 @@ export default function ArvoreArquivos({
                 e.preventDefault();
                 setMenu({ x: e.clientX, y: e.clientY, no });
               }}
-              className={`absolute left-0 flex w-full items-center gap-2 py-1 pr-2 text-left text-[13px] ${
-                ativo || selecionada
-                  ? "bg-lavagem text-tinta"
-                  : "text-tinta-media hover:bg-lavagem"
-              }`}
-              style={{
-                top: vi.start,
-                height: vi.size,
-                paddingLeft: 8 + nivel * 16,
-                boxShadow:
-                  ativo || selecionada
-                    ? "inset 2px 0 0 0 var(--color-musgo)"
-                    : undefined,
-              }}
-            >
-              <Icone no={no} aberta={aberta} />
-              <span className="truncate">{no.nome}</span>
-            </button>
+            />
           );
         })}
       </div>
 
       {menu && (
-        <div
-          className="fixed z-50 min-w-[180px] rounded-ficha border border-regua bg-superficie py-1 shadow-[var(--shadow-sobreposicao)]"
-          style={{ left: menu.x, top: menu.y }}
-          onClick={(e) => e.stopPropagation()}
-        >
-          {menu.no.tipo === "folder" && (
-            <>
-              <ItemMenu
-                Icone={FilePlus}
-                rotulo="Nova nota aqui"
-                onClick={() => {
-                  setMenu(null);
-                  void criarNota(dirDoNo(menu.no));
-                }}
-              />
-              <ItemMenu
-                Icone={SquarePen}
-                rotulo="Novo desenho aqui"
-                onClick={() => {
-                  setMenu(null);
-                  void criarDesenho(dirDoNo(menu.no));
-                }}
-              />
-              <ItemMenu
-                Icone={FolderPlus}
-                rotulo="Nova pasta aqui"
-                onClick={() => {
-                  setMenu(null);
-                  void criarPasta(dirDoNo(menu.no));
-                }}
-              />
-              <div className="my-1 h-px bg-regua" />
-            </>
-          )}
+        <Menu posicao={menu} onFechar={fecharMenu}>
+          <ItemMenu
+            Icone={FilePlus}
+            rotulo="Nova nota aqui"
+            onClick={comMenuFechado(() => onCriarNota(pastaDoNo(menu.no)))}
+          />
+          <ItemMenu
+            Icone={SquarePen}
+            rotulo="Novo desenho aqui"
+            onClick={comMenuFechado(() => onCriarDesenho(pastaDoNo(menu.no)))}
+          />
+          <ItemMenu
+            Icone={FolderPlus}
+            rotulo="Nova pasta aqui"
+            onClick={comMenuFechado(() => onCriarPasta(pastaDoNo(menu.no)))}
+          />
+          <SeparadorMenu />
           <ItemMenu
             Icone={Pencil}
             rotulo="Renomear"
-            onClick={() => {
-              setMenu(null);
-              onRenomear(menu.no.path);
-            }}
+            onClick={comMenuFechado(() => onRenomear(menu.no.path))}
           />
-        </div>
+        </Menu>
       )}
     </div>
-  );
-}
-
-function ItemMenu({
-  Icone,
-  rotulo,
-  onClick,
-}: {
-  Icone: typeof FilePlus;
-  rotulo: string;
-  onClick: () => void;
-}) {
-  return (
-    <button
-      onClick={onClick}
-      className="flex w-full items-center gap-2 px-3 py-1.5 text-left text-[13px] text-tinta hover:bg-lavagem"
-    >
-      <Icone size={15} strokeWidth={1.5} className="text-tinta-media" />
-      {rotulo}
-    </button>
   );
 }

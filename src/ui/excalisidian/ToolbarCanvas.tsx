@@ -1,5 +1,6 @@
 // Toolbar flutuante do canvas (doc 06). Barra no topo, centralizada; substitui a toolbar
-// nativa do Excalidraw (escondida por CSS). Três grupos separados por hairline.
+// nativa do Excalidraw (escondida por CSS). Três grupos separados por hairline, cada botão
+// com a tecla de atalho em `meta-mini` no canto inferior direito.
 
 import {
   MousePointer2,
@@ -17,6 +18,8 @@ import {
   type LucideIcon,
 } from "lucide-react";
 import type { ExcalidrawImperativeAPI } from "@excalidraw/excalidraw/types";
+
+import { BotaoIcone, Superficie, cn } from "../index";
 
 type Ferramenta =
   | "selection"
@@ -69,6 +72,7 @@ interface Props {
 export default function ToolbarCanvas({ api, ferramentaAtiva, onPostit }: Props) {
   const acionar = (f: Ferramenta) => {
     if (!api) return;
+    // Post-it não existe no Excalidraw: é inserido programaticamente.
     if (f === "postit") {
       onPostit();
       return;
@@ -77,34 +81,39 @@ export default function ToolbarCanvas({ api, ferramentaAtiva, onPostit }: Props)
   };
 
   return (
-    <div className="pointer-events-auto absolute left-1/2 top-3 z-20 flex -translate-x-1/2 items-center gap-1 rounded-ficha border border-regua bg-superficie p-1 shadow-[var(--shadow-sobreposicao)]">
+    <Superficie
+      flutuante
+      role="toolbar"
+      aria-label="Ferramentas do desenho"
+      className="pointer-events-auto absolute left-1/2 top-3 z-20 flex -translate-x-1/2 items-center gap-1 p-1"
+    >
       {GRUPOS.map((grupo, i) => (
         <div key={i} className="flex items-center gap-1">
-          {i > 0 && <span className="mx-1 h-6 w-px bg-regua" />}
+          {i > 0 && <span aria-hidden className="mx-1 h-6 w-px bg-regua" />}
           {grupo.map(({ ferramenta, rotulo, tecla, Icone }) => {
             const ativa = ferramentaAtiva === ferramenta;
             return (
-              <button
+              <BotaoIcone
                 key={ferramenta}
-                title={`${rotulo} (${tecla})`}
+                Icone={Icone}
+                titulo={`${rotulo} (${tecla})`}
+                ativo={ativa}
                 onClick={() => acionar(ferramenta)}
-                className={`relative flex h-8 w-8 items-center justify-center rounded-controle ${
-                  ativa ? "bg-musgo text-superficie" : "text-tinta-media hover:bg-lavagem"
-                }`}
               >
-                <Icone size={18} strokeWidth={1.5} />
                 <span
-                  className={`absolute bottom-[1px] right-[2px] text-[9px] font-medium leading-none tracking-[0.06em] ${
-                    ativa ? "text-superficie/70" : "text-tinta-suave"
-                  }`}
+                  aria-hidden
+                  className={cn(
+                    "absolute bottom-[1px] right-[2px] font-mono text-[9px] font-medium leading-none tracking-[0.06em]",
+                    ativa ? "text-superficie/70" : "text-tinta-suave",
+                  )}
                 >
                   {tecla}
                 </span>
-              </button>
+              </BotaoIcone>
             );
           })}
         </div>
       ))}
-    </div>
+    </Superficie>
   );
 }
