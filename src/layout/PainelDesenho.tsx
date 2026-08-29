@@ -10,10 +10,11 @@ import EditorDesenho from "../canvas/EditorDesenho";
 import FaixaConflito from "../ui/excalisidian/FaixaConflito";
 import LimiteDeErro from "../ui/excalisidian/LimiteDeErro";
 
-type Params = { path: string };
+type Params = { path: string; somenteLeitura?: boolean };
 
 export default function PainelDesenho(props: IDockviewPanelProps<Params>) {
   const path = props.params.path;
+  const somenteLeitura = props.params.somenteLeitura ?? false;
   const abrir = useDocumentosStore((s) => s.abrir);
   const editar = useDocumentosStore((s) => s.editar);
   const doc = useDocumentosStore((s) => s.docs.get(path));
@@ -57,6 +58,7 @@ export default function PainelDesenho(props: IDockviewPanelProps<Params>) {
             conteudoInicial={doc.conteudoEditor}
             versao={doc.versao}
             onEditar={aoEditar}
+            somenteLeitura={somenteLeitura}
           />
         </LimiteDeErro>
       </div>

@@ -10,10 +10,11 @@ import EditorNota from "../editor/EditorNota";
 import FaixaConflito from "../ui/excalisidian/FaixaConflito";
 import LimiteDeErro from "../ui/excalisidian/LimiteDeErro";
 
-type Params = { path: string };
+type Params = { path: string; somenteLeitura?: boolean };
 
 export default function PainelDocumento(props: IDockviewPanelProps<Params>) {
   const path = props.params.path;
+  const somenteLeitura = props.params.somenteLeitura ?? false;
   const abrir = useDocumentosStore((s) => s.abrir);
   const editar = useDocumentosStore((s) => s.editar);
   const salvar = useDocumentosStore((s) => s.salvar);
@@ -55,6 +56,7 @@ export default function PainelDocumento(props: IDockviewPanelProps<Params>) {
             conteudoInicial={doc.conteudoEditor}
             onEditar={aoEditar}
             onBlur={aoSair}
+            somenteLeitura={somenteLeitura}
           />
         </LimiteDeErro>
       </div>

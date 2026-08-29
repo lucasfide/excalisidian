@@ -122,11 +122,16 @@ export const useWorkspaceStore = create<WorkspaceState>((set, get) => ({
     const alvo = api?.activePanel;
     if (!api || !alvo) return;
     const path = pathDoPainel(alvo);
+    // A segunda vista do mesmo arquivo abre travada pra edição: nem EditorNota nem
+    // EditorDesenho reagem a uma mudança externa de conteúdo sem remontar (cada um lê o
+    // conteúdo inicial só uma vez), então duas vistas editáveis do mesmo arquivo se
+    // sobrescrevem em silêncio a cada autosave. Ver doc 09, ADR sobre split — pendência
+    // registrada até uma sincronização de verdade existir.
     api.addPanel({
       id: path ? `${path}::${direcao}::${crypto.randomUUID()}` : `vazio:${crypto.randomUUID()}`,
       component: path ? componenteDe(path) : "vazio",
-      title: alvo.title,
-      params: path ? { path } : {},
+      title: path ? `${alvo.title} (somente leitura)` : alvo.title,
+      params: path ? { path, somenteLeitura: true } : {},
       position: { referencePanel: alvo.id, direction: direcao },
     });
   },

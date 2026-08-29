@@ -233,6 +233,32 @@ criar um: retângulo, `fillStyle: "solid"`, `roundness: null` e `strokeColor ===
 Um retângulo comum que por acaso tiver essas quatro características e a cor de um post-it seria
 identificado como post-it — cenário não observado, aceito como aproximação.
 
+### ADR-13 · Dividir o mesmo arquivo abre a 2ª vista só-leitura
+
+**Contexto:** achado revisando o ADR-11/12, não relatado pelo usuário. "Dividir à
+direita"/"Dividir abaixo" (RF3.4, menu de contexto da aba) cria um segundo painel do mesmo
+`path`. Nem `EditorNota` (`documentId` fixa a identidade do CodeMirror; `markdownSource` só é
+lido na montagem) nem `EditorDesenho` (`initialData` congelado por design, ver ADR do loop de
+render) reagem a uma mudança de conteúdo vinda de outro painel do mesmo arquivo. Resultado:
+editar dos dois lados faz um autosave sobrescrever o outro em silêncio — sem aviso, sem
+conflito detectado, porque os dois painéis creem ser a única fonte da verdade.
+
+**Decisão:** a vista criada pelo split abre travada pra edição (`somenteLeitura` nos `params`
+do painel → `readOnly` no CodeMirror / `viewModeEnabled` no Excalidraw). A vista original
+continua editável normalmente. Cobre também o caso do Excalidraw disparar `onChange` ao
+arrastar/dar zoom mesmo em modo visualização — a gravação é pulada inteira nesse caso, não só
+a interação de editar.
+
+**Alternativas consideradas:**
+
+| Opção | Por que não (ainda) |
+|---|---|
+| Split reaproveita o painel existente, sem criar segunda vista | Testado com o usuário e rejeitado: RF3.4 existe justamente para ver o mesmo arquivo em duas colunas; "reaproveitar" o transforma num no-op pra qualquer arquivo com conteúdo. |
+| Sincronizar as duas vistas em tempo real | A correção correta a longo prazo, mas mexe em código vendorizado (`AtomicCodeMirrorEditor.tsx`, ADR-10) e no mesmo `EditorDesenho` que já causou dois crashes de loop de render nesta sessão. Fica pendente pra uma tarefa própria, não misturada com a correção de cor que motivou esta revisão. |
+
+**Consequência aceita:** não dá pra editar o mesmo arquivo dos dois lados ao mesmo tempo hoje.
+Só visualizar. Se isso incomodar no uso real, a sincronização de verdade é o próximo passo.
+
 ### ADR-9 · O nome do produto é um problema em aberto
 
 Isto não é uma decisão, é um alerta que apareceu ao resolver o ADR-8.

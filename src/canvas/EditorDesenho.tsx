@@ -66,9 +66,17 @@ interface Props {
   conteudoInicial: string;
   versao: number;
   onEditar: (md: string) => void;
+  /** Segunda vista do mesmo arquivo aberta via split (doc 09): sem sincronização em tempo
+   * real entre vistas, editar dos dois lados sobrescreve em silêncio — trava a edição aqui. */
+  somenteLeitura?: boolean;
 }
 
-export default function EditorDesenho({ caminho, conteudoInicial, onEditar }: Props) {
+export default function EditorDesenho({
+  caminho,
+  conteudoInicial,
+  onEditar,
+  somenteLeitura = false,
+}: Props) {
   const apiRef = useRef<ExcalidrawImperativeAPI | null>(null);
   const raizRef = useRef<HTMLDivElement | null>(null);
   const gradeRef = useRef<HTMLDivElement | null>(null);
@@ -283,6 +291,12 @@ export default function EditorDesenho({ caminho, conteudoInicial, onEditar }: Pr
       setFerramentaAtiva(appState.activeTool?.type ?? "selection");
       setTick((t) => (t + 1) % 1_000_000);
 
+      // Vista só-leitura (segunda vista do mesmo arquivo via split, doc 09): o Excalidraw
+      // ainda dispara onChange ao arrastar/dar zoom mesmo com viewModeEnabled. Sem esta
+      // guarda, isso agendaria uma gravação com a cena desta vista — que fica congelada
+      // desde o mount — sobrescrevendo qualquer edição feita na vista editável.
+      if (somenteLeitura) return;
+
       window.clearTimeout(timerRef.current);
       timerRef.current = window.setTimeout(() => {
         const vivos = elements.filter(
@@ -333,7 +347,7 @@ export default function EditorDesenho({ caminho, conteudoInicial, onEditar }: Pr
         }
       }, DEBOUNCE_MS);
     },
-    [onEditar, pintarGrade],
+    [onEditar, pintarGrade, somenteLeitura],
   );
 
   // initialData é usado APENAS na montagem do Excalidraw. A identidade deste objeto
@@ -448,19 +462,24 @@ export default function EditorDesenho({ caminho, conteudoInicial, onEditar }: Pr
           excalidrawAPI={aoObterApi}
           onChange={aoMudar}
           onLinkOpen={aoAbrirLink}
+          viewModeEnabled={somenteLeitura}
         />
       </div>
 
-      <ToolbarCanvas
-        api={apiRef.current}
-        ferramentaAtiva={ferramentaAtiva}
-        onPostit={() => {
-          if (apiRef.current) {
-            inserirPostit(apiRef.current, paleta.postits[0].hex, paleta.textoPostit);
-          }
-        }}
-      />
-      <PropriedadesCanvas api={apiRef.current} tick={tick} paleta={paleta} />
+      {!somenteLeitura && (
+        <>
+          <ToolbarCanvas
+            api={apiRef.current}
+            ferramentaAtiva={ferramentaAtiva}
+            onPostit={() => {
+              if (apiRef.current) {
+                inserirPostit(apiRef.current, paleta.postits[0].hex, paleta.textoPostit);
+              }
+            }}
+          />
+          <PropriedadesCanvas api={apiRef.current} tick={tick} paleta={paleta} />
+        </>
+      )}
 
       {sugestaoTexto && sugestoesTextoList.length > 0 && (
         <div

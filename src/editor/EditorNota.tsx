@@ -32,6 +32,9 @@ interface Props {
   conteudoInicial: string;
   onEditar(texto: string): void;
   onBlur(): void;
+  /** Segunda vista do mesmo arquivo aberta via split (doc 09): sem sincronização em tempo
+   * real entre vistas, editar dos dois lados sobrescreve em silêncio — trava a edição aqui. */
+  somenteLeitura?: boolean;
 }
 
 export default function EditorNota({
@@ -39,6 +42,7 @@ export default function EditorNota({
   conteudoInicial,
   onEditar,
   onBlur,
+  somenteLeitura = false,
 }: Props) {
   const handleRef = useRef<AtomicCodeMirrorEditorHandle | null>(null);
 
@@ -52,6 +56,7 @@ export default function EditorNota({
         editorHandleRef={handleRef}
         codeLanguages={ATOMIC_CODE_LANGUAGES}
         extensions={EXTENSOES}
+        readOnly={somenteLeitura}
       />
     </div>
   );
