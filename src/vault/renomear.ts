@@ -1,9 +1,9 @@
 // Renomear um arquivo e atualizar, na mesma transação lógica, todos os wikilinks que
 // apontavam para ele (doc 02 §4, doc 04 §3).
 //
+//   - flush de tudo que está aberto antes de qualquer coisa (doc 04 §2);
 //   - lê todos os arquivos afetados, calcula todos os novos conteúdos, e só então grava;
-//   - um link escrito com caminho completo continua com caminho completo — só a parte que
-//     precisa mudar muda; o app não normaliza o que o usuário digitou;
+//   - um link escrito com caminho completo continua com caminho completo;
 //   - se uma gravação falhar, as anteriores não são revertidas, mas o erro diz quais
 //     arquivos ficaram inconsistentes.
 //
@@ -12,6 +12,8 @@
 import { toast } from "sonner";
 
 import { useVaultStore } from "../estado/vaultStore";
+import { useDocumentosStore } from "../estado/documentosStore";
+import { useWorkspaceStore } from "../estado/workspaceStore";
 import { analisarMiolo } from "../indice/wikilink";
 import { validarNomeArquivo, pastaDe } from "./caminhos";
 
@@ -25,9 +27,7 @@ function baseNome(path: string): string {
 }
 
 /**
- * Reescreve, num texto, os wikilinks cujo alvo resolve para `pathAntigo`. `resolver` recebe
- * o alvo escrito e devolve o caminho real (ou null). `novoAlvoEscrito` recebe o alvo escrito
- * antigo e devolve o novo — preservando ou não o estilo de caminho.
+ * Reescreve, num texto, os wikilinks cujo alvo resolve para `pathAntigo`.
  * Devolve `[textoNovo, quantosLinks]`.
  */
 export function atualizarLinksNoTexto(
@@ -61,8 +61,8 @@ export async function renomearArquivo(
   pathAntigo: string,
   nomeNovoBruto: string,
 ): Promise<ResultadoRename> {
-  const st = useVaultStore.getState();
-  if (!st.adapter) return { ok: false, motivo: "Nenhum vault aberto." };
+  const vault = useVaultStore.getState();
+  if (!vault.adapter) return { ok: false, motivo: "Nenhum vault aberto." };
 
   const nomeAntigo = baseNome(pathAntigo);
   const ehDesenho = nomeAntigo.toLowerCase().endsWith(".draw.md");
@@ -74,44 +74,39 @@ export async function renomearArquivo(
 
   const dir = pastaDe(pathAntigo);
   const pathNovo = dir ? `${dir}/${nomeNovo}` : nomeNovo;
-  if (pathNovo === pathAntigo) return { ok: true, pathNovo, notasAtualizadas: 0, linksAtualizados: 0 };
-
-  if (await st.adapter.existe(pathNovo)) {
-    return {
-      ok: false,
-      motivo: `Já existe «${semExtensao(nomeNovo)}» nesta pasta.`,
-    };
+  if (pathNovo === pathAntigo) {
+    return { ok: true, pathNovo, notasAtualizadas: 0, linksAtualizados: 0 };
   }
 
-  // Flush do arquivo aberto antes de qualquer operação de rename (doc 04 §2).
-  if (st.caminhoAberto && st.conteudoEditor !== st.conteudoDisco) {
-    await st.salvar();
+  if (await vault.adapter.existe(pathNovo)) {
+    return { ok: false, motivo: `Já existe «${semExtensao(nomeNovo)}» nesta pasta.` };
   }
+
+  // Flush de tudo antes de renomear (doc 04 §2).
+  await useDocumentosStore.getState().flushTudo();
 
   const novoBaseSemExt = semExtensao(nomeNovo);
   const novoPathSemExt = semExtensao(pathNovo);
   const calcularNovoAlvo = (alvoEscritoAntigo: string) =>
     alvoEscritoAntigo.includes("/") ? novoPathSemExt : novoBaseSemExt;
 
-  // Quem aponta para o arquivo (backlinks já resolvidos pelo índice).
   const origens = [
-    ...new Set((st.links.backlinks.get(pathAntigo) ?? []).map((b) => b.origem)),
+    ...new Set((vault.links.backlinks.get(pathAntigo) ?? []).map((b) => b.origem)),
   ];
 
-  // Fase 1: ler tudo e calcular os novos conteúdos.
+  // Fase 1: ler tudo do disco (já flushado) e calcular os novos conteúdos.
   const gravacoes: { path: string; conteudo: string }[] = [];
   let linksAtualizados = 0;
   for (const origem of origens) {
     let texto: string;
     try {
-      texto =
-        origem === st.caminhoAberto ? st.conteudoDisco : await st.adapter.lerTexto(origem);
+      texto = await vault.adapter.lerTexto(origem);
     } catch {
       continue;
     }
     const [novo, n] = atualizarLinksNoTexto(
       texto,
-      (alvo) => st.resolver(alvo, origem),
+      (alvo) => vault.resolver(alvo, origem),
       pathAntigo,
       calcularNovoAlvo,
     );
@@ -124,24 +119,25 @@ export async function renomearArquivo(
   // Fase 2: gravar. Primeiro o rename do próprio arquivo, depois as notas.
   const inconsistentes: string[] = [];
   try {
-    await st.adapter.mover(pathAntigo, pathNovo);
+    await vault.adapter.mover(pathAntigo, pathNovo);
   } catch (e) {
     return { ok: false, motivo: `Não foi possível renomear: ${String(e)}` };
   }
+  const docs = useDocumentosStore.getState();
   for (const g of gravacoes) {
     try {
-      await st.adapter.escreverTexto(g.path, g.conteudo);
+      await vault.adapter.escreverTexto(g.path, g.conteudo);
+      // Se a nota está aberta numa aba, recarrega o editor com o novo conteúdo.
+      await docs.recarregarDoDisco(g.path);
     } catch {
       inconsistentes.push(g.path);
     }
   }
 
-  // Aba aberta segue o arquivo.
-  if (st.caminhoAberto === pathAntigo) {
-    await st.abrirArquivo(pathNovo);
-  }
-  await st.recarregarArvore();
-  await st.reindexar();
+  // A aba aberta segue o arquivo.
+  useWorkspaceStore.getState().renomearDocumento(pathAntigo, pathNovo);
+  await vault.recarregarArvore();
+  await vault.reindexar();
 
   const notasAtualizadas = gravacoes.length - inconsistentes.length;
   if (linksAtualizados > 0) {

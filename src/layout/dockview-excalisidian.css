@@ -1,0 +1,64 @@
+/* [excalisidian] Tema do dockview sobre os tokens do design system (doc 06).
+ * Usar junto com `.dockview-theme-light`, que fornece a estrutura; aqui só trocamos as
+ * variáveis `--dv-*` e alguns detalhes que o doc 06 exige. Troca sozinho com `.dark`. */
+
+.dockview-theme-excalisidian {
+  --dv-group-view-background-color: var(--color-papel);
+  --dv-tabs-and-actions-container-background-color: var(--color-lavagem);
+  --dv-tabs-and-actions-container-height: 34px;
+  --dv-tab-font-size: 13px;
+  --dv-tabs-and-actions-container-font-size: 13px;
+  --dv-tab-border-radius: 0;
+  --dv-border-radius: 0;
+
+  --dv-activegroup-visiblepanel-tab-background-color: var(--color-superficie);
+  --dv-activegroup-visiblepanel-tab-color: var(--color-tinta);
+  --dv-inactivegroup-visiblepanel-tab-background-color: var(--color-lavagem);
+  --dv-inactivegroup-visiblepanel-tab-color: var(--color-tinta-media);
+  --dv-activegroup-hiddenpanel-tab-background-color: var(--color-lavagem);
+  --dv-activegroup-hiddenpanel-tab-color: var(--color-tinta-suave);
+  --dv-inactivegroup-hiddenpanel-tab-background-color: var(--color-lavagem);
+  --dv-inactivegroup-hiddenpanel-tab-color: var(--color-tinta-suave);
+
+  --dv-tab-divider-color: var(--color-regua);
+  --dv-separator-border: var(--color-regua);
+  --dv-paneview-header-border-color: var(--color-regua);
+
+  --dv-sash-color: transparent;
+  --dv-active-sash-color: var(--color-musgo);
+
+  --dv-drag-over-background-color: color-mix(in srgb, var(--color-musgo) 12%, transparent);
+  --dv-drag-over-border-color: var(--color-musgo);
+  --dv-edge-dock-indicator-color: var(--color-musgo);
+  --dv-dnd-compass-color: var(--color-musgo);
+  --dv-dnd-compass-cell-color: var(--color-superficie);
+  --dv-dnd-compass-active-cell-color: var(--color-musgo);
+  --dv-dnd-compass-edge-cell-color: var(--color-lavagem);
+  --dv-smart-guides-color: var(--color-musgo);
+
+  --dv-icon-hover-background-color: var(--color-lavagem);
+  --dv-context-menu-background-color: var(--color-superficie);
+  --dv-context-menu-color: var(--color-tinta);
+  --dv-scrollbar-background-color: var(--color-regua);
+}
+
+/* Hairline separando cada aba; sem sombra em nenhuma superfície ancorada (doc 06). */
+.dockview-theme-excalisidian .dv-tab {
+  border-right: 1px solid var(--color-regua);
+  box-shadow: none;
+}
+
+/* A aba ativa se funde com o conteúdo: sem borda inferior. */
+.dockview-theme-excalisidian .dv-tab.dv-active-tab {
+  border-bottom: none;
+}
+
+/* A divisória do split: 1px em `regua`, área de arraste de 8px, `musgo` no arraste. */
+.dockview-theme-excalisidian .dv-sash-line {
+  background-color: var(--color-regua);
+}
+
+/* A faixa de abas leva uma hairline embaixo, separando do conteúdo. */
+.dockview-theme-excalisidian .dv-tabs-and-actions-container {
+  border-bottom: 1px solid var(--color-regua);
+}

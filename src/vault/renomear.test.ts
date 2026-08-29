@@ -2,6 +2,12 @@ import { describe, it, expect, vi } from "vitest";
 
 vi.mock("sonner", () => ({ toast: Object.assign(vi.fn(), { error: vi.fn() }) }));
 vi.mock("../estado/vaultStore", () => ({ useVaultStore: { getState: () => ({}) } }));
+vi.mock("../estado/documentosStore", () => ({
+  useDocumentosStore: { getState: () => ({ flushTudo: async () => {} }) },
+}));
+vi.mock("../estado/workspaceStore", () => ({
+  useWorkspaceStore: { getState: () => ({ renomearDocumento: () => {} }) },
+}));
 
 import { atualizarLinksNoTexto } from "./renomear";
 import { construirIndiceResolucao, resolverLink } from "../indice/resolucao";

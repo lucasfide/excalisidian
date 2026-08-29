@@ -5,6 +5,7 @@
 import { useMemo } from "react";
 
 import { useVaultStore } from "../../estado/vaultStore";
+import { useWorkspaceStore } from "../../estado/workspaceStore";
 import type { Backlink } from "../../indice/backlinks";
 
 function nomeCurto(path: string): string {
@@ -13,9 +14,9 @@ function nomeCurto(path: string): string {
 }
 
 export default function PainelBacklinks() {
-  const caminhoAberto = useVaultStore((s) => s.caminhoAberto);
+  const caminhoAberto = useWorkspaceStore((s) => s.caminhoAtivo);
   const links = useVaultStore((s) => s.links);
-  const abrirArquivo = useVaultStore((s) => s.abrirArquivo);
+  const abrirArquivo = useWorkspaceStore((s) => s.abrirDocumento);
 
   const grupos = useMemo(() => {
     if (!caminhoAberto) return [];

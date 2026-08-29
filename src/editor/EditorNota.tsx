@@ -1,8 +1,8 @@
 // Editor de nota (Fatia 2): live preview inline estilo Obsidian.
 //
 // O motor de live preview é o @atomic-editor/editor 0.6.2, copiado para src/editor/atomico/
-// (ver o LEIA-ME de lá). O contrato com o resto do app é o mesmo da Fatia 1, então
-// useAutosave, vaultStore e BarraStatus seguem sem alteração.
+// (ver o LEIA-ME de lá). Desde a Fatia 4 o conteúdo por aba vive no documentosStore e a aba
+// ativa no workspaceStore.
 
 import { useRef } from "react";
 import type { Extension } from "@codemirror/state";

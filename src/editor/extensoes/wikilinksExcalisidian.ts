@@ -1,9 +1,10 @@
 // Liga o wiki-links do editor vendorizado ao índice do vault: autocomplete ao digitar `[[`,
 // estado resolvido/não resolvido, e navegação ao clicar. A origem da resolução é sempre o
-// arquivo aberto agora (`caminhoAberto`).
+// arquivo da aba ativa (`workspaceStore.caminhoAtivo`).
 
 import { wikiLinks } from "../atomico";
 import { useVaultStore } from "../../estado/vaultStore";
+import { useWorkspaceStore } from "../../estado/workspaceStore";
 import { abrirOuCriarPorLink } from "../../vault/navegacao";
 
 const EXT_IMAGEM = /\.(png|jpe?g|gif|webp|svg|avif|bmp)$/i;
@@ -57,7 +58,7 @@ export const wikilinksExcalisidian = wikiLinks({
 
   async resolve(bruto) {
     const st = useVaultStore.getState();
-    const origem = st.caminhoAberto ?? "";
+    const origem = useWorkspaceStore.getState().caminhoAtivo ?? "";
     const alvo = alvoDe(bruto);
     const caminho = st.resolver(alvo, origem);
     if (!caminho) return { target: alvo, label: alvo, status: "missing" };
@@ -75,8 +76,8 @@ export const wikilinksExcalisidian = wikiLinks({
 
   openOnClick: true,
   onOpen(bruto) {
-    const st = useVaultStore.getState();
-    void abrirOuCriarPorLink(alvoDe(bruto), st.caminhoAberto ?? "");
+    const origem = useWorkspaceStore.getState().caminhoAtivo ?? "";
+    void abrirOuCriarPorLink(alvoDe(bruto), origem);
   },
 
   serializeSuggestion(s) {

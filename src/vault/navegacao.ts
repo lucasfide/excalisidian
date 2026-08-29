@@ -1,7 +1,8 @@
-// Navegação por wikilink: abre a nota alvo, ou cria uma nova quando o link não resolve
-// (doc 02 §4, doc 04 §4). Sem abas ainda (Fatia 4), então tudo abre na aba única.
+// Navegação por wikilink: abre a nota alvo numa aba, ou cria uma nova quando o link não
+// resolve (doc 02 §4, doc 04 §4).
 
 import { useVaultStore } from "../estado/vaultStore";
+import { useWorkspaceStore } from "../estado/workspaceStore";
 import { sanitizarNome, pastaDe } from "./caminhos";
 
 /** Onde criar a nota de um link não resolvido. Sem vaultPrefs ainda: `sameFolder`. */
@@ -18,12 +19,13 @@ export async function abrirOuCriarPorLink(
   alvo: string,
   origem: string,
 ): Promise<void> {
-  const st = useVaultStore.getState();
-  if (!st.adapter || alvo === "") return;
+  const vault = useVaultStore.getState();
+  const ws = useWorkspaceStore.getState();
+  if (!vault.adapter || alvo === "") return;
 
-  const existente = st.resolver(alvo, origem);
+  const existente = vault.resolver(alvo, origem);
   if (existente) {
-    await st.abrirArquivo(existente);
+    ws.abrirDocumento(existente);
     return;
   }
 
@@ -37,7 +39,6 @@ export async function abrirOuCriarPorLink(
   if (!seguro) return;
 
   if (seguro !== nomeBase) {
-    // doc 04 §4: mostra o nome final antes de gravar. Sem diálogo próprio ainda.
     const ok = window.confirm(
       `O nome «${nomeBase}» tem caracteres inválidos. Criar como «${seguro}»?`,
     );
@@ -46,14 +47,14 @@ export async function abrirOuCriarPorLink(
 
   const destino = dir ? `${dir}/${seguro}.md` : `${seguro}.md`;
 
-  if (await st.adapter.existe(destino)) {
-    await st.abrirArquivo(destino);
+  if (await vault.adapter.existe(destino)) {
+    ws.abrirDocumento(destino);
     return;
   }
 
-  if (dir) await st.adapter.criarPasta(dir);
-  await st.adapter.escreverTexto(destino, "");
-  await st.recarregarArvore();
-  await st.reindexarArquivo(destino);
-  await st.abrirArquivo(destino);
+  if (dir) await vault.adapter.criarPasta(dir);
+  await vault.adapter.escreverTexto(destino, "");
+  await vault.recarregarArvore();
+  await vault.reindexarArquivo(destino);
+  ws.abrirDocumento(destino);
 }

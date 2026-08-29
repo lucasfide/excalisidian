@@ -1,15 +1,15 @@
-// Fatia 1: abrir e escrever uma nota. Sidebar com a árvore, uma aba só (sem dockview),
-// editor CodeMirror, autosave com debounce e barra de status. O design system entra de
-// verdade aqui, mas ainda sem marginália (Fatia 2), abas (Fatia 4) nem watcher (Fatia 5).
+// Casca do app: barra lateral (árvore + backlinks) e o workspace de abas (dockview).
+// O conteúdo dos arquivos vive por aba no documentosStore; a aba ativa, no workspaceStore.
 
 import { useCallback, useEffect, useState } from "react";
 import { Toaster, toast } from "sonner";
 
 import { TauriVaultAdapter } from "../vault/TauriVaultAdapter";
 import { useVaultStore } from "../estado/vaultStore";
+import { useWorkspaceStore } from "../estado/workspaceStore";
 import { renomearArquivo } from "../vault/renomear";
 import { useAutosave } from "../editor/useAutosave";
-import EditorNota from "../editor/EditorNota";
+import Workspace from "../layout/Workspace";
 import ArvoreArquivos from "../ui/excalisidian/ArvoreArquivos";
 import BarraStatus from "../ui/excalisidian/BarraStatus";
 import PainelBacklinks from "../ui/excalisidian/PainelBacklinks";
@@ -30,7 +30,13 @@ export default function App() {
   const [boot, setBoot] = useState<Boot>("carregando");
   const [tema, setTema] = useState<Tema>("sistema");
 
-  const store = useVaultStore();
+  const arvore = useVaultStore((s) => s.arvore);
+  const pastasAbertas = useVaultStore((s) => s.pastasAbertas);
+  const alternarPasta = useVaultStore((s) => s.alternarPasta);
+  const statusIndice = useVaultStore((s) => s.statusIndice);
+  const caminhoAtivo = useWorkspaceStore((s) => s.caminhoAtivo);
+  const abrirDocumento = useWorkspaceStore((s) => s.abrirDocumento);
+
   useAutosave();
 
   useEffect(() => {
@@ -63,7 +69,9 @@ export default function App() {
   }, []);
 
   const renomear = useCallback(async (path: string) => {
-    const atual = path.slice(path.lastIndexOf("/") + 1).replace(/\.(draw\.)?md$/i, "");
+    const atual = path
+      .slice(path.lastIndexOf("/") + 1)
+      .replace(/\.(draw\.)?md$/i, "");
     const novo = window.prompt("Novo nome:", atual);
     if (!novo || novo === atual) return;
     const r = await renomearArquivo(path, novo);
@@ -140,19 +148,19 @@ export default function App() {
             </select>
           </div>
           <div className="min-h-0 flex-1">
-            {store.arvore && (
+            {arvore && (
               <ArvoreArquivos
-                raiz={store.arvore}
-                pastasAbertas={store.pastasAbertas}
-                caminhoAberto={store.caminhoAberto}
-                onAlternarPasta={store.alternarPasta}
-                onAbrirArquivo={store.abrirArquivo}
+                raiz={arvore}
+                pastasAbertas={pastasAbertas}
+                caminhoAberto={caminhoAtivo}
+                onAlternarPasta={alternarPasta}
+                onAbrirArquivo={abrirDocumento}
                 onRenomear={renomear}
               />
             )}
           </div>
           <PainelBacklinks />
-          {store.statusIndice === "indexando" && (
+          {statusIndice === "indexando" && (
             <div className="border-t border-regua px-3 py-1">
               <span className="meta text-tinta-suave">reindexando…</span>
             </div>
@@ -160,30 +168,11 @@ export default function App() {
         </aside>
 
         <main className="min-h-0 flex-1">
-          {store.caminhoAberto ? (
-            <div className="mx-auto h-full max-w-[720px] px-8 py-6">
-              <EditorNota
-                caminho={store.caminhoAberto}
-                conteudoInicial={store.conteudoDisco}
-                onEditar={store.editar}
-                onBlur={() => void store.salvar()}
-              />
-            </div>
-          ) : (
-            <div className="flex h-full items-center justify-center">
-              <span className="meta text-tinta-suave">
-                selecione uma nota na barra lateral
-              </span>
-            </div>
-          )}
+          <Workspace />
         </main>
       </div>
 
-      <BarraStatus
-        caminho={store.caminhoAberto}
-        conteudo={store.conteudoEditor}
-        estado={store.estadoSalvamento}
-      />
+      <BarraStatus />
       <Toaster
         position="bottom-right"
         toastOptions={{

@@ -1,5 +1,6 @@
-// Estado global do vault (zustand). Não guarda conteúdo de arquivo além do que está na aba
-// aberta agora — o resto vive no disco e no índice. Uma aba só até a Fatia 4.
+// Estado global do vault (zustand): raiz, árvore, índice, backlinks, status de indexação.
+// O conteúdo dos arquivos abertos NÃO vive aqui — vive no documentosStore, por aba
+// (doc 05 §7). A aba ativa vive no workspaceStore.
 
 import { create } from "zustand";
 
@@ -18,13 +19,6 @@ import {
   type IndiceLinks,
 } from "../indice/backlinks";
 import { carregarIndice, salvarIndice } from "../indice/cache";
-
-export type EstadoSalvamento =
-  | "limpo"
-  | "editando"
-  | "salvando"
-  | "salvo"
-  | "erro";
 
 export type StatusIndice = "vazio" | "indexando" | "pronto";
 
@@ -49,12 +43,6 @@ interface VaultState {
   links: IndiceLinks;
   statusIndice: StatusIndice;
 
-  caminhoAberto: string | null;
-  conteudoDisco: string;
-  conteudoEditor: string;
-  estadoSalvamento: EstadoSalvamento;
-  erroSalvamento: string | null;
-
   definirAdapter(adapter: TauriVaultAdapter): Promise<void>;
   recarregarArvore(): Promise<void>;
   reindexar(): Promise<void>;
@@ -62,13 +50,8 @@ interface VaultState {
   resolver(alvo: string, origem: string): string | null;
   backlinksDe(path: string): Backlink[];
   alternarPasta(path: string): void;
-  abrirArquivo(path: string): Promise<void>;
-  fecharArquivo(): void;
-  editar(texto: string): void;
-  salvar(): Promise<void>;
 }
 
-/** Reconstrói os índices derivados a partir de um Map de FileMeta e da lista de caminhos. */
 function derivar(indice: Map<string, FileMeta>, todosCaminhos: string[]) {
   const resolucao = construirIndiceResolucao(todosCaminhos);
   const links = construirIndiceLinks(indice.values(), resolucao);
@@ -87,12 +70,6 @@ export const useVaultStore = create<VaultState>((set, get) => ({
   links: LINKS_VAZIO,
   statusIndice: "vazio",
 
-  caminhoAberto: null,
-  conteudoDisco: "",
-  conteudoEditor: "",
-  estadoSalvamento: "limpo",
-  erroSalvamento: null,
-
   async definirAdapter(adapter) {
     set({
       adapter,
@@ -101,7 +78,6 @@ export const useVaultStore = create<VaultState>((set, get) => ({
       resolucao: RESOLUCAO_VAZIA,
       links: LINKS_VAZIO,
       statusIndice: "vazio",
-      caminhoAberto: null,
     });
     await get().recarregarArvore();
     await get().reindexar();
@@ -119,9 +95,10 @@ export const useVaultStore = create<VaultState>((set, get) => ({
     if (!adapter) return;
     set({ statusIndice: "indexando" });
 
-    // Base para reparse incremental: o índice em memória, ou o cache em disco no boot.
     const base =
-      get().indice.size > 0 ? get().indice : (await carregarIndice(adapter.raiz())) ?? new Map();
+      get().indice.size > 0
+        ? get().indice
+        : (await carregarIndice(adapter.raiz())) ?? new Map();
 
     const arquivos = entradas.filter(
       (e) => !e.isDir && tipoDoArquivo(e.path) !== "attachment",
@@ -186,62 +163,5 @@ export const useVaultStore = create<VaultState>((set, get) => ({
     if (abertas.has(path)) abertas.delete(path);
     else abertas.add(path);
     set({ pastasAbertas: abertas });
-  },
-
-  async abrirArquivo(path) {
-    const { adapter } = get();
-    if (!adapter) return;
-    try {
-      const texto = await adapter.lerTexto(path);
-      set({
-        caminhoAberto: path,
-        conteudoDisco: texto,
-        conteudoEditor: texto,
-        estadoSalvamento: "limpo",
-        erroSalvamento: null,
-      });
-    } catch (e) {
-      set({ estadoSalvamento: "erro", erroSalvamento: String(e) });
-    }
-  },
-
-  fecharArquivo() {
-    set({
-      caminhoAberto: null,
-      conteudoDisco: "",
-      conteudoEditor: "",
-      estadoSalvamento: "limpo",
-      erroSalvamento: null,
-    });
-  },
-
-  editar(texto) {
-    const { conteudoDisco } = get();
-    set({
-      conteudoEditor: texto,
-      estadoSalvamento: texto === conteudoDisco ? "limpo" : "editando",
-    });
-  },
-
-  async salvar() {
-    const { adapter, caminhoAberto, conteudoEditor, conteudoDisco } = get();
-    if (!adapter || !caminhoAberto) return;
-    if (conteudoEditor === conteudoDisco) return; // nada mudou: não grava, não suja o Git
-    set({ estadoSalvamento: "salvando", erroSalvamento: null });
-    try {
-      await adapter.escreverTexto(caminhoAberto, conteudoEditor);
-      set({ conteudoDisco: conteudoEditor, estadoSalvamento: "salvo" });
-      void get().reindexarArquivo(caminhoAberto);
-      setTimeout(() => {
-        if (
-          get().estadoSalvamento === "salvo" &&
-          get().conteudoEditor === get().conteudoDisco
-        ) {
-          set({ estadoSalvamento: "limpo" });
-        }
-      }, 1200);
-    } catch (e) {
-      set({ estadoSalvamento: "erro", erroSalvamento: String(e) });
-    }
   },
 }));

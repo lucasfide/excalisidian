@@ -1,14 +1,16 @@
 // Barra de status (doc 06 Layout): 24px, fundo superficie, tudo em `meta` tinta-suave.
-// Caminho à esquerda; contagem de palavras e estado de salvamento à direita.
+// Caminho da aba ativa à esquerda; contagem de palavras e estado de salvamento à direita.
 
-import type { EstadoSalvamento } from "../../estado/vaultStore";
+import { useWorkspaceStore } from "../../estado/workspaceStore";
+import { useDocumentosStore, type EstadoDoc } from "../../estado/documentosStore";
 
-const TEXTO: Record<EstadoSalvamento, string> = {
+const TEXTO: Record<EstadoDoc, string> = {
   limpo: "salvo",
   editando: "editando",
   salvando: "salvando…",
   salvo: "salvo",
   erro: "erro ao salvar",
+  orfao: "arquivo sumiu",
 };
 
 function contarPalavras(texto: string): number {
@@ -16,22 +18,21 @@ function contarPalavras(texto: string): number {
   return m ? m.length : 0;
 }
 
-interface Props {
-  caminho: string | null;
-  conteudo: string;
-  estado: EstadoSalvamento;
-}
+export default function BarraStatus() {
+  const caminho = useWorkspaceStore((s) => s.caminhoAtivo);
+  const doc = useDocumentosStore((s) =>
+    caminho ? s.docs.get(caminho) : undefined,
+  );
 
-export default function BarraStatus({ caminho, conteudo, estado }: Props) {
   return (
     <footer className="flex h-6 items-center justify-between border-t border-regua bg-superficie px-3">
       <span className="meta truncate text-tinta-suave">
         {caminho ?? "nenhum arquivo aberto"}
       </span>
       <span className="meta flex shrink-0 items-center gap-3 text-tinta-suave">
-        {caminho && <span>{contarPalavras(conteudo)} palavras</span>}
-        <span className={estado === "erro" ? "text-bordo" : undefined}>
-          {caminho ? TEXTO[estado] : ""}
+        {doc && <span>{contarPalavras(doc.conteudoEditor)} palavras</span>}
+        <span className={doc?.estado === "erro" ? "text-bordo" : undefined}>
+          {doc ? TEXTO[doc.estado] : ""}
         </span>
       </span>
     </footer>
