@@ -15,7 +15,11 @@
   --atomic-editor-font-mono: var(--fonte-mono);
   --atomic-editor-body-size: 15px; /* doc 06: corpo */
   --atomic-editor-body-leading: 1.55; /* doc 06: corpo */
-  --atomic-editor-measure: 720px; /* doc 06: coluna de texto */
+  /* Coluna de texto do doc 06. Na prática quem clampa em 720px é o PainelDocumento, e o
+   * `marginalia.css` desliga este `max-width` para o texto preencher o que sobra depois do
+   * gutter de 76px. Fica aqui como fallback, para o editor continuar legível se um dia for
+   * montado fora daquele painel. */
+  --atomic-editor-measure: 720px;
   --atomic-editor-radius: var(--radius-ficha);
 
   /* Texto */

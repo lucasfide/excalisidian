@@ -16,14 +16,17 @@ import "./atomico/styles/inline-preview.css";
 import "./atomico/tokens-excalisidian.css";
 import { atalhosFormatacao } from "./extensoes/atalhosFormatacao";
 import { wikilinksExcalisidian } from "./extensoes/wikilinksExcalisidian";
-
-// A marginália (doc 06) está adiada: o gutter do CodeMirror não convive bem com a
-// centralização de coluna do editor vendorizado. Fica para uma passada dedicada, com o
-// código já pronto em extensoes/marginalia.ts. Ver a nota no ADR-10 do docs/09.
+import { marginalia } from "./extensoes/marginalia";
+// Depois dos tokens: reativa o gutter da marginália, que o tema do pacote esconde.
+import "./extensoes/marginalia.css";
 
 // Referência estável: o pacote captura `extensions` uma vez na montagem. As callbacks de
 // wikilinks leem o estado do store em tempo de chamada, então continuam atuais.
-const EXTENSOES: readonly Extension[] = [atalhosFormatacao, wikilinksExcalisidian];
+const EXTENSOES: readonly Extension[] = [
+  atalhosFormatacao,
+  wikilinksExcalisidian,
+  marginalia(),
+];
 
 interface Props {
   caminho: string;

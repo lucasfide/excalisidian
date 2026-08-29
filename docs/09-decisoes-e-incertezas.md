@@ -146,13 +146,19 @@ vitest); se um dia mexermos na lógica de *decoration* e não só no tema, ela v
 
 **Duas pendências abertas por causa da adoção, a tratar depois da Fatia 2:**
 
-1. **Marginália (doc 06) adiada.** O editor centraliza a coluna de texto por conta própria
-   (`.cm-content { margin-inline: auto }`); um gutter do CodeMirror fica preso na borda
-   esquerda do painel inteiro, longe do texto — não é a "margem do caderno" 76px à esquerda
-   das letras que o doc 06 pede. O código do gutter está pronto em
-   `src/editor/extensoes/marginalia.ts`; falta resolver a centralização (provável caminho:
-   desligar `margin-inline: auto` e centralizar o conjunto gutter+conteúdo num wrapper de
-   ~796px). É um desvio do doc 06 registrado aqui de propósito.
+1. ~~**Marginália (doc 06) adiada.**~~ **Resolvida.** O diagnóstico estava certo — duas
+   centralizações competindo: o `PainelDocumento` clampa a coluna em 720px e o pacote
+   centraliza o texto de novo dentro dela com `.cm-content { max-width; margin-inline: auto }`,
+   deixando a hairline do gutter longe das letras. A correção não precisou do wrapper de
+   ~796px: basta **um dono só para a largura** — o painel limita, e `marginalia.css`
+   desliga o `max-width`/`margin-inline` do `.cm-content`, que passa a preencher o que sobra
+   ao lado do gutter de 76px.
+
+   Dois detalhes que faltavam junto: `marginalia.css` nunca era importado, e o
+   `@container editor (max-width: 760px)` não tinha container. O `container-name: editor` foi
+   para o **`PainelDocumento`**, não para o `EditorNota` — o doc 06 fala em "largura de
+   painel", e medir a coluna de texto daria sempre menos de 760px, colapsando a margem para
+   sempre. O `EMB` de bloco embutido continua adiado para a Fatia 7, junto com os embeds.
 2. **Frontmatter YAML renderiza como markdown.** `aliases:` e `created:` aparecem grandes,
    e `[App]` vira link. O conteúdo em disco não é alterado (o motor é source-of-truth), só
    a exibição fica errada. Tratar junto com o parsing de `FileMeta` na Fatia 3.

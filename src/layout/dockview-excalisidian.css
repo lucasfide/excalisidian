@@ -48,9 +48,15 @@
   box-shadow: none;
 }
 
-/* A aba ativa se funde com o conteúdo: sem borda inferior. */
+/* A aba ativa se funde com o conteúdo (doc 06): além de não ter borda própria, ela precisa
+ * cobrir a hairline que o container desenha embaixo de toda a faixa — senão a linha atravessa
+ * por baixo dela e a fusão não acontece. Descer 1px e compensar na altura resolve sem sombra. */
 .dockview-theme-excalisidian .dv-tab.dv-active-tab {
   border-bottom: none;
+  position: relative;
+  z-index: 1;
+  margin-bottom: -1px;
+  padding-bottom: 1px;
 }
 
 /* A divisória do split: 1px em `regua`, área de arraste de 8px, `musgo` no arraste. */

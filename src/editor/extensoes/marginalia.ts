@@ -6,15 +6,23 @@
 //
 // O indicador EMB de bloco embutido entra na Fatia 7, junto com os embeds.
 //
-// Implementado como gutter do CodeMirror 6: acompanha scroll e virtualização de graça. O
-// pacote vendorizado esconde os gutters no tema dele (`.cm-gutters { display: none }`); o
-// CSS de `estilos/marginalia.css` reativa só este.
+// Implementado como gutter do CodeMirror 6, não como overlay React: o gutter acompanha
+// scroll, virtualização e altura variável de linha de graça — e há widgets de bloco altos
+// (tabelas, imagens) que fariam qualquer overlay reimplementar `lineBlockAt` na mão.
+//
+// A leitura é sempre do documento vivo (`view.state.doc`), nunca do índice do vaultStore: o
+// índice reflete o disco e ficaria atrasado em relação ao que o usuário acabou de digitar.
+//
+// O pacote vendorizado esconde os gutters no tema dele (`.cm-gutters { display: none }`);
+// `marginalia.css` reativa só este.
 
 import { gutter, GutterMarker } from "@codemirror/view";
 import type { EditorView } from "@codemirror/view";
 
-const RE_HEADING = /^(#{1,6})\s/;
-const RE_BLOCO_ID = /(?:^|\s)\^([A-Za-z0-9-]+)\s*$/;
+import { nivelDoHeading, blockIdDaLinha } from "../../indice/sintaxe";
+
+/** Acima disto o id é truncado, para caber nos 76px sem quebrar linha. */
+const MAX_ID = 8;
 
 type TipoMarca = "heading" | "bloco";
 
@@ -25,9 +33,11 @@ class MarcadorTexto extends GutterMarker {
   ) {
     super();
   }
+
   eq(outro: MarcadorTexto) {
     return outro.texto === this.texto && outro.tipo === this.tipo;
   }
+
   toDOM() {
     const el = document.createElement("span");
     el.className = "cm-marginalia-marca";
@@ -38,19 +48,15 @@ class MarcadorTexto extends GutterMarker {
 }
 
 function marcadorDaLinha(view: EditorView, linhaInicio: number): GutterMarker | null {
-  const linha = view.state.doc.lineAt(linhaInicio);
-  const texto = linha.text;
+  const texto = view.state.doc.lineAt(linhaInicio).text;
 
-  const h = RE_HEADING.exec(texto);
-  if (h) return new MarcadorTexto(`H${h[1].length}`, "heading");
+  const nivel = nivelDoHeading(texto);
+  if (nivel > 0) return new MarcadorTexto(`H${nivel}`, "heading");
 
-  const b = RE_BLOCO_ID.exec(texto);
-  if (b) {
-    const id = b[1];
-    return new MarcadorTexto(
-      "^" + (id.length > 8 ? id.slice(0, 7) + "…" : id),
-      "bloco",
-    );
+  const id = blockIdDaLinha(texto);
+  if (id) {
+    const curto = id.length > MAX_ID ? `${id.slice(0, MAX_ID - 1)}…` : id;
+    return new MarcadorTexto(`^${curto}`, "bloco");
   }
 
   return null;

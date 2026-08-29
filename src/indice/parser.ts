@@ -4,6 +4,7 @@
 import matter from "gray-matter";
 
 import { extrairLinks, type LinkRef } from "./wikilink";
+import { RE_HEADING, RE_BLOCO_ID, RE_FENCE } from "./sintaxe";
 import { tipoDoArquivo } from "../vault/arvore";
 
 export type TipoArquivo = "note" | "drawing" | "attachment";
@@ -28,10 +29,6 @@ export interface FileMeta {
   outLinks: LinkRef[];
   embeds: LinkRef[];
 }
-
-const RE_HEADING = /^(#{1,6})\s+(.*?)\s*#*\s*$/;
-const RE_BLOCO_ID = /(?:^|\s)\^([A-Za-z0-9-]+)\s*$/;
-const RE_FENCE = /^(\s*)(`{3,}|~{3,})/;
 
 function basenameSemExtensao(path: string): string {
   const nome = path.slice(path.lastIndexOf("/") + 1);

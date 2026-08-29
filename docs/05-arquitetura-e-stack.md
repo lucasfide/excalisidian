@@ -23,8 +23,17 @@ Todas as versões abaixo foram verificadas no registry do npm em **28/08/2026**.
 | Estilo | Tailwind v4 com os tokens do design system | |
 | Ícones | `lucide-react` | |
 | Virtualização | `@tanstack/react-virtual` | |
-| Componentes base | `shadcn/ui` (re-estilizado) + `sonner` para toasts | |
+| Componentes base | próprios, em `src/ui/` + `sonner` para toasts | |
+| Composição de classes | `clsx` + `tailwind-merge` (o helper `cn`) | |
 | Fontes | Fraunces, Instrument Sans, IBM Plex Mono — empacotadas em `public/fontes/` | |
+
+**Sobre os componentes base:** o plano original era instalar `shadcn/ui` e re-estilizar. Na
+prática os componentes de que o produto precisa são poucos e todos pequenos (botão, superfície,
+menu, diálogo, campo, grupo de botões, seletor de cor), e o doc 06 já define cada estado deles —
+então eles são escritos aqui mesmo, sem trazer Radix nem o CLI do shadcn. `clsx` e
+`tailwind-merge` entram porque o Tailwind resolve conflito por ordem no CSS, não por ordem na
+string: sem o merge, um componente que aceita `className` por prop não consegue ser
+sobrescrito de forma previsível.
 
 ### Por que Tauri e não Electron
 
