@@ -9,6 +9,7 @@ import { exportToSvg } from "@excalidraw/excalidraw";
 import { useVaultStore } from "../estado/vaultStore";
 import { parseDesenho } from "./formatoDesenho";
 import { reidratarFiles } from "./reidratarFiles";
+import { temaEscuroAtivo, converterElementosParaTema } from "./paletaCanvas";
 
 interface Entrada {
   mtimeMs: number;
@@ -24,8 +25,12 @@ function mtimeDe(caminho: string): number | null {
 
 /** Limpa o cache de um caminho (ou tudo, sem argumento). Usado pelos testes. */
 export function limparCacheSvg(caminho?: string): void {
-  if (caminho) cache.delete(caminho);
-  else cache.clear();
+  if (caminho) {
+    cache.delete(`${caminho}:claro`);
+    cache.delete(`${caminho}:escuro`);
+  } else {
+    cache.clear();
+  }
 }
 
 /**
@@ -34,7 +39,9 @@ export function limparCacheSvg(caminho?: string): void {
  */
 export async function renderizarSvg(caminho: string): Promise<SVGSVGElement> {
   const mtime = mtimeDe(caminho);
-  const emCache = cache.get(caminho);
+  const escuro = temaEscuroAtivo();
+  const chaveCache = `${caminho}:${escuro ? "escuro" : "claro"}`;
+  const emCache = cache.get(chaveCache);
   if (emCache && mtime !== null && emCache.mtimeMs === mtime) {
     return emCache.svg.cloneNode(true) as SVGSVGElement;
   }
@@ -46,15 +53,24 @@ export async function renderizarSvg(caminho: string): Promise<SVGSVGElement> {
   const dados = parseDesenho(texto);
   const files = await reidratarFiles(dados);
 
+  const vivos = dados.cena.elements.filter(
+    (e) => !(e as { isDeleted?: boolean }).isDeleted,
+  );
+  const elementos = escuro ? converterElementosParaTema(vivos as never, "escuro") : vivos;
+
   const svg = await exportToSvg({
-    elements: dados.cena.elements.filter(
-      (e) => !(e as { isDeleted?: boolean }).isDeleted,
-    ) as never,
-    appState: dados.cena.appState as never,
+    elements: elementos as never,
+    appState: {
+      ...dados.cena.appState,
+      theme: escuro ? "dark" : "light",
+      exportWithDarkMode: escuro,
+    } as never,
     files,
     exportPadding: 8,
   });
 
-  if (mtime !== null) cache.set(caminho, { mtimeMs: mtime, svg: svg.cloneNode(true) as SVGSVGElement });
+  if (mtime !== null) {
+    cache.set(chaveCache, { mtimeMs: mtime, svg: svg.cloneNode(true) as SVGSVGElement });
+  }
   return svg;
 }

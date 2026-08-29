@@ -10,3 +10,15 @@
 .excalisidian-canvas .excalidraw .help-icon {
   display: none !important;
 }
+
+/* O tema escuro do Excalisidian não é inversão automática (doc 06 §59): temos paleta própria
+   feita à mão. O Excalidraw aplica por padrão `filter: invert(93%) hue-rotate(180deg)` no canvas,
+   o que destruía o contraste das nossas cores sobre o fundo escuro. Desativamos o filtro aqui. */
+.excalisidian-canvas .excalidraw.theme--dark canvas {
+  filter: none !important;
+}
+
+/* Cor de seleção do canvas com o token de destaque do app */
+.excalisidian-canvas .excalidraw {
+  --color-selection: var(--color-musgo);
+}

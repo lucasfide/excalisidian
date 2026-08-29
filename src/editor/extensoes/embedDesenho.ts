@@ -29,6 +29,7 @@ import { useWorkspaceStore } from "../../estado/workspaceStore";
 import { tipoDoArquivo } from "../../vault/arvore";
 import { abrirOuCriarPorLink } from "../../vault/navegacao";
 import { renderizarSvg } from "../../canvas/renderSvg";
+import { temaEscuroAtivo } from "../../canvas/paletaCanvas";
 
 class EmbedDesenhoWidget extends WidgetType {
   constructor(
@@ -36,6 +37,10 @@ class EmbedDesenhoWidget extends WidgetType {
     private readonly origem: string,
     private readonly largura: string | undefined,
     private readonly circular: boolean,
+    // Entra na igualdade de propósito: sem isto, trocar o tema não recria o widget (o
+    // CodeMirror reaproveita o DOM existente quando `eq()` diz que nada mudou) e o SVG
+    // embutido continua mostrando as cores do tema anterior até fechar e reabrir a nota.
+    private readonly escuro: boolean,
   ) {
     super();
   }
@@ -44,7 +49,8 @@ class EmbedDesenhoWidget extends WidgetType {
     return (
       outro.alvo === this.alvo &&
       outro.largura === this.largura &&
-      outro.circular === this.circular
+      outro.circular === this.circular &&
+      outro.escuro === this.escuro
     );
   }
 
@@ -117,6 +123,7 @@ function construirDecoracoes(view: EditorView): DecorationSet {
       origem,
       larguraDoAlias(link.alias),
       alvo === origem, // auto-embed: um desenho não pode se embutir na própria nota
+      temaEscuroAtivo(),
     );
     builder.add(
       linha.from,
@@ -131,15 +138,40 @@ function construirDecoracoes(view: EditorView): DecorationSet {
 export const embedDesenho = ViewPlugin.fromClass(
   class {
     decorations: DecorationSet;
+    private observador: MutationObserver | undefined;
 
-    constructor(view: EditorView) {
+    constructor(private readonly view: EditorView) {
       this.decorations = construirDecoracoes(view);
+
+      // A troca de tema (App.tsx alterna a classe `dark` no <html>) não mexe no documento,
+      // então `update()` abaixo nunca dispararia sozinho. Reconstrói as decorações (o `eq()`
+      // do widget agora inclui `escuro`, então isso força um novo `toDOM()`/renderizarSvg) e
+      // despacha uma transação vazia só para o CodeMirror repintar com o novo conjunto.
+      if (typeof MutationObserver !== "undefined") {
+        this.observador = new MutationObserver((mutations) => {
+          for (const m of mutations) {
+            if (m.type === "attributes" && m.attributeName === "class") {
+              this.decorations = construirDecoracoes(this.view);
+              this.view.dispatch({});
+              return;
+            }
+          }
+        });
+        this.observador.observe(document.documentElement, {
+          attributes: true,
+          attributeFilter: ["class"],
+        });
+      }
     }
 
     update(update: ViewUpdate) {
       if (update.docChanged) {
         this.decorations = construirDecoracoes(update.view);
       }
+    }
+
+    destroy() {
+      this.observador?.disconnect();
     }
   },
   { decorations: (v) => v.decorations },

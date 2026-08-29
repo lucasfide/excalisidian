@@ -333,6 +333,10 @@ No tema claro os pares `fundo-*` e `postit-*` coincidem em hex; no escuro, não.
 
 **Fundo da cena:** transparente (a grade fica atrás).
 
+O Excalidraw tem o próprio mecanismo de tema escuro (um filtro CSS de inversão no `<canvas>`),
+desligado neste produto porque colidiria com as duas paletas acima — ver doc 09 ADR-11. Um
+elemento colorido com um dos tokens desta seção troca de par ao mudar de tema; ver ADR-12.
+
 ### Espessura, estilo e imperfeição
 
 | Propriedade | Opções |

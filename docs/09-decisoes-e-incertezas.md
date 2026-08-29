@@ -165,6 +165,74 @@ B do `docs/08` — decorations próprias com cobertura reduzida (headings, ênfa
 links primeiro; o resto em sintaxe visível). O `EditorNota.tsx` isola o motor atrás de um
 contrato de 4 props, então a troca não toca `vaultStore`, `useAutosave` nem `BarraStatus`.
 
+### ADR-11 · O filtro de tema escuro do Excalidraw fica desligado
+
+**Contexto:** ao testar o canvas em tela (29/08/2026), a cor branca escolhida no painel
+aparecia como um cinza escuro sobre o fundo escuro do app — quase ilegível.
+
+**Causa, confirmada por grep no bundle (`node_modules/@excalidraw/excalidraw/dist/prod/index.css`):**
+o Excalidraw não recolore elemento nenhum quando `theme="dark"`. Ele aplica um filtro CSS no
+`<canvas>` inteiro:
+
+```css
+.excalidraw.theme--dark { --theme-filter: invert(93%) hue-rotate(180deg); }
+.excalidraw.theme--dark canvas { filter: var(--theme-filter); }
+```
+
+Como o Excalisidian já alimenta o Excalidraw com a própria paleta escura (14 tokens
+desenhados à mão, doc 06 §295-334), o tema estava sendo aplicado duas vezes: uma vez pela
+nossa paleta, outra pelo filtro. Isso colide de frente com o doc 06 §59: *"o tema escuro não
+é inversão automática: o papel escurece para um marrom-tinta [...] e as cores clareiam para
+manter contraste"* — o produto sempre foi projetado para ter as duas paletas hand-picked, não
+uma sendo a inversa da outra.
+
+**Decisão:** `src/canvas/excalidraw-excalisidian.css` desliga o filtro
+(`.excalisidian-canvas .excalidraw.theme--dark canvas { filter: none !important; }`). O
+Excalidraw continua recebendo `theme="dark"` — isso ainda escurece o chrome dele que não
+tocamos (biblioteca, diálogos, menu de contexto).
+
+**Efeito colateral corrigido junto:** sem o filtro, a caixa de seleção de elementos (cor
+padrão do Excalidraw, `#6965db`, pensada para ser invertida no escuro) perderia parte do
+contraste. Verificado no bundle que o Excalidraw lê a cor de seleção de uma variável CSS do
+próprio container (`getComputedStyle(containerRef.current).getPropertyValue("--color-selection")`,
+com fallback pro hex acima) — então `--color-selection: var(--color-musgo)` no CSS acima
+resolve isso sem precisar recolorir nada por conta própria.
+
+**Dependência frágil, a revalidar a cada upgrade do Excalidraw** (mesma categoria de aviso já
+presente no topo de `excalidraw-excalisidian.css`): `--theme-filter`, a classe
+`.excalidraw.theme--dark` e o nome da variável `--color-selection` são detalhes internos, não
+API pública documentada.
+
+### ADR-12 · Cor de elemento acompanha o tema
+
+**Contexto:** consequência natural do ADR-11 — com duas paletas independentes, o que acontece
+quando um desenho colorido no tema escuro é reaberto no tema claro?
+
+**Decisão:** a cor acompanha o tema. Um elemento colorido com um dos 14 tokens normativos
+troca automaticamente para o par equivalente do tema ativo, tanto ao trocar de tema com o
+desenho aberto (`useTemaEscuro()`, reativo via `MutationObserver` na classe do `<html>`)
+quanto ao reabrir o arquivo depois de fechado. O disco grava sempre a paleta do tema claro
+(doc 02 §3.3.1) — é o formato canônico, então diffs de Git não mudam só porque alguém abriu o
+arquivo num tema diferente.
+
+**Alternativa rejeitada:** manter o hex exato que o usuário escolheu, sem conversão nenhuma.
+Mais simples de implementar e mais "fiel" à escolha literal — mas um desenho feito no escuro
+fica com texto e formas quase invisíveis ao abrir no claro (a cor branca do traço escuro vira
+cinza-claro sobre fundo bege claro), e vice-versa. Rejeitada porque o desenho é o produto, e
+um desenho ilegível pela metade do tempo não serve.
+
+**Cor fora da paleta (colada de fora, ou desenho de versão anterior do app) nunca é tocada** —
+a conversão só reconhece os 14 hex normativos, então nada além deles corre risco de mudar sem
+o usuário pedir.
+
+**Heurística de post-it, uma aproximação conhecida:** no tema claro, `fundo-*` e `postit-*`
+coincidem em hex (doc 06 §332: "são dois conjuntos de propósito — não os unifique"), então
+convertê-los exige saber qual dos dois conjuntos usar antes de trocar de tema. A desambiguação
+(`ehPostit` em `src/canvas/paletaCanvas.ts`) usa a mesma assinatura que `postit.ts` grava ao
+criar um: retângulo, `fillStyle: "solid"`, `roundness: null` e `strokeColor === backgroundColor`.
+Um retângulo comum que por acaso tiver essas quatro características e a cor de um post-it seria
+identificado como post-it — cenário não observado, aceito como aproximação.
+
 ### ADR-9 · O nome do produto é um problema em aberto
 
 Isto não é uma decisão, é um alerta que apareceu ao resolver o ADR-8.

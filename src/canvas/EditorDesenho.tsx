@@ -19,13 +19,20 @@ import {
   blockIdsDaCena,
 } from "./formatoDesenho";
 import { reidratarFiles, bytesParaDataUrl } from "./reidratarFiles";
-import { lerPaletaCanvas, temaEscuroAtivo } from "./paletaCanvas";
+import {
+  lerPaletaCanvas,
+  temaEscuroAtivo,
+  useTemaEscuro,
+  converterElementosParaTema,
+} from "./paletaCanvas";
 import { inserirPostit } from "./postit";
 import { useAtalhosCanvas } from "./atalhosCanvas";
 import { abrirOuCriarPorLink } from "../vault/navegacao";
 import { alvoDeLinkWiki } from "./linkElemento";
 import ToolbarCanvas from "../ui/excalisidian/ToolbarCanvas";
 import PropriedadesCanvas from "../ui/excalisidian/PropriedadesCanvas";
+import { buscarSugestoesLink, type SugestaoLink } from "../indice/sugestoesLink";
+import IconeArquivo from "../ui/IconeArquivo";
 
 const DEBOUNCE_MS = 800;
 const PASSO_GRADE = 20;
@@ -66,14 +73,47 @@ export default function EditorDesenho({ caminho, conteudoInicial, onEditar }: Pr
   const raizRef = useRef<HTMLDivElement | null>(null);
   const gradeRef = useRef<HTMLDivElement | null>(null);
   const timerRef = useRef<number | undefined>(undefined);
+  const primeiroRenderTema = useRef(true);
   const [ferramentaAtiva, setFerramentaAtiva] = useState("selection");
   const [tick, setTick] = useState(0);
 
+  // Estado para autocompleção flutuante na ferramenta de texto do canvas
+  const [sugestaoTexto, setSugestaoTexto] = useState<{
+    visivel: boolean;
+    query: string;
+    pos: { x: number; y: number };
+    textarea: HTMLTextAreaElement;
+    cursorInicio: number;
+  } | null>(null);
+  const [indiceFocoTexto, setIndiceFocoTexto] = useState(0);
+
+  const sugestaoTextoRef = useRef(sugestaoTexto);
+  sugestaoTextoRef.current = sugestaoTexto;
+
+  const sugestoesTextoList = useMemo(() => {
+    if (!sugestaoTexto?.visivel) return [];
+    return buscarSugestoesLink(sugestaoTexto.query, 8);
+  }, [sugestaoTexto?.visivel, sugestaoTexto?.query]);
+
+  const sugestoesAtuaisRef = useRef(sugestoesTextoList);
+  sugestoesAtuaisRef.current = sugestoesTextoList;
+
+  const indiceFocoTextoRef = useRef(indiceFocoTexto);
+  indiceFocoTextoRef.current = indiceFocoTexto;
+
   useAtalhosCanvas(raizRef);
 
+  const escuro = useTemaEscuro();
+  const paleta = useMemo(() => lerPaletaCanvas(), [escuro]);
   const base = useMemo(() => parseDesenho(conteudoInicial), [conteudoInicial]);
-  const paleta = useMemo(() => lerPaletaCanvas(), []);
-  const escuro = temaEscuroAtivo();
+
+  const baseRef = useRef(base);
+  useEffect(() => {
+    baseRef.current = base;
+  }, [base]);
+
+  const ultimoMdRef = useRef(conteudoInicial);
+
   // embeddedFiles cresce ao colar imagem; mantido mutável fora do parse base.
   const embedsRef = useRef(new Map(base.embeddedFiles));
   useEffect(() => {
@@ -89,6 +129,145 @@ export default function EditorDesenho({ caminho, conteudoInicial, onEditar }: Pr
       vivo = false;
     };
   }, [base]);
+
+  // Sincroniza cores dos elementos existentes e padrões de novas ferramentas ao alternar tema em tempo real
+  useEffect(() => {
+    if (primeiroRenderTema.current) {
+      primeiroRenderTema.current = false;
+      return;
+    }
+    const api = apiRef.current;
+    if (!api) return;
+
+    const elementosAtuais = api.getSceneElements();
+    const elementosConvertidos = converterElementosParaTema(
+      elementosAtuais,
+      escuro ? "escuro" : "claro",
+    );
+
+    api.updateScene({
+      elements: elementosConvertidos as never,
+      appState: {
+        currentItemStrokeColor: paleta.tracos[0].hex,
+        currentItemBackgroundColor: "transparent",
+      },
+    });
+  }, [escuro, paleta]);
+
+  const inserirSugestaoTexto = useCallback((sug: SugestaoLink) => {
+    const estado = sugestaoTextoRef.current;
+    if (!estado) return;
+    const { textarea, cursorInicio } = estado;
+    const val = textarea.value;
+    const cursorFim = textarea.selectionStart;
+
+    const prefixo = val.slice(0, cursorInicio);
+    const sufixo = val.slice(cursorFim);
+    const insercao = `[[${sug.alvo}]]`;
+
+    textarea.value = `${prefixo}${insercao}${sufixo}`;
+    const novoCursor = prefixo.length + insercao.length;
+    textarea.selectionStart = novoCursor;
+    textarea.selectionEnd = novoCursor;
+
+    // Dispara evento input para o Excalidraw atualizar o elemento de texto
+    textarea.dispatchEvent(new Event("input", { bubbles: true }));
+    setSugestaoTexto(null);
+  }, []);
+
+  // Escuta digitação na ferramenta de texto nativa do Excalidraw (.excalidraw-wysiwyg)
+  useEffect(() => {
+    const raiz = raizRef.current;
+    if (!raiz) return;
+
+    const aoDigitar = (e: Event) => {
+      const target = e.target as HTMLElement | null;
+      if (!target || !target.classList.contains("excalidraw-wysiwyg")) return;
+      const ta = target as HTMLTextAreaElement;
+      const val = ta.value;
+      const cursor = ta.selectionStart;
+      const textoAntes = val.slice(0, cursor);
+
+      // Detecta [[ seguido de caracteres até o cursor sem fechar com ]]
+      const match = /(?:^|[\s\n])\[\[([^\]\n]*)$/.exec(textoAntes);
+      if (match) {
+        const query = match[1];
+        const rect = ta.getBoundingClientRect();
+        const raizRect = raiz.getBoundingClientRect();
+        const matchStr = match[0];
+        const offset = matchStr.startsWith("[[") ? 0 : 1;
+        setSugestaoTexto({
+          visivel: true,
+          query,
+          pos: {
+            x: Math.max(12, rect.left - raizRect.left),
+            y: rect.bottom - raizRect.top + 6,
+          },
+          textarea: ta,
+          cursorInicio: cursor - matchStr.length + offset,
+        });
+        setIndiceFocoTexto(0);
+      } else {
+        setSugestaoTexto(null);
+      }
+    };
+
+    const aoTeclar = (e: KeyboardEvent) => {
+      const target = e.target as HTMLElement | null;
+      if (!target || !target.classList.contains("excalidraw-wysiwyg")) return;
+      if (!sugestaoTextoRef.current?.visivel) return;
+
+      const sugs = sugestoesAtuaisRef.current;
+      if (sugs.length === 0) return;
+
+      if (e.key === "ArrowDown") {
+        e.preventDefault();
+        e.stopPropagation();
+        setIndiceFocoTexto((i) => (i + 1) % sugs.length);
+        return;
+      }
+      if (e.key === "ArrowUp") {
+        e.preventDefault();
+        e.stopPropagation();
+        setIndiceFocoTexto((i) => (i - 1 + sugs.length) % sugs.length);
+        return;
+      }
+      if (e.key === "Enter" || e.key === "Tab") {
+        e.preventDefault();
+        e.stopPropagation();
+        const escolhida = sugs[indiceFocoTextoRef.current];
+        if (escolhida) {
+          inserirSugestaoTexto(escolhida);
+        }
+        return;
+      }
+      if (e.key === "Escape") {
+        e.preventDefault();
+        e.stopPropagation();
+        setSugestaoTexto(null);
+        return;
+      }
+    };
+
+    const aoPerderFoco = (e: FocusEvent) => {
+      const target = e.target as HTMLElement | null;
+      if (target?.classList.contains("excalidraw-wysiwyg")) {
+        setTimeout(() => {
+          setSugestaoTexto(null);
+        }, 200);
+      }
+    };
+
+    raiz.addEventListener("input", aoDigitar, true);
+    raiz.addEventListener("keydown", aoTeclar, true);
+    raiz.addEventListener("blur", aoPerderFoco, true);
+
+    return () => {
+      raiz.removeEventListener("input", aoDigitar, true);
+      raiz.removeEventListener("keydown", aoTeclar, true);
+      raiz.removeEventListener("blur", aoPerderFoco, true);
+    };
+  }, [inserirSugestaoTexto]);
 
   const pintarGrade = useCallback((appState: Readonly<AppState>) => {
     const el = gradeRef.current;
@@ -109,6 +288,12 @@ export default function EditorDesenho({ caminho, conteudoInicial, onEditar }: Pr
         const vivos = elements.filter(
           (e) => !(e as { isDeleted?: boolean }).isDeleted,
         );
+        // Gravação canônica: no disco (.draw.md), as cores são sempre convertidas
+        // para a paleta do tema claro (Bug C). Isso garante diffs limpos e portabilidade total.
+        const elementosParaSalvar = converterElementosParaTema(
+          vivos as never,
+          "claro",
+        );
         const idPorEl = blockIdsDaCena(
           vivos as unknown as { id: string; type: string }[],
         );
@@ -123,21 +308,18 @@ export default function EditorDesenho({ caminho, conteudoInicial, onEditar }: Pr
           if (e.type === "text") {
             textElements.set(idPorEl.get(e.id)!, e.text ?? "");
           } else if (e.link) {
-            // element.link é a fonte da verdade: nunca herda de `base`, senão o link fica
-            // congelado no que foi lido do disco e um rename externo é desfeito no próximo
-            // autosave (era o bug: `base.elementLinks` nunca mudava depois da montagem).
-            // Chave é o id BRUTO do elemento (não o blockId) — ver DadosDesenho.elementLinks.
             elementLinks.set(e.id, e.link);
           }
         }
+        const b = baseRef.current;
         const md = serializarDesenho({
-          frontmatter: base.frontmatter,
-          verso: base.verso,
+          frontmatter: b.frontmatter,
+          verso: b.verso,
           textElements,
           elementLinks,
           embeddedFiles: embedsRef.current,
           cena: {
-            elements: vivos as never,
+            elements: elementosParaSalvar as never,
             appState: {
               scrollX: appState.scrollX,
               scrollY: appState.scrollY,
@@ -145,30 +327,36 @@ export default function EditorDesenho({ caminho, conteudoInicial, onEditar }: Pr
             },
           },
         });
-        onEditar(md);
+        if (md !== ultimoMdRef.current) {
+          ultimoMdRef.current = md;
+          onEditar(md);
+        }
       }, DEBOUNCE_MS);
     },
-    [base, onEditar, pintarGrade],
+    [onEditar, pintarGrade],
   );
 
-  // Mesma razão do UI_OPTIONS acima: identidade estável entre renders que não mudaram `base`.
-  const initialData = useMemo(
-    () => ({
-      elements: base.cena.elements as never,
+  // initialData é usado APENAS na montagem do Excalidraw. A identidade deste objeto
+  // DEVE ser estritamente estável durante toda a vida do componente (só remonta quando a
+  // key muda em PainelDesenho via doc.versao). Se mudar de referência durante a sessão, o
+  // componentDidUpdate interno do Excalidraw dispara onChange em loop contínuo (salvo <-> editando).
+  const initialData = useMemo(() => {
+    const baseInicial = parseDesenho(conteudoInicial);
+    const elems = temaEscuroAtivo()
+      ? converterElementosParaTema(baseInicial.cena.elements as never, "escuro")
+      : baseInicial.cena.elements;
+    const paletaInicial = lerPaletaCanvas();
+    return {
+      elements: elems as never,
       appState: {
-        ...(base.cena.appState as Partial<AppState>),
+        ...(baseInicial.cena.appState as Partial<AppState>),
         viewBackgroundColor: "transparent",
-        // Sem isto, elementos novos (inclusive o texto que o Excalidraw cria ao clicar
-        // duas vezes dentro de uma forma) nascem com o cinza padrão dele, não com um dos 5
-        // tons da paleta do app — em vez de "branco no tema escuro" aparecia um cinza sem
-        // relação com nenhum swatch escolhido.
-        currentItemStrokeColor: paleta.tracos[0].hex,
+        currentItemStrokeColor: paletaInicial.tracos[0].hex,
         currentItemBackgroundColor: "transparent",
       },
       scrollToContent: true,
-    }),
-    [base, paleta],
-  );
+    };
+  }, []);
 
   const aoObterApi = useCallback(
     (api: ExcalidrawImperativeAPI) => {
@@ -180,7 +368,13 @@ export default function EditorDesenho({ caminho, conteudoInicial, onEditar }: Pr
 
   const aoAbrirLink = useCallback(
     (elemento: NonDeletedExcalidrawElement, evento: CustomEvent) => {
-      const link = (elemento as { link?: string | null }).link;
+      let link = (elemento as { link?: string | null }).link;
+      // Se o elemento for de texto e não tiver link direto, mas tiver [[...]] no texto:
+      if (!link && elemento.type === "text") {
+        const texto = (elemento as unknown as { text?: string }).text ?? "";
+        const m = /\[\[([^\][]+)\]\]/.exec(texto);
+        if (m) link = m[0];
+      }
       const alvo = link ? alvoDeLinkWiki(link) : null;
       if (alvo === null) return; // URL externa: comportamento nativo do Excalidraw
       evento.preventDefault();
@@ -267,6 +461,56 @@ export default function EditorDesenho({ caminho, conteudoInicial, onEditar }: Pr
         }}
       />
       <PropriedadesCanvas api={apiRef.current} tick={tick} paleta={paleta} />
+
+      {sugestaoTexto && sugestoesTextoList.length > 0 && (
+        <div
+          className="pointer-events-auto absolute z-40 max-h-56 w-64 overflow-y-auto rounded-ficha border border-regua bg-superficie p-1 shadow-sobreposicao"
+          style={{
+            left: `${sugestaoTexto.pos.x}px`,
+            top: `${sugestaoTexto.pos.y}px`,
+          }}
+        >
+          {sugestoesTextoList.map((s, idx) => {
+            const tipoNo =
+              s.tipo === "desenho"
+                ? "drawing"
+                : s.tipo === "anexo"
+                ? "attachment"
+                : "note";
+            const ativo = idx === indiceFocoTexto;
+            return (
+              <button
+                key={`${s.alvo}-${s.rotulo}`}
+                type="button"
+                className={`flex w-full items-center gap-2 rounded-[2px] px-2 py-1.5 text-left text-xs transition-colors ${
+                  ativo
+                    ? "bg-lavagem text-tinta"
+                    : "text-tinta-media hover:bg-lavagem hover:text-tinta"
+                }`}
+                onMouseDown={(e) => {
+                  e.preventDefault();
+                  inserirSugestaoTexto(s);
+                }}
+                onMouseEnter={() => setIndiceFocoTexto(idx)}
+              >
+                <IconeArquivo
+                  tipo={tipoNo}
+                  tamanho={14}
+                  className="shrink-0 text-tinta-suave"
+                />
+                <div className="min-w-0 flex-1">
+                  <div className="truncate font-medium">{s.rotulo}</div>
+                  {s.detalhe && (
+                    <div className="meta truncate text-[9px] text-tinta-suave">
+                      {s.detalhe}
+                    </div>
+                  )}
+                </div>
+              </button>
+            );
+          })}
+        </div>
+      )}
     </div>
   );
 }
