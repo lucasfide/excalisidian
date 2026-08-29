@@ -118,6 +118,16 @@ export default function PropriedadesCanvas({ api, tick, paleta }: Props) {
     });
   };
 
+  // Com um elemento só selecionado, o painel tem que mostrar a cor/valor REAL dele, não o
+  // padrão da ferramenta (`currentItem*`). Sem isto, um elemento antigo com traço escuro
+  // aparecia com o swatch branco já "selecionado" (porque currentItemStrokeColor é branco),
+  // dando a falsa impressão de que a cor já estava certa quando na verdade não estava.
+  function valorExibido<T>(campo: string, doAppState: T): T {
+    if (!elementoUnico) return doAppState;
+    const valor = (elementoUnico as unknown as Record<string, unknown>)[campo];
+    return valor === undefined ? doAppState : (valor as T);
+  }
+
   return (
     <Superficie
       aria-label="Propriedades do desenho"
@@ -127,7 +137,7 @@ export default function PropriedadesCanvas({ api, tick, paleta }: Props) {
         <SeletorCor
           rotuloGrupo="Cor do traço"
           cores={paleta.tracos}
-          valor={st.currentItemStrokeColor}
+          valor={valorExibido("strokeColor", st.currentItemStrokeColor)}
           onEscolher={(hex) => aplicar({ currentItemStrokeColor: hex })}
         />
       </Secao>
@@ -135,7 +145,7 @@ export default function PropriedadesCanvas({ api, tick, paleta }: Props) {
         <SeletorCor
           rotuloGrupo="Cor de preenchimento"
           cores={paleta.fundos}
-          valor={st.currentItemBackgroundColor}
+          valor={valorExibido("backgroundColor", st.currentItemBackgroundColor)}
           onEscolher={(hex) => aplicar({ currentItemBackgroundColor: hex })}
         />
       </Secao>
@@ -143,7 +153,7 @@ export default function PropriedadesCanvas({ api, tick, paleta }: Props) {
         <GrupoBotoes
           rotuloGrupo="Espessura"
           opcoes={ESPESSURAS}
-          valor={st.currentItemStrokeWidth}
+          valor={valorExibido("strokeWidth", st.currentItemStrokeWidth)}
           onEscolher={(v) => aplicar({ currentItemStrokeWidth: v })}
         />
       </Secao>
@@ -151,7 +161,7 @@ export default function PropriedadesCanvas({ api, tick, paleta }: Props) {
         <GrupoBotoes
           rotuloGrupo="Estilo de linha"
           opcoes={ESTILOS}
-          valor={st.currentItemStrokeStyle}
+          valor={valorExibido("strokeStyle", st.currentItemStrokeStyle)}
           onEscolher={(v) => aplicar({ currentItemStrokeStyle: v })}
         />
       </Secao>
@@ -159,7 +169,7 @@ export default function PropriedadesCanvas({ api, tick, paleta }: Props) {
         <GrupoBotoes
           rotuloGrupo="Imperfeição"
           opcoes={IMPERFEICOES}
-          valor={st.currentItemRoughness}
+          valor={valorExibido("roughness", st.currentItemRoughness)}
           onEscolher={(v) => aplicar({ currentItemRoughness: v })}
         />
       </Secao>
@@ -167,7 +177,7 @@ export default function PropriedadesCanvas({ api, tick, paleta }: Props) {
         <GrupoBotoes
           rotuloGrupo="Opacidade"
           opcoes={OPACIDADES}
-          valor={st.currentItemOpacity}
+          valor={valorExibido("opacity", st.currentItemOpacity)}
           onEscolher={(v) => aplicar({ currentItemOpacity: v })}
         />
       </Secao>
@@ -175,7 +185,7 @@ export default function PropriedadesCanvas({ api, tick, paleta }: Props) {
         <GrupoBotoes
           rotuloGrupo="Tamanho do texto"
           opcoes={TAMANHOS}
-          valor={st.currentItemFontSize}
+          valor={valorExibido("fontSize", st.currentItemFontSize)}
           onEscolher={(v) => aplicar({ currentItemFontSize: v })}
         />
       </Secao>
