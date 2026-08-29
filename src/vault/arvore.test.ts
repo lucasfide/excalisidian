@@ -1,6 +1,6 @@
 import { describe, it, expect } from "vitest";
 
-import { montarArvore, tipoDoArquivo } from "./arvore";
+import { montarArvore, tipoDoArquivo, encontrarNo } from "./arvore";
 import type { EntradaArquivo } from "./VaultAdapter";
 
 function ent(path: string, isDir = false): EntradaArquivo {
@@ -42,5 +42,27 @@ describe("montarArvore", () => {
 
   it("raiz vazia para vault sem arquivos", () => {
     expect(montarArvore([]).filhos).toEqual([]);
+  });
+});
+
+describe("encontrarNo", () => {
+  const raiz = montarArvore([
+    ent("Projetos", true),
+    ent("Projetos/Sub", true),
+    ent("Projetos/Sub/Fundo.md"),
+    ent("Bem-vindo.md"),
+  ]);
+
+  it("acha a raiz pelo path vazio", () => {
+    expect(encontrarNo(raiz, "")).toBe(raiz);
+  });
+
+  it("acha uma pasta de primeiro nível e um arquivo aninhado", () => {
+    expect(encontrarNo(raiz, "Projetos")?.tipo).toBe("folder");
+    expect(encontrarNo(raiz, "Projetos/Sub/Fundo.md")?.nome).toBe("Fundo.md");
+  });
+
+  it("devolve null para um caminho que não existe", () => {
+    expect(encontrarNo(raiz, "Não/Existe")).toBe(null);
   });
 });

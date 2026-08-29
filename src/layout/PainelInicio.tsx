@@ -6,6 +6,8 @@
 import { useEffect, useState } from "react";
 
 import { useVaultStore } from "../estado/vaultStore";
+import { useWorkspaceStore } from "../estado/workspaceStore";
+import { encontrarNo } from "../vault/arvore";
 import {
   comandoNovaNota,
   comandoNovoDesenho,
@@ -19,8 +21,6 @@ import TelaInicio from "../ui/excalisidian/TelaInicio";
 
 export default function PainelInicio() {
   const arvore = useVaultStore((s) => s.arvore);
-  const pastasAbertas = useVaultStore((s) => s.pastasAbertas);
-  const alternarPasta = useVaultStore((s) => s.alternarPasta);
 
   const [nome, setNome] = useState("");
   useEffect(() => {
@@ -33,18 +33,24 @@ export default function PainelInicio() {
     };
   }, []);
 
-  const pastas = (arvore?.filhos ?? []).filter((n) => n.tipo === "folder");
+  // Path da pasta que o usuário clicou pra navegar, dentro da própria Home — não é a mesma
+  // coisa que `pastasAbertas` da sidebar (aquilo é expandir/recolher na árvore; isto é um
+  // mini-explorador que vive só aqui).
+  const [caminhoAberto, setCaminhoAberto] = useState<string | null>(null);
+
+  const pastas = arvore?.filhos.filter((n) => n.tipo === "folder") ?? [];
+  const pastaAberta =
+    arvore && caminhoAberto ? encontrarNo(arvore, caminhoAberto) : null;
 
   return (
     <TelaInicio
       saudacao={saudacaoPorHorario()}
       nome={nome}
       pastas={pastas}
-      onAbrirPasta={(path) => {
-        // "Abrir", não "alternar": um atalho da Home nunca deve FECHAR uma pasta já aberta
-        // na árvore por engano.
-        if (!pastasAbertas.has(path)) alternarPasta(path);
-      }}
+      pastaAberta={pastaAberta}
+      onAbrirPasta={setCaminhoAberto}
+      onFecharPasta={() => setCaminhoAberto(null)}
+      onAbrirArquivo={(path) => useWorkspaceStore.getState().abrirDocumento(path)}
       onCriarNota={() => void comandoNovaNota()}
       onCriarDesenho={() => void comandoNovoDesenho()}
       onCriarPasta={() => void comandoNovaPasta()}

@@ -36,6 +36,18 @@ function ordenar(nos: NoArvore[]): NoArvore[] {
     .map((n) => ({ ...n, filhos: ordenar(n.filhos) }));
 }
 
+/** Acha o nó de um caminho na árvore, ou `null` se não existir (arquivo apagado por fora,
+ * por exemplo — quem chama trata como "pasta vazia"/"não achou"). */
+export function encontrarNo(raiz: NoArvore, path: string): NoArvore | null {
+  if (raiz.path === path) return raiz;
+  for (const filho of raiz.filhos) {
+    if (path === filho.path || path.startsWith(`${filho.path}/`)) {
+      return encontrarNo(filho, path);
+    }
+  }
+  return null;
+}
+
 /** Constrói a árvore. A raiz devolvida tem path "" e nome vazio. */
 export function montarArvore(entradas: EntradaArquivo[]): NoArvore {
   const raiz: NoArvore = { path: "", nome: "", tipo: "folder", filhos: [] };
