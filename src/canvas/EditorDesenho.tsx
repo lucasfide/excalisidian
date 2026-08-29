@@ -172,8 +172,6 @@ export default function EditorDesenho({ caminho, conteudoInicial, onEditar }: Pr
     api.updateScene({ elements: [...api.getSceneElements(), novo] });
   }, []);
 
-  const corGrade = paleta.grade || "#DCD5C8";
-
   return (
     <div
       ref={raizRef}
@@ -186,7 +184,7 @@ export default function EditorDesenho({ caminho, conteudoInicial, onEditar }: Pr
         className="pointer-events-none absolute inset-0"
         style={{
           backgroundColor: "var(--color-papel)",
-          backgroundImage: `radial-gradient(circle, ${corGrade} 1px, transparent 1px)`,
+          backgroundImage: `radial-gradient(circle, ${paleta.grade} 1px, transparent 1px)`,
           backgroundSize: `${PASSO_GRADE}px ${PASSO_GRADE}px`,
           opacity: escuro ? 0.8 : 0.6,
         }}

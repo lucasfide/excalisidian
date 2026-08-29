@@ -221,10 +221,16 @@ Nenhuma outra sombra no projeto.
 }
 ```
 
-Os tokens do canvas ficam no mesmo arquivo, para que nenhum hex do desenho viva solto no código:
+Os tokens do canvas ficam no mesmo arquivo, para que nenhum hex do desenho viva solto no código.
+São lidos via `getComputedStyle` (por `canvas/paletaCanvas.ts`), não por classe utilitária —
+por isso vão em **`@theme static`**, não em `@theme`: o Tailwind v4 só emite no `:root` as
+variáveis de `@theme` que alguma classe realmente usa, e nenhuma usa estas. Sem `static`, no
+tema claro (onde o bloco vive dentro de `@theme`) os tokens voltam como string vazia do
+`getComputedStyle` — foi um bug real, silencioso, corrigido depois de shipado (post-it
+invisível, seletor de cor em branco, só no tema claro).
 
 ```css
-@theme {
+@theme static {
   --color-traco-tinta:  #1C1917;  --color-traco-musgo:  #3E5C46;
   --color-traco-ocre:   #A87A1C;  --color-traco-bordo:  #7A2E22;
   --color-traco-suave:  #655E54;

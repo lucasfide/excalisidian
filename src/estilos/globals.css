@@ -61,8 +61,14 @@
   --font-mono: var(--fonte-mono);
 
   --ease-caderno: cubic-bezier(0.2, 0.7, 0.3, 1);
+}
 
-  /* --- Tokens do canvas (tema claro) --- */
+/* Tokens do canvas (tema claro): lidos via getComputedStyle por canvas/paletaCanvas.ts, não
+ * por classe utilitária — o Tailwind v4 só emite no :root as variáveis de @theme que alguma
+ * classe usa, e nenhuma usa estas. "static" força a emissão mesmo sem uso aparente; sem
+ * isso, no tema claro 13 dos 14 tokens voltavam como string vazia (post-it invisível,
+ * seletor de cor em branco — bug real, não crash, mas silencioso). */
+@theme static {
   --color-traco-tinta: #1c1917;
   --color-traco-musgo: #3e5c46;
   --color-traco-ocre: #a87a1c;
