@@ -15,7 +15,7 @@ import {
   criarPasta,
   type ResultadoCriacao,
 } from "../../vault/criar";
-import { renomearArquivo } from "../../vault/renomear";
+import { renomearArquivo, SEM_TITULO } from "../../vault/renomear";
 
 /** "raiz" quando vazio, para o texto do diálogo não ficar com um buraco. */
 function nomeDaPasta(dir: string): string {
@@ -51,16 +51,16 @@ async function concluir(r: ResultadoCriacao, abrir: boolean): Promise<void> {
   }
 }
 
+// Nota e desenho abrem direto, sem pedir nome (doc 04 §3.1: toda nota tem H1, e "Sem título"
+// já é o valor padrão de um nome vazio). Digitar o título é editar a primeira linha — que
+// já renomeia o arquivo sozinha (sincronizarTituloComArquivo.ts) — ou renomear pela árvore
+// depois. Pasta continua pedindo nome: não tem H1 pra herdar um nome dela mais tarde.
 export async function comandoNovaNota(dir = ""): Promise<void> {
-  const nome = await pedirNome("Nova nota", dir);
-  if (!nome) return;
-  await concluir(await criarNota(nome, dir), true);
+  await concluir(await criarNota(SEM_TITULO, dir), true);
 }
 
 export async function comandoNovoDesenho(dir = ""): Promise<void> {
-  const nome = await pedirNome("Novo desenho", dir);
-  if (!nome) return;
-  await concluir(await criarDesenho(nome, dir), true);
+  await concluir(await criarDesenho(SEM_TITULO, dir), true);
 }
 
 export async function comandoNovaPasta(dir = ""): Promise<void> {

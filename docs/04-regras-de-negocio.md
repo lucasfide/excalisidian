@@ -40,6 +40,12 @@ Se o conteúdo depois do debounce for idêntico ao que está em disco, **não gr
 
 ### 3.1 Nome do arquivo e H1 da nota são a mesma coisa
 
+Criar uma nota ou um desenho (sidebar, Home, paleta de comandos) **nunca pede nome** — abre
+direto como "Sem título" (com a numeração de colisão da seção 3, se já houver um "Sem
+título" ali) e já entra editável. Nota nova digitar o título é editar a primeira linha, que já
+renomeia o arquivo sozinha (ver abaixo); desenho novo, o nome se muda depois pela árvore.
+Criar uma **pasta** continua pedindo nome — não tem H1 pra herdar um nome dela mais tarde.
+
 Toda nota tem um H1 (heading de nível 1) cujo texto é o nome do arquivo, sem extensão. Editar
 um edita o outro:
 

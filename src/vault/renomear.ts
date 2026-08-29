@@ -31,7 +31,9 @@ import {
 } from "../canvas/formatoDesenho";
 
 const RE_WIKILINK_G = /(!?)\[\[([^\][]+)\]\]/g;
-const SEM_TITULO = "Sem título";
+/** Nome padrão pra título vazio (doc 04 §3.1) — exportado pra `comandos/criacao.ts` usar o
+ * mesmo valor ao criar nota/desenho sem pedir nome, em vez de duplicar a string. */
+export const SEM_TITULO = "Sem título";
 
 function semExtensao(nomeOuCaminho: string): string {
   return nomeOuCaminho.replace(/\.draw\.md$/i, ".draw").replace(/\.md$/i, "");
