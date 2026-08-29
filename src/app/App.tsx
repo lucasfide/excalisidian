@@ -2,13 +2,18 @@
 // O conteúdo dos arquivos vive por aba no documentosStore; a aba ativa, no workspaceStore.
 
 import { useCallback, useEffect, useState } from "react";
-import { Toaster, toast } from "sonner";
+import { Toaster } from "sonner";
 
 import { TauriVaultAdapter } from "../vault/TauriVaultAdapter";
 import { useVaultStore } from "../estado/vaultStore";
 import { useWorkspaceStore } from "../estado/workspaceStore";
-import { renomearArquivo } from "../vault/renomear";
-import { criarNota, criarDesenho, criarPasta, pastaAlvo } from "../vault/criar";
+import { pastaAlvo } from "../vault/criar";
+import {
+  comandoNovaNota,
+  comandoNovoDesenho,
+  comandoNovaPasta,
+  comandoRenomear,
+} from "./comandos/criacao";
 import { useAutosave } from "../editor/useAutosave";
 import Workspace from "../layout/Workspace";
 import { Botao, EstadoVazio, Select, type OpcaoSelect } from "../ui";
@@ -17,6 +22,7 @@ import BarraFerramentasSidebar from "../ui/excalisidian/BarraFerramentasSidebar"
 import BarraStatus from "../ui/excalisidian/BarraStatus";
 import Logotipo from "../ui/excalisidian/Logotipo";
 import PainelBacklinks from "../ui/excalisidian/PainelBacklinks";
+import RaizDialogos from "../ui/excalisidian/RaizDialogos";
 
 type Tema = "sistema" | "claro" | "escuro";
 
@@ -80,16 +86,6 @@ export default function App() {
     };
   }, []);
 
-  const renomear = useCallback(async (path: string) => {
-    const atual = path
-      .slice(path.lastIndexOf("/") + 1)
-      .replace(/\.(draw\.)?md$/i, "");
-    const novo = window.prompt("Novo nome:", atual);
-    if (!novo || novo === atual) return;
-    const r = await renomearArquivo(path, novo);
-    if (!r.ok) toast.error(r.motivo ?? "Não foi possível renomear.");
-  }, []);
-
   const escolher = useCallback(async () => {
     try {
       setBoot("carregando");
@@ -141,9 +137,9 @@ export default function App() {
           <div className="flex items-center justify-between border-b border-regua px-3 py-2">
             <Logotipo />
             <BarraFerramentasSidebar
-              onCriarNota={() => void criarNota()}
-              onCriarDesenho={() => void criarDesenho()}
-              onCriarPasta={() => void criarPasta()}
+              onCriarNota={() => void comandoNovaNota()}
+              onCriarDesenho={() => void comandoNovoDesenho()}
+              onCriarPasta={() => void comandoNovaPasta()}
             />
           </div>
 
@@ -162,10 +158,10 @@ export default function App() {
                 onAlternarPasta={alternarPasta}
                 onSelecionarPasta={selecionarPasta}
                 onAbrirArquivo={abrirDocumento}
-                onRenomear={renomear}
-                onCriarNota={(dir) => void criarNota(dir)}
-                onCriarDesenho={(dir) => void criarDesenho(dir)}
-                onCriarPasta={(dir) => void criarPasta(dir)}
+                onRenomear={(path) => void comandoRenomear(path)}
+                onCriarNota={(dir) => void comandoNovaNota(dir)}
+                onCriarDesenho={(dir) => void comandoNovoDesenho(dir)}
+                onCriarPasta={(dir) => void comandoNovaPasta(dir)}
               />
             )}
           </div>
@@ -195,6 +191,7 @@ export default function App() {
       </div>
 
       <BarraStatus />
+      <RaizDialogos />
       <Toaster
         position="bottom-right"
         toastOptions={{

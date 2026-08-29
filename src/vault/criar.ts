@@ -1,12 +1,15 @@
-// Criação de notas, desenhos e pastas a partir da interface (RF1.x / RF4.x). Compartilhado
-// pela barra de ações da sidebar, pelo menu de contexto da árvore e pela aba vazia.
-
-import { toast } from "sonner";
+// Criação de notas, desenhos e pastas no vault. Camada de domínio: recebe o nome já
+// resolvido e não fala com a interface — quem pede o nome, mostra erro e abre a aba é
+// `app/comandos/criacao.ts`. Isso mantém estas funções testáveis sem DOM.
 
 import { useVaultStore } from "../estado/vaultStore";
 import { useWorkspaceStore } from "../estado/workspaceStore";
 import { sanitizarNome } from "./caminhos";
 import { desenhoVazio } from "../canvas/formatoDesenho";
+
+export type ResultadoCriacao =
+  | { ok: true; caminho: string }
+  | { ok: false; motivo: string };
 
 /** Pasta onde criar, dado o contexto atual: pasta selecionada > pasta da aba ativa > raiz. */
 export function pastaAlvo(): string {
@@ -21,6 +24,7 @@ function juntar(dir: string, nome: string): string {
   return dir ? `${dir}/${nome}` : nome;
 }
 
+/** Primeiro caminho livre: `Nome.md`, `Nome (2).md`, `Nome (3).md`… */
 async function caminhoLivre(base: string, ext: string): Promise<string> {
   const adapter = useVaultStore.getState().adapter!;
   let candidato = `${base}${ext}`;
@@ -32,55 +36,52 @@ async function caminhoLivre(base: string, ext: string): Promise<string> {
   return candidato;
 }
 
-async function pedirNome(rotulo: string, sugestao: string): Promise<string | null> {
-  const bruto = window.prompt(rotulo, sugestao);
-  if (bruto == null) return null;
-  const nome = sanitizarNome(bruto.replace(/\.(draw\.)?md$/i, "").trim());
-  if (!nome) {
-    toast.error("Nome inválido.");
-    return null;
-  }
-  return nome;
-}
-
-async function finalizar(destino: string, conteudo: string): Promise<void> {
+async function criarArquivo(
+  nomeBruto: string,
+  dir: string,
+  ext: string,
+  conteudo: (nome: string) => string,
+): Promise<ResultadoCriacao> {
   const vault = useVaultStore.getState();
-  const ws = useWorkspaceStore.getState();
-  const dir = destino.includes("/") ? destino.slice(0, destino.lastIndexOf("/")) : "";
-  if (dir) await vault.adapter!.criarPasta(dir);
-  await vault.adapter!.escreverTexto(destino, conteudo);
+  if (!vault.adapter) return { ok: false, motivo: "Nenhum vault aberto." };
+
+  const nome = sanitizarNome(nomeBruto.replace(/\.(draw\.)?md$/i, "").trim());
+  if (!nome) return { ok: false, motivo: "Nome inválido." };
+
+  const caminho = await caminhoLivre(juntar(dir, nome), ext);
+  if (dir) await vault.adapter.criarPasta(dir);
+  await vault.adapter.escreverTexto(caminho, conteudo(nome));
   await vault.recarregarArvore();
-  await vault.reindexarArquivo(destino);
-  ws.abrirDocumento(destino);
+  await vault.reindexarArquivo(caminho);
+  return { ok: true, caminho };
 }
 
-export async function criarNota(dir = pastaAlvo()): Promise<void> {
-  if (!useVaultStore.getState().adapter) return;
-  const nome = await pedirNome("Nome da nova nota:", "");
-  if (!nome) return;
-  const destino = await caminhoLivre(juntar(dir, nome), ".md");
-  await finalizar(destino, `# ${nome}\n\n`);
+export function criarNota(nome: string, dir: string): Promise<ResultadoCriacao> {
+  return criarArquivo(nome, dir, ".md", (n) => `# ${n}\n\n`);
 }
 
-export async function criarDesenho(dir = pastaAlvo()): Promise<void> {
-  if (!useVaultStore.getState().adapter) return;
-  const nome = await pedirNome("Nome do novo desenho:", "");
-  if (!nome) return;
-  const destino = await caminhoLivre(juntar(dir, nome), ".draw.md");
-  await finalizar(destino, desenhoVazio());
+export function criarDesenho(
+  nome: string,
+  dir: string,
+): Promise<ResultadoCriacao> {
+  return criarArquivo(nome, dir, ".draw.md", () => desenhoVazio());
 }
 
-export async function criarPasta(dir = pastaAlvo()): Promise<void> {
+export async function criarPasta(
+  nomeBruto: string,
+  dir: string,
+): Promise<ResultadoCriacao> {
   const vault = useVaultStore.getState();
-  if (!vault.adapter) return;
-  const nome = await pedirNome("Nome da nova pasta:", "");
-  if (!nome) return;
-  const destino = juntar(dir, nome);
-  if (await vault.adapter.existe(destino)) {
-    toast.error(`Já existe «${nome}» aqui.`);
-    return;
+  if (!vault.adapter) return { ok: false, motivo: "Nenhum vault aberto." };
+
+  const nome = sanitizarNome(nomeBruto.trim());
+  if (!nome) return { ok: false, motivo: "Nome inválido." };
+
+  const caminho = juntar(dir, nome);
+  if (await vault.adapter.existe(caminho)) {
+    return { ok: false, motivo: `Já existe «${nome}» aqui.` };
   }
-  await vault.adapter.criarPasta(destino);
+  await vault.adapter.criarPasta(caminho);
   await vault.recarregarArvore();
-  vault.selecionarPasta(destino);
+  return { ok: true, caminho };
 }

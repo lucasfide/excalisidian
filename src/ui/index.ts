@@ -16,6 +16,9 @@ export { default as EstadoVazio } from "./EstadoVazio";
 export { default as Select } from "./Select";
 export type { OpcaoSelect } from "./Select";
 
+export { default as Campo } from "./Campo";
+export { default as Dialog } from "./Dialog";
+
 export { Menu, ItemMenu, SeparadorMenu } from "./Menu";
 export type { PosicaoMenu } from "./Menu";
 

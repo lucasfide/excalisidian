@@ -3,7 +3,7 @@
 
 import { FilePlus, SquarePen } from "lucide-react";
 
-import { criarNota, criarDesenho } from "../vault/criar";
+import { comandoNovaNota, comandoNovoDesenho } from "../app/comandos/criacao";
 import { Botao, EstadoVazio } from "../ui";
 
 export default function PainelVazio() {
@@ -18,11 +18,11 @@ export default function PainelVazio() {
           <Botao
             variante="primario"
             Icone={FilePlus}
-            onClick={() => void criarNota()}
+            onClick={() => void comandoNovaNota()}
           >
             Nova nota
           </Botao>
-          <Botao Icone={SquarePen} onClick={() => void criarDesenho()}>
+          <Botao Icone={SquarePen} onClick={() => void comandoNovoDesenho()}>
             Novo desenho
           </Botao>
         </div>

@@ -139,3 +139,16 @@
   letter-spacing: 0.09em;
   text-transform: uppercase;
 }
+
+/* Entrada de sobreposição (modal, paleta de comandos): 160ms, opacidade + scale(0.98) → 1
+ * (doc 06, tabela de movimento). Nunca de scale(0): nada no mundo real surge do nada. */
+@keyframes surgir {
+  from {
+    opacity: 0;
+    transform: scale(0.98);
+  }
+  to {
+    opacity: 1;
+    transform: scale(1);
+  }
+}

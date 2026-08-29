@@ -3,6 +3,7 @@
 
 import { useVaultStore } from "../estado/vaultStore";
 import { useWorkspaceStore } from "../estado/workspaceStore";
+import { confirmar } from "../estado/dialogoStore";
 import { sanitizarNome, pastaDe } from "./caminhos";
 
 /** Onde criar a nota de um link não resolvido. Sem vaultPrefs ainda: `sameFolder`. */
@@ -39,9 +40,12 @@ export async function abrirOuCriarPorLink(
   if (!seguro) return;
 
   if (seguro !== nomeBase) {
-    const ok = window.confirm(
-      `O nome «${nomeBase}» tem caracteres inválidos. Criar como «${seguro}»?`,
-    );
+    // Sanitização visível (doc 02 §9): o usuário vê o nome final antes de gravar.
+    const ok = await confirmar({
+      titulo: "Nome com caracteres inválidos",
+      descricao: `O nome «${nomeBase}» tem caracteres que o Windows não aceita. Criar como «${seguro}»?`,
+      textoConfirmar: "Criar assim",
+    });
     if (!ok) return;
   }
 
