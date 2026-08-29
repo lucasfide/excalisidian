@@ -93,13 +93,16 @@ export function buscarSugestoesLink(
     .filter((s) => s.boost >= 0)
     .sort((a, b) => (b.boost ?? 0) - (a.boost ?? 0));
 
-  // Deduplica por alvo e rótulo
+  // Deduplica só por alvo: o mesmo arquivo gera vários "rótulos" candidatos (título, nome
+  // sem extensão, nome de arquivo com extensão, aliases — ver `rotulos` acima), e cada um
+  // pontua contra a consulta. Sem isto, "Excalisian" e "Excalisian.md" apareciam como duas
+  // sugestões para o mesmo arquivo. A lista já está ordenada por `boost` decrescente, então
+  // o primeiro rótulo visto pra cada alvo é o que melhor bateu com o que o usuário digitou.
   const vistos = new Set<string>();
   const unicos: SugestaoLink[] = [];
   for (const it of itens) {
-    const chave = `${it.alvo}:${it.rotulo}`;
-    if (!vistos.has(chave)) {
-      vistos.add(chave);
+    if (!vistos.has(it.alvo)) {
+      vistos.add(it.alvo);
       unicos.push(it);
       if (unicos.length >= limite) break;
     }
