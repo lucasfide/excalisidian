@@ -24,6 +24,7 @@ import BarraStatus from "../ui/excalisidian/BarraStatus";
 import Logotipo from "../ui/excalisidian/Logotipo";
 import PainelBacklinks from "../ui/excalisidian/PainelBacklinks";
 import RaizDialogos from "../ui/excalisidian/RaizDialogos";
+import RaizSobreposicoes from "../ui/excalisidian/RaizSobreposicoes";
 import LimiteDeErro from "../ui/excalisidian/LimiteDeErro";
 
 const TEMAS: OpcaoSelect[] = [
@@ -195,6 +196,7 @@ export default function App() {
 
       <BarraStatus />
       <RaizDialogos />
+      <RaizSobreposicoes />
       <Toaster
         position="bottom-right"
         toastOptions={{

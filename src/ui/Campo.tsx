@@ -1,7 +1,7 @@
 // Campo de texto (doc 06, inventário base: `Input` + `Label`). Rótulo sempre presente — o
 // `id` liga os dois, e a mensagem de erro é anunciada por `aria-describedby`.
 
-import { useId, type InputHTMLAttributes } from "react";
+import { forwardRef, useId, type InputHTMLAttributes } from "react";
 
 import { cn } from "./cn";
 
@@ -13,13 +13,12 @@ interface Props extends Omit<InputHTMLAttributes<HTMLInputElement>, "id"> {
   grande?: boolean;
 }
 
-export default function Campo({
-  rotulo,
-  erro,
-  grande = false,
-  className,
-  ...resto
-}: Props) {
+// Ref encaminhada pro <input>: o QuickSwitcher/PaletaComandos precisam focar o campo na
+// hora de abrir sem depender de autoFocus (que não refoca se o componente já está montado).
+const Campo = forwardRef<HTMLInputElement, Props>(function Campo(
+  { rotulo, erro, grande = false, className, ...resto },
+  ref,
+) {
   const id = useId();
   const idErro = `${id}-erro`;
 
@@ -30,6 +29,7 @@ export default function Campo({
       </label>
       <input
         {...resto}
+        ref={ref}
         id={id}
         aria-invalid={erro ? true : undefined}
         aria-describedby={erro ? idErro : undefined}
@@ -50,4 +50,6 @@ export default function Campo({
       )}
     </div>
   );
-}
+});
+
+export default Campo;

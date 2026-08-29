@@ -19,6 +19,7 @@ import { toast } from "sonner";
 import { useVaultStore } from "../estado/vaultStore";
 import { useWorkspaceStore } from "../estado/workspaceStore";
 import { useDocumentosStore } from "../estado/documentosStore";
+import { useSobreposicaoStore } from "../estado/sobreposicaoStore";
 import { carregarLayout, salvarLayout, limparLayout } from "./persistencia";
 import PainelDocumento from "./PainelDocumento";
 import PainelDesenho from "./PainelDesenho";
@@ -175,6 +176,12 @@ export default function Workspace() {
         e.preventDefault();
         const p = ws.caminhoAtivo;
         if (p) void useDocumentosStore.getState().salvar(p);
+      } else if (k === "o" && !e.shiftKey) {
+        e.preventDefault();
+        useSobreposicaoStore.getState().abrir("switcher");
+      } else if (k === "p" && !e.shiftKey) {
+        e.preventDefault();
+        useSobreposicaoStore.getState().abrir("comandos");
       }
     };
     window.addEventListener("keydown", onKey, true);
