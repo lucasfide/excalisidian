@@ -79,6 +79,29 @@ export default function PropriedadesCanvas({ api, tick, paleta }: Props) {
       ? api.getSceneElements().find((el) => el.id === idsSelecionados[0])
       : undefined;
 
+  // Um contêiner (retângulo, losango...) com texto vinculado tem duas cores independentes:
+  // a do contorno ("Traço", acima) e a do texto por dentro. O Excalidraw não inclui o texto
+  // vinculado em `selectedElementIds` quando se seleciona o contêiner — por isso "Traço"
+  // nunca alcançava esse texto, e não existia nenhum controle pra cor dele.
+  const textoVinculado = elementoUnico
+    ? api
+        .getSceneElements()
+        .find(
+          (el) =>
+            el.type === "text" &&
+            (el as unknown as { containerId?: string | null }).containerId ===
+              elementoUnico.id,
+        )
+    : undefined;
+
+  const aplicarCorTexto = (hex: string) => {
+    if (!textoVinculado) return;
+    const elementos = api
+      .getSceneElements()
+      .map((el) => (el.id === textoVinculado.id ? { ...el, strokeColor: hex } : el));
+    api.updateScene({ elements: elementos as never });
+  };
+
   const aplicar = (mudanca: Record<string, unknown>) => {
     const selecionados = st.selectedElementIds ?? {};
     const doElemento: Record<string, unknown> = {};
@@ -156,6 +179,16 @@ export default function PropriedadesCanvas({ api, tick, paleta }: Props) {
           onEscolher={(v) => aplicar({ currentItemFontSize: v })}
         />
       </Secao>
+      {textoVinculado && (
+        <Secao titulo="Cor do texto">
+          <SeletorCor
+            rotuloGrupo="Cor do texto"
+            cores={paleta.tracos}
+            valor={(textoVinculado as unknown as { strokeColor: string }).strokeColor}
+            onEscolher={aplicarCorTexto}
+          />
+        </Secao>
+      )}
       {elementoUnico && (
         <Secao titulo="Link">
           <CampoLink key={elementoUnico.id} api={api} elemento={elementoUnico} />

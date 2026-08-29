@@ -158,10 +158,16 @@ export default function EditorDesenho({ caminho, conteudoInicial, onEditar }: Pr
       appState: {
         ...(base.cena.appState as Partial<AppState>),
         viewBackgroundColor: "transparent",
+        // Sem isto, elementos novos (inclusive o texto que o Excalidraw cria ao clicar
+        // duas vezes dentro de uma forma) nascem com o cinza padrão dele, não com um dos 5
+        // tons da paleta do app — em vez de "branco no tema escuro" aparecia um cinza sem
+        // relação com nenhum swatch escolhido.
+        currentItemStrokeColor: paleta.tracos[0].hex,
+        currentItemBackgroundColor: "transparent",
       },
       scrollToContent: true,
     }),
-    [base],
+    [base, paleta],
   );
 
   const aoObterApi = useCallback(
