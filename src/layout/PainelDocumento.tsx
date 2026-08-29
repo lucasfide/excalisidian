@@ -8,6 +8,7 @@ import type { IDockviewPanelProps } from "dockview";
 import { useDocumentosStore } from "../estado/documentosStore";
 import EditorNota from "../editor/EditorNota";
 import FaixaConflito from "../ui/excalisidian/FaixaConflito";
+import LimiteDeErro from "../ui/excalisidian/LimiteDeErro";
 
 type Params = { path: string };
 
@@ -39,20 +40,18 @@ export default function PainelDocumento(props: IDockviewPanelProps<Params>) {
   }
 
   return (
-    // `container-name: editor` mede a largura do PAINEL (não a da coluna de texto): é o que
-    // a marginália consulta para colapsar de 76px para 24px abaixo de 760px (doc 06).
-    <div className="flex h-full flex-col bg-papel [container-name:editor] [container-type:inline-size]">
+    <div className="flex h-full flex-col bg-papel">
       <FaixaConflito path={path} />
-      {/* Coluna de 720px centralizada com padding lateral de 32px (doc 06, Layout).
-          A marginália fica dentro dessa largura. */}
+      {/* Coluna de 720px centralizada com padding lateral de 32px (doc 06, Layout). */}
       <div className="mx-auto min-h-0 w-full max-w-[720px] flex-1 px-8 py-6">
-        <EditorNota
-          key={`${path}#${doc.versao}`}
-          caminho={path}
-          conteudoInicial={doc.conteudoEditor}
-          onEditar={(t) => editar(path, t)}
-          onBlur={() => void salvar(path)}
-        />
+        <LimiteDeErro key={`${path}#${doc.versao}`}>
+          <EditorNota
+            caminho={path}
+            conteudoInicial={doc.conteudoEditor}
+            onEditar={(t) => editar(path, t)}
+            onBlur={() => void salvar(path)}
+          />
+        </LimiteDeErro>
       </div>
     </div>
   );

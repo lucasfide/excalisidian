@@ -16,9 +16,6 @@ import "./atomico/styles/inline-preview.css";
 import "./atomico/tokens-excalisidian.css";
 import { atalhosFormatacao } from "./extensoes/atalhosFormatacao";
 import { wikilinksExcalisidian } from "./extensoes/wikilinksExcalisidian";
-import { marginalia } from "./extensoes/marginalia";
-// Depois dos tokens: reativa o gutter da marginália, que o tema do pacote esconde.
-import "./extensoes/marginalia.css";
 import { embedDesenho } from "./extensoes/embedDesenho";
 import "./extensoes/embedDesenho.css";
 
@@ -27,7 +24,6 @@ import "./extensoes/embedDesenho.css";
 const EXTENSOES: readonly Extension[] = [
   atalhosFormatacao,
   wikilinksExcalisidian,
-  marginalia(),
   embedDesenho,
 ];
 

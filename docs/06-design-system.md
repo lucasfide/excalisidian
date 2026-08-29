@@ -257,30 +257,16 @@ Ao instalar shadcn/ui, sobrescreva o tema gerado por estes tokens. Nenhum compon
 
 ---
 
-## Elemento de assinatura: a marginália
+## Elemento de assinatura
 
-É o que dá identidade ao produto. Implemente com precisão.
-
-**No editor.** A nota tem uma coluna de margem à esquerda com 76px de largura, separada do texto por uma hairline **vertical contínua** que atravessa o documento inteiro de cima a baixo — a margem do caderno. Dentro dela, em estilo `meta` e cor `tinta-suave`:
-
-- o nível do heading mais próximo acima (`H1`, `H2`, `H3`), alinhado ao topo do bloco;
-- o marcador `^id` de blocos que têm id;
-- o indicador de bloco embutido (`EMB`).
-
-```
-        │
-  H1    │  Por que o canvas é markdown
-        │
-        │  Ver [[Projetos/Arquitetura]] e o desenho abaixo.
-        │
-  EMB   │  ┌────────────────────────────────┐
-        │  │  (desenho renderizado)         │
-        │  └────────────────────────────────┘
-        │
- ^dec-3 │  Decisão tomada em 28/08.
-```
-
-Abaixo de 760px de largura de painel a margem colapsa para 24px e mostra só os `^id`. Acima disso ela aparece inteira — inclusive na janela mínima com a sidebar recolhida.
+**Removido.** A versão original desta seção especificava uma coluna de margem de 76px à
+esquerda do texto do editor, com hairline vertical contínua e marcadores `H1`/`H2`/`H3`,
+`^id` e `EMB`. Foi implementada, mas na prática o gutter do CodeMirror estica pela altura
+inteira do painel independente do tamanho do texto — numa nota curta isso produz uma faixa
+vazia grande com só um marcador solto no topo. Testada em tela, a avaliação do Lucas foi
+direta ("achei uma merda"); decisão de produto: tirar por completo, não simplificar.
+`src/editor/extensoes/marginalia.ts`/`.css` foram apagados. O editor de nota volta a ser só o
+texto, centralizado na coluna de 720px (seção Layout, abaixo).
 
 **Na sidebar.** A árvore não usa recuo com linhas pontilhadas. Cada nível recua 16px e o nível ativo ganha uma hairline vertical em `musgo` de 2px na altura do item — a régua de margem em miniatura.
 
@@ -420,7 +406,7 @@ Altura padrão 36px, compacto 30px, ícone 32×32.
 | `ItemArvore` | linha de arquivo ou pasta, com ícone por tipo e régua de nível ativo |
 | `BarraAbas` | fichas de aba, arrastar, zonas de soltura, indicador de não salvo |
 | `PainelSplit` | wrapper do dockview com as divisórias em hairline |
-| `EditorNota` | CodeMirror com live preview e a marginália |
+| `EditorNota` | CodeMirror com live preview |
 | `MargemNota` | coluna de 76px com metadados do bloco |
 | `EmbedDesenho` | bloco que renderiza o SVG do desenho dentro da nota |
 | `EmbedNota` | bloco que renderiza a transclusão de nota ou seção |
@@ -465,7 +451,7 @@ Altura padrão 36px, compacto 30px, ícone 32×32.
 - Sidebar fixa de 264px, fundo `superficie`, redimensionável entre 200 e 400px, recolhível com `Ctrl+\` (`Ctrl+B` é negrito no editor).
 - Hairline `regua` separando sidebar, conteúdo e barra de status. Sem sombra entre eles.
 - Barra de status de 24px, fundo `superficie`, tudo em `meta`, `tinta-suave`: caminho à esquerda, contagem de palavras e estado de salvamento à direita.
-- Coluna de texto da nota: largura máxima de 720px, centralizada no painel, padding lateral de 32px. A marginália fica dentro dessa largura.
+- Coluna de texto da nota: largura máxima de 720px, centralizada no painel, padding lateral de 32px.
 - Divisória de split: 1px de `regua`, área de arraste de 8px, cursor de redimensionar, `musgo` durante o arraste.
 - Largura mínima de janela: 900×600. Abaixo disso a sidebar recolhe sozinha.
 
