@@ -21,10 +21,15 @@ import { useWorkspaceStore } from "../estado/workspaceStore";
 import { useDocumentosStore } from "../estado/documentosStore";
 import { carregarLayout, salvarLayout, limparLayout } from "./persistencia";
 import PainelDocumento from "./PainelDocumento";
+import PainelDesenho from "./PainelDesenho";
 import PainelVazio from "./PainelVazio";
 import AbaDocumento from "./AbaDocumento";
 
-const COMPONENTES = { documento: PainelDocumento, vazio: PainelVazio };
+const COMPONENTES = {
+  documento: PainelDocumento,
+  desenho: PainelDesenho,
+  vazio: PainelVazio,
+};
 
 // Tema do dockview: a estrutura vem de dockview.css; as cores, de dockview-excalisidian.css
 // (variáveis --dv-* sobre os tokens). O objeto configura os comportamentos de arraste.

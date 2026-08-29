@@ -5,6 +5,7 @@
 import { create } from "zustand";
 
 import { useVaultStore } from "./vaultStore";
+import { tipoDoArquivo } from "../vault/arvore";
 
 export type EstadoDoc =
   | "limpo"
@@ -202,11 +203,12 @@ export const useDocumentosStore = create<DocumentosState>((set, get) => ({
         continue;
       }
       if (textoDisco === doc.conteudoDisco) continue; // nada de novo no disco
-      if (!sujo) {
-        // Aba limpa: recarrega em silêncio.
+      // Desenho nunca recarrega em silêncio: recarregar descarta seleção, viewport e
+      // histórico de desfazer, o que é destrutivo mesmo sem edição pendente (doc 02 §11).
+      const desenho = tipoDoArquivo(path) === "drawing";
+      if (!sujo && !desenho) {
         await get().recarregarDoDisco(path);
       } else {
-        // Aba suja e o disco divergiu: não decide sozinho.
         patch(set, path, { estado: "conflito" });
       }
     }

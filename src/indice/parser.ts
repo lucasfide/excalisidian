@@ -86,7 +86,13 @@ export function parsearNota(
   let dentroDeFence = false;
   let marcadorFence = "";
 
-  for (let i = inicioCorpo; i < linhas.length; i++) {
+  // Num .draw.md o corpo inteiro é o bloco de dados dentro de `%%…%%`: as linhas
+  // `## Text Elements`, `## Scene` etc. e os `^tx-…` são estrutura do formato, não
+  // headings/blockIds de navegação. Os wikilinks, esses sim, contam (backlinks de
+  // desenho "de graça" — doc 02 §3.3).
+  const coletarEstrutura = kind !== "drawing";
+
+  for (let i = inicioCorpo; coletarEstrutura && i < linhas.length; i++) {
     const linha = linhas[i];
 
     const fence = RE_FENCE.exec(linha);
@@ -119,7 +125,7 @@ export function parsearNota(
   const outLinks = todos.filter((l) => !l.embed);
   const embeds = todos.filter((l) => l.embed);
 
-  const h1 = headings.find((h) => h.level === 1);
+  const h1 = coletarEstrutura ? headings.find((h) => h.level === 1) : undefined;
   const title = h1 ? h1.text : basenameSemExtensao(path);
 
   return {

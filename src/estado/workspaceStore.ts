@@ -6,10 +6,16 @@ import { create } from "zustand";
 import type { DockviewApi, IDockviewPanel } from "dockview";
 
 import { useDocumentosStore } from "./documentosStore";
+import { tipoDoArquivo } from "../vault/arvore";
 
 function nomeCurto(path: string): string {
   const n = path.slice(path.lastIndexOf("/") + 1);
   return n.replace(/\.draw\.md$/i, "").replace(/\.md$/i, "");
+}
+
+/** Qual componente do dockview abre este arquivo: canvas para .draw.md, editor para o resto. */
+function componenteDe(path: string): "documento" | "desenho" {
+  return tipoDoArquivo(path) === "drawing" ? "desenho" : "documento";
 }
 
 function pathDoPainel(p: IDockviewPanel | undefined | null): string | null {
@@ -71,7 +77,7 @@ export const useWorkspaceStore = create<WorkspaceState>((set, get) => ({
     }
     api.addPanel({
       id: path,
-      component: "documento",
+      component: componenteDe(path),
       title: nomeCurto(path),
       params: { path },
     });
@@ -92,7 +98,7 @@ export const useWorkspaceStore = create<WorkspaceState>((set, get) => ({
       api.removePanel(painel);
       api.addPanel({
         id: idNovo,
-        component: "documento",
+        component: componenteDe(novo),
         title: nomeCurto(novo),
         params: { path: novo },
       });
@@ -118,7 +124,7 @@ export const useWorkspaceStore = create<WorkspaceState>((set, get) => ({
     const path = pathDoPainel(alvo);
     api.addPanel({
       id: path ? `${path}::${direcao}::${crypto.randomUUID()}` : `vazio:${crypto.randomUUID()}`,
-      component: path ? "documento" : "vazio",
+      component: path ? componenteDe(path) : "vazio",
       title: alvo.title,
       params: path ? { path } : {},
       position: { referencePanel: alvo.id, direction: direcao },
