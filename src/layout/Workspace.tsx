@@ -176,6 +176,10 @@ export default function Workspace() {
     <DockviewReact
       className="h-full"
       theme={TEMA}
+      // O padrão ("auto") escolhe HTML5 drag nativo com mouse, e o Drag-and-Drop HTML5 tem
+      // histórico de falhar dentro do WebView2 do Tauri (cursor "não permitido", o drop nunca
+      // é aceito). "pointer" usa só eventos de ponteiro, sem depender da API nativa.
+      dndStrategy="pointer"
       components={COMPONENTES}
       defaultTabComponent={AbaDocumento}
       getTabContextMenuItems={menuDaAba}
