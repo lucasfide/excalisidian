@@ -21,6 +21,8 @@ import { reidratarFiles, bytesParaDataUrl } from "./reidratarFiles";
 import { lerPaletaCanvas, temaEscuroAtivo } from "./paletaCanvas";
 import { inserirPostit } from "./postit";
 import { useAtalhosCanvas } from "./atalhosCanvas";
+import { abrirOuCriarPorLink } from "../vault/navegacao";
+import { alvoDeLinkWiki } from "./linkElemento";
 import ToolbarCanvas from "../ui/excalisidian/ToolbarCanvas";
 import PropriedadesCanvas from "../ui/excalisidian/PropriedadesCanvas";
 
@@ -40,7 +42,7 @@ interface Props {
   onEditar: (md: string) => void;
 }
 
-export default function EditorDesenho({ conteudoInicial, onEditar }: Props) {
+export default function EditorDesenho({ caminho, conteudoInicial, onEditar }: Props) {
   const apiRef = useRef<ExcalidrawImperativeAPI | null>(null);
   const raizRef = useRef<HTMLDivElement | null>(null);
   const gradeRef = useRef<HTMLDivElement | null>(null);
@@ -216,6 +218,13 @@ export default function EditorDesenho({ conteudoInicial, onEditar }: Props) {
             pintarGrade(api.getAppState());
           }}
           onChange={aoMudar}
+          onLinkOpen={(elemento, evento) => {
+            const link = (elemento as { link?: string | null }).link;
+            const alvo = link ? alvoDeLinkWiki(link) : null;
+            if (alvo === null) return; // URL externa: comportamento nativo do Excalidraw
+            evento.preventDefault();
+            void abrirOuCriarPorLink(alvo, caminho);
+          }}
         />
       </div>
 

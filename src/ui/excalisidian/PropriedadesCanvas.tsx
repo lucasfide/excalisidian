@@ -2,10 +2,11 @@
 // seleção ou uma ferramenta de desenho ativa. Escreve nos `currentItem*` do appState e aplica
 // aos elementos selecionados.
 
-import type { ReactNode } from "react";
+import { useState, type ReactNode } from "react";
 import type { ExcalidrawImperativeAPI } from "@excalidraw/excalidraw/types";
+import type { ExcalidrawElement } from "@excalidraw/excalidraw/element/types";
 
-import { GrupoBotoes, SeletorCor, Superficie, type OpcaoGrupo } from "../index";
+import { Campo, GrupoBotoes, SeletorCor, Superficie, type OpcaoGrupo } from "../index";
 import type { PaletaCanvas } from "../../canvas/paletaCanvas";
 
 interface Props {
@@ -66,9 +67,17 @@ export default function PropriedadesCanvas({ api, tick, paleta }: Props) {
   if (!api) return null;
 
   const st = api.getAppState();
-  const temSelecao = Object.keys(st.selectedElementIds ?? {}).length > 0;
+  const idsSelecionados = Object.keys(st.selectedElementIds ?? {});
+  const temSelecao = idsSelecionados.length > 0;
   const ferramentaDesenho = FERRAMENTAS_DESENHO.has(st.activeTool?.type ?? "");
   if (!temSelecao && !ferramentaDesenho) return null;
+
+  // Link é por elemento (doc 02 §"Element Links"), não uma preferência de ferramenta — só
+  // faz sentido com exatamente um elemento selecionado.
+  const elementoUnico =
+    idsSelecionados.length === 1
+      ? api.getSceneElements().find((el) => el.id === idsSelecionados[0])
+      : undefined;
 
   const aplicar = (mudanca: Record<string, unknown>) => {
     const selecionados = st.selectedElementIds ?? {};
@@ -147,7 +156,45 @@ export default function PropriedadesCanvas({ api, tick, paleta }: Props) {
           onEscolher={(v) => aplicar({ currentItemFontSize: v })}
         />
       </Secao>
+      {elementoUnico && (
+        <Secao titulo="Link">
+          <CampoLink key={elementoUnico.id} api={api} elemento={elementoUnico} />
+        </Secao>
+      )}
     </Superficie>
+  );
+}
+
+/** Chave por `elemento.id`: reinicia o valor local ao trocar de seleção, sem disputar com
+ * os re-renders do painel a cada `tick` (o Excalidraw dispara onChange a cada tecla). */
+function CampoLink({
+  api,
+  elemento,
+}: {
+  api: ExcalidrawImperativeAPI;
+  elemento: ExcalidrawElement;
+}) {
+  const [valor, setValor] = useState((elemento as { link?: string | null }).link ?? "");
+
+  const aplicar = () => {
+    const limpo = valor.trim();
+    const elementos = api
+      .getSceneElements()
+      .map((el) => (el.id === elemento.id ? { ...el, link: limpo || null } : el));
+    api.updateScene({ elements: elementos as never });
+  };
+
+  return (
+    <Campo
+      rotulo="Link"
+      placeholder="[[Nota]] ou URL"
+      value={valor}
+      onChange={(e) => setValor(e.target.value)}
+      onBlur={aplicar}
+      onKeyDown={(e) => {
+        if (e.key === "Enter") e.currentTarget.blur();
+      }}
+    />
   );
 }
 
