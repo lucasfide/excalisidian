@@ -139,18 +139,28 @@ export default function EditorDesenho({ conteudoInicial, onEditar }: Props) {
           vivos as unknown as { id: string; type: string }[],
         );
         const textElements = new Map<string, string>();
+        const elementLinks = new Map<string, string>();
         for (const e of vivos as unknown as {
           id: string;
           type: string;
           text?: string;
+          link?: string | null;
         }[]) {
-          if (e.type === "text") textElements.set(idPorEl.get(e.id)!, e.text ?? "");
+          if (e.type === "text") {
+            textElements.set(idPorEl.get(e.id)!, e.text ?? "");
+          } else if (e.link) {
+            // element.link é a fonte da verdade: nunca herda de `base`, senão o link fica
+            // congelado no que foi lido do disco e um rename externo é desfeito no próximo
+            // autosave (era o bug: `base.elementLinks` nunca mudava depois da montagem).
+            // Chave é o id BRUTO do elemento (não o blockId) — ver DadosDesenho.elementLinks.
+            elementLinks.set(e.id, e.link);
+          }
         }
         const md = serializarDesenho({
           frontmatter: base.frontmatter,
           verso: base.verso,
           textElements,
-          elementLinks: base.elementLinks,
+          elementLinks,
           embeddedFiles: embedsRef.current,
           cena: {
             elements: vivos as never,

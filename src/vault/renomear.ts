@@ -7,7 +7,12 @@
 //   - se uma gravação falhar, as anteriores não são revertidas, mas o erro diz quais
 //     arquivos ficaram inconsistentes.
 //
-// Rename dentro de desenho (o JSON da cena) entra na Fatia 6/7.
+// Rename dentro de desenho (Fatia 7): um .draw.md não é markdown comum na hora de reescrever
+// links — o corpo inteiro do arquivo é o bloco `%%…%%`, e regex direta sobre o texto bruto
+// corrompe a seção `## Scene` quando ela está comprimida (`draw-json-lz`). Por isso a mesma
+// `atualizarLinksNoTexto` é aplicada aos VALORES de `textElements`/`elementLinks` do
+// `parseDesenho`, nunca ao texto do arquivo inteiro, e o resultado é regravado com
+// `serializarDesenho` — a `cena` sai intacta, sem passar pelo caminho de texto.
 
 import { toast } from "sonner";
 
@@ -16,6 +21,12 @@ import { useDocumentosStore } from "../estado/documentosStore";
 import { useWorkspaceStore } from "../estado/workspaceStore";
 import { analisarMiolo } from "../indice/wikilink";
 import { validarNomeArquivo, pastaDe } from "./caminhos";
+import { tipoDoArquivo } from "./arvore";
+import {
+  parseDesenho,
+  serializarDesenho,
+  blockIdsDaCena,
+} from "../canvas/formatoDesenho";
 
 const RE_WIKILINK_G = /(!?)\[\[([^\][]+)\]\]/g;
 
@@ -104,9 +115,78 @@ export async function renomearArquivo(
     } catch {
       continue;
     }
+    const resolver = (alvo: string) => vault.resolver(alvo, origem);
+
+    if (tipoDoArquivo(origem) === "drawing") {
+      // `serializarDesenho` deriva `## Text Elements` do `text` vivo de cada elemento da
+      // cena (não do mapa `textElements` — esse é só espelho de leitura) e usa o mapa
+      // `elementLinks` como a fonte real do `## Element Links`. Editar só os mapas não
+      // muda nada: é preciso reescrever `element.text`/`element.link` na cena e depois
+      // recompor os dois mapas a partir dela, exatamente como o EditorDesenho faz ao salvar.
+      const dados = parseDesenho(texto);
+      let n = 0;
+      const elementos = dados.cena.elements.map((el) => {
+        const e = el as unknown as {
+          id: string;
+          type: string;
+          text?: string;
+          link?: string | null;
+        };
+        if (e.type === "text" && e.text) {
+          const [novoTexto, nEste] = atualizarLinksNoTexto(
+            e.text,
+            resolver,
+            pathAntigo,
+            calcularNovoAlvo,
+          );
+          n += nEste;
+          if (nEste > 0) return { ...el, text: novoTexto } as typeof el;
+        } else if (e.link) {
+          const [novoLink, nEste] = atualizarLinksNoTexto(
+            e.link,
+            resolver,
+            pathAntigo,
+            calcularNovoAlvo,
+          );
+          n += nEste;
+          if (nEste > 0) return { ...el, link: novoLink } as typeof el;
+        }
+        return el;
+      });
+
+      if (n > 0) {
+        const idPorEl = blockIdsDaCena(elementos);
+        const textElements = new Map<string, string>();
+        const elementLinks = new Map<string, string>();
+        for (const el of elementos as unknown as {
+          id: string;
+          type: string;
+          text?: string;
+          link?: string | null;
+        }[]) {
+          if (el.type === "text") {
+            textElements.set(idPorEl.get(el.id)!, el.text ?? "");
+          } else if (el.link) {
+            elementLinks.set(el.id, el.link);
+          }
+        }
+        gravacoes.push({
+          path: origem,
+          conteudo: serializarDesenho({
+            ...dados,
+            textElements,
+            elementLinks,
+            cena: { ...dados.cena, elements: elementos },
+          }),
+        });
+        linksAtualizados += n;
+      }
+      continue;
+    }
+
     const [novo, n] = atualizarLinksNoTexto(
       texto,
-      (alvo) => vault.resolver(alvo, origem),
+      resolver,
       pathAntigo,
       calcularNovoAlvo,
     );
