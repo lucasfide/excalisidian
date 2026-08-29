@@ -33,6 +33,12 @@ export async function moverArquivo(
   const nomeAtual = baseNome(pathAntigo);
   const pathDesejado = dirDestino ? `${dirDestino}/${nomeAtual}` : nomeAtual;
 
+  // Destino digitado à mão (menu "Mover para...", equivalente por teclado do arrastar —
+  // doc 06, piso de qualidade) pode ser uma pasta que ainda não existe. `criarPasta` é
+  // recursivo e não reclama se já existir, então isto é seguro também no caminho de
+  // arrastar, que só oferece pastas que já existem.
+  if (dirDestino) await vault.adapter.criarPasta(dirDestino);
+
   // Nunca falha por já existir um arquivo com o mesmo nome ali (doc 04): resolve com o
   // mesmo padrão de numeração de criar.ts — "Nome (2)", "Nome (3)"...
   const { base, ext } = dividirExtensao(nomeAtual);

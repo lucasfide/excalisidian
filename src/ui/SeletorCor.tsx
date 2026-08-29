@@ -34,7 +34,10 @@ export default function SeletorCor({
       className={cn("flex gap-1", className)}
     >
       {cores.map((cor) => {
-        const ativo = valor === cor.hex;
+        // Comparação sem diferenciar maiúsculas: um elemento com hex em outra capitalização
+        // (colado de fora, ou de uma versão antiga do app) precisa continuar acendendo o
+        // quadradinho certo — bug real encontrado na revisão de contraste de 29/08/2026.
+        const ativo = valor?.toLowerCase() === cor.hex.toLowerCase();
         const vazio = cor.hex === "transparent";
         return (
           <button

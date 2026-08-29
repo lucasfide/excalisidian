@@ -7,13 +7,14 @@ import { Toaster } from "sonner";
 import { TauriVaultAdapter } from "../vault/TauriVaultAdapter";
 import { useVaultStore } from "../estado/vaultStore";
 import { useWorkspaceStore } from "../estado/workspaceStore";
+import { usePrefsStore, type Tema } from "../estado/prefsStore";
 import {
   comandoNovaNota,
   comandoNovoDesenho,
   comandoNovaPasta,
   comandoRenomear,
 } from "./comandos/criacao";
-import { comandoMoverArquivo } from "./comandos/mover";
+import { comandoMoverArquivo, comandoMoverPara } from "./comandos/mover";
 import { useAutosave } from "../editor/useAutosave";
 import Workspace from "../layout/Workspace";
 import { Botao, EstadoVazio, Select, type OpcaoSelect } from "../ui";
@@ -24,8 +25,6 @@ import Logotipo from "../ui/excalisidian/Logotipo";
 import PainelBacklinks from "../ui/excalisidian/PainelBacklinks";
 import RaizDialogos from "../ui/excalisidian/RaizDialogos";
 import LimiteDeErro from "../ui/excalisidian/LimiteDeErro";
-
-type Tema = "sistema" | "claro" | "escuro";
 
 const TEMAS: OpcaoSelect[] = [
   { valor: "sistema", rotulo: "sistema" },
@@ -45,7 +44,8 @@ type Boot = "carregando" | "sem-vault" | "pronto" | { erro: string };
 
 export default function App() {
   const [boot, setBoot] = useState<Boot>("carregando");
-  const [tema, setTema] = useState<Tema>("sistema");
+  const tema = usePrefsStore((s) => s.tema);
+  const definirTema = usePrefsStore((s) => s.definirTema);
 
   const arvore = useVaultStore((s) => s.arvore);
   const pastasAbertas = useVaultStore((s) => s.pastasAbertas);
@@ -55,6 +55,10 @@ export default function App() {
   const abrirDocumento = useWorkspaceStore((s) => s.abrirDocumento);
 
   useAutosave();
+
+  useEffect(() => {
+    void usePrefsStore.getState().carregar();
+  }, []);
 
   useEffect(() => {
     aplicarTema(tema);
@@ -161,6 +165,7 @@ export default function App() {
                   onCriarDesenho={(dir) => void comandoNovoDesenho(dir)}
                   onCriarPasta={(dir) => void comandoNovaPasta(dir)}
                   onMoverArquivo={(path, dir) => void comandoMoverArquivo(path, dir)}
+                  onMoverPara={(path) => void comandoMoverPara(path)}
                 />
               )}
             </div>
@@ -176,7 +181,7 @@ export default function App() {
                 compacto
                 opcoes={TEMAS}
                 value={tema}
-                onChange={(e) => setTema(e.target.value as Tema)}
+                onChange={(e) => definirTema(e.target.value as Tema)}
                 className="shrink-0 text-tinta-media"
               />
             </div>

@@ -21,6 +21,7 @@ const { disco, vaultState } = vi.hoisted(() => {
         disco.set(para, disco.get(de)!);
         disco.delete(de);
       },
+      async criarPasta() {},
       absoluto: (p: string) => p,
     },
     links: { backlinks: backlinksFake },

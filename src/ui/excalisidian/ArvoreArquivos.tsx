@@ -8,7 +8,7 @@
 
 import { useMemo, useRef, useState } from "react";
 import { useVirtualizer } from "@tanstack/react-virtual";
-import { FilePlus, SquarePen, FolderPlus, Pencil, Home } from "lucide-react";
+import { FilePlus, SquarePen, FolderPlus, Pencil, Home, Move } from "lucide-react";
 
 import type { NoArvore } from "../../vault/arvore";
 import { pastaDe } from "../../vault/caminhos";
@@ -50,6 +50,9 @@ interface Props {
   onCriarDesenho(dir: string): void;
   onCriarPasta(dir: string): void;
   onMoverArquivo(path: string, dirDestino: string): void;
+  /** Equivalente por menu de arrastar (doc 06, piso de qualidade) — só faz sentido pra
+   * arquivo, mover pasta inteira está fora do escopo (vault/mover.ts). */
+  onMoverPara(path: string): void;
 }
 
 type EstadoMenu = (PosicaoMenu & { no: NoArvore }) | null;
@@ -79,6 +82,7 @@ export default function ArvoreArquivos({
   onCriarDesenho,
   onCriarPasta,
   onMoverArquivo,
+  onMoverPara,
 }: Props) {
   const linhas = useMemo(
     () => achatar(raiz, pastasAbertas),
@@ -252,6 +256,13 @@ export default function ArvoreArquivos({
             rotulo="Renomear"
             onClick={comMenuFechado(() => onRenomear(menu.no.path))}
           />
+          {menu.no.tipo !== "folder" && (
+            <ItemMenu
+              Icone={Move}
+              rotulo="Mover para…"
+              onClick={comMenuFechado(() => onMoverPara(menu.no.path))}
+            />
+          )}
         </Menu>
       )}
     </div>

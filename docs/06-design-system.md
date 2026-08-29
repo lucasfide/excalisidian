@@ -481,6 +481,7 @@ Altura padrão 36px, compacto 30px, ícone 32×32.
 | nova nota | `file-plus` |
 | novo desenho | `square-pen` |
 | nova pasta | `folder-plus` |
+| mover para... | `move` |
 | início | `home` |
 | busca | `search` |
 | backlinks | `corner-down-left` |
