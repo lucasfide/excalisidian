@@ -8,6 +8,7 @@ import type { IDockviewPanelProps } from "dockview";
 import { useDocumentosStore } from "../estado/documentosStore";
 import EditorDesenho from "../canvas/EditorDesenho";
 import FaixaConflito from "../ui/excalisidian/FaixaConflito";
+import LimiteDeErro from "../ui/excalisidian/LimiteDeErro";
 
 type Params = { path: string };
 
@@ -39,13 +40,17 @@ export default function PainelDesenho(props: IDockviewPanelProps<Params>) {
     <div className="flex h-full flex-col bg-papel">
       <FaixaConflito path={path} />
       <div className="min-h-0 flex-1">
-        <EditorDesenho
+        <LimiteDeErro
           key={`${path}#${doc.versao}`}
-          caminho={path}
-          conteudoInicial={doc.conteudoEditor}
-          versao={doc.versao}
-          onEditar={(md) => editar(path, md)}
-        />
+          onFechar={() => props.api.close()}
+        >
+          <EditorDesenho
+            caminho={path}
+            conteudoInicial={doc.conteudoEditor}
+            versao={doc.versao}
+            onEditar={(md) => editar(path, md)}
+          />
+        </LimiteDeErro>
       </div>
     </div>
   );
