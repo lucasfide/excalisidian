@@ -93,10 +93,25 @@ export async function renomearArquivo(
     return { ok: false, motivo: `Já existe «${semExtensao(nomeNovo)}» nesta pasta.` };
   }
 
-  // Flush de tudo antes de renomear (doc 04 §2).
+  return aplicarMovimentacao(pathAntigo, pathNovo);
+}
+
+/**
+ * O miolo comum entre renomear (mesma pasta, nome novo) e mover (pasta nova, mesmo nome —
+ * `src/vault/mover.ts`): reescreve os wikilinks de quem aponta para `pathAntigo`, move o
+ * arquivo, e reindexa. Quem chama já validou nome e checou colisão em `pathNovo`.
+ */
+export async function aplicarMovimentacao(
+  pathAntigo: string,
+  pathNovo: string,
+): Promise<ResultadoRename> {
+  const vault = useVaultStore.getState();
+  if (!vault.adapter) return { ok: false, motivo: "Nenhum vault aberto." };
+
+  // Flush de tudo antes de mexer no arquivo (doc 04 §2).
   await useDocumentosStore.getState().flushTudo();
 
-  const novoBaseSemExt = semExtensao(nomeNovo);
+  const novoBaseSemExt = semExtensao(baseNome(pathNovo));
   const novoPathSemExt = semExtensao(pathNovo);
   const calcularNovoAlvo = (alvoEscritoAntigo: string) =>
     alvoEscritoAntigo.includes("/") ? novoPathSemExt : novoBaseSemExt;
