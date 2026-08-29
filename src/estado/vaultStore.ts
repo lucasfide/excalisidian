@@ -44,6 +44,8 @@ interface VaultState {
   entradas: EntradaArquivo[];
   arvore: NoArvore | null;
   pastasAbertas: Set<string>;
+  /** Pasta em que "Nova nota/desenho/pasta" cria, quando definida. */
+  pastaSelecionada: string | null;
 
   indice: Map<string, FileMeta>;
   resolucao: IndiceResolucao;
@@ -58,6 +60,7 @@ interface VaultState {
   resolver(alvo: string, origem: string): string | null;
   backlinksDe(path: string): Backlink[];
   alternarPasta(path: string): void;
+  selecionarPasta(path: string | null): void;
 }
 
 let cancelarWatcher: () => void = () => {};
@@ -74,6 +77,7 @@ export const useVaultStore = create<VaultState>((set, get) => ({
   entradas: [],
   arvore: null,
   pastasAbertas: new Set(),
+  pastaSelecionada: null,
 
   indice: new Map(),
   resolucao: RESOLUCAO_VAZIA,
@@ -88,6 +92,7 @@ export const useVaultStore = create<VaultState>((set, get) => ({
       resolucao: RESOLUCAO_VAZIA,
       links: LINKS_VAZIO,
       statusIndice: "vazio",
+      pastaSelecionada: null,
     });
     await get().recarregarArvore();
     await get().reindexar();
@@ -217,5 +222,9 @@ export const useVaultStore = create<VaultState>((set, get) => ({
     if (abertas.has(path)) abertas.delete(path);
     else abertas.add(path);
     set({ pastasAbertas: abertas });
+  },
+
+  selecionarPasta(path) {
+    set({ pastaSelecionada: path });
   },
 }));

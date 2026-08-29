@@ -318,6 +318,18 @@ export function ehDesenho(md: string): boolean {
   }
 }
 
+/** Um .draw.md válido e vazio, para criar um desenho novo. */
+export function desenhoVazio(): string {
+  return serializarDesenho({
+    frontmatter: {},
+    verso: "",
+    textElements: new Map(),
+    elementLinks: new Map(),
+    embeddedFiles: new Map(),
+    cena: { elements: [], appState: {} },
+  });
+}
+
 export function parseDesenho(md: string): DadosDesenho {
   const fm = matter(md);
   const frontmatter = fm.data as Record<string, unknown>;

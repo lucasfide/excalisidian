@@ -1,8 +1,9 @@
-// Árvore de arquivos da sidebar (Fatia 1): virtualizada, expandir/recolher, clique abre.
-// Sem arrastar e sem menu de contexto ainda (Fatia 3+). Doc 06: recuo de 16px por nível,
-// hairline vertical em musgo de 2px no item ativo, ícone por tipo.
+// Árvore de arquivos da sidebar. Virtualizada, expandir/recolher, clique abre. Pasta
+// clicada vira a "pasta selecionada" (onde as ações de criar agem). Menu de contexto:
+// criar aqui / renomear. Doc 06: recuo de 16px por nível, hairline musgo de 2px no item
+// ativo/selecionado, ícone por tipo.
 
-import { useMemo, useRef } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { useVirtualizer } from "@tanstack/react-virtual";
 import {
   FileText,
@@ -10,9 +11,14 @@ import {
   Image as ImageIcon,
   Folder,
   FolderOpen,
+  FilePlus,
+  SquarePen,
+  FolderPlus,
+  Pencil,
 } from "lucide-react";
 
 import type { NoArvore } from "../../vault/arvore";
+import { criarNota, criarDesenho, criarPasta } from "../../vault/criar";
 
 interface LinhaVisivel {
   no: NoArvore;
@@ -20,10 +26,7 @@ interface LinhaVisivel {
   aberta: boolean;
 }
 
-function achatar(
-  raiz: NoArvore,
-  pastasAbertas: Set<string>,
-): LinhaVisivel[] {
+function achatar(raiz: NoArvore, pastasAbertas: Set<string>): LinhaVisivel[] {
   const linhas: LinhaVisivel[] = [];
   const visitar = (nos: NoArvore[], nivel: number) => {
     for (const no of nos) {
@@ -48,18 +51,23 @@ function Icone({ no, aberta }: { no: NoArvore; aberta: boolean }) {
 interface Props {
   raiz: NoArvore;
   pastasAbertas: Set<string>;
+  pastaSelecionada: string | null;
   caminhoAberto: string | null;
   onAlternarPasta(path: string): void;
+  onSelecionarPasta(path: string | null): void;
   onAbrirArquivo(path: string): void;
-  /** Menu de contexto mínimo (RF4.4 completo pendente): por ora só renomear. */
   onRenomear(path: string): void;
 }
+
+type Menu = { x: number; y: number; no: NoArvore } | null;
 
 export default function ArvoreArquivos({
   raiz,
   pastasAbertas,
+  pastaSelecionada,
   caminhoAberto,
   onAlternarPasta,
+  onSelecionarPasta,
   onAbrirArquivo,
   onRenomear,
 }: Props) {
@@ -67,6 +75,18 @@ export default function ArvoreArquivos({
     () => achatar(raiz, pastasAbertas),
     [raiz, pastasAbertas],
   );
+  const [menu, setMenu] = useState<Menu>(null);
+
+  useEffect(() => {
+    if (!menu) return;
+    const fechar = () => setMenu(null);
+    window.addEventListener("click", fechar);
+    window.addEventListener("blur", fechar);
+    return () => {
+      window.removeEventListener("click", fechar);
+      window.removeEventListener("blur", fechar);
+    };
+  }, [menu]);
 
   const scrollRef = useRef<HTMLDivElement | null>(null);
   const virt = useVirtualizer({
@@ -76,29 +96,37 @@ export default function ArvoreArquivos({
     overscan: 12,
   });
 
+  const dirDoNo = (no: NoArvore) =>
+    no.tipo === "folder"
+      ? no.path
+      : no.path.includes("/")
+        ? no.path.slice(0, no.path.lastIndexOf("/"))
+        : "";
+
   return (
     <div ref={scrollRef} className="h-full overflow-auto">
-      <div
-        style={{ height: virt.getTotalSize(), position: "relative", width: "100%" }}
-      >
+      <div style={{ height: virt.getTotalSize(), position: "relative", width: "100%" }}>
         {virt.getVirtualItems().map((vi) => {
           const { no, nivel, aberta } = linhas[vi.index];
           const ativo = no.path === caminhoAberto;
+          const selecionada = no.tipo === "folder" && no.path === pastaSelecionada;
           return (
             <button
               key={no.path}
-              onClick={() =>
-                no.tipo === "folder"
-                  ? onAlternarPasta(no.path)
-                  : onAbrirArquivo(no.path)
-              }
+              onClick={() => {
+                if (no.tipo === "folder") {
+                  onAlternarPasta(no.path);
+                  onSelecionarPasta(no.path);
+                } else {
+                  onAbrirArquivo(no.path);
+                }
+              }}
               onContextMenu={(e) => {
-                if (no.tipo === "folder") return;
                 e.preventDefault();
-                onRenomear(no.path);
+                setMenu({ x: e.clientX, y: e.clientY, no });
               }}
               className={`absolute left-0 flex w-full items-center gap-2 py-1 pr-2 text-left text-[13px] ${
-                ativo
+                ativo || selecionada
                   ? "bg-lavagem text-tinta"
                   : "text-tinta-media hover:bg-lavagem"
               }`}
@@ -106,9 +134,10 @@ export default function ArvoreArquivos({
                 top: vi.start,
                 height: vi.size,
                 paddingLeft: 8 + nivel * 16,
-                boxShadow: ativo
-                  ? "inset 2px 0 0 0 var(--color-musgo)"
-                  : undefined,
+                boxShadow:
+                  ativo || selecionada
+                    ? "inset 2px 0 0 0 var(--color-musgo)"
+                    : undefined,
               }}
             >
               <Icone no={no} aberta={aberta} />
@@ -117,6 +146,72 @@ export default function ArvoreArquivos({
           );
         })}
       </div>
+
+      {menu && (
+        <div
+          className="fixed z-50 min-w-[180px] rounded-ficha border border-regua bg-superficie py-1 shadow-[var(--shadow-sobreposicao)]"
+          style={{ left: menu.x, top: menu.y }}
+          onClick={(e) => e.stopPropagation()}
+        >
+          {menu.no.tipo === "folder" && (
+            <>
+              <ItemMenu
+                Icone={FilePlus}
+                rotulo="Nova nota aqui"
+                onClick={() => {
+                  setMenu(null);
+                  void criarNota(dirDoNo(menu.no));
+                }}
+              />
+              <ItemMenu
+                Icone={SquarePen}
+                rotulo="Novo desenho aqui"
+                onClick={() => {
+                  setMenu(null);
+                  void criarDesenho(dirDoNo(menu.no));
+                }}
+              />
+              <ItemMenu
+                Icone={FolderPlus}
+                rotulo="Nova pasta aqui"
+                onClick={() => {
+                  setMenu(null);
+                  void criarPasta(dirDoNo(menu.no));
+                }}
+              />
+              <div className="my-1 h-px bg-regua" />
+            </>
+          )}
+          <ItemMenu
+            Icone={Pencil}
+            rotulo="Renomear"
+            onClick={() => {
+              setMenu(null);
+              onRenomear(menu.no.path);
+            }}
+          />
+        </div>
+      )}
     </div>
+  );
+}
+
+function ItemMenu({
+  Icone,
+  rotulo,
+  onClick,
+}: {
+  Icone: typeof FilePlus;
+  rotulo: string;
+  onClick: () => void;
+}) {
+  return (
+    <button
+      onClick={onClick}
+      className="flex w-full items-center gap-2 px-3 py-1.5 text-left text-[13px] text-tinta hover:bg-lavagem"
+    >
+      <Icone size={15} strokeWidth={1.5} className="text-tinta-media" />
+      {rotulo}
+    </button>
   );
 }

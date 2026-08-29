@@ -11,6 +11,7 @@ import { renomearArquivo } from "../vault/renomear";
 import { useAutosave } from "../editor/useAutosave";
 import Workspace from "../layout/Workspace";
 import ArvoreArquivos from "../ui/excalisidian/ArvoreArquivos";
+import BarraFerramentasSidebar from "../ui/excalisidian/BarraFerramentasSidebar";
 import BarraStatus from "../ui/excalisidian/BarraStatus";
 import PainelBacklinks from "../ui/excalisidian/PainelBacklinks";
 
@@ -33,6 +34,8 @@ export default function App() {
   const arvore = useVaultStore((s) => s.arvore);
   const pastasAbertas = useVaultStore((s) => s.pastasAbertas);
   const alternarPasta = useVaultStore((s) => s.alternarPasta);
+  const pastaSelecionada = useVaultStore((s) => s.pastaSelecionada);
+  const selecionarPasta = useVaultStore((s) => s.selecionarPasta);
   const statusIndice = useVaultStore((s) => s.statusIndice);
   const caminhoAtivo = useWorkspaceStore((s) => s.caminhoAtivo);
   const abrirDocumento = useWorkspaceStore((s) => s.abrirDocumento);
@@ -129,17 +132,47 @@ export default function App() {
     <div className="flex h-screen flex-col bg-papel text-tinta">
       <div className="flex min-h-0 flex-1">
         <aside className="flex w-[264px] shrink-0 flex-col border-r border-regua bg-superficie">
-          <div className="flex items-center justify-between border-b border-regua px-3 py-2">
-            <div>
-              <div className="font-display text-[16px] font-semibold leading-none text-tinta">
-                Excalisidian
+          <div className="border-b border-regua px-3 py-2">
+            <div className="flex items-center justify-between">
+              <div>
+                <div className="font-display text-[16px] font-semibold leading-none text-tinta">
+                  Excalisidian
+                </div>
+                <div className="mt-1 h-[2px] w-[42%] bg-musgo" />
               </div>
-              <div className="mt-1 h-[2px] w-[42%] bg-musgo" />
+              <BarraFerramentasSidebar />
             </div>
+          </div>
+          <div
+            className="min-h-0 flex-1"
+            onClick={(e) => {
+              if (e.target === e.currentTarget) selecionarPasta(null);
+            }}
+          >
+            {arvore && (
+              <ArvoreArquivos
+                raiz={arvore}
+                pastasAbertas={pastasAbertas}
+                pastaSelecionada={pastaSelecionada}
+                caminhoAberto={caminhoAtivo}
+                onAlternarPasta={alternarPasta}
+                onSelecionarPasta={selecionarPasta}
+                onAbrirArquivo={abrirDocumento}
+                onRenomear={renomear}
+              />
+            )}
+          </div>
+          {caminhoAtivo && <PainelBacklinks />}
+          <div className="flex items-center justify-between gap-2 border-t border-regua px-3 py-1.5">
+            <span className="meta truncate text-tinta-suave">
+              {statusIndice === "indexando"
+                ? "reindexando…"
+                : `criar em: ${pastaSelecionada || "raiz"}`}
+            </span>
             <select
               value={tema}
               onChange={(e) => setTema(e.target.value as Tema)}
-              className="rounded-controle border border-regua-forte bg-superficie px-1 py-[2px] text-[11px] text-tinta-media"
+              className="shrink-0 rounded-controle border border-regua-forte bg-superficie px-1 py-[2px] text-[11px] text-tinta-media"
               title="Tema"
             >
               <option value="sistema">sistema</option>
@@ -147,24 +180,6 @@ export default function App() {
               <option value="escuro">escuro</option>
             </select>
           </div>
-          <div className="min-h-0 flex-1">
-            {arvore && (
-              <ArvoreArquivos
-                raiz={arvore}
-                pastasAbertas={pastasAbertas}
-                caminhoAberto={caminhoAtivo}
-                onAlternarPasta={alternarPasta}
-                onAbrirArquivo={abrirDocumento}
-                onRenomear={renomear}
-              />
-            )}
-          </div>
-          <PainelBacklinks />
-          {statusIndice === "indexando" && (
-            <div className="border-t border-regua px-3 py-1">
-              <span className="meta text-tinta-suave">reindexando…</span>
-            </div>
-          )}
         </aside>
 
         <main className="min-h-0 flex-1">

@@ -1,48 +1,37 @@
-// Aba nova em branco (RF3.1). Oferece criar uma nota; o quick switcher e o menu de contexto
-// completo da árvore entram nas fatias seguintes.
+// Aba nova em branco (RF3.1). Oferece criar uma nota ou um desenho; o quick switcher e a
+// busca entram na Fatia 8.
 
-import { useVaultStore } from "../estado/vaultStore";
-import { useWorkspaceStore } from "../estado/workspaceStore";
-import { sanitizarNome } from "../vault/caminhos";
-import { toast } from "sonner";
+import { FilePlus, SquarePen } from "lucide-react";
 
-async function criarNota() {
-  const vault = useVaultStore.getState();
-  const ws = useWorkspaceStore.getState();
-  if (!vault.adapter) return;
-
-  const bruto = window.prompt("Nome da nova nota:", "");
-  if (!bruto) return;
-  const nome = sanitizarNome(bruto.replace(/\.md$/i, ""));
-  if (!nome) {
-    toast.error("Nome inválido.");
-    return;
-  }
-  const destino = `${nome}.md`;
-  if (await vault.adapter.existe(destino)) {
-    toast.error(`Já existe «${nome}» na raiz do vault.`);
-    ws.abrirDocumento(destino);
-    return;
-  }
-  await vault.adapter.escreverTexto(destino, `# ${nome}\n\n`);
-  await vault.recarregarArvore();
-  await vault.reindexarArquivo(destino);
-  ws.abrirDocumento(destino);
-}
+import { criarNota, criarDesenho } from "../vault/criar";
 
 export default function PainelVazio() {
   return (
-    <div className="flex h-full flex-col items-center justify-center gap-4 bg-papel">
-      <span className="meta text-tinta-suave">aba sem título</span>
-      <button
-        onClick={() => void criarNota()}
-        className="rounded-controle bg-musgo px-4 py-2 text-corpo text-superficie"
-      >
-        Nova nota
-      </button>
-      <span className="text-pequeno text-tinta-media">
-        ou escolha uma nota na barra lateral
-      </span>
+    <div className="flex h-full items-center justify-center bg-papel px-8">
+      <div className="w-full max-w-sm border-y border-regua py-8 text-center">
+        <h2 className="font-display text-[19px] font-medium text-tinta">
+          Aba em branco
+        </h2>
+        <p className="mt-1 text-pequeno text-tinta-media">
+          Crie uma nota ou um desenho, ou escolha um arquivo na barra lateral.
+        </p>
+        <div className="mt-4 flex justify-center gap-2">
+          <button
+            onClick={() => void criarNota()}
+            className="flex items-center gap-2 rounded-controle bg-musgo px-4 py-2 text-corpo text-superficie"
+          >
+            <FilePlus size={16} strokeWidth={1.5} />
+            Nova nota
+          </button>
+          <button
+            onClick={() => void criarDesenho()}
+            className="flex items-center gap-2 rounded-controle border border-regua-forte px-4 py-2 text-corpo text-tinta"
+          >
+            <SquarePen size={16} strokeWidth={1.5} />
+            Novo desenho
+          </button>
+        </div>
+      </div>
     </div>
   );
 }
