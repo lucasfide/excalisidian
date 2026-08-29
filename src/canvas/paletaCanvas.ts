@@ -16,6 +16,8 @@ export interface PaletaCanvas {
   postits: CorNomeada[];
   /** Cor dos pontos da grade de fundo. */
   grade: string;
+  /** Cor do texto do post-it — sempre `tinta`, nos dois temas (doc 06). */
+  textoPostit: string;
 }
 
 const NOMES_TRACO = [
@@ -51,6 +53,7 @@ export function lerPaletaCanvas(): PaletaCanvas {
     ],
     postits: NOMES_POSTIT.map((n) => ({ nome: n, hex: lerToken(n) })),
     grade: lerToken("regua"),
+    textoPostit: lerToken("tinta"),
   };
 }
 

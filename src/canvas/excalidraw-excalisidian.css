@@ -1,0 +1,12 @@
+/* Esconde a UI nativa do Excalidraw — a toolbar e o painel de propriedades são próprios
+   (doc 06). Depende de classes internas da 0.18.1; revalidar a cada upgrade (doc 09
+   Parte 3 item 12). O `UIOptions` no componente cobre o resto (itens de menu). */
+
+.excalisidian-canvas .excalidraw .App-toolbar,
+.excalisidian-canvas .excalidraw .App-toolbar-container,
+.excalisidian-canvas .excalidraw .App-menu__left,
+.excalisidian-canvas .excalidraw .App-menu-container,
+.excalisidian-canvas .excalidraw .main-menu-trigger,
+.excalisidian-canvas .excalidraw .help-icon {
+  display: none !important;
+}
