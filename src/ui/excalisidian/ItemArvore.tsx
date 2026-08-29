@@ -5,7 +5,7 @@
 import type { CSSProperties } from "react";
 
 import { cn, IconeArquivo } from "../index";
-import type { NoArvore } from "../../vault/arvore";
+import { nomeExibicao, type NoArvore } from "../../vault/arvore";
 
 interface Props {
   no: NoArvore;
@@ -56,7 +56,9 @@ export default function ItemArvore({
         aberta={aberta}
         className="shrink-0"
       />
-      <span className="truncate">{no.nome}</span>
+      <span className="truncate" title={no.nome}>
+        {nomeExibicao(no)}
+      </span>
     </button>
   );
 }

@@ -10,7 +10,7 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import { useVirtualizer } from "@tanstack/react-virtual";
 import { FilePlus, SquarePen, FolderPlus, Pencil, Home, Move } from "lucide-react";
 
-import type { NoArvore } from "../../vault/arvore";
+import { nomeExibicao, type NoArvore } from "../../vault/arvore";
 import { pastaDe } from "../../vault/caminhos";
 import { Menu, ItemMenu, SeparadorMenu, type PosicaoMenu, cn } from "../index";
 import ItemArvore from "./ItemArvore";
@@ -145,7 +145,7 @@ export default function ArvoreArquivos({
 
     arrastoRef.current = {
       path: no.path,
-      nome: no.nome,
+      nome: nomeExibicao(no),
       origem,
       startX: e.clientX,
       startY: e.clientY,

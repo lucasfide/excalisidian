@@ -20,6 +20,16 @@ export function tipoDoArquivo(nome: string): Exclude<TipoNo, "folder"> {
   return "attachment";
 }
 
+/** Nome pra exibir na árvore/lista: pasta mostra como está; nota e desenho escondem a
+ * extensão — o mesmo critério que a aba (`nomeCurto`, workspaceStore.ts) e o título
+ * (`basenameSemExtensao`, indice/parser.ts) já usam, com o ícone do nó substituindo a
+ * extensão como pista visual do tipo. Anexo mantém a extensão (".png" etc. segue relevante,
+ * o ícone sozinho não diz qual formato de imagem é). */
+export function nomeExibicao(no: NoArvore): string {
+  if (no.tipo === "folder" || no.tipo === "attachment") return no.nome;
+  return no.nome.replace(/\.draw\.md$/i, "").replace(/\.md$/i, "");
+}
+
 function nomeDe(path: string): string {
   const i = path.lastIndexOf("/");
   return i === -1 ? path : path.slice(i + 1);

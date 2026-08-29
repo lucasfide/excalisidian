@@ -6,7 +6,7 @@
 import { FilePlus, FolderPlus, SquarePen } from "lucide-react";
 
 import { Botao, EstadoVazio, IconeArquivo } from "../index";
-import type { NoArvore } from "../../vault/arvore";
+import { nomeExibicao, type NoArvore } from "../../vault/arvore";
 
 interface Props {
   saudacao: string;
@@ -133,7 +133,9 @@ export default function TelaInicio({
                       className="flex w-full items-center gap-2 px-3 py-2 text-left text-[13px] text-tinta-media transition-colors duration-[140ms] ease-caderno hover:bg-lavagem hover:text-tinta"
                     >
                       <IconeArquivo tipo={filho.tipo} className="shrink-0" />
-                      <span className="truncate">{filho.nome}</span>
+                      <span className="truncate" title={filho.nome}>
+                        {nomeExibicao(filho)}
+                      </span>
                     </button>
                   </li>
                 ))}

@@ -1,6 +1,7 @@
 import { describe, it, expect } from "vitest";
 
-import { montarArvore, tipoDoArquivo, encontrarNo } from "./arvore";
+import { montarArvore, tipoDoArquivo, encontrarNo, nomeExibicao } from "./arvore";
+import type { NoArvore } from "./arvore";
 import type { EntradaArquivo } from "./VaultAdapter";
 
 function ent(path: string, isDir = false): EntradaArquivo {
@@ -42,6 +43,28 @@ describe("montarArvore", () => {
 
   it("raiz vazia para vault sem arquivos", () => {
     expect(montarArvore([]).filhos).toEqual([]);
+  });
+});
+
+describe("nomeExibicao", () => {
+  function no(over: Partial<NoArvore>): NoArvore {
+    return { path: "", nome: "", tipo: "note", filhos: [], ...over };
+  }
+
+  it("esconde .md de uma nota", () => {
+    expect(nomeExibicao(no({ nome: "Fidelis.md", tipo: "note" }))).toBe("Fidelis");
+  });
+
+  it("esconde .draw.md inteiro de um desenho (o ícone já diz que é desenho)", () => {
+    expect(nomeExibicao(no({ nome: "asd.draw.md", tipo: "drawing" }))).toBe("asd");
+  });
+
+  it("mantém a extensão de um anexo", () => {
+    expect(nomeExibicao(no({ nome: "foto.png", tipo: "attachment" }))).toBe("foto.png");
+  });
+
+  it("mantém o nome de uma pasta como está", () => {
+    expect(nomeExibicao(no({ nome: "Projetos", tipo: "folder" }))).toBe("Projetos");
   });
 });
 
