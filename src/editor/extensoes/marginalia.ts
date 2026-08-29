@@ -3,8 +3,7 @@
 //
 //   H1 / H2 / H3   na linha de um heading
 //   ^id            na linha que termina com um id de bloco
-//
-// O indicador EMB de bloco embutido entra na Fatia 7, junto com os embeds.
+//   EMB            na linha de um embed (`![[...]]`)
 //
 // Implementado como gutter do CodeMirror 6, não como overlay React: o gutter acompanha
 // scroll, virtualização e altura variável de linha de graça — e há widgets de bloco altos
@@ -19,12 +18,12 @@
 import { gutter, GutterMarker } from "@codemirror/view";
 import type { EditorView } from "@codemirror/view";
 
-import { nivelDoHeading, blockIdDaLinha } from "../../indice/sintaxe";
+import { nivelDoHeading, blockIdDaLinha, ehLinhaDeEmbed } from "../../indice/sintaxe";
 
 /** Acima disto o id é truncado, para caber nos 76px sem quebrar linha. */
 const MAX_ID = 8;
 
-type TipoMarca = "heading" | "bloco";
+type TipoMarca = "heading" | "bloco" | "embed";
 
 class MarcadorTexto extends GutterMarker {
   constructor(
@@ -58,6 +57,8 @@ function marcadorDaLinha(view: EditorView, linhaInicio: number): GutterMarker | 
     const curto = id.length > MAX_ID ? `${id.slice(0, MAX_ID - 1)}…` : id;
     return new MarcadorTexto(`^${curto}`, "bloco");
   }
+
+  if (ehLinhaDeEmbed(texto)) return new MarcadorTexto("EMB", "embed");
 
   return null;
 }

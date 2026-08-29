@@ -44,9 +44,9 @@
 }
 
 /* Abaixo de 760px de largura do painel, a margem colapsa para 24px e some com os marcadores
- * de heading — só os ^id continuam (doc 06). O container é o PainelDocumento, que tem a
- * largura do painel; medir a coluna de texto daria sempre menos de 760 e a margem nunca
- * apareceria inteira. */
+ * de heading e de embed — só os ^id continuam (doc 06). O container é o PainelDocumento, que
+ * tem a largura do painel; medir a coluna de texto daria sempre menos de 760 e a margem
+ * nunca apareceria inteira. */
 @container editor (max-width: 760px) {
   .atomic-cm-editor .cm-gutter.cm-marginalia {
     width: 24px;
@@ -54,7 +54,8 @@
   .atomic-cm-editor .cm-marginalia .cm-gutterElement {
     padding-right: 4px;
   }
-  .cm-marginalia-marca[data-tipo="heading"] {
+  .cm-marginalia-marca[data-tipo="heading"],
+  .cm-marginalia-marca[data-tipo="embed"] {
     display: none;
   }
 }

@@ -7,7 +7,6 @@ import { Excalidraw, convertToExcalidrawElements } from "@excalidraw/excalidraw"
 import type {
   ExcalidrawImperativeAPI,
   AppState,
-  BinaryFiles,
 } from "@excalidraw/excalidraw/types";
 import "@excalidraw/excalidraw/index.css";
 import "./excalidraw-excalisidian.css";
@@ -17,8 +16,8 @@ import {
   parseDesenho,
   serializarDesenho,
   blockIdsDaCena,
-  type DadosDesenho,
 } from "./formatoDesenho";
+import { reidratarFiles, bytesParaDataUrl } from "./reidratarFiles";
 import { lerPaletaCanvas, temaEscuroAtivo } from "./paletaCanvas";
 import { inserirPostit } from "./postit";
 import { useAtalhosCanvas } from "./atalhosCanvas";
@@ -28,56 +27,10 @@ import PropriedadesCanvas from "../ui/excalisidian/PropriedadesCanvas";
 const DEBOUNCE_MS = 800;
 const PASSO_GRADE = 20;
 
-const MIME: Record<string, string> = {
-  png: "image/png",
-  jpg: "image/jpeg",
-  jpeg: "image/jpeg",
-  gif: "image/gif",
-  webp: "image/webp",
-  svg: "image/svg+xml",
-  avif: "image/avif",
-  bmp: "image/bmp",
-};
-
-function mimeDe(caminho: string): string {
-  return MIME[caminho.split(".").pop()?.toLowerCase() ?? ""] ?? "image/png";
-}
-
-function alvoDoLink(link: string): string {
-  return link.replace(/^!?\[\[/, "").replace(/\]\]$/, "").split("|")[0].trim();
-}
-
 function carimbo(): string {
   const d = new Date();
   const p = (n: number, l = 2) => String(n).padStart(l, "0");
   return `${d.getFullYear()}${p(d.getMonth() + 1)}${p(d.getDate())}-${p(d.getHours())}${p(d.getMinutes())}${p(d.getSeconds())}`;
-}
-
-function bytesParaDataUrl(bytes: Uint8Array, mime: string): string {
-  let bin = "";
-  bytes.forEach((b) => (bin += String.fromCharCode(b)));
-  return `data:${mime};base64,${btoa(bin)}`;
-}
-
-async function reidratarFiles(dados: DadosDesenho): Promise<BinaryFiles> {
-  const adapter = useVaultStore.getState().adapter;
-  const files: BinaryFiles = {};
-  if (!adapter) return files;
-  for (const [fileId, link] of dados.embeddedFiles) {
-    try {
-      const caminho = alvoDoLink(link);
-      const bytes = await adapter.lerBinario(caminho);
-      files[fileId] = {
-        id: fileId as never,
-        mimeType: mimeDe(caminho) as never,
-        dataURL: bytesParaDataUrl(bytes, mimeDe(caminho)) as never,
-        created: Date.now(),
-      };
-    } catch {
-      // imagem faltante: o Excalidraw mostra o placeholder dele
-    }
-  }
-  return files;
 }
 
 interface Props {

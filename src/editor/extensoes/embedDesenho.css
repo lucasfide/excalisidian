@@ -1,0 +1,36 @@
+/* Embed de desenho na nota (`![[Desenho.draw]]`, doc 08). Cartão simples: hairline `regua`,
+ * `raio-ficha`, sem sombra (é conteúdo ancorado no fluxo do texto, não uma superfície
+ * flutuante — doc 06). */
+
+.cm-embed-desenho {
+  display: block;
+  margin: 8px 0;
+  padding: 8px;
+  max-width: 100%;
+  border: 1px solid var(--color-regua);
+  border-radius: var(--radius-ficha);
+  background: var(--color-superficie);
+  cursor: pointer;
+  font-family: var(--fonte-mono);
+  font-size: 12px;
+  color: var(--color-tinta-suave);
+}
+
+.cm-embed-desenho:hover {
+  border-color: var(--color-regua-forte);
+}
+
+.cm-embed-desenho-svg {
+  display: block;
+  max-width: 100%;
+  height: auto;
+}
+
+.cm-embed-desenho-erro {
+  cursor: default;
+  border-color: var(--color-bordo);
+  color: var(--color-bordo);
+}
+.cm-embed-desenho-erro:hover {
+  border-color: var(--color-bordo);
+}

@@ -19,6 +19,8 @@ import { wikilinksExcalisidian } from "./extensoes/wikilinksExcalisidian";
 import { marginalia } from "./extensoes/marginalia";
 // Depois dos tokens: reativa o gutter da marginália, que o tema do pacote esconde.
 import "./extensoes/marginalia.css";
+import { embedDesenho } from "./extensoes/embedDesenho";
+import "./extensoes/embedDesenho.css";
 
 // Referência estável: o pacote captura `extensions` uma vez na montagem. As callbacks de
 // wikilinks leem o estado do store em tempo de chamada, então continuam atuais.
@@ -26,6 +28,7 @@ const EXTENSOES: readonly Extension[] = [
   atalhosFormatacao,
   wikilinksExcalisidian,
   marginalia(),
+  embedDesenho,
 ];
 
 interface Props {
