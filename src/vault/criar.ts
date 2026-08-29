@@ -1,24 +1,18 @@
-// Criação de notas, desenhos e pastas no vault. Camada de domínio: recebe o nome já
-// resolvido e não fala com a interface — quem pede o nome, mostra erro e abre a aba é
+// Criação de notas, desenhos e pastas no vault. Camada de domínio: recebe o nome e a pasta
+// já resolvidos e não fala com a interface — quem pede o nome, mostra erro e abre a aba é
 // `app/comandos/criacao.ts`. Isso mantém estas funções testáveis sem DOM.
+//
+// Sem "pasta selecionada": os comandos da sidebar sempre criam na raiz (`dir = ""`);
+// organizar é por clique direito numa pasta ("Nova nota aqui", em ArvoreArquivos) ou
+// arrastando o arquivo depois (src/vault/mover.ts).
 
 import { useVaultStore } from "../estado/vaultStore";
-import { useWorkspaceStore } from "../estado/workspaceStore";
 import { sanitizarNome } from "./caminhos";
 import { desenhoVazio } from "../canvas/formatoDesenho";
 
 export type ResultadoCriacao =
   | { ok: true; caminho: string }
   | { ok: false; motivo: string };
-
-/** Pasta onde criar, dado o contexto atual: pasta selecionada > pasta da aba ativa > raiz. */
-export function pastaAlvo(): string {
-  const { pastaSelecionada } = useVaultStore.getState();
-  if (pastaSelecionada) return pastaSelecionada;
-  const ativo = useWorkspaceStore.getState().caminhoAtivo;
-  if (ativo && ativo.includes("/")) return ativo.slice(0, ativo.lastIndexOf("/"));
-  return "";
-}
 
 function juntar(dir: string, nome: string): string {
   return dir ? `${dir}/${nome}` : nome;

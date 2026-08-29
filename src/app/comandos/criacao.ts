@@ -7,14 +7,12 @@
 import { toast } from "sonner";
 
 import { pedirTexto } from "../../estado/dialogoStore";
-import { useVaultStore } from "../../estado/vaultStore";
 import { useWorkspaceStore } from "../../estado/workspaceStore";
 import { validarNomeArquivo } from "../../vault/caminhos";
 import {
   criarNota,
   criarDesenho,
   criarPasta,
-  pastaAlvo,
   type ResultadoCriacao,
 } from "../../vault/criar";
 import { renomearArquivo } from "../../vault/renomear";
@@ -44,23 +42,28 @@ async function concluir(r: ResultadoCriacao, abrir: boolean): Promise<void> {
     toast.error(r.motivo);
     return;
   }
-  if (abrir) useWorkspaceStore.getState().abrirDocumento(r.caminho);
-  else useVaultStore.getState().selecionarPasta(r.caminho);
+  if (abrir) {
+    useWorkspaceStore.getState().abrirDocumento(r.caminho);
+  } else {
+    // Pasta criada: sem "selecionar" (não existe mais esse conceito) — só confirma.
+    // O usuário expande a árvore pra ver, ou arrasta um arquivo pra dentro dela.
+    toast(`Pasta «${r.caminho}» criada.`);
+  }
 }
 
-export async function comandoNovaNota(dir = pastaAlvo()): Promise<void> {
+export async function comandoNovaNota(dir = ""): Promise<void> {
   const nome = await pedirNome("Nova nota", dir);
   if (!nome) return;
   await concluir(await criarNota(nome, dir), true);
 }
 
-export async function comandoNovoDesenho(dir = pastaAlvo()): Promise<void> {
+export async function comandoNovoDesenho(dir = ""): Promise<void> {
   const nome = await pedirNome("Novo desenho", dir);
   if (!nome) return;
   await concluir(await criarDesenho(nome, dir), true);
 }
 
-export async function comandoNovaPasta(dir = pastaAlvo()): Promise<void> {
+export async function comandoNovaPasta(dir = ""): Promise<void> {
   const nome = await pedirNome("Nova pasta", dir);
   if (!nome) return;
   await concluir(await criarPasta(nome, dir), false);

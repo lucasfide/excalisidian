@@ -7,13 +7,13 @@ import { Toaster } from "sonner";
 import { TauriVaultAdapter } from "../vault/TauriVaultAdapter";
 import { useVaultStore } from "../estado/vaultStore";
 import { useWorkspaceStore } from "../estado/workspaceStore";
-import { pastaAlvo } from "../vault/criar";
 import {
   comandoNovaNota,
   comandoNovoDesenho,
   comandoNovaPasta,
   comandoRenomear,
 } from "./comandos/criacao";
+import { comandoMoverArquivo } from "./comandos/mover";
 import { useAutosave } from "../editor/useAutosave";
 import Workspace from "../layout/Workspace";
 import { Botao, EstadoVazio, Select, type OpcaoSelect } from "../ui";
@@ -23,6 +23,7 @@ import BarraStatus from "../ui/excalisidian/BarraStatus";
 import Logotipo from "../ui/excalisidian/Logotipo";
 import PainelBacklinks from "../ui/excalisidian/PainelBacklinks";
 import RaizDialogos from "../ui/excalisidian/RaizDialogos";
+import LimiteDeErro from "../ui/excalisidian/LimiteDeErro";
 
 type Tema = "sistema" | "claro" | "escuro";
 
@@ -49,8 +50,6 @@ export default function App() {
   const arvore = useVaultStore((s) => s.arvore);
   const pastasAbertas = useVaultStore((s) => s.pastasAbertas);
   const alternarPasta = useVaultStore((s) => s.alternarPasta);
-  const pastaSelecionada = useVaultStore((s) => s.pastaSelecionada);
-  const selecionarPasta = useVaultStore((s) => s.selecionarPasta);
   const statusIndice = useVaultStore((s) => s.statusIndice);
   const caminhoAtivo = useWorkspaceStore((s) => s.caminhoAtivo);
   const abrirDocumento = useWorkspaceStore((s) => s.abrirDocumento);
@@ -132,63 +131,62 @@ export default function App() {
 
   return (
     <div className="flex h-screen flex-col bg-papel text-tinta">
-      <div className="flex min-h-0 flex-1">
-        <aside className="flex w-[264px] shrink-0 flex-col border-r border-regua bg-superficie">
-          <div className="flex items-center justify-between border-b border-regua px-3 py-2">
-            <Logotipo />
-            <BarraFerramentasSidebar
-              onCriarNota={() => void comandoNovaNota()}
-              onCriarDesenho={() => void comandoNovoDesenho()}
-              onCriarPasta={() => void comandoNovaPasta()}
-            />
-          </div>
-
-          <div
-            className="min-h-0 flex-1"
-            onClick={(e) => {
-              if (e.target === e.currentTarget) selecionarPasta(null);
-            }}
-          >
-            {arvore && (
-              <ArvoreArquivos
-                raiz={arvore}
-                pastasAbertas={pastasAbertas}
-                pastaSelecionada={pastaSelecionada}
-                caminhoAberto={caminhoAtivo}
-                onAlternarPasta={alternarPasta}
-                onSelecionarPasta={selecionarPasta}
-                onAbrirArquivo={abrirDocumento}
-                onRenomear={(path) => void comandoRenomear(path)}
-                onCriarNota={(dir) => void comandoNovaNota(dir)}
-                onCriarDesenho={(dir) => void comandoNovoDesenho(dir)}
-                onCriarPasta={(dir) => void comandoNovaPasta(dir)}
+      <LimiteDeErro
+        onFechar={() => window.location.reload()}
+        rotuloFechar="Recarregar"
+      >
+        <div className="flex min-h-0 flex-1">
+          <aside className="flex w-[264px] shrink-0 flex-col border-r border-regua bg-superficie">
+            <div className="flex items-center justify-between border-b border-regua px-3 py-2">
+              <Logotipo />
+              {/* Sempre cria na raiz do vault; organizar é por clique direito numa pasta
+                  ("Nova nota aqui" etc., em ArvoreArquivos) ou arrastando depois. */}
+              <BarraFerramentasSidebar
+                onCriarNota={() => void comandoNovaNota("")}
+                onCriarDesenho={() => void comandoNovoDesenho("")}
+                onCriarPasta={() => void comandoNovaPasta("")}
               />
-            )}
-          </div>
+            </div>
 
-          {caminhoAtivo && <PainelBacklinks />}
+            <div className="min-h-0 flex-1">
+              {arvore && (
+                <ArvoreArquivos
+                  raiz={arvore}
+                  pastasAbertas={pastasAbertas}
+                  caminhoAberto={caminhoAtivo}
+                  onAlternarPasta={alternarPasta}
+                  onAbrirArquivo={abrirDocumento}
+                  onRenomear={(path) => void comandoRenomear(path)}
+                  onCriarNota={(dir) => void comandoNovaNota(dir)}
+                  onCriarDesenho={(dir) => void comandoNovoDesenho(dir)}
+                  onCriarPasta={(dir) => void comandoNovaPasta(dir)}
+                  onMoverArquivo={(path, dir) => void comandoMoverArquivo(path, dir)}
+                />
+              )}
+            </div>
 
-          <div className="flex items-center justify-between gap-2 border-t border-regua px-3 py-1.5">
-            <span className="meta truncate text-tinta-suave">
-              {statusIndice === "indexando"
-                ? "reindexando…"
-                : `criar em: ${pastaAlvo() || "raiz"}`}
-            </span>
-            <Select
-              rotulo="Tema"
-              compacto
-              opcoes={TEMAS}
-              value={tema}
-              onChange={(e) => setTema(e.target.value as Tema)}
-              className="shrink-0 text-tinta-media"
-            />
-          </div>
-        </aside>
+            {caminhoAtivo && <PainelBacklinks />}
 
-        <main className="min-h-0 flex-1">
-          <Workspace />
-        </main>
-      </div>
+            <div className="flex items-center justify-between border-t border-regua px-3 py-1.5">
+              <span className="meta text-tinta-suave">
+                {statusIndice === "indexando" ? "reindexando…" : ""}
+              </span>
+              <Select
+                rotulo="Tema"
+                compacto
+                opcoes={TEMAS}
+                value={tema}
+                onChange={(e) => setTema(e.target.value as Tema)}
+                className="shrink-0 text-tinta-media"
+              />
+            </div>
+          </aside>
+
+          <main className="min-h-0 flex-1">
+            <Workspace />
+          </main>
+        </div>
+      </LimiteDeErro>
 
       <BarraStatus />
       <RaizDialogos />
