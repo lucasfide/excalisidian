@@ -24,6 +24,10 @@ function pathDoPainel(p: IDockviewPanel | undefined | null): string | null {
 
 export type DirecaoSplit = "right" | "below";
 
+/** Id fixo do painel de início — só existe uma instância, igual "vazio" é sempre um id novo
+ * (aqui é o oposto: precisa dar `getPanel` para reaproveitar em vez de duplicar). */
+export const ID_PAINEL_INICIO = "inicio";
+
 interface WorkspaceState {
   api: DockviewApi | null;
   caminhoAtivo: string | null;
@@ -35,6 +39,7 @@ interface WorkspaceState {
   setFlushLayout(fn: () => void): void;
   definirAtivo(path: string | null): void;
   abrirDocumento(path: string): void;
+  abrirInicio(): void;
   renomearDocumento(antigo: string, novo: string): void;
   novaAbaVazia(): void;
   dividirAtivo(direcao: DirecaoSplit): void;
@@ -80,6 +85,22 @@ export const useWorkspaceStore = create<WorkspaceState>((set, get) => ({
       component: componenteDe(path),
       title: nomeCurto(path),
       params: { path },
+    });
+  },
+
+  abrirInicio() {
+    const { api } = get();
+    if (!api) return;
+    const existente = api.getPanel(ID_PAINEL_INICIO);
+    if (existente) {
+      existente.api.setActive();
+      return;
+    }
+    api.addPanel({
+      id: ID_PAINEL_INICIO,
+      component: "inicio",
+      title: "Início",
+      params: {},
     });
   },
 

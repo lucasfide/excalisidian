@@ -310,6 +310,29 @@ qualquer outro nome duplicado (`renomearArquivo`, `src/vault/renomear.ts`). Apag
 inteiro pela EDIÇÃO do corpo da nota não dispara nada (doc 04 §3.1) — a extensão do
 CodeMirror só age quando a linha 1 volta a ser um H1 não-vazio.
 
+### ADR-16 · Aba de início fixa, fora da lista de abas de verdade
+
+**Contexto:** pedido explícito — uma tela de abertura (saudação, atalhos de pasta, criar
+nota/desenho/pasta) acessível por uma "abinha menor" com ícone de Home, à esquerda de todas
+as abas.
+
+**Decisão:** o botão de acesso usa o slot nativo `prefixHeaderActionsComponent` do dockview
+(`src/layout/BotaoInicioAba.tsx`) — não é uma aba de verdade, fica fora da lista de painéis
+(`Ctrl+Tab`, `Ctrl+1..9` nunca alcançam nem contam ela) e não pode ser arrastada nem fechada
+sem código dedicado, exatamente o comportamento pedido ("abinha", não "aba"). O painel que ela
+abre (`PainelInicio` / componente `inicio`) usa o mesmo dedupe de `abrirDocumento` — só existe
+uma instância, reaberta em vez de duplicada.
+
+Abre sozinha no boot quando `api.panels.length === 0` (vault novo, ou a sessão anterior fechou
+tudo) — sem isso o app cairia numa tela em branco igual antes desta fatia.
+
+**Nome do usuário — infraestrutura nova:** não existia em lugar nenhum (nem Rust, nem JS).
+Adicionado `src-tauri/src/sistema.rs`, um módulo (não `vault.rs` — a filosofia "três comandos,
+e não mais que isso sem uma boa razão" é do domínio de disco, não de SO) com um comando só,
+`nome_usuario`, lendo `USERNAME` (Windows) com fallback `USER` (Unix). Cortado o primeiro
+nome e capitalizado no lado JS (`src/app/sistemaOperacional.ts`) — o valor bruto do SO pode
+vir em qualquer capitalização ou com sobrenome.
+
 ### ADR-9 · O nome do produto é um problema em aberto
 
 Isto não é uma decisão, é um alerta que apareceu ao resolver o ADR-8.

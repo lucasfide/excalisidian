@@ -1,3 +1,4 @@
+mod sistema;
 mod vault;
 mod watcher;
 
@@ -13,6 +14,7 @@ pub fn run() {
             vault::permitir_vault,
             vault::walk_vault,
             watcher::observar_vault,
+            sistema::nome_usuario,
         ])
         .run(tauri::generate_context!())
         .expect("erro ao iniciar o Excalisidian");

@@ -23,12 +23,15 @@ import { carregarLayout, salvarLayout, limparLayout } from "./persistencia";
 import PainelDocumento from "./PainelDocumento";
 import PainelDesenho from "./PainelDesenho";
 import PainelVazio from "./PainelVazio";
+import PainelInicio from "./PainelInicio";
 import AbaDocumento from "./AbaDocumento";
+import BotaoInicioAba from "./BotaoInicioAba";
 
 const COMPONENTES = {
   documento: PainelDocumento,
   desenho: PainelDesenho,
   vazio: PainelVazio,
+  inicio: PainelInicio,
 };
 
 // Tema do dockview: a estrutura vem de dockview.css; as cores, de dockview-excalisidian.css
@@ -102,6 +105,12 @@ export default function Workspace() {
       const ativo =
         (api.activePanel?.params as { path?: string } | undefined)?.path ?? null;
       definirAtivo(ativo);
+
+      // Nada restaurado (primeiro boot do vault, ou a sessão anterior fechou tudo): abre a
+      // Home em vez de uma tela em branco.
+      if (api.panels.length === 0) {
+        useWorkspaceStore.getState().abrirInicio();
+      }
     },
     [raiz, setApi, setFlushLayout, definirAtivo, aoRemoverPainel],
   );
@@ -182,6 +191,7 @@ export default function Workspace() {
       dndStrategy="pointer"
       components={COMPONENTES}
       defaultTabComponent={AbaDocumento}
+      prefixHeaderActionsComponent={BotaoInicioAba}
       getTabContextMenuItems={menuDaAba}
       onReady={onReady}
     />

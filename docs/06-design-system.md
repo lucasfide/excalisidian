@@ -432,6 +432,7 @@ Altura padrão 36px, compacto 30px, ícone 32×32.
 | `PaletaComandos` | sobreposição de comandos com atalho em `meta` |
 | `PainelLixeira` | lista de itens excluídos com restaurar e esvaziar |
 | `EstadoVazio` | bloco com hairline superior e inferior, título, apoio e ação |
+| `TelaInicio` | aba fixa de início: saudação por horário (`display-1`), atalhos para as pastas de primeiro nível, e o convite de `EstadoVazio` para criar nota/desenho/pasta |
 | `ConfirmacaoDestrutiva` | diálogo com a contagem real do que será perdido |
 | `FaixaConflito` | faixa no topo do editor com as duas ações |
 
@@ -480,6 +481,7 @@ Altura padrão 36px, compacto 30px, ícone 32×32.
 | nova nota | `file-plus` |
 | novo desenho | `square-pen` |
 | nova pasta | `folder-plus` |
+| início | `home` |
 | busca | `search` |
 | backlinks | `corner-down-left` |
 | lixeira | `trash-2` |
