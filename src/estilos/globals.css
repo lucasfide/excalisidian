@@ -135,6 +135,32 @@
     outline: 2px solid var(--color-musgo);
     outline-offset: 2px;
   }
+
+  /* Scrollbar discreta, com a cara do app: fina, sem seta, some no trilho. Firefox
+   * (scrollbar-width/-color) e Chromium/WebView2 (::-webkit-*) declarados juntos. */
+  * {
+    scrollbar-width: thin;
+    scrollbar-color: var(--color-regua) transparent;
+  }
+  ::-webkit-scrollbar {
+    width: 10px;
+    height: 10px;
+  }
+  ::-webkit-scrollbar-track {
+    background: transparent;
+  }
+  ::-webkit-scrollbar-thumb {
+    background-color: var(--color-regua);
+    border: 3px solid transparent;
+    border-radius: var(--radius-pilula);
+    background-clip: content-box;
+  }
+  ::-webkit-scrollbar-thumb:hover {
+    background-color: var(--color-regua-forte);
+  }
+  ::-webkit-scrollbar-corner {
+    background: transparent;
+  }
 }
 
 @utility meta {
