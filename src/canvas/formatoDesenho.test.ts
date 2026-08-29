@@ -1,10 +1,11 @@
-import { describe, it, expect } from "vitest";
+import { describe, it, expect, afterEach, vi } from "vitest";
 import type { ExcalidrawElement } from "@excalidraw/excalidraw/element/types";
 
 import {
   parseDesenho,
   serializarDesenho,
   blockIdsDaCena,
+  desenhoVazio,
   type DadosDesenho,
 } from "./formatoDesenho";
 
@@ -101,5 +102,26 @@ describe("formatoDesenho — .draw.md (doc 05 §10)", () => {
 
     const volta = parseDesenho(serializarDesenho(x));
     expect(volta.textElements.get(bid)).toBe(texto);
+  });
+
+  // Guarda de regressão: parseDesenho crashava todo .draw.md no WebView2 porque o
+  // gray-matter chamava Buffer.from() na entrada, e Buffer não existe no navegador. O
+  // ambiente "node" do vitest tem Buffer de graça e escondeu isso — este teste apaga o
+  // global de propósito para o vitest também sentir a falta dele.
+  describe("sem Buffer global (o que o WebView2 realmente tem)", () => {
+    afterEach(() => {
+      vi.unstubAllGlobals();
+    });
+
+    it("parseDesenho não lança quando Buffer não existe", () => {
+      vi.stubGlobal("Buffer", undefined);
+      expect(() => parseDesenho(desenhoVazio())).not.toThrow();
+    });
+
+    it("parseDesenho lê o frontmatter normalmente sem Buffer", () => {
+      vi.stubGlobal("Buffer", undefined);
+      const md = "---\nexcalisidian: drawing\naliases: [X]\n---\n%%\n# Excalisidian Drawing\n%%\n";
+      expect(parseDesenho(md).frontmatter.aliases).toEqual(["X"]);
+    });
   });
 });

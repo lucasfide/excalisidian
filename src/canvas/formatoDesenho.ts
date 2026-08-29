@@ -26,7 +26,7 @@
 //   ```
 //   %%
 
-import matter from "gray-matter";
+import { lerFrontmatter } from "../indice/frontmatter";
 import { compressToBase64, decompressFromBase64 } from "lz-string";
 import type { ExcalidrawElement } from "@excalidraw/excalidraw/element/types";
 import type { AppState } from "@excalidraw/excalidraw/types";
@@ -311,11 +311,7 @@ function parsearCena(secao: string): CenaDesenho {
 }
 
 export function ehDesenho(md: string): boolean {
-  try {
-    return matter(md).data[CHAVE_FRONTMATTER_DESENHO] === "drawing";
-  } catch {
-    return false;
-  }
+  return lerFrontmatter(md).data[CHAVE_FRONTMATTER_DESENHO] === "drawing";
 }
 
 /** Um .draw.md válido e vazio, para criar um desenho novo. */
@@ -331,9 +327,9 @@ export function desenhoVazio(): string {
 }
 
 export function parseDesenho(md: string): DadosDesenho {
-  const fm = matter(md);
-  const frontmatter = fm.data as Record<string, unknown>;
-  const resto = fm.content;
+  const fm = lerFrontmatter(md);
+  const frontmatter = fm.data;
+  const resto = fm.conteudo;
 
   const linhas = resto.split("\n");
   const iAbre = linhas.findIndex((l) => l === "%%");

@@ -130,8 +130,9 @@ export const useVaultStore = create<VaultState>((set, get) => ({
             e.path,
             parsearNota(e.path, texto, { mtimeMs: e.mtimeMs, size: e.size }),
           );
-        } catch {
+        } catch (erro) {
           // arquivo ilegível: fica de fora do índice nesta passada
+          console.warn(`[vaultStore] não foi possível indexar ${e.path}:`, erro);
         }
       }
     }

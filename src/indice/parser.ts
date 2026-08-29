@@ -1,8 +1,7 @@
 // markdown -> FileMeta (doc 02 §6). Puro e testável: recebe o texto e os metadados de
 // disco, devolve o FileMeta. Não toca em disco nem resolve links (isso é resolucao.ts).
 
-import matter from "gray-matter";
-
+import { lerFrontmatter } from "./frontmatter";
 import { extrairLinks, type LinkRef } from "./wikilink";
 import { RE_HEADING, RE_BLOCO_ID, RE_FENCE } from "./sintaxe";
 import { tipoDoArquivo } from "../vault/arvore";
@@ -49,17 +48,6 @@ function extrairAliases(data: Record<string, unknown>): string[] {
   return [];
 }
 
-/** Quantas linhas o bloco de frontmatter ocupa (0 se não houver). */
-function linhasDeFrontmatter(texto: string): number {
-  if (!texto.startsWith("---")) return 0;
-  const linhas = texto.split("\n");
-  if (linhas[0].trim() !== "---") return 0;
-  for (let i = 1; i < linhas.length; i++) {
-    if (linhas[i].trim() === "---") return i + 1;
-  }
-  return 0;
-}
-
 export function parsearNota(
   path: string,
   texto: string,
@@ -67,15 +55,9 @@ export function parsearNota(
 ): FileMeta {
   const kind = tipoDoArquivo(path);
 
-  let data: Record<string, unknown> = {};
-  try {
-    data = matter(texto).data as Record<string, unknown>;
-  } catch {
-    // frontmatter inválido: ignora, trata como sem frontmatter
-  }
+  const { data, linhas: inicioCorpo } = lerFrontmatter(texto);
   const aliases = extrairAliases(data);
 
-  const inicioCorpo = linhasDeFrontmatter(texto);
   const linhas = texto.split("\n");
 
   const headings: Heading[] = [];
