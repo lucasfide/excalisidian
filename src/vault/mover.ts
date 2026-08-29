@@ -4,8 +4,12 @@
 // mudar de nome. Mover uma PASTA inteira fica fora do escopo — multiplicaria isto por cada
 // arquivo lá dentro; ver docs/09.
 
+import { toast } from "sonner";
+
 import { useVaultStore } from "../estado/vaultStore";
 import { aplicarMovimentacao, type ResultadoRename } from "./renomear";
+import { caminhoLivre } from "./criar";
+import { dividirExtensao } from "./caminhos";
 
 function baseNome(path: string): string {
   return path.slice(path.lastIndexOf("/") + 1);
@@ -27,10 +31,15 @@ export async function moverArquivo(
   }
 
   const nomeAtual = baseNome(pathAntigo);
-  const pathNovo = dirDestino ? `${dirDestino}/${nomeAtual}` : nomeAtual;
+  const pathDesejado = dirDestino ? `${dirDestino}/${nomeAtual}` : nomeAtual;
 
-  if (await vault.adapter.existe(pathNovo)) {
-    return { ok: false, motivo: `Já existe «${nomeAtual}» ali.` };
+  // Nunca falha por já existir um arquivo com o mesmo nome ali (doc 04): resolve com o
+  // mesmo padrão de numeração de criar.ts — "Nome (2)", "Nome (3)"...
+  const { base, ext } = dividirExtensao(nomeAtual);
+  const caminhoBase = dirDestino ? `${dirDestino}/${base}` : base;
+  const pathNovo = await caminhoLivre(caminhoBase, ext);
+  if (pathNovo !== pathDesejado) {
+    toast(`Já existia «${dividirExtensao(nomeAtual).base}» ali; salvo como «${dividirExtensao(baseNome(pathNovo)).base}».`);
   }
 
   return aplicarMovimentacao(pathAntigo, pathNovo);

@@ -35,7 +35,30 @@ Se o conteúdo depois do debounce for idêntico ao que está em disco, **não gr
 - Renomear é bloqueado enquanto houver aba em `salvando` daquele arquivo.
 - Renomear uma pasta atualiza os links de todos os arquivos que estavam dentro dela.
 - Ao atualizar links, o formato escrito respeita `linkFormat` do vault — mas **um link que já estava escrito com caminho completo continua com caminho completo**. O app não normaliza o que o usuário escreveu; só troca a parte que precisa mudar.
-- Se o novo nome colidir com arquivo existente: recusa e explica. Nunca sobrescreve.
+- **Se o novo nome colidir com um arquivo existente (renomear ou mover/arrastar pra uma pasta que já tem um arquivo com esse nome): nunca recusa.** Resolve sozinho com o mesmo padrão de numeração da criação de arquivo novo — `Nome (2)`, `Nome (3)`... — e avisa qual nome acabou sendo usado. Nunca sobrescreve o que já existia.
+- Renomear para um nome vazio (ou só espaço) cai para `Sem título` — nunca recusa por nome vazio. A mesma numeração de colisão acima se aplica se já houver um "Sem título" ali.
+
+### 3.1 Nome do arquivo e H1 da nota são a mesma coisa
+
+Toda nota tem um H1 (heading de nível 1) cujo texto é o nome do arquivo, sem extensão. Editar
+um edita o outro:
+
+- **Renomear pelo arquivo** (árvore, aba, ou a numeração automática acima) atualiza o H1 da
+  nota pra bater com o nome novo. Se a nota não tiver H1 nenhum ainda, insere um logo depois
+  do frontmatter — nunca no meio do conteúdo do usuário.
+- **Editar o H1** (só quando ele está na linha 1 da nota — um H1 em outro lugar do documento
+  não é o título) e sair da linha (mover o cursor pra outra linha, não a cada tecla) dispara
+  um rename de verdade, com a mesma reescrita de backlinks de um rename pela árvore.
+- Título vazio (usuário apaga o H1 inteiro) não dispara rename nenhum — a nota fica sem H1
+  até o usuário digitar algo ou renomear pelo arquivo.
+- Não vale pra `.draw.md`: o "título" de um desenho já é o nome do arquivo por definição (doc
+  01) — não existe H1 num desenho pra sincronizar com nada.
+- **Limitação conhecida:** como qualquer rename hoje remonta o painel da aba por inteiro
+  (`workspaceStore.renomearDocumento`), terminar de editar o H1 e sair da linha 1 pode fazer o
+  cursor voltar pro início da nota e zerar o desfazer — mesmo custo que já existia pra um
+  rename vindo da árvore, só que agora acontece bem mais vezes (toda vez que se termina de
+  escrever um título). Aceito por ora; corrigir exige mexer em como o dockview troca de
+  painel (ver doc 09).
 
 ## 4. Criação de notas por link
 

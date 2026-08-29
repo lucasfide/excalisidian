@@ -20,8 +20,10 @@ import { useVaultStore } from "../estado/vaultStore";
 import { useDocumentosStore } from "../estado/documentosStore";
 import { useWorkspaceStore } from "../estado/workspaceStore";
 import { analisarMiolo } from "../indice/wikilink";
-import { validarNomeArquivo, pastaDe } from "./caminhos";
+import { validarNomeArquivo, pastaDe, dividirExtensao } from "./caminhos";
 import { tipoDoArquivo } from "./arvore";
+import { caminhoLivre } from "./criar";
+import { sincronizarH1ComTitulo } from "./tituloNota";
 import {
   parseDesenho,
   serializarDesenho,
@@ -29,6 +31,7 @@ import {
 } from "../canvas/formatoDesenho";
 
 const RE_WIKILINK_G = /(!?)\[\[([^\][]+)\]\]/g;
+const SEM_TITULO = "Sem título";
 
 function semExtensao(nomeOuCaminho: string): string {
   return nomeOuCaminho.replace(/\.draw\.md$/i, ".draw").replace(/\.md$/i, "");
@@ -78,19 +81,27 @@ export async function renomearArquivo(
   const nomeAntigo = baseNome(pathAntigo);
   const ehDesenho = nomeAntigo.toLowerCase().endsWith(".draw.md");
   const ext = ehDesenho ? ".draw.md" : ".md";
-  const nomeNovo = nomeNovoBruto.replace(/\.(draw\.)?md$/i, "").trim() + ext;
+  // Apagar o nome inteiro (ou só espaço) não é erro (doc 04 §3.1): cai pra "Sem título",
+  // com a mesma numeração de colisão de qualquer outro nome duplicado.
+  const baseBruta = nomeNovoBruto.replace(/\.(draw\.)?md$/i, "").trim();
+  const nomeNovo = (baseBruta || SEM_TITULO) + ext;
 
   const v = validarNomeArquivo(nomeNovo);
   if (!v.ok) return { ok: false, motivo: v.motivo };
 
   const dir = pastaDe(pathAntigo);
-  const pathNovo = dir ? `${dir}/${nomeNovo}` : nomeNovo;
-  if (pathNovo === pathAntigo) {
-    return { ok: true, pathNovo, notasAtualizadas: 0, linksAtualizados: 0 };
+  const pathDesejado = dir ? `${dir}/${nomeNovo}` : nomeNovo;
+  if (pathDesejado === pathAntigo) {
+    return { ok: true, pathNovo: pathAntigo, notasAtualizadas: 0, linksAtualizados: 0 };
   }
 
-  if (await vault.adapter.existe(pathNovo)) {
-    return { ok: false, motivo: `Já existe «${semExtensao(nomeNovo)}» nesta pasta.` };
+  // Nunca falha por nome ocupado (doc 04): resolve com o mesmo padrão de numeração de
+  // criar.ts — "Nome (2)", "Nome (3)"... — em vez de rejeitar o rename.
+  const { base } = dividirExtensao(nomeNovo);
+  const caminhoBase = dir ? `${dir}/${base}` : base;
+  const pathNovo = await caminhoLivre(caminhoBase, ext);
+  if (pathNovo !== pathDesejado) {
+    toast(`Já existia «${semExtensao(nomeNovo)}»; salvo como «${semExtensao(baseNome(pathNovo))}».`);
   }
 
   return aplicarMovimentacao(pathAntigo, pathNovo);
@@ -218,6 +229,28 @@ export async function aplicarMovimentacao(
   } catch (e) {
     return { ok: false, motivo: `Não foi possível renomear: ${String(e)}` };
   }
+
+  // Nome do arquivo e H1 são a mesma coisa (doc 04): sincroniza o H1 do próprio arquivo
+  // com o nome novo. Só para notas — um .draw.md não tem H1, o "título" dele já É o nome
+  // do arquivo (doc 01). Se o rename veio de editar o H1 (ver sincronizarTituloComArquivo),
+  // isto é um no-op (o H1 já é esse) — `h1Ajustado` só fica true quando fomos NÓS que
+  // mudamos o texto, e só nesse caso vale a pena forçar a aba aberta a recarregar; senão o
+  // conteúdo em memória da aba já está correto e recarregar destruiria cursor/desfazer à toa.
+  let h1Ajustado = false;
+  if (tipoDoArquivo(pathNovo) === "note") {
+    try {
+      const textoProprio = await vault.adapter.lerTexto(pathNovo);
+      const tituloNovo = semExtensao(baseNome(pathNovo));
+      const atualizado = sincronizarH1ComTitulo(textoProprio, tituloNovo);
+      if (atualizado !== textoProprio) {
+        await vault.adapter.escreverTexto(pathNovo, atualizado);
+        h1Ajustado = true;
+      }
+    } catch {
+      // Não bloqueia o rename por causa disto.
+    }
+  }
+
   const docs = useDocumentosStore.getState();
   for (const g of gravacoes) {
     try {
@@ -233,6 +266,10 @@ export async function aplicarMovimentacao(
   useWorkspaceStore.getState().renomearDocumento(pathAntigo, pathNovo);
   await vault.recarregarArvore();
   await vault.reindexar();
+
+  if (h1Ajustado && useDocumentosStore.getState().docs.has(pathNovo)) {
+    await useDocumentosStore.getState().recarregarDoDisco(pathNovo);
+  }
 
   const notasAtualizadas = gravacoes.length - inconsistentes.length;
   if (linksAtualizados > 0) {

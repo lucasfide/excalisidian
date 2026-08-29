@@ -17,6 +17,7 @@ import "./atomico/tokens-excalisidian.css";
 import { atalhosFormatacao } from "./extensoes/atalhosFormatacao";
 import { wikilinksExcalisidian } from "./extensoes/wikilinksExcalisidian";
 import { embedDesenho } from "./extensoes/embedDesenho";
+import { sincronizarTituloComArquivo } from "./extensoes/sincronizarTituloComArquivo";
 import "./extensoes/embedDesenho.css";
 
 // Referência estável: o pacote captura `extensions` uma vez na montagem. As callbacks de
@@ -25,6 +26,7 @@ const EXTENSOES: readonly Extension[] = [
   atalhosFormatacao,
   wikilinksExcalisidian,
   embedDesenho,
+  sincronizarTituloComArquivo,
 ];
 
 interface Props {

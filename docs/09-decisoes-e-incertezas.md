@@ -259,6 +259,57 @@ a interação de editar.
 **Consequência aceita:** não dá pra editar o mesmo arquivo dos dois lados ao mesmo tempo hoje.
 Só visualizar. Se isso incomodar no uso real, a sincronização de verdade é o próximo passo.
 
+### ADR-14 · Nome do arquivo e H1 da nota sincronizam nos dois sentidos
+
+**Contexto:** pedido explícito do usuário — "o nome do arquivo e o título do arquivo devem
+ser o mesmo. Quando alterar em um, altera no outro."
+
+**Decisão:** implementado em `src/vault/tituloNota.ts` (a função pura que troca ou insere o
+H1) mais dois pontos de gatilho:
+
+- `src/vault/renomear.ts` (`aplicarMovimentacao`): depois de mover o arquivo, sincroniza o H1
+  do próprio arquivo com o basename novo. Cobre rename pela árvore, rename pela aba e a
+  numeração automática de colisão (ADR abaixo).
+- `src/editor/extensoes/sincronizarTituloComArquivo.ts`: extensão do CodeMirror que dispara
+  `renomearArquivo` quando o cursor sai da linha 1 e ela é um H1 que mudou desde a última
+  confirmação. Só dispara ao SAIR da linha — nunca por tecla — pra não rodar o pipeline
+  inteiro de reescrita de backlinks a cada letra digitada.
+
+**Gatilho por tecla, rejeitado:** disparar o rename a cada tecla (mesmo debounce do
+autosave) foi considerado e descartado — renomearia no meio de uma pausa pra pensar, e
+dispara reescrita de backlinks em outras notas a cada disparo, não é uma operação barata pra
+rodar dúzias de vezes por frase.
+
+**Limitação conhecida, aceita por ora (doc 04 §3.1):** todo rename hoje remonta o painel da
+aba inteiro (`workspaceStore.renomearDocumento` sempre faz `removePanel`+`addPanel`, nunca só
+atualiza o título). Isso significa que terminar de digitar o H1 e apertar Enter pra ir pro
+corpo da nota pode fazer o cursor voltar pro início e zerar o desfazer. Corrigir isso direito
+exige mexer em como o dockview troca de painel — considerado fora do escopo desta entrega
+(risco maior, tarefa própria) numa decisão explícita com o usuário.
+
+### ADR-15 · Nome duplicado nunca mais recusa — sempre numera
+
+**Contexto:** consequência do ADR-14 — se renomear pelo H1 pode colidir com um nome já
+existente, recusar (o comportamento de antes) travaria a digitação da nota com um erro no
+meio do fluxo. Generalizado pro app inteiro por pedido do usuário: mover um arquivo pra uma
+pasta que já tem um arquivo com esse nome também numera, em vez de recusar.
+
+**Decisão:** `renomearArquivo` (`src/vault/renomear.ts`) e `moverArquivo`
+(`src/vault/mover.ts`) usam `caminhoLivre` (`src/vault/criar.ts`, antes só usada ao criar
+arquivo novo) em vez de checar `adapter.existe` e devolver erro. Um toast avisa quando o nome
+pedido não era o disponível.
+
+**Padrão de numeração único:** `Nome (2)`, `Nome (3)`... — o mesmo que já existia pra criar
+arquivo novo. Considerado (e descartado) um padrão diferente sem parênteses ("Nome 1", "Nome
+2") só pro caso de título vazio virando "Sem título" — usuário preferiu manter um padrão só
+em vez de dois formatos de numeração convivendo no produto.
+
+**Título vazio vira "Sem título":** implementado só no sentido rename-pelo-arquivo — renomear
+para nome vazio (ou só espaço) cai pra `Sem título`, com a mesma numeração de colisão de
+qualquer outro nome duplicado (`renomearArquivo`, `src/vault/renomear.ts`). Apagar o H1
+inteiro pela EDIÇÃO do corpo da nota não dispara nada (doc 04 §3.1) — a extensão do
+CodeMirror só age quando a linha 1 volta a ser um H1 não-vazio.
+
 ### ADR-9 · O nome do produto é um problema em aberto
 
 Isto não é uma decisão, é um alerta que apareceu ao resolver o ADR-8.

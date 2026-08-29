@@ -18,8 +18,10 @@ function juntar(dir: string, nome: string): string {
   return dir ? `${dir}/${nome}` : nome;
 }
 
-/** Primeiro caminho livre: `Nome.md`, `Nome (2).md`, `Nome (3).md`… */
-async function caminhoLivre(base: string, ext: string): Promise<string> {
+/** Primeiro caminho livre: `Nome.md`, `Nome (2).md`, `Nome (3).md`… Também usada por
+ * renomear.ts/mover.ts (doc 04): renomear ou mover para um nome já ocupado nunca falha mais,
+ * resolve com o mesmo padrão de numeração de quando se cria um arquivo novo. */
+export async function caminhoLivre(base: string, ext: string): Promise<string> {
   const adapter = useVaultStore.getState().adapter!;
   let candidato = `${base}${ext}`;
   let n = 2;

@@ -38,7 +38,11 @@ vi.mock("../estado/vaultStore", () => ({
 }));
 vi.mock("../estado/documentosStore", () => ({
   useDocumentosStore: {
-    getState: () => ({ flushTudo: async () => {}, recarregarDoDisco: async () => {} }),
+    getState: () => ({
+      flushTudo: async () => {},
+      recarregarDoDisco: async () => {},
+      docs: new Map(),
+    }),
   },
 }));
 vi.mock("../estado/workspaceStore", () => ({
@@ -175,6 +179,31 @@ describe("renomearArquivo — atualiza links dentro de .draw.md sem tocar a cena
       height: rcAntes.height,
       link: "[[Sistema]]",
     });
+  });
+
+  it("renomear atualiza o H1 do próprio arquivo (doc 04: nome e título são a mesma coisa)", async () => {
+    disco.set("Arquitetura.md", "# Arquitetura\n\nCorpo.\n");
+    const r = await renomearArquivo("Arquitetura.md", "Sistema");
+    expect(r.ok).toBe(true);
+    expect(disco.get("Sistema.md")).toBe("# Sistema\n\nCorpo.\n");
+  });
+
+  it("renomear para nome vazio cai para 'Sem título' (doc 04 §3.1)", async () => {
+    disco.set("Arquitetura.md", "# Arquitetura\n");
+    const r = await renomearArquivo("Arquitetura.md", "   ");
+    expect(r.ok).toBe(true);
+    expect(r.pathNovo).toBe("Sem título.md");
+    expect(disco.get("Sem título.md")).toBe("# Sem título\n");
+  });
+
+  it("resolve com numeração em vez de recusar quando já existe um arquivo com esse nome", async () => {
+    disco.set("Arquitetura.md", "# Arquitetura\n");
+    disco.set("Sistema.md", "# Sistema\n");
+    const r = await renomearArquivo("Arquitetura.md", "Sistema");
+    expect(r.ok).toBe(true);
+    expect(r.pathNovo).toBe("Sistema (2).md");
+    expect(disco.get("Sistema.md")).toBe("# Sistema\n"); // intocado
+    expect(disco.get("Sistema (2).md")).toBe("# Sistema (2)\n");
   });
 
   it("não produz um .draw.md diferente quando nenhum link do desenho aponta para o arquivo renomeado", async () => {

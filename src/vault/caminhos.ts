@@ -27,6 +27,18 @@ export function pastaDe(p: string): string {
   return i === -1 ? "" : n.slice(0, i);
 }
 
+/** Separa um nome de arquivo (não caminho) em base e extensão. `.draw.md` conta como uma
+ * extensão só (doc 02 §3.0); um nome sem ponto, ou que começa com ponto (dotfile), não tem
+ * extensão nenhuma. */
+export function dividirExtensao(nome: string): { base: string; ext: string } {
+  if (/\.draw\.md$/i.test(nome)) {
+    return { base: nome.slice(0, -".draw.md".length), ext: ".draw.md" };
+  }
+  const i = nome.lastIndexOf(".");
+  if (i <= 0) return { base: nome, ext: "" };
+  return { base: nome.slice(0, i), ext: nome.slice(i) };
+}
+
 const RE_PROIBIDOS = /[<>:"/\\|?*]/;
 
 const NOMES_RESERVADOS = new Set([

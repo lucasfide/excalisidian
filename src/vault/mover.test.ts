@@ -36,7 +36,11 @@ vi.mock("../estado/vaultStore", () => ({
 }));
 vi.mock("../estado/documentosStore", () => ({
   useDocumentosStore: {
-    getState: () => ({ flushTudo: async () => {}, recarregarDoDisco: async () => {} }),
+    getState: () => ({
+      flushTudo: async () => {},
+      recarregarDoDisco: async () => {},
+      docs: new Map(),
+    }),
   },
 }));
 vi.mock("../estado/workspaceStore", () => ({
@@ -93,15 +97,15 @@ describe("moverArquivo — arrastar na árvore (RF4.x)", () => {
     expect(disco.get("Projetos/Nota.md")).toBe("# Nota\n");
   });
 
-  it("recusa mover para onde já existe um arquivo com o mesmo nome", async () => {
-    disco.set("Nota.md", "a");
-    disco.set("Projetos/Nota.md", "b");
+  it("resolve com numeração em vez de recusar quando já existe um arquivo com o mesmo nome", async () => {
+    disco.set("Nota.md", "# Nota\n");
+    disco.set("Projetos/Nota.md", "# Nota\n");
     const r = await moverArquivo("Nota.md", "Projetos");
-    expect(r.ok).toBe(false);
-    expect(r.motivo).toContain("Já existe");
-    // nada mudou no disco
-    expect(disco.get("Nota.md")).toBe("a");
-    expect(disco.get("Projetos/Nota.md")).toBe("b");
+    expect(r.ok).toBe(true);
+    expect(r.pathNovo).toBe("Projetos/Nota (2).md");
+    expect(disco.has("Nota.md")).toBe(false);
+    expect(disco.get("Projetos/Nota.md")).toBe("# Nota\n"); // arquivo que já estava lá, intocado
+    expect(disco.get("Projetos/Nota (2).md")).toBe("# Nota (2)\n"); // H1 sincronizado com o nome novo
   });
 
   it("mover para a raiz (dirDestino vazio) tira o prefixo de pasta", async () => {
