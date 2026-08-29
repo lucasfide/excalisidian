@@ -3,6 +3,7 @@
 // O watcher (observar) entra na Fatia 5. Escrita passa sempre por escritaAtomica.ts.
 
 import { invoke } from "@tauri-apps/api/core";
+import { listen } from "@tauri-apps/api/event";
 import { open } from "@tauri-apps/plugin-dialog";
 import { readTextFile, readFile, mkdir, exists, rename } from "@tauri-apps/plugin-fs";
 import { load } from "@tauri-apps/plugin-store";
@@ -99,8 +100,18 @@ export class TauriVaultAdapter implements VaultAdapter {
     return exists(absoluto(this.caminhoRaiz, path));
   }
 
-  observar(_cb: (eventos: EventoArquivo[]) => void): () => void {
-    // Watcher entra na Fatia 5. No-op por enquanto.
-    return () => {};
+  observar(cb: (eventos: EventoArquivo[]) => void): () => void {
+    let cancelar = () => {};
+    void invoke("observar_vault", { path: this.caminhoRaiz }).catch(() => {});
+    void listen<EventoArquivo[]>("vault://eventos", (e) => {
+      const norm = e.payload.map((ev) => ({
+        ...ev,
+        path: ev.path.normalize("NFC"),
+      }));
+      cb(norm);
+    }).then((un) => {
+      cancelar = un;
+    });
+    return () => cancelar();
   }
 }

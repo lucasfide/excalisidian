@@ -7,6 +7,7 @@ import type { IDockviewPanelProps } from "dockview";
 
 import { useDocumentosStore } from "../estado/documentosStore";
 import EditorNota from "../editor/EditorNota";
+import FaixaConflito from "../ui/excalisidian/FaixaConflito";
 
 type Params = { path: string };
 
@@ -37,26 +38,14 @@ export default function PainelDocumento(props: IDockviewPanelProps<Params>) {
     );
   }
 
-  if (doc.estado === "orfao") {
-    return (
-      <div className="flex h-full items-center justify-center bg-papel px-8">
-        <div className="max-w-md border-y border-bordo py-8">
-          <h2 className="font-display text-[19px] text-bordo">
-            Este arquivo não existe mais no disco.
-          </h2>
-          <p className="mt-2 text-pequeno text-tinta-media">{doc.erro}</p>
-        </div>
-      </div>
-    );
-  }
-
   return (
-    <div className="h-full bg-papel">
-      <div className="mx-auto h-full max-w-[720px] px-8 py-6">
+    <div className="flex h-full flex-col bg-papel">
+      <FaixaConflito path={path} />
+      <div className="mx-auto min-h-0 w-full max-w-[720px] flex-1 px-8 py-6">
         <EditorNota
           key={`${path}#${doc.versao}`}
           caminho={path}
-          conteudoInicial={doc.conteudoDisco}
+          conteudoInicial={doc.conteudoEditor}
           onEditar={(t) => editar(path, t)}
           onBlur={() => void salvar(path)}
         />

@@ -12,6 +12,7 @@ export type EstadoDoc =
   | "salvando"
   | "salvo"
   | "erro"
+  | "conflito"
   | "orfao";
 
 export interface DocEstado {
@@ -35,6 +36,12 @@ interface DocumentosState {
   editar(path: string, texto: string): void;
   salvar(path: string): Promise<void>;
   recarregarDoDisco(path: string): Promise<void>;
+  /** Grava o conteúdo do editor por cima do disco, resolvendo um conflito. */
+  manterMinhaVersao(path: string): Promise<void>;
+  /** Recria no disco um arquivo apagado por fora, com o conteúdo desta aba. */
+  recriar(path: string): Promise<void>;
+  /** Reage a eventos externos do watcher nos arquivos abertos (doc 02 §11). */
+  aoEventoExterno(paths: string[]): Promise<void>;
   flushTudo(): Promise<void>;
   fechar(path: string): void;
   renomearNoMapa(antigo: string, novo: string): void;
@@ -157,6 +164,51 @@ export const useDocumentosStore = create<DocumentosState>((set, get) => ({
       });
     } catch (e) {
       patch(set, path, { estado: "orfao", erro: String(e) });
+    }
+  },
+
+  async manterMinhaVersao(path) {
+    const doc = get().docs.get(path);
+    const adapter = useVaultStore.getState().adapter;
+    if (!doc || !adapter) return;
+    const alvo = doc.conteudoEditor;
+    patch(set, path, { estado: "salvando", erro: null });
+    try {
+      await adapter.escreverTexto(path, alvo);
+      patch(set, path, { conteudoDisco: alvo, estado: "limpo" });
+      void useVaultStore.getState().reindexarArquivo(path);
+    } catch (e) {
+      patch(set, path, { estado: "erro", erro: String(e) });
+    }
+  },
+
+  async recriar(path) {
+    await get().manterMinhaVersao(path);
+  },
+
+  async aoEventoExterno(paths) {
+    const adapter = useVaultStore.getState().adapter;
+    if (!adapter) return;
+    for (const path of paths) {
+      const doc = get().docs.get(path);
+      if (!doc) continue;
+      const sujo = doc.conteudoEditor !== doc.conteudoDisco;
+      let textoDisco: string | null = null;
+      try {
+        textoDisco = await adapter.lerTexto(path);
+      } catch {
+        // sumiu do disco: aba órfã, com ou sem edição pendente (doc 02 §11)
+        patch(set, path, { estado: "orfao", erro: "Este arquivo não existe mais no disco." });
+        continue;
+      }
+      if (textoDisco === doc.conteudoDisco) continue; // nada de novo no disco
+      if (!sujo) {
+        // Aba limpa: recarrega em silêncio.
+        await get().recarregarDoDisco(path);
+      } else {
+        // Aba suja e o disco divergiu: não decide sozinho.
+        patch(set, path, { estado: "conflito" });
+      }
     }
   },
 

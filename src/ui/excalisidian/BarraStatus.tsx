@@ -10,6 +10,7 @@ const TEXTO: Record<EstadoDoc, string> = {
   salvando: "salvando…",
   salvo: "salvo",
   erro: "erro ao salvar",
+  conflito: "mudou fora do app",
   orfao: "arquivo sumiu",
 };
 

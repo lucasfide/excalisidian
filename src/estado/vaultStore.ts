@@ -19,6 +19,13 @@ import {
   type IndiceLinks,
 } from "../indice/backlinks";
 import { carregarIndice, salvarIndice } from "../indice/cache";
+import { hashConteudo, deveIgnorarEvento } from "../vault/escritaAtomica";
+import { useDocumentosStore } from "./documentosStore";
+import type { EventoArquivo } from "../vault/VaultAdapter";
+
+// Acima deste número de eventos num lote (ex.: git checkout), reindexa tudo em vez de
+// arquivo por arquivo.
+const LOTE_GRANDE = 50;
 
 export type StatusIndice = "vazio" | "indexando" | "pronto";
 
@@ -47,10 +54,13 @@ interface VaultState {
   recarregarArvore(): Promise<void>;
   reindexar(): Promise<void>;
   reindexarArquivo(path: string): Promise<void>;
+  reconciliar(eventos: EventoArquivo[]): Promise<void>;
   resolver(alvo: string, origem: string): string | null;
   backlinksDe(path: string): Backlink[];
   alternarPasta(path: string): void;
 }
+
+let cancelarWatcher: () => void = () => {};
 
 function derivar(indice: Map<string, FileMeta>, todosCaminhos: string[]) {
   const resolucao = construirIndiceResolucao(todosCaminhos);
@@ -81,6 +91,11 @@ export const useVaultStore = create<VaultState>((set, get) => ({
     });
     await get().recarregarArvore();
     await get().reindexar();
+
+    cancelarWatcher();
+    cancelarWatcher = adapter.observar((eventos) => {
+      void get().reconciliar(eventos);
+    });
   },
 
   async recarregarArvore() {
@@ -148,6 +163,45 @@ export const useVaultStore = create<VaultState>((set, get) => ({
     const { resolucao, links } = derivar(novo, todosCaminhos);
     set({ indice: novo, resolucao, links });
     void salvarIndice(get().raiz, novo.values());
+  },
+
+  async reconciliar(eventos) {
+    const { adapter } = get();
+    if (!adapter || eventos.length === 0) return;
+    const docs = useDocumentosStore.getState();
+
+    if (eventos.length > LOTE_GRANDE) {
+      // Lote grande (ex.: git checkout): reindexa tudo de uma vez.
+      await get().recarregarArvore();
+      await get().reindexar();
+      await docs.aoEventoExterno([...new Set(eventos.map((e) => e.path))]);
+      return;
+    }
+
+    const afetados: string[] = [];
+    for (const ev of eventos) {
+      if (ev.tipo === "removido") {
+        afetados.push(ev.path);
+        continue;
+      }
+      // Foi a nossa própria gravação atômica? Então ignora (doc 02 §10).
+      try {
+        const texto = await adapter.lerTexto(ev.path);
+        if (deveIgnorarEvento(adapter.absoluto(ev.path), await hashConteudo(texto))) {
+          continue;
+        }
+      } catch {
+        // sumiu entre o evento e a leitura: trata como afetado
+      }
+      afetados.push(ev.path);
+    }
+    if (afetados.length === 0) return;
+
+    await get().recarregarArvore();
+    for (const path of [...new Set(afetados)]) {
+      await get().reindexarArquivo(path);
+    }
+    await docs.aoEventoExterno([...new Set(afetados)]);
   },
 
   resolver(alvo, origem) {
