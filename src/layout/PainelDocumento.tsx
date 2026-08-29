@@ -2,7 +2,7 @@
 // carrega o documento pelo documentosStore e monta o EditorNota. Cada aba tem seu próprio
 // estado de edição e autosave.
 
-import { useEffect } from "react";
+import { useCallback, useEffect } from "react";
 import type { IDockviewPanelProps } from "dockview";
 
 import { useDocumentosStore } from "../estado/documentosStore";
@@ -18,6 +18,11 @@ export default function PainelDocumento(props: IDockviewPanelProps<Params>) {
   const editar = useDocumentosStore((s) => s.editar);
   const salvar = useDocumentosStore((s) => s.salvar);
   const doc = useDocumentosStore((s) => s.docs.get(path));
+
+  // Mesma consistência de identidade estável do PainelDesenho.tsx — aqui o CodeMirror não é
+  // sensível a isso do mesmo jeito que o Excalidraw, mas evita a mesma classe de bug.
+  const aoEditar = useCallback((t: string) => editar(path, t), [path, editar]);
+  const aoSair = useCallback(() => void salvar(path), [path, salvar]);
 
   useEffect(() => {
     void abrir(path);
@@ -48,8 +53,8 @@ export default function PainelDocumento(props: IDockviewPanelProps<Params>) {
           <EditorNota
             caminho={path}
             conteudoInicial={doc.conteudoEditor}
-            onEditar={(t) => editar(path, t)}
-            onBlur={() => void salvar(path)}
+            onEditar={aoEditar}
+            onBlur={aoSair}
           />
         </LimiteDeErro>
       </div>

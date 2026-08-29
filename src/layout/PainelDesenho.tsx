@@ -2,7 +2,7 @@
 // texto pelo documentosStore (agnóstico de tipo) e monta o EditorDesenho. Autosave e conflito
 // seguem o mesmo contrato das notas.
 
-import { useEffect } from "react";
+import { useCallback, useEffect } from "react";
 import type { IDockviewPanelProps } from "dockview";
 
 import { useDocumentosStore } from "../estado/documentosStore";
@@ -17,6 +17,14 @@ export default function PainelDesenho(props: IDockviewPanelProps<Params>) {
   const abrir = useDocumentosStore((s) => s.abrir);
   const editar = useDocumentosStore((s) => s.editar);
   const doc = useDocumentosStore((s) => s.docs.get(path));
+
+  // Identidade estável: EditorDesenho passa isto pro Excalidraw (via onChange), e uma nova
+  // função a cada render dispara o loop de "Maximum update depth exceeded" documentado em
+  // src/canvas/EditorDesenho.tsx.
+  const aoEditar = useCallback(
+    (md: string) => editar(path, md),
+    [path, editar],
+  );
 
   useEffect(() => {
     void abrir(path);
@@ -48,7 +56,7 @@ export default function PainelDesenho(props: IDockviewPanelProps<Params>) {
             caminho={path}
             conteudoInicial={doc.conteudoEditor}
             versao={doc.versao}
-            onEditar={(md) => editar(path, md)}
+            onEditar={aoEditar}
           />
         </LimiteDeErro>
       </div>

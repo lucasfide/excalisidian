@@ -8,6 +8,7 @@ import type {
   ExcalidrawImperativeAPI,
   AppState,
 } from "@excalidraw/excalidraw/types";
+import type { NonDeletedExcalidrawElement } from "@excalidraw/excalidraw/element/types";
 import "@excalidraw/excalidraw/index.css";
 import "./excalidraw-excalisidian.css";
 
@@ -28,6 +29,24 @@ import PropriedadesCanvas from "../ui/excalisidian/PropriedadesCanvas";
 
 const DEBOUNCE_MS = 800;
 const PASSO_GRADE = 20;
+
+// Referência fixa: o `App` interno do Excalidraw é um componente de classe cujo
+// `componentDidUpdate` reage a mudança de identidade das props, não só de valor. Um objeto
+// literal recriado a cada render (o que era o caso antes desta correção) faz esse
+// componentDidUpdate se ressincronizar, disparar onChange, o pai reagir recriando a mesma
+// prop instável de novo — loop síncrono até o React abortar com "Maximum update depth
+// exceeded". Constante de módulo porque não depende de nada do componente.
+const UI_OPTIONS = {
+  canvasActions: {
+    changeViewBackgroundColor: false,
+    clearCanvas: false,
+    export: false,
+    loadScene: false,
+    saveToActiveFile: false,
+    saveAsImage: false,
+    toggleTheme: false,
+  },
+} as const;
 
 function carimbo(): string {
   const d = new Date();
@@ -132,6 +151,38 @@ export default function EditorDesenho({ caminho, conteudoInicial, onEditar }: Pr
     [base, onEditar, pintarGrade],
   );
 
+  // Mesma razão do UI_OPTIONS acima: identidade estável entre renders que não mudaram `base`.
+  const initialData = useMemo(
+    () => ({
+      elements: base.cena.elements as never,
+      appState: {
+        ...(base.cena.appState as Partial<AppState>),
+        viewBackgroundColor: "transparent",
+      },
+      scrollToContent: true,
+    }),
+    [base],
+  );
+
+  const aoObterApi = useCallback(
+    (api: ExcalidrawImperativeAPI) => {
+      apiRef.current = api;
+      pintarGrade(api.getAppState());
+    },
+    [pintarGrade],
+  );
+
+  const aoAbrirLink = useCallback(
+    (elemento: NonDeletedExcalidrawElement, evento: CustomEvent) => {
+      const link = (elemento as { link?: string | null }).link;
+      const alvo = link ? alvoDeLinkWiki(link) : null;
+      if (alvo === null) return; // URL externa: comportamento nativo do Excalidraw
+      evento.preventDefault();
+      void abrirOuCriarPorLink(alvo, caminho);
+    },
+    [caminho],
+  );
+
   const colarImagem = useCallback(async (e: React.ClipboardEvent) => {
     const api = apiRef.current;
     const adapter = useVaultStore.getState().adapter;
@@ -192,37 +243,11 @@ export default function EditorDesenho({ caminho, conteudoInicial, onEditar }: Pr
       <div className="absolute inset-0">
         <Excalidraw
           theme={escuro ? "dark" : "light"}
-          UIOptions={{
-            canvasActions: {
-              changeViewBackgroundColor: false,
-              clearCanvas: false,
-              export: false,
-              loadScene: false,
-              saveToActiveFile: false,
-              saveAsImage: false,
-              toggleTheme: false,
-            },
-          }}
-          initialData={{
-            elements: base.cena.elements as never,
-            appState: {
-              ...(base.cena.appState as Partial<AppState>),
-              viewBackgroundColor: "transparent",
-            },
-            scrollToContent: true,
-          }}
-          excalidrawAPI={(api) => {
-            apiRef.current = api;
-            pintarGrade(api.getAppState());
-          }}
+          UIOptions={UI_OPTIONS}
+          initialData={initialData}
+          excalidrawAPI={aoObterApi}
           onChange={aoMudar}
-          onLinkOpen={(elemento, evento) => {
-            const link = (elemento as { link?: string | null }).link;
-            const alvo = link ? alvoDeLinkWiki(link) : null;
-            if (alvo === null) return; // URL externa: comportamento nativo do Excalidraw
-            evento.preventDefault();
-            void abrirOuCriarPorLink(alvo, caminho);
-          }}
+          onLinkOpen={aoAbrirLink}
         />
       </div>
 
