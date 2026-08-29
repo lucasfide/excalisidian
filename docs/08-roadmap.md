@@ -2,6 +2,33 @@
 
 Fatias verticais. Cada uma termina em algo que dá para usar. Não pule a ordem — a primeira existe justamente porque é a que mais trava projeto.
 
+## Status em 29/08/2026 (revisão de merge)
+
+**Fatias 0 a 7: concluídas e verificadas** (código + testes conferidos arquivo por arquivo,
+não só pelo histórico do Git). Cada uma teve pelo menos um desvio de decisão registrado no
+`docs/09` ao longo do caminho — nenhuma mudou de escopo, mas várias tiveram a implementação
+corrigida depois de testada em tela (ver a lista de ADRs abaixo).
+
+**Fatia 8: parcialmente concluída nesta revisão.** Feito: quick switcher, paleta de comandos,
+persistência de tema, e o "Mover para..." de acessibilidade. Pendente: busca por conteúdo,
+lixeira, e o restante das mensagens de erro/estados vazios do doc 04 §10 — ver o detalhamento
+na seção da própria Fatia 8, abaixo.
+
+**Fora do roadmap original, decidido e construído no meio do caminho** (não estava em nenhuma
+fatia, entrou por pedido direto do usuário depois de testar o app em tela):
+
+- **Tela de início** (`TelaInicio`/`PainelInicio`): aba fixa com saudação, atalhos de pasta e
+  criar nota/desenho/pasta, acessível por um ícone fixo à esquerda de todas as abas. Ver
+  doc 06 (componente `TelaInicio`) e doc 09 ADR-16.
+- **Nome do arquivo e H1 da nota sincronizam nos dois sentidos** (doc 04 §3.1, doc 09
+  ADR-14/15): editar um edita o outro; nome duplicado nunca mais recusa, sempre numera.
+- **Correção de fundo no canvas**: o Excalidraw tem o próprio mecanismo de tema escuro (um
+  filtro CSS de inversão), que colidia com a paleta própria do produto — corrigido, com as
+  cores dos elementos agora acompanhando a troca de tema (doc 09 ADR-11/12).
+- **Split de um arquivo já aberto**: a segunda vista abre travada pra edição, pra não perder
+  conteúdo silenciosamente (doc 09 ADR-13) — sincronizar as duas vistas de verdade ainda não
+  existe, ver a limitação registrada lá.
+
 ---
 
 ## Fatia 0 — Andaime e acesso ao disco
@@ -115,12 +142,40 @@ A fatia mais cara do projeto.
 
 ## Fatia 8 — Busca, lixeira e acabamento
 
-- Quick switcher (`Ctrl+O`), paleta de comandos (`Ctrl+P`), busca por conteúdo (`Ctrl+Shift+F`) com minisearch, incluindo textos de desenhos.
-- Lixeira: mover, painel, restaurar, esvaziar, desfazer pelo toast.
-- Tema claro/escuro seguindo o sistema.
-- Preferências.
-- Todos os estados vazios e todas as mensagens de erro do documento 04.
-- Passada de acessibilidade: foco visível, equivalentes de teclado, contraste.
+### Concluído (revisão de 29/08/2026)
+
+- ~~Quick switcher (`Ctrl+O`)~~ — feito, reaproveitando o ranking de `sugestoesLink.ts`.
+- ~~Paleta de comandos (`Ctrl+P`)~~ — feito.
+- ~~Tema claro/escuro seguindo o sistema~~ — já seguia o sistema ao vivo; faltava persistir a
+  escolha entre uma abertura e outra, feito via `prefsStore.ts` + `settings.json`.
+- ~~Passada de acessibilidade, item "mover arquivo"~~ — "Mover para..." no menu de contexto,
+  equivalente por teclado/menu do arrastar (doc 06, piso de qualidade).
+
+### Pendente
+
+- **Busca por conteúdo (`Ctrl+Shift+F`) com minisearch**, incluindo textos de desenhos. A
+  dependência já está instalada (`minisearch` no `package.json`); falta tudo: índice
+  incremental persistido, extração de texto de dentro de `.draw.md`, painel de resultados com
+  trechos (doc 04 §8: no máximo 3 por arquivo). Maior peça pendente da Fatia 8 — não entrou
+  nesta revisão por ser grande demais pra fazer com a mesma qualidade do resto do produto sem
+  poder testar em tela junto com o usuário.
+- **Lixeira**: mover pra `.trash/`, painel, restaurar, esvaziar, desfazer pelo toast (doc 02
+  §7, doc 04 §9). Não iniciada — mexe em fluxo destrutivo (excluir), então merece uma rodada
+  própria com confirmação explícita do usuário antes de codar, não uma decisão tomada sozinha
+  numa revisão autônoma.
+- **Preferências**: além do tema (já feito), não há painel de preferências nenhum. Tamanho de
+  janela e vaults recentes (mencionados no comentário original de `prefsStore.ts`) continuam
+  sem lugar — avaliar se ainda fazem falta antes de construir.
+- **Restante das mensagens de erro/estados vazios do documento 04 §10**: faltam ainda as de
+  permissão de pasta, nome reservado, caminho longo demais, falha ao salvar, imagem grande
+  demais, desenho pesado, excluir com filhos, esvaziar lixeira, reindexando, vault vazio, sem
+  resultado de busca por conteúdo, lixeira vazia. Boa parte depende de busca/lixeira existirem
+  primeiro.
+- **Passada de contraste dedicada**: a revisão de 29/08 conferiu manualmente os pares de cor
+  dos botões contra o doc 06 (todos passam AA/3:1 com os hex atuais) e corrigiu um bug de
+  comparação de cor (`SeletorCor.tsx`, maiúsculas/minúsculas), mas não existe uma verificação
+  automatizada — se um hex do doc 06 mudar no futuro, nada acusa uma combinação que caiu
+  abaixo do contraste mínimo.
 
 **Pronto quando:** você consegue passar uma semana usando só o Excalisidian.
 
