@@ -9,8 +9,10 @@ import { RE_HEADING, RE_FENCE } from "../indice/sintaxe";
  * Índice (na lista de linhas) do primeiro H1 depois do frontmatter, pulando blocos de
  * código cercados — mesma regra de detecção de heading do índice (`indice/parser.ts`), pra
  * não haver duas definições divergentes do que conta como "o H1 da nota". -1 se não achar.
+ * Exportada também para `editor/extensoes/selecionarCorpoDaNota.ts` (Ctrl+A não seleciona
+ * o título) usar a mesma detecção, em vez de reimplementar.
  */
-function indiceDoH1(linhas: string[], inicioCorpo: number): number {
+export function indiceDoH1(linhas: string[], inicioCorpo: number): number {
   let dentroDeFence = false;
   let marcadorFence = "";
   for (let i = inicioCorpo; i < linhas.length; i++) {

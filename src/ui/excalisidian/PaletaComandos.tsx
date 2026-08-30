@@ -35,6 +35,21 @@ function construirComandos(): Comando[] {
     { id: "tema-sistema", rotulo: "Tema: sistema", executar: () => prefs.definirTema("sistema") },
     { id: "tema-claro", rotulo: "Tema: claro", executar: () => prefs.definirTema("claro") },
     { id: "tema-escuro", rotulo: "Tema: escuro", executar: () => prefs.definirTema("escuro") },
+    {
+      id: "largura-pequena",
+      rotulo: "Largura da nota: pequena",
+      executar: () => prefs.definirLarguraNota("pequena"),
+    },
+    {
+      id: "largura-media",
+      rotulo: "Largura da nota: média",
+      executar: () => prefs.definirLarguraNota("media"),
+    },
+    {
+      id: "largura-full",
+      rotulo: "Largura da nota: full",
+      executar: () => prefs.definirLarguraNota("full"),
+    },
   ];
 }
 

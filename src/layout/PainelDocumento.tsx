@@ -6,11 +6,22 @@ import { useCallback, useEffect } from "react";
 import type { IDockviewPanelProps } from "dockview";
 
 import { useDocumentosStore } from "../estado/documentosStore";
+import { usePrefsStore, type LarguraNota } from "../estado/prefsStore";
 import EditorNota from "../editor/EditorNota";
 import FaixaConflito from "../ui/excalisidian/FaixaConflito";
 import LimiteDeErro from "../ui/excalisidian/LimiteDeErro";
+import { cn } from "../ui";
 
 type Params = { path: string; somenteLeitura?: boolean };
+
+// Largura da coluna de texto (doc 06, Layout — preferência, "Paleta de comandos"): 720px
+// (`media`) é o padrão de sempre; `pequena` é uma leitura mais compacta; `full` usa o painel
+// quase inteiro, com a mesma margem lateral de 32px que as outras larguras já têm.
+const LARGURA_COLUNA: Record<LarguraNota, string> = {
+  pequena: "max-w-[560px]",
+  media: "max-w-[720px]",
+  full: "max-w-none",
+};
 
 export default function PainelDocumento(props: IDockviewPanelProps<Params>) {
   const path = props.params.path;
@@ -19,6 +30,7 @@ export default function PainelDocumento(props: IDockviewPanelProps<Params>) {
   const editar = useDocumentosStore((s) => s.editar);
   const salvar = useDocumentosStore((s) => s.salvar);
   const doc = useDocumentosStore((s) => s.docs.get(path));
+  const larguraNota = usePrefsStore((s) => s.larguraNota);
 
   // Mesma consistência de identidade estável do PainelDesenho.tsx — aqui o CodeMirror não é
   // sensível a isso do mesmo jeito que o Excalidraw, mas evita a mesma classe de bug.
@@ -48,8 +60,9 @@ export default function PainelDocumento(props: IDockviewPanelProps<Params>) {
   return (
     <div className="flex h-full flex-col bg-papel">
       <FaixaConflito path={path} />
-      {/* Coluna de 720px centralizada com padding lateral de 32px (doc 06, Layout). */}
-      <div className="mx-auto min-h-0 w-full max-w-[720px] flex-1 px-8 py-6">
+      {/* Coluna centralizada com padding lateral de 32px; largura conforme a preferência
+          (doc 06, Layout — pequena/média/full). */}
+      <div className={cn("mx-auto min-h-0 w-full flex-1 px-8 py-6", LARGURA_COLUNA[larguraNota])}>
         <LimiteDeErro key={`${path}#${doc.versao}`}>
           <EditorNota
             caminho={path}

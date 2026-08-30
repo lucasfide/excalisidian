@@ -18,7 +18,7 @@ import { usePrefsStore } from "./prefsStore";
 
 beforeEach(() => {
   armazenado.clear();
-  usePrefsStore.setState({ tema: "sistema", carregado: false });
+  usePrefsStore.setState({ tema: "sistema", larguraNota: "media", carregado: false });
 });
 
 describe("prefsStore", () => {
@@ -46,5 +46,22 @@ describe("prefsStore", () => {
     armazenado.set("tema", "roxo-neon");
     await usePrefsStore.getState().carregar();
     expect(usePrefsStore.getState().tema).toBe("sistema");
+  });
+
+  it("larguraNota: padrão 'media', persiste e ignora valor inválido", async () => {
+    await usePrefsStore.getState().carregar();
+    expect(usePrefsStore.getState().larguraNota).toBe("media");
+
+    usePrefsStore.getState().definirLarguraNota("full");
+    await new Promise((r) => setTimeout(r, 0));
+
+    usePrefsStore.setState({ larguraNota: "media", carregado: false });
+    await usePrefsStore.getState().carregar();
+    expect(usePrefsStore.getState().larguraNota).toBe("full");
+
+    armazenado.set("larguraNota", "gigante");
+    usePrefsStore.setState({ larguraNota: "media", carregado: false });
+    await usePrefsStore.getState().carregar();
+    expect(usePrefsStore.getState().larguraNota).toBe("media");
   });
 });

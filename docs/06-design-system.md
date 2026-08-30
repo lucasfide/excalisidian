@@ -417,6 +417,7 @@ Altura padrão 36px, compacto 30px, ícone 32×32.
 | `BarraAbas` | fichas de aba, arrastar, zonas de soltura, indicador de não salvo |
 | `PainelSplit` | wrapper do dockview com as divisórias em hairline |
 | `EditorNota` | CodeMirror com live preview |
+| `BarraFlutuanteFormatacao` | barra que aparece grudada acima do texto selecionado (negrito, itálico, riscado, código, título 1/2/3, citação, lista, lista numerada, checkbox, link) — mesma linguagem visual do `ToolbarCanvas` |
 | `MargemNota` | coluna de 76px com metadados do bloco |
 | `EmbedDesenho` | bloco que renderiza o SVG do desenho dentro da nota |
 | `EmbedNota` | bloco que renderiza a transclusão de nota ou seção |
@@ -462,7 +463,7 @@ Altura padrão 36px, compacto 30px, ícone 32×32.
 - Sidebar fixa de 264px, fundo `superficie`, redimensionável entre 200 e 400px, recolhível com `Ctrl+\` (`Ctrl+B` é negrito no editor).
 - Hairline `regua` separando sidebar, conteúdo e barra de status. Sem sombra entre eles.
 - Barra de status de 24px, fundo `superficie`, tudo em `meta`, `tinta-suave`: caminho à esquerda, contagem de palavras e estado de salvamento à direita.
-- Coluna de texto da nota: largura máxima de 720px, centralizada no painel, padding lateral de 32px.
+- Coluna de texto da nota: centralizada no painel, padding lateral de 32px, largura conforme a preferência do usuário (paleta de comandos) — `pequena` 560px, `média` 720px (padrão), `full` sem teto de largura (só a margem de 32px de cada lado).
 - Divisória de split: 1px de `regua`, área de arraste de 8px, cursor de redimensionar, `musgo` durante o arraste.
 - Largura mínima de janela: 900×600. Abaixo disso a sidebar recolhe sozinha.
 
@@ -494,6 +495,9 @@ Altura padrão 36px, compacto 30px, ícone 32×32.
 | retângulo / losango / elipse | `square` / `diamond` / `circle` |
 | seta / linha / mão livre | `move-right` / `minus` / `pencil` |
 | texto / post-it / borracha | `type` / `sticky-note` / `eraser` |
+| negrito / itálico / riscado / código | `bold` / `italic` / `strikethrough` / `code` |
+| título 1 / 2 / 3 | `heading-1` / `heading-2` / `heading-3` |
+| citação / lista / lista numerada / checkbox / link | `quote` / `list` / `list-ordered` / `square-check` / `link` |
 
 ---
 
