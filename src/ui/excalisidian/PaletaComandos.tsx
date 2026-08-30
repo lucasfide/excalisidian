@@ -13,6 +13,7 @@ import { useWorkspaceStore } from "../../estado/workspaceStore";
 import { useSobreposicaoStore } from "../../estado/sobreposicaoStore";
 import { usePrefsStore } from "../../estado/prefsStore";
 import SobreposicaoBusca, { type ItemBusca } from "./SobreposicaoBusca";
+import { pontuar } from "./pontuarComando";
 
 interface Comando extends ItemBusca {
   executar(): void;
@@ -35,17 +36,6 @@ function construirComandos(): Comando[] {
     { id: "tema-claro", rotulo: "Tema: claro", executar: () => prefs.definirTema("claro") },
     { id: "tema-escuro", rotulo: "Tema: escuro", executar: () => prefs.definirTema("escuro") },
   ];
-}
-
-/** Pontuação simples: começa com > contém > fora. Mesmo espírito de sugestoesLink.ts.
- * Exportada só pra teste — não é usada fora deste arquivo. */
-export function pontuar(rotulo: string, consulta: string): number {
-  const q = consulta.toLowerCase();
-  if (q === "") return 0;
-  const r = rotulo.toLowerCase();
-  if (r.startsWith(q)) return 2;
-  if (r.includes(q)) return 1;
-  return -1;
 }
 
 export default function PaletaComandos() {

@@ -1,5 +1,5 @@
 import { describe, it, expect } from "vitest";
-import { pontuar } from "./PaletaComandos";
+import { pontuar } from "./pontuarComando";
 
 describe("pontuar (ranking da paleta de comandos)", () => {
   it("sem consulta, tudo empata em 0", () => {
