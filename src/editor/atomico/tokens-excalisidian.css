@@ -15,11 +15,14 @@
   --atomic-editor-font-mono: var(--fonte-mono);
   --atomic-editor-body-size: 15px; /* doc 06: corpo */
   --atomic-editor-body-leading: 1.55; /* doc 06: corpo */
-  /* Coluna de texto do doc 06. Na prática quem clampa em 720px é o PainelDocumento, e o
-   * `marginalia.css` desliga este `max-width` para o texto preencher o que sobra depois do
-   * gutter de 76px. Fica aqui como fallback, para o editor continuar legível se um dia for
-   * montado fora daquele painel. */
-  --atomic-editor-measure: 720px;
+  /* Desligado de propósito (`none`): a largura da coluna é 100% decidida pelo wrapper de
+   * PainelDocumento.tsx (preferência pequena/média/full, doc 06 Layout). Até 30/08/2026 este
+   * token TAMBÉM clampava em 720px fixo — com "full" no wrapper alargando o painel mas o
+   * `.cm-content` (regra logo abaixo) continuando preso aos 720px por dentro, dois lugares
+   * decidindo a mesma coisa e o usuário via a nota não alargar nunca. Nunca reintroduzir um
+   * valor aqui sem também revisar PainelDocumento.tsx — só um dos dois pode ser a fonte da
+   * verdade. */
+  --atomic-editor-measure: none;
   --atomic-editor-radius: var(--radius-ficha);
 
   /* Texto */
