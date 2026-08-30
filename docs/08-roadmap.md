@@ -163,9 +163,12 @@ A fatia mais cara do projeto.
   §7, doc 04 §9). Não iniciada — mexe em fluxo destrutivo (excluir), então merece uma rodada
   própria com confirmação explícita do usuário antes de codar, não uma decisão tomada sozinha
   numa revisão autônoma.
-- **Preferências**: além do tema (já feito), não há painel de preferências nenhum. Tamanho de
-  janela e vaults recentes (mencionados no comentário original de `prefsStore.ts`) continuam
-  sem lugar — avaliar se ainda fazem falta antes de construir.
+- ~~**Preferências**~~ — feito em 30/08/2026: `DialogoPreferencias.tsx`, aberto por um ícone
+  de engrenagem no rodapé da sidebar (ou `Ctrl+,`) — tema e largura da nota moraram só na
+  paleta de comandos por um tempo, e o usuário relatou não achar (`Ctrl+P` não é um lugar
+  óbvio pra configuração). Tamanho de janela e vaults recentes (mencionados no comentário
+  original de `prefsStore.ts`) continuam sem lugar — avaliar se ainda fazem falta antes de
+  construir.
 - **Restante das mensagens de erro/estados vazios do documento 04 §10**: faltam ainda as de
   permissão de pasta, nome reservado, caminho longo demais, falha ao salvar, imagem grande
   demais, desenho pesado, excluir com filhos, esvaziar lixeira, reindexando, vault vazio, sem

@@ -434,6 +434,7 @@ Altura padrão 36px, compacto 30px, ícone 32×32.
 | `PainelLixeira` | lista de itens excluídos com restaurar e esvaziar |
 | `EstadoVazio` | bloco com hairline superior e inferior, título, apoio e ação |
 | `TelaInicio` | aba fixa de início, nesta ordem: saudação por horário (`display-1`), o convite de `EstadoVazio` para criar nota/desenho/pasta, atalhos para as pastas de primeiro nível, e — ao clicar num atalho — os arquivos/subpastas dela, navegável (mini-explorador) |
+| `DialogoPreferencias` | configurações do app (tema, largura da nota) — ícone de engrenagem no rodapé da sidebar, ou `Ctrl+,` |
 | `ConfirmacaoDestrutiva` | diálogo com a contagem real do que será perdido |
 | `FaixaConflito` | faixa no topo do editor com as duas ações |
 
@@ -463,7 +464,7 @@ Altura padrão 36px, compacto 30px, ícone 32×32.
 - Sidebar fixa de 264px, fundo `superficie`, redimensionável entre 200 e 400px, recolhível com `Ctrl+\` (`Ctrl+B` é negrito no editor).
 - Hairline `regua` separando sidebar, conteúdo e barra de status. Sem sombra entre eles.
 - Barra de status de 24px, fundo `superficie`, tudo em `meta`, `tinta-suave`: caminho à esquerda, contagem de palavras e estado de salvamento à direita.
-- Coluna de texto da nota: centralizada no painel, padding lateral de 32px, largura conforme a preferência do usuário (paleta de comandos) — `pequena` 560px, `média` 720px (padrão), `full` sem teto de largura (só a margem de 32px de cada lado).
+- Coluna de texto da nota: centralizada no painel, padding lateral de 32px, largura conforme a preferência do usuário (tela de Configurações) — `pequena` 728px, `média` 936px (padrão), `full` sem teto de largura (só a margem de 32px de cada lado).
 - Divisória de split: 1px de `regua`, área de arraste de 8px, cursor de redimensionar, `musgo` durante o arraste.
 - Largura mínima de janela: 900×600. Abaixo disso a sidebar recolhe sozinha.
 

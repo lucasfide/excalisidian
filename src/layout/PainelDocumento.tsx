@@ -14,12 +14,13 @@ import { cn } from "../ui";
 
 type Params = { path: string; somenteLeitura?: boolean };
 
-// Largura da coluna de texto (doc 06, Layout — preferência, "Paleta de comandos"): 720px
-// (`media`) é o padrão de sempre; `pequena` é uma leitura mais compacta; `full` usa o painel
-// quase inteiro, com a mesma margem lateral de 32px que as outras larguras já têm.
+// Largura da coluna de texto (doc 06, Layout — preferência, tela de Configurações): `media`
+// é 30% mais larga que o padrão original de 720px; `pequena`, 30% mais larga que o antigo
+// padrão de 560px; `full` usa o painel quase inteiro, com a mesma margem lateral de 32px que
+// as outras larguras já têm.
 const LARGURA_COLUNA: Record<LarguraNota, string> = {
-  pequena: "max-w-[560px]",
-  media: "max-w-[720px]",
+  pequena: "max-w-[728px]",
+  media: "max-w-[936px]",
   full: "max-w-none",
 };
 

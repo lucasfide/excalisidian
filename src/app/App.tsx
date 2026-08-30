@@ -2,6 +2,7 @@
 // O conteúdo dos arquivos vive por aba no documentosStore; a aba ativa, no workspaceStore.
 
 import { useCallback, useEffect, useState } from "react";
+import { Settings } from "lucide-react";
 import { Toaster } from "sonner";
 
 import { TauriVaultAdapter } from "../vault/TauriVaultAdapter";
@@ -17,21 +18,16 @@ import {
 import { comandoMoverArquivo, comandoMoverPara } from "./comandos/mover";
 import { useAutosave } from "../editor/useAutosave";
 import Workspace from "../layout/Workspace";
-import { Botao, EstadoVazio, Select, type OpcaoSelect } from "../ui";
+import { Botao, BotaoIcone, EstadoVazio } from "../ui";
 import ArvoreArquivos from "../ui/excalisidian/ArvoreArquivos";
 import BarraFerramentasSidebar from "../ui/excalisidian/BarraFerramentasSidebar";
 import BarraStatus from "../ui/excalisidian/BarraStatus";
+import DialogoPreferencias from "../ui/excalisidian/DialogoPreferencias";
 import Logotipo from "../ui/excalisidian/Logotipo";
 import PainelBacklinks from "../ui/excalisidian/PainelBacklinks";
 import RaizDialogos from "../ui/excalisidian/RaizDialogos";
 import RaizSobreposicoes from "../ui/excalisidian/RaizSobreposicoes";
 import LimiteDeErro from "../ui/excalisidian/LimiteDeErro";
-
-const TEMAS: OpcaoSelect[] = [
-  { valor: "sistema", rotulo: "sistema" },
-  { valor: "claro", rotulo: "claro" },
-  { valor: "escuro", rotulo: "escuro" },
-];
 
 function aplicarTema(tema: Tema) {
   const escuro =
@@ -45,8 +41,8 @@ type Boot = "carregando" | "sem-vault" | "pronto" | { erro: string };
 
 export default function App() {
   const [boot, setBoot] = useState<Boot>("carregando");
+  const [preferenciasAbertas, setPreferenciasAbertas] = useState(false);
   const tema = usePrefsStore((s) => s.tema);
-  const definirTema = usePrefsStore((s) => s.definirTema);
 
   const arvore = useVaultStore((s) => s.arvore);
   const pastasAbertas = useVaultStore((s) => s.pastasAbertas);
@@ -59,6 +55,19 @@ export default function App() {
 
   useEffect(() => {
     void usePrefsStore.getState().carregar();
+  }, []);
+
+  // Ctrl+, é a convenção de "abrir configurações" em várias ferramentas (VS Code, Slack) —
+  // o ícone na sidebar já cobre a descoberta; isto é só um atalho a mais pra quem já sabe.
+  useEffect(() => {
+    const onKey = (e: KeyboardEvent) => {
+      if ((e.ctrlKey || e.metaKey) && e.key === ",") {
+        e.preventDefault();
+        setPreferenciasAbertas(true);
+      }
+    };
+    window.addEventListener("keydown", onKey, true);
+    return () => window.removeEventListener("keydown", onKey, true);
   }, []);
 
   // A aba ativa fica destacada na árvore (`ItemArvore.destacado`), mas isso só tem efeito se
@@ -183,13 +192,10 @@ export default function App() {
               <span className="meta text-tinta-suave">
                 {statusIndice === "indexando" ? "reindexando…" : ""}
               </span>
-              <Select
-                rotulo="Tema"
-                compacto
-                opcoes={TEMAS}
-                value={tema}
-                onChange={(e) => definirTema(e.target.value as Tema)}
-                className="shrink-0 text-tinta-media"
+              <BotaoIcone
+                Icone={Settings}
+                titulo="Configurações"
+                onClick={() => setPreferenciasAbertas(true)}
               />
             </div>
           </aside>
@@ -203,6 +209,9 @@ export default function App() {
       <BarraStatus />
       <RaizDialogos />
       <RaizSobreposicoes />
+      {preferenciasAbertas && (
+        <DialogoPreferencias onFechar={() => setPreferenciasAbertas(false)} />
+      )}
       <Toaster
         position="bottom-right"
         toastOptions={{
