@@ -113,8 +113,22 @@ class AlcaBlocoPlugin {
     this.posicionarAlca(bloco);
   };
 
-  private aoMouseLeave = () => {
+  private aoMouseLeave = (event: MouseEvent) => {
     if (this.arrasto) return;
+    // A alça mora fora do view.dom (position: fixed, no respiro de 32px — ver o comentário no
+    // topo do arquivo), então ir do texto até ela SEMPRE cruza a borda do view.dom e dispara
+    // este mouseleave. Sem este filtro, a alça sumiria bem no meio do caminho até o clique.
+    const indoParaAlca =
+      event.relatedTarget instanceof Node && this.alcaDom?.contains(event.relatedTarget);
+    if (indoParaAlca) return;
+    this.esconderAlca();
+  };
+
+  private aoMouseLeaveDaAlca = (event: MouseEvent) => {
+    if (this.arrasto) return;
+    const voltandoPraTexto =
+      event.relatedTarget instanceof Node && this.view.dom.contains(event.relatedTarget);
+    if (voltandoPraTexto) return;
     this.esconderAlca();
   };
 
@@ -122,6 +136,7 @@ class AlcaBlocoPlugin {
     if (this.alcaDom) return this.alcaDom;
     const dom = document.createElement("div");
     dom.className = "cm-alca-bloco";
+    dom.addEventListener("mouseleave", this.aoMouseLeaveDaAlca);
     document.body.appendChild(dom);
     this.alcaRoot = createRoot(dom);
     this.alcaRoot.render(createElement(AlcaBloco, { onPointerDown: this.aoIniciarArrasto }));
