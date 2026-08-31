@@ -21,6 +21,7 @@ import { sincronizarTituloComArquivo } from "./extensoes/sincronizarTituloComArq
 import { selecionarCorpoDaNota } from "./extensoes/selecionarCorpoDaNota";
 import { barraFlutuante } from "./extensoes/barraFlutuante";
 import { selecaoDeBloco } from "./extensoes/selecaoDeBloco";
+import { quebraDeBloco } from "./extensoes/quebraDeBloco";
 import "./extensoes/embedDesenho.css";
 
 // Referência estável: o pacote captura `extensions` uma vez na montagem. As callbacks de
@@ -33,6 +34,7 @@ const EXTENSOES: readonly Extension[] = [
   selecionarCorpoDaNota,
   barraFlutuante,
   selecaoDeBloco,
+  quebraDeBloco,
 ];
 
 interface Props {
