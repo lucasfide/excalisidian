@@ -12,6 +12,25 @@
 // `view.dom` — um elemento posicionado com offset negativo *dentro* do view.dom seria cortado
 // por esse overflow. `position: fixed` com coordenadas de viewport (coordsAtPos/getBoundingClientRect)
 // escapa desse corte, do mesmo jeito que um tooltip/popover.
+//
+// VISIBILIDADE É GEOMÉTRICA, NÃO POR EVENTO DE FRONTEIRA. Não existe mais mouseenter/mouseleave/
+// relatedTarget/timeout aqui — duas tentativas de conserto por esse caminho falharam (ver ADR-18
+// e o histórico do arquivo), porque o alvo (a alça) mora fora do elemento que dispara o gatilho
+// (o view.dom), e cruzar essa borda é obrigatório no trajeto do mouse. Em vez disso: um único
+// `mousemove` em `window` faz, a cada movimento, um teste de ponto-dentro-de-retângulo contra a
+// "zona ativa" = o retângulo do view.dom esticado ZONA_RESPIRO_PX pra esquerda. Texto, respiro e
+// alça viram uma região CONTÍNUA — não há fronteira nenhuma pra cruzar entre o texto e a alça, e
+// a categoria inteira de bug some. A alça também deixa de ser 16×16 fixos: o container invisível
+// tem a largura do respiro e a ALTURA DO BLOCO inteiro (o botão visível continua 16px alinhado ao
+// topo), pra que sair pela esquerda de qualquer linha de um bloco de várias linhas atravesse ela.
+//
+// E `update()` NUNCA esconde por `geometryChanged`: o inline-preview reconstrói decorações a cada
+// selectionSet/focusChanged, o remedimento liga a flag Height (@codemirror/view 6.43.9,
+// dist/index.js:1706 + 6291) e `geometryChanged` acaba disparando o tempo todo — inclusive de
+// forma reentrante, de dentro do próprio `posAtCoords` (readMeasured, index.js:8310-8314, roda um
+// measure síncrono que reentrega o ViewUpdate aos plugins). Pelo mesmo motivo, `update()` não pode
+// chamar `posAtCoords`/`coordsAtPos`: `readMeasured` LANÇA durante um ciclo de update. Toda
+// releitura de geometria acontece fora do update — no mousemove ou no listener de rolagem.
 
 import type { Extension, Text } from "@codemirror/state";
 import { ViewPlugin, type EditorView, type ViewUpdate } from "@codemirror/view";
@@ -79,7 +98,8 @@ export function calcularMovimento(
 
 // --- Alça e arraste (DOM, não testável sem browser — mesmo limite de selecaoDeBloco.ts) ---
 
-const DESLOCAMENTO_ALCA_PX = 24; // dentro do respiro de 32px, sem grudar na borda
+const LARGURA_ALCA_PX = 24; // largura do container invisível; encosta na borda do view.dom
+const ZONA_RESPIRO_PX = 32; // respiro lateral da coluna (doc 06, Layout) — o quanto a zona estica
 
 interface EstadoArrasto {
   irmaos: Bloco[];
@@ -96,60 +116,74 @@ class AlcaBlocoPlugin {
   private linhaSolturaDom: HTMLDivElement | null = null;
   private blocoAtual: Bloco | null = null;
   private arrasto: EstadoArrasto | null = null;
-  private timeoutEsconder: number | null = null;
+  /** Última posição conhecida do ponteiro, pra reavaliar sem esperar um mousemove novo (rolagem). */
+  private ultimoPonteiro: { x: number; y: number } | null = null;
+  /** Retângulos do editor em cache — ler layout a cada pixel de mousemove seria caro. */
+  private retangulos: { editor: DOMRect; conteudo: DOMRect } | null = null;
 
-  private aoMouseMove = (event: MouseEvent) => {
-    if (this.arrasto) return; // durante o arraste, a posição da alça não muda por mousemove
-    const pos = this.view.posAtCoords({ x: event.clientX, y: event.clientY });
-    if (pos == null) {
-      this.agendarEsconder();
-      return;
+  private medirRetangulos() {
+    if (!this.retangulos) {
+      this.retangulos = {
+        editor: this.view.dom.getBoundingClientRect(),
+        conteudo: this.view.contentDOM.getBoundingClientRect(),
+      };
     }
-    const bloco = blocoEm(syntaxTree(this.view.state), this.view.state.doc, pos);
-    if (!bloco) {
-      this.agendarEsconder();
-      return;
-    }
-    this.cancelarEsconder();
-    if (this.blocoAtual && this.blocoAtual.de === bloco.de) return;
-    this.blocoAtual = bloco;
-    this.posicionarAlca(bloco);
-  };
-
-  // A alça mora fora do view.dom (position: fixed, no respiro de 32px — ver o comentário no
-  // topo do arquivo). Ir do texto até ela sempre cruza a borda do view.dom no caminho, e um
-  // mouse rápido/na diagonal pode passar por cima de QUALQUER elemento nesse meio (o
-  // `relatedTarget` do mouseleave não é confiável pra saber "tá indo pra alça"). Em vez de
-  // decidir na hora, esconde com um atraso curto — cancelado se o mouse voltar a passar por
-  // cima de um bloco (aoMouseMove) ou entrar na própria alça (mouseenter abaixo). Mesmo padrão
-  // de menu com submenu ("safe polygon"), só que por tempo em vez de geometria.
-  private aoMouseLeave = () => {
-    if (this.arrasto) return;
-    this.agendarEsconder();
-  };
-
-  private agendarEsconder() {
-    if (this.timeoutEsconder != null) return;
-    this.timeoutEsconder = window.setTimeout(() => {
-      this.timeoutEsconder = null;
-      this.esconderAlca();
-    }, 300);
+    return this.retangulos;
   }
 
-  private cancelarEsconder() {
-    if (this.timeoutEsconder == null) return;
-    window.clearTimeout(this.timeoutEsconder);
-    this.timeoutEsconder = null;
+  private aoMouseMove = (event: MouseEvent) => {
+    this.ultimoPonteiro = { x: event.clientX, y: event.clientY };
+    this.reavaliar();
+  };
+
+  /**
+   * O teste geométrico inteiro, a partir de `ultimoPonteiro`. Chamado pelo mousemove e pela
+   * rolagem — nunca de dentro de `update()` (usa coordsAtPos/posAtCoords, que lançam durante um
+   * ciclo de update do CodeMirror).
+   */
+  private reavaliar() {
+    if (this.arrasto) return; // durante o arraste, a posição da alça não muda
+    if (this.view.state.readOnly) return; // ADR-13: 2ª vista do split não recebe a alça
+    const ponteiro = this.ultimoPonteiro;
+    if (!ponteiro) return;
+
+    const { editor, conteudo } = this.medirRetangulos();
+    // Zona ativa: o view.dom esticado pra esquerda até cobrir respiro + alça. Texto e alça ficam
+    // numa região contínua, sem fronteira no meio do trajeto do mouse.
+    const dentroDaZona =
+      ponteiro.x >= editor.left - ZONA_RESPIRO_PX &&
+      ponteiro.x <= editor.right &&
+      ponteiro.y >= editor.top &&
+      ponteiro.y <= editor.bottom;
+    if (!dentroDaZona) {
+      this.esconderAlca();
+      return;
+    }
+
+    // A zona inclui faixa fora do conteúdo real; grampeia o x pra dentro do .cm-content antes de
+    // resolver a posição (posAtCoords resolve a linha pelo y, mas o x precisa ser sensato).
+    const x = Math.min(Math.max(ponteiro.x, conteudo.left + 1), conteudo.right - 1);
+    const pos = this.view.posAtCoords({ x, y: ponteiro.y });
+    const bloco =
+      pos == null ? null : blocoEm(syntaxTree(this.view.state), this.view.state.doc, pos);
+    if (!bloco) {
+      // Linha em branco entre blocos, ou ponto fora do viewport renderizado. Se o ponteiro está na
+      // faixa à esquerda do texto (respiro/alça), mantém a alça que já está na tela — sem isso ela
+      // pisca justamente no trecho final do caminho até ela.
+      if (ponteiro.x >= conteudo.left) this.esconderAlca();
+      return;
+    }
+
+    this.blocoAtual = bloco;
+    // Reposiciona sempre, mesmo com o bloco inalterado: a rolagem reavalia por aqui e a alça tem
+    // que acompanhar o bloco na tela.
+    this.posicionarAlca(bloco);
   }
 
   private garantirAlca(): HTMLDivElement {
     if (this.alcaDom) return this.alcaDom;
     const dom = document.createElement("div");
     dom.className = "cm-alca-bloco";
-    dom.addEventListener("mouseenter", () => this.cancelarEsconder());
-    dom.addEventListener("mouseleave", () => {
-      if (!this.arrasto) this.agendarEsconder();
-    });
     document.body.appendChild(dom);
     this.alcaRoot = createRoot(dom);
     this.alcaRoot.render(createElement(AlcaBloco, { onPointerDown: this.aoIniciarArrasto }));
@@ -158,14 +192,19 @@ class AlcaBlocoPlugin {
   }
 
   private posicionarAlca(bloco: Bloco) {
-    if (this.view.state.readOnly) return; // ADR-13: vista somente-leitura do split não recebe a alça
-    const coords = this.view.coordsAtPos(bloco.de);
-    if (!coords) return;
-    const editorRect = this.view.dom.getBoundingClientRect();
+    const topo = this.view.coordsAtPos(bloco.de);
+    if (!topo) return;
+    // Altura do bloco inteiro (topo da primeira linha até o fim da última): a área de acerto cobre
+    // o bloco todo, então sair pela esquerda de qualquer linha dele atravessa a alça. O botão
+    // visível continua 16px, alinhado ao topo do container (moverBloco.css).
+    const fim = this.view.coordsAtPos(bloco.ate, -1);
+    const altura = Math.max((fim?.bottom ?? topo.bottom) - topo.top, topo.bottom - topo.top);
+    const { editor } = this.medirRetangulos();
     const dom = this.garantirAlca();
-    dom.style.left = `${editorRect.left - DESLOCAMENTO_ALCA_PX}px`;
-    dom.style.top = `${coords.top}px`;
-    dom.style.display = "block";
+    dom.style.left = `${editor.left - LARGURA_ALCA_PX}px`;
+    dom.style.top = `${topo.top}px`;
+    dom.style.height = `${altura}px`;
+    dom.style.display = "flex";
   }
 
   private esconderAlca() {
@@ -176,7 +215,6 @@ class AlcaBlocoPlugin {
   private aoIniciarArrasto = (event: React.PointerEvent) => {
     if (event.button !== 0 || !this.blocoAtual) return;
     event.preventDefault();
-    this.cancelarEsconder();
 
     const arvore = syntaxTree(this.view.state);
     const irmaos = blocosIrmaos(arvore, this.view.state.doc, this.blocoAtual);
@@ -274,22 +312,36 @@ class AlcaBlocoPlugin {
     this.esconderAlca();
   }
 
+  // Rolagem e redimensionamento invalidam os retângulos em cache e reposicionam a alça a partir da
+  // última posição do ponteiro — sem isso ela fica grudada na tela enquanto o bloco anda. Escuta em
+  // `window` na fase de captura porque `scroll` não borbulha: assim pega tanto o `view.scrollDOM`
+  // quanto qualquer scroller ancestral que mova o editor. Roda fora do ciclo de update do CM6,
+  // então pode ler geometria à vontade.
+  private aoRolarOuRedimensionar = () => {
+    this.retangulos = null;
+    this.reavaliar();
+  };
+
   constructor(view: EditorView) {
     this.view = view;
-    view.dom.addEventListener("mousemove", this.aoMouseMove);
-    view.dom.addEventListener("mouseleave", this.aoMouseLeave);
+    window.addEventListener("mousemove", this.aoMouseMove);
+    window.addEventListener("scroll", this.aoRolarOuRedimensionar, { capture: true, passive: true });
+    window.addEventListener("resize", this.aoRolarOuRedimensionar);
   }
 
   update(update: ViewUpdate) {
-    // Rolar ou editar pode deixar a alça grudada numa posição de tela que já não corresponde
-    // mais ao bloco — mais simples esconder e deixar o próximo mousemove reposicionar.
-    if (update.docChanged || update.geometryChanged) this.esconderAlca();
+    // Só `docChanged`: os offsets de `blocoAtual` viraram lixo e a alça precisa sumir até o próximo
+    // movimento do mouse. `geometryChanged` NÃO esconde mais nada — dispara o tempo todo por causa
+    // do live preview (ver o comentário no topo do arquivo) e era a causa real de a alça sumir
+    // antes do clique chegar nela. E nada de reler geometria aqui: `readMeasured` lança durante um
+    // update; a reposição fica pro mousemove e pro listener de rolagem.
+    if (update.docChanged) this.esconderAlca();
   }
 
   destroy() {
-    this.view.dom.removeEventListener("mousemove", this.aoMouseMove);
-    this.view.dom.removeEventListener("mouseleave", this.aoMouseLeave);
-    this.cancelarEsconder();
+    window.removeEventListener("mousemove", this.aoMouseMove);
+    window.removeEventListener("scroll", this.aoRolarOuRedimensionar, { capture: true });
+    window.removeEventListener("resize", this.aoRolarOuRedimensionar);
     this.finalizarArrasto();
     this.alcaRoot?.unmount();
     this.alcaDom?.remove();

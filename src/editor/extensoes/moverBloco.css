@@ -3,9 +3,16 @@
  * `document.body` — ver o comentário no topo de moverBloco.ts sobre por que não dá pra
  * posicionar dentro do view.dom (o overflow-hidden de EditorNota.tsx cortaria). */
 
+/* O container é invisível e tem a largura do respiro (encosta na borda do view.dom, sem vão morto)
+ * e a altura do bloco inteiro, definida em moverBloco.ts — é ele que faz a alça cobrir todas as
+ * linhas do bloco. O botão de 16px fica alinhado ao topo, então o visual é o mesmo de sempre.
+ * `display` alterna entre `none` e `flex` pelo JS. */
 .cm-alca-bloco {
   position: fixed;
   display: none;
+  align-items: flex-start;
+  justify-content: flex-start;
+  width: 24px;
   z-index: 40;
 }
 

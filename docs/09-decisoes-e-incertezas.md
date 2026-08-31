@@ -420,6 +420,23 @@ de texto (`px-8`, `PainelDocumento.tsx`) fica fora da árvore do CodeMirror, e o
 `view.dom` seria cortado. `position: fixed`, ancorado em `getBoundingClientRect()`/
 `coordsAtPos`, escapa desse corte (mesma ideia de um tooltip/popover).
 
+**Por que a visibilidade da alça é geométrica, e não por `mouseenter`/`mouseleave`:** duas
+correções por evento de fronteira (`relatedTarget`, depois um atraso de 300ms) falharam, porque o
+problema não estava lá. Primeiro, o alvo mora **fora** do gatilho — a alça é `position: fixed` no
+respiro, o gatilho era o `view.dom`, e o trajeto do mouse até ela cruza essa borda por
+obrigação. Segundo, e decisivo: o `update()` do plugin escondia a alça em `geometryChanged`, por
+fora de qualquer atraso, e `geometryChanged` dispara o tempo todo neste editor — a live preview
+reconstrói decorações a cada `selectionSet`/`focusChanged`, o remedimento das alturas liga a flag
+`Height` do CodeMirror, e isso chega a ser reentrante (`posAtCoords` → `readMeasured` → measure
+síncrono → o próprio `update()`, no meio do handler de mouse). Hoje só `docChanged` esconde, e a
+decisão de mostrar sai de um teste de ponto-dentro-de-retângulo num `mousemove` de `window`: a
+zona ativa é o `view.dom` esticado 32px pra esquerda, então texto, respiro e alça são uma região
+contínua, sem fronteira nenhuma pra cruzar. A área de acerto da alça tem a altura do bloco
+inteiro (o botão visível continua 16px, alinhado ao topo), pra que sair pela esquerda de qualquer
+linha de um bloco de várias linhas passe por ela. **Não simplifique isso de volta pra
+`mouseleave`.** Consequência que vale registrar: nada em reação a um `update()` pode chamar
+`posAtCoords`/`coordsAtPos` — `readMeasured` lança exceção durante um ciclo de update.
+
 ### ADR-9 · O nome do produto é um problema em aberto
 
 Isto não é uma decisão, é um alerta que apareceu ao resolver o ADR-8.
