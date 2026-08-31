@@ -3,7 +3,11 @@
 // de volta com o mesmo contrato de autosave das notas.
 
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { Excalidraw, convertToExcalidrawElements } from "@excalidraw/excalidraw";
+import {
+  Excalidraw,
+  convertToExcalidrawElements,
+  viewportCoordsToSceneCoords,
+} from "@excalidraw/excalidraw";
 import type {
   ExcalidrawImperativeAPI,
   AppState,
@@ -33,6 +37,7 @@ import ToolbarCanvas from "../ui/excalisidian/ToolbarCanvas";
 import PropriedadesCanvas from "../ui/excalisidian/PropriedadesCanvas";
 import { buscarSugestoesLink, type SugestaoLink } from "../indice/sugestoesLink";
 import IconeArquivo from "../ui/IconeArquivo";
+import { acharFormaVaziaNoPonto } from "./selecaoFormaVazia";
 
 const DEBOUNCE_MS = 800;
 const PASSO_GRADE = 20;
@@ -276,6 +281,57 @@ export default function EditorDesenho({
       raiz.removeEventListener("blur", aoPerderFoco, true);
     };
   }, [inserirSugestaoTexto]);
+
+  // Clicar DENTRO de uma forma sem preenchimento não seleciona ela no Excalidraw — só clicar
+  // na borda seleciona (é hardcoded por dentro dele, sem prop nem appState pra mudar, ver
+  // selecaoFormaVazia.ts). Plano B: se o clique não selecionou nada, testa geometricamente se
+  // caiu dentro de alguma forma vazia e seleciona por conta própria.
+  useEffect(() => {
+    if (somenteLeitura) return;
+    const raiz = raizRef.current;
+    if (!raiz) return;
+
+    const inicioRef = { x: 0, y: 0 };
+
+    const aoPressionar = (e: PointerEvent) => {
+      inicioRef.x = e.clientX;
+      inicioRef.y = e.clientY;
+    };
+
+    const aoSoltar = (e: PointerEvent) => {
+      if (e.button !== 0) return;
+      const api = apiRef.current;
+      if (!api) return;
+      // Só clique de verdade — um arraste (mover a tela, selecionar por retângulo) não deve
+      // "roubar" uma forma vazia que passou por perto do caminho do arraste.
+      const distancia = Math.hypot(e.clientX - inicioRef.x, e.clientY - inicioRef.y);
+      if (distancia > 4) return;
+      // Ignora clique na nossa própria UI (toolbar, painel de propriedades) — só o canvas
+      // de verdade do Excalidraw interessa aqui.
+      if (!(e.target as HTMLElement | null)?.closest(".excalidraw")) return;
+
+      // Um frame pra deixar o próprio Excalidraw terminar de processar o clique antes da
+      // gente checar se ele selecionou algo.
+      requestAnimationFrame(() => {
+        const st = api.getAppState();
+        if (st.activeTool?.type !== "selection") return;
+        if (Object.keys(st.selectedElementIds ?? {}).length > 0) return; // já selecionou algo
+
+        const { x, y } = viewportCoordsToSceneCoords({ clientX: e.clientX, clientY: e.clientY }, st);
+        const alvo = acharFormaVaziaNoPonto(api.getSceneElements(), x, y);
+        if (alvo) {
+          api.updateScene({ appState: { selectedElementIds: { [alvo.id]: true } } as never });
+        }
+      });
+    };
+
+    raiz.addEventListener("pointerdown", aoPressionar, true);
+    raiz.addEventListener("pointerup", aoSoltar, true);
+    return () => {
+      raiz.removeEventListener("pointerdown", aoPressionar, true);
+      raiz.removeEventListener("pointerup", aoSoltar, true);
+    };
+  }, [somenteLeitura]);
 
   const pintarGrade = useCallback((appState: Readonly<AppState>) => {
     const el = gradeRef.current;

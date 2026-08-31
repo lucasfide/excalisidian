@@ -99,6 +99,14 @@ Não existe post-it no Excalidraw original — o que existe é forma com texto d
 - ao digitar mais do que cabe, **o post-it cresce em altura**, nunca reduz a fonte;
 - as quatro cores de post-it (`postit-ocre`, `postit-musgo`, `postit-bordo`, `postit-neutro`) estão no design system.
 
+### Seleção de forma sem preenchimento
+
+Retângulo, losango e elipse sem preenchimento (`transparent`) selecionam clicando em
+**qualquer ponto dentro deles**, não só na borda — o Excalidraw por padrão só deixa selecionar
+pela borda quando não tem preenchimento; ver doc 09 ADR-17 pro porquê disso não ser uma opção
+nativa dele. Seta, linha e mão livre continuam exigindo clique em cima do traço — não têm
+"dentro" fechado pra testar.
+
 ### Conectores
 
 - Uma seta desenhada começando ou terminando sobre uma forma se prende a ela.

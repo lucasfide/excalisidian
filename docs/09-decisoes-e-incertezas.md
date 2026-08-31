@@ -310,6 +310,37 @@ qualquer outro nome duplicado (`renomearArquivo`, `src/vault/renomear.ts`). Apag
 inteiro pela EDIÇÃO do corpo da nota não dispara nada (doc 04 §3.1) — a extensão do
 CodeMirror só age quando a linha 1 volta a ser um H1 não-vazio.
 
+### ADR-17 · Seleção de forma vazia clicando dentro: reimplementada por fora
+
+**Contexto:** o Excalidraw só seleciona uma forma sem preenchimento clicando na borda dela —
+clicar no interior não faz nada. Pedido: clicar dentro também deveria selecionar.
+
+**Investigado e confirmado sem opção nativa.** A lógica (`shouldTestInside`/`hitElementItself`,
+em `element/collision.ts` do pacote) é hardcoded: só testa o interior quando
+`backgroundColor` não é transparente (ou tem texto vinculado/é imagem). Não existe prop no
+`<Excalidraw>`, campo de `appState` nem campo de elemento pra mudar isso — é código interno
+do componente `App`, nunca exportado pela API pública do pacote (confirmado por grep no bundle
+e nos `.d.ts` de tipos, 0.18.1).
+
+**Decisão:** reimplementar só o teste geométrico que falta, por fora — `canvas/
+selecaoFormaVazia.ts`, puro e testado (ponto-em-retângulo/elipse/losango, com rotação). Um
+`pointerup` em `EditorDesenho.tsx` funciona como plano B: espera o Excalidraw processar o
+clique normalmente (ele resolve tudo que já funciona certo — borda, preenchimento sólido,
+texto, imagem, seta), e só quando a seleção dele fica vazia depois de um clique de verdade
+(não um arraste — distância medida entre pointerdown e pointerup) é que testamos se o ponto
+caiu dentro de uma forma fechada sem preenchimento; se sim, seleciona via
+`api.updateScene({ appState: { selectedElementIds: ... } })` — a API pública e suportada pra
+mudar seleção programaticamente.
+
+**Por que não patchear o Excalidraw:** o pacote é pinado em 0.18.1 (ADR do doc 05) exatamente
+pra evitar depender de internals que mudam sem aviso; reimplementar por fora, em cima da API
+pública (`viewportCoordsToSceneCoords`, `updateScene`), é a opção que sobrevive a um upgrade —
+só a geometria (retângulo/elipse/losango com rotação) é conhecimento nosso, e é matemática
+comum, não um detalhe de implementação do Excalidraw.
+
+**Escopo, por decisão do usuário:** só formas fechadas (retângulo, losango, elipse). Seta e
+linha não têm "dentro" — continuam exigindo clique no traço, como sempre foi.
+
 ### ADR-16 · Aba de início fixa, fora da lista de abas de verdade
 
 **Contexto:** pedido explícito — uma tela de abertura (saudação, atalhos de pasta, criar
