@@ -22,7 +22,9 @@ import { selecionarCorpoDaNota } from "./extensoes/selecionarCorpoDaNota";
 import { barraFlutuante } from "./extensoes/barraFlutuante";
 import { selecaoDeBloco } from "./extensoes/selecaoDeBloco";
 import { quebraDeBloco } from "./extensoes/quebraDeBloco";
+import { moverBloco } from "./extensoes/moverBloco";
 import "./extensoes/embedDesenho.css";
+import "./extensoes/moverBloco.css";
 
 // Referência estável: o pacote captura `extensions` uma vez na montagem. As callbacks de
 // wikilinks leem o estado do store em tempo de chamada, então continuam atuais.
@@ -35,6 +37,7 @@ const EXTENSOES: readonly Extension[] = [
   barraFlutuante,
   selecaoDeBloco,
   quebraDeBloco,
+  moverBloco,
 ];
 
 interface Props {

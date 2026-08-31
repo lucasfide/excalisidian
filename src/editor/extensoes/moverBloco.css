@@ -1,0 +1,20 @@
+/* Alça de mover bloco e linha de soltura (doc 06, Movimento — mesma linguagem da zona de
+ * soltura do split). `position: fixed`, montadas fora da árvore do CodeMirror direto em
+ * `document.body` — ver o comentário no topo de moverBloco.ts sobre por que não dá pra
+ * posicionar dentro do view.dom (o overflow-hidden de EditorNota.tsx cortaria). */
+
+.cm-alca-bloco {
+  position: fixed;
+  display: none;
+  z-index: 40;
+}
+
+.cm-linha-soltura {
+  position: fixed;
+  display: none;
+  height: 2px;
+  background: var(--color-musgo);
+  border-radius: 1px;
+  pointer-events: none;
+  z-index: 40;
+}
