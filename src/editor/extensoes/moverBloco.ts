@@ -96,47 +96,60 @@ class AlcaBlocoPlugin {
   private linhaSolturaDom: HTMLDivElement | null = null;
   private blocoAtual: Bloco | null = null;
   private arrasto: EstadoArrasto | null = null;
+  private timeoutEsconder: number | null = null;
 
   private aoMouseMove = (event: MouseEvent) => {
     if (this.arrasto) return; // durante o arraste, a posição da alça não muda por mousemove
     const pos = this.view.posAtCoords({ x: event.clientX, y: event.clientY });
     if (pos == null) {
-      this.esconderAlca();
+      this.agendarEsconder();
       return;
     }
     const bloco = blocoEm(syntaxTree(this.view.state), this.view.state.doc, pos);
-    if (!bloco || (this.blocoAtual && this.blocoAtual.de === bloco.de)) {
-      if (!bloco) this.esconderAlca();
+    if (!bloco) {
+      this.agendarEsconder();
       return;
     }
+    this.cancelarEsconder();
+    if (this.blocoAtual && this.blocoAtual.de === bloco.de) return;
     this.blocoAtual = bloco;
     this.posicionarAlca(bloco);
   };
 
-  private aoMouseLeave = (event: MouseEvent) => {
+  // A alça mora fora do view.dom (position: fixed, no respiro de 32px — ver o comentário no
+  // topo do arquivo). Ir do texto até ela sempre cruza a borda do view.dom no caminho, e um
+  // mouse rápido/na diagonal pode passar por cima de QUALQUER elemento nesse meio (o
+  // `relatedTarget` do mouseleave não é confiável pra saber "tá indo pra alça"). Em vez de
+  // decidir na hora, esconde com um atraso curto — cancelado se o mouse voltar a passar por
+  // cima de um bloco (aoMouseMove) ou entrar na própria alça (mouseenter abaixo). Mesmo padrão
+  // de menu com submenu ("safe polygon"), só que por tempo em vez de geometria.
+  private aoMouseLeave = () => {
     if (this.arrasto) return;
-    // A alça mora fora do view.dom (position: fixed, no respiro de 32px — ver o comentário no
-    // topo do arquivo), então ir do texto até ela SEMPRE cruza a borda do view.dom e dispara
-    // este mouseleave. Sem este filtro, a alça sumiria bem no meio do caminho até o clique.
-    const indoParaAlca =
-      event.relatedTarget instanceof Node && this.alcaDom?.contains(event.relatedTarget);
-    if (indoParaAlca) return;
-    this.esconderAlca();
+    this.agendarEsconder();
   };
 
-  private aoMouseLeaveDaAlca = (event: MouseEvent) => {
-    if (this.arrasto) return;
-    const voltandoPraTexto =
-      event.relatedTarget instanceof Node && this.view.dom.contains(event.relatedTarget);
-    if (voltandoPraTexto) return;
-    this.esconderAlca();
-  };
+  private agendarEsconder() {
+    if (this.timeoutEsconder != null) return;
+    this.timeoutEsconder = window.setTimeout(() => {
+      this.timeoutEsconder = null;
+      this.esconderAlca();
+    }, 300);
+  }
+
+  private cancelarEsconder() {
+    if (this.timeoutEsconder == null) return;
+    window.clearTimeout(this.timeoutEsconder);
+    this.timeoutEsconder = null;
+  }
 
   private garantirAlca(): HTMLDivElement {
     if (this.alcaDom) return this.alcaDom;
     const dom = document.createElement("div");
     dom.className = "cm-alca-bloco";
-    dom.addEventListener("mouseleave", this.aoMouseLeaveDaAlca);
+    dom.addEventListener("mouseenter", () => this.cancelarEsconder());
+    dom.addEventListener("mouseleave", () => {
+      if (!this.arrasto) this.agendarEsconder();
+    });
     document.body.appendChild(dom);
     this.alcaRoot = createRoot(dom);
     this.alcaRoot.render(createElement(AlcaBloco, { onPointerDown: this.aoIniciarArrasto }));
@@ -163,6 +176,7 @@ class AlcaBlocoPlugin {
   private aoIniciarArrasto = (event: React.PointerEvent) => {
     if (event.button !== 0 || !this.blocoAtual) return;
     event.preventDefault();
+    this.cancelarEsconder();
 
     const arvore = syntaxTree(this.view.state);
     const irmaos = blocosIrmaos(arvore, this.view.state.doc, this.blocoAtual);
@@ -275,6 +289,7 @@ class AlcaBlocoPlugin {
   destroy() {
     this.view.dom.removeEventListener("mousemove", this.aoMouseMove);
     this.view.dom.removeEventListener("mouseleave", this.aoMouseLeave);
+    this.cancelarEsconder();
     this.finalizarArrasto();
     this.alcaRoot?.unmount();
     this.alcaDom?.remove();
