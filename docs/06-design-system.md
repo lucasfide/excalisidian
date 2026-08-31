@@ -417,6 +417,7 @@ Altura padrão 36px, compacto 30px, ícone 32×32.
 | `BarraAbas` | fichas de aba, arrastar, zonas de soltura, indicador de não salvo |
 | `PainelSplit` | wrapper do dockview com as divisórias em hairline |
 | `EditorNota` | CodeMirror com live preview |
+| `AlcaBloco` | alça ⠿ que aparece ao passar o mouse sobre um bloco, arrasta pra mover |
 | `BarraFlutuanteFormatacao` | barra que aparece grudada acima do texto selecionado (negrito, itálico, riscado, código, título 1/2/3, citação, lista, lista numerada, checkbox, link) — mesma linguagem visual do `ToolbarCanvas` |
 | `MargemNota` | coluna de 76px com metadados do bloco |
 | `EmbedDesenho` | bloco que renderiza o SVG do desenho dentro da nota |
@@ -499,6 +500,7 @@ Altura padrão 36px, compacto 30px, ícone 32×32.
 | negrito / itálico / riscado / código | `bold` / `italic` / `strikethrough` / `code` |
 | título 1 / 2 / 3 | `heading-1` / `heading-2` / `heading-3` |
 | citação / lista / lista numerada / checkbox / link | `quote` / `list` / `list-ordered` / `square-check` / `link` |
+| mover bloco (alça) | `grip-vertical` |
 
 ---
 

@@ -66,6 +66,34 @@ um edita o outro:
   escrever um título). Aceito por ora; corrigir exige mexer em como o dockview troca de
   painel (ver doc 09).
 
+### 3.2 Blocos no editor de texto
+
+O editor entende "bloco" do mesmo jeito que Notion e Obsidian, mas construído em cima do fato
+de que o arquivo é Markdown puro — não existe objeto "bloco" próprio, o que existe é a árvore de
+sintaxe do CommonMark/GFM (ver doc 09 ADR-18). **Bloco é o filho direto do documento que contém
+o cursor** — um parágrafo, um heading, uma citação, um bloco de código, uma tabela — exceto
+dentro de uma lista, onde cada item é seu próprio bloco.
+
+- **Enter** divide o bloco em dois: grava uma **linha em branco** no arquivo. É o que faz
+  "bloco novo" ser verdade no disco, não só na tela — dois parágrafos sem linha em branco entre
+  eles são um parágrafo só pra qualquer leitor de Markdown.
+- **Shift+Enter** quebra dentro do **mesmo** bloco: grava uma **quebra de linha simples**
+  (`\n`), sem os dois espaços do hard break do CommonMark — arquivo mais limpo, compatível com
+  o que o Obsidian escreve.
+- Essa distinção só vale para parágrafo e heading soltos (filhos diretos do documento). Dentro
+  de lista, citação, bloco de código ou tabela, Enter continua fazendo o que já fazia (continuar
+  a lista, por exemplo) — nunca abre linha em branco ali.
+- **Mudar o Enter não reformata nota nenhuma já existente** (§11.8): uma nota antiga onde as
+  linhas foram separadas só por Enter simples continua sendo lida como um parágrafo de várias
+  linhas — o app não sai inserindo linha em branco em texto que o usuário não tocou.
+- **Clique triplo** seleciona o bloco inteiro (inclusive um parágrafo de várias linhas feito com
+  Shift+Enter), nunca a linha em branco depois dele.
+- **Mover bloco** é só pela alça (⠿) que aparece ao passar o mouse — sem atalho de teclado.
+  Arrasta um bloco pra antes ou depois de outro **do mesmo nível**: parágrafo/heading/citação
+  soltos entre si, ou item de lista dentro da própria lista. Um título (H1) tem seu próprio
+  bloco — mover pela alça na linha do título move só aquela linha, nunca a seção inteira que
+  vem depois dela.
+
 ## 4. Criação de notas por link
 
 Clicar num `[[link não resolvido]]`:

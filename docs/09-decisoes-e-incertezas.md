@@ -364,6 +364,62 @@ e não mais que isso sem uma boa razão" é do domínio de disco, não de SO) co
 nome e capitalizado no lado JS (`src/app/sistemaOperacional.ts`) — o valor bruto do SO pode
 vir em qualquer capitalização ou com sobrenome.
 
+### ADR-18 · Bloco é o do Markdown, não um objeto próprio
+
+**Contexto:** pedido do usuário — clique triplo selecionando além do bloco (vazava pra linha de
+baixo), e nenhuma distinção entre Enter e Shift+Enter (Notion/Obsidian têm as duas). Pedido
+também: mover bloco por arraste, tipo Notion.
+
+**A pergunta de fundo era "o que é um bloco".** Notion guarda cada bloco como um objeto próprio
+no seu banco de dados; este app guarda Markdown puro em arquivo (ADR-4, RNF7). Não há objeto
+"bloco" nenhum — o que existe é a árvore de sintaxe do CommonMark/GFM, já disponível via
+`@lezer/markdown` (o mesmo parser que a live preview usa). **Decisão: bloco é o filho direto do
+documento** que contém a posição (parágrafo, heading, citação, código, tabela...), exceto dentro
+de lista, onde desce até o item mais interno — cada item de lista é seu próprio bloco, igual
+Notion, e é isso que faz "mover a linha do título não arrasta a seção" ser verdade (o título é
+um heading solto, bloco próprio, sem relação de bloco-pai com o que vem depois dele).
+
+`src/editor/extensoes/blocoMarkdown.ts` implementa isso puro (`Tree` + `Text`, nunca
+`EditorView`) — testável em `environment: "node"` sem abrir navegador, construindo a árvore
+direto com `markdownLanguage.parser.parse(texto)`. É a base dos três comportamentos abaixo.
+
+**Por que o Enter passou a gravar linha em branco:** Markdown não tem "bloco novo" como conceito
+— `linha1\nlinha2` é **um parágrafo só**, qualquer leitor de Markdown concorda. Pro modelo
+mental "Enter = bloco novo" ser verdade *no arquivo* (não só na tela do app), o Enter precisa
+gravar uma linha em branco. A alternativa — manter Enter como quebra simples e só *mostrar* dois
+blocos na tela — quebraria o round-trip: abrir o arquivo em qualquer outro programa (ou no
+Git diff) mostraria um parágrafo só, contradizendo o que o usuário viu no app.
+
+**Por que Shift+Enter é `\n` e não o hard break do CommonMark:** o CommonMark define quebra de
+linha dentro de um parágrafo com dois espaços à direita (`  \n`) ou uma barra invertida. Os
+dois são frágeis em diff (espaço em branco invisível no fim de linha) e o Obsidian, a referência
+de comportamento pedida pelo usuário, escreve `\n` simples. Aceito que renderizadores Markdown
+estritos (GitHub incluso) vão juntar visualmente essas linhas — trade-off explícito, escolhido
+pelo usuário.
+
+**Por que não reformata nota existente:** doc 04 §11.8 — o app não toca no que o usuário não
+editou. Uma nota antiga com linhas separadas por Enter simples continua sendo um parágrafo de
+várias linhas; a mudança vale só para o que for digitado dali pra frente.
+
+**Limitação aceita — clique-triplo-e-arrastar:** clicar três vezes e arrastar para estender a
+seleção bloco a bloco não foi implementado. Exigiria a interface completa
+`EditorView.mouseSelectionStyle` (existe, documentada, não usada em nenhum outro lugar do
+projeto) por um ganho pequeno — fica só o clique triplo simples
+(`selecaoDeBloco.ts`, um `mousedown` de `detail === 3` interceptado antes do CodeMirror
+processar o dele).
+
+**Limitação aceita — mover só entre irmãos:** `moverBloco.ts` (`calcularMovimento`) só reordena
+entre blocos do mesmo nível — parágrafo entre parágrafos, item dentro da própria lista. Arrastar
+um parágrafo pra dentro de uma lista exigiria reindentar e inserir marcador de lista; fica fora
+do v1, e a alça não mostra indicador de soltura em posição inválida, pra não prometer o que não
+faz.
+
+**Por que a alça de mover é `position: fixed` fora do `view.dom`:** o respiro de 32px da coluna
+de texto (`px-8`, `PainelDocumento.tsx`) fica fora da árvore do CodeMirror, e o wrapper de
+`EditorNota.tsx` tem `overflow-hidden` — um elemento posicionado com offset negativo dentro do
+`view.dom` seria cortado. `position: fixed`, ancorado em `getBoundingClientRect()`/
+`coordsAtPos`, escapa desse corte (mesma ideia de um tooltip/popover).
+
 ### ADR-9 · O nome do produto é um problema em aberto
 
 Isto não é uma decisão, é um alerta que apareceu ao resolver o ADR-8.
