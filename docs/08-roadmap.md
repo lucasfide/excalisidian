@@ -116,10 +116,10 @@ A fatia mais cara do projeto.
 - Excalidraw embutido, CSS importado, fontes self-hosted, `EXCALIDRAW_ASSET_PATH` local.
 - `formatoDesenho.ts`: parse e serialize do `.draw.md` com ordem estável, reconhecendo os fences `draw-json` e `draw-json-lz`.
 - Autosave do desenho com o mesmo contrato das notas.
-- Paletas restritas e tema aplicados, via `canvas/paletaCanvas.ts` lendo os tokens CSS — nunca hex literais no TypeScript.
+- Tema aplicado, via `canvas/paletaCanvas.ts` lendo os tokens CSS — nunca hex literais no TypeScript.
 - Fundo pontilhado.
-- Toolbar e painel de propriedades próprios (ou CSS sobre os do Excalidraw, com versão pinada).
-- Post-it como ferramenta, inserido por `updateScene` com `CaptureUpdateAction.IMMEDIATELY` para ser desfazível.
+- ~~Toolbar e painel de propriedades próprios~~ **Superado**: acabou sendo a UI nativa do Excalidraw, ligada (a alternativa que esta linha já cogitava). Ver doc 09, ADR-20.
+- ~~Post-it como ferramenta, inserido por `updateScene` com `CaptureUpdateAction.IMMEDIATELY` para ser desfazível.~~ **Removido** na mesma migração — decisão do usuário.
 - Bloqueio de `Ctrl+Delete` e reencaminhamento dos atalhos de aplicação (seção 6.1 do documento 04).
 - Colar imagem gravando arquivo no vault.
 

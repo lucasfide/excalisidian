@@ -167,7 +167,11 @@ contrato de 4 props, então a troca não toca `vaultStore`, `useAutosave` nem `B
 
 ### ADR-11 · O filtro de tema escuro do Excalidraw fica desligado
 
-**Contexto:** ao testar o canvas em tela (29/08/2026), a cor branca escolhida no painel
+**Aposentado (01/09/2026, ADR-20).** A premissa deste
+ADR — duas paletas próprias, hand-picked, competindo com o filtro nativo — caiu junto com o
+ADR-12. O filtro volta a ligar; ver o ADR-20 pro raciocínio completo.
+
+**Contexto (histórico):** ao testar o canvas em tela (29/08/2026), a cor branca escolhida no painel
 aparecia como um cinza escuro sobre o fundo escuro do app — quase ilegível.
 
 **Causa, confirmada por grep no bundle (`node_modules/@excalidraw/excalidraw/dist/prod/index.css`):**
@@ -205,7 +209,16 @@ API pública documentada.
 
 ### ADR-12 · Cor de elemento acompanha o tema
 
-**Contexto:** consequência natural do ADR-11 — com duas paletas independentes, o que acontece
+**Aposentado (01/09/2026, ADR-20).** O seletor de cor
+nativo do Excalidraw nunca foi customizável pela API pública — as paletas são hardcoded nas
+próprias actions do pacote e as constantes não são exportadas (nem no índice público, nem por
+subpath, nem em nenhum bundle publicado). Sem controle da paleta que o usuário efetivamente usa,
+manter esta conversão só produzia cena mista (parte acompanhando o tema, parte não) e um vetor
+real de corrupção de cor — a "aproximação conhecida" da heurística de post-it, descrita abaixo,
+deixou de ser improvável assim que o painel nativo passou a dar acesso direto e independente a
+`stroke`/`background`/`fillStyle`/`edges`. Ver o ADR-20 pro raciocínio completo.
+
+**Contexto (histórico):** consequência natural do ADR-11 — com duas paletas independentes, o que acontece
 quando um desenho colorido no tema escuro é reaberto no tema claro?
 
 **Decisão:** a cor acompanha o tema. Um elemento colorido com um dos 14 tokens normativos
@@ -341,6 +354,14 @@ comum, não um detalhe de implementação do Excalidraw.
 **Escopo, por decisão do usuário:** só formas fechadas (retângulo, losango, elipse). Seta e
 linha não têm "dentro" — continuam exigindo clique no traço, como sempre foi.
 
+**Atualização (01/09/2026, ADR-20): a guarda de "ignora clique na
+nossa UI" mudou.** Era `!e.target.closest(".excalidraw")` — funcionava porque a toolbar/painel
+próprios eram irmãos do Excalidraw na árvore, então a checagem devolvia `null` pra clique neles.
+Com a UI nativa ligada, toolbar/painel/popovers do Excalidraw ficam **dentro** de `.excalidraw`,
+e essa guarda passaria a aceitar clique na UI nativa, arriscando selecionar uma forma vazia
+escondida atrás do painel. Trocada por `e.target instanceof HTMLCanvasElement` — só o `<canvas>`
+de verdade interessa, independente de onde a UI nativa está na árvore.
+
 ### ADR-16 · Aba de início fixa, fora da lista de abas de verdade
 
 **Contexto:** pedido explícito — uma tela de abertura (saudação, atalhos de pasta, criar
@@ -466,7 +487,15 @@ linha de um bloco de várias linhas passe por ela. **Não simplifique isso de vo
 
 ### ADR-19 · Alinhar/distribuir no canvas: reimplementado por fora, sem API do Excalidraw
 
-**Contexto:** pedido do usuário (já registrado no roadmap dele) — alinhar elementos selecionados
+**Obsoleto (01/09/2026, ADR-20).** O recurso agora vem
+do Excalidraw nativo (o motivo original pra reimplementar era só "a UI nativa está desligada" —
+premissa que caiu). E havia um bug real na versão própria: `alinhar`/`distribuir` só moviam
+elementos com id em `selectedElementIds`, que não inclui texto vinculado a uma forma — alinhar
+um retângulo com texto deixava o texto pra trás. O Excalidraw nativo trata texto vinculado,
+seta ligada e grupo corretamente. `src/canvas/alinharDistribuir.ts` foi apagado. Mantido abaixo
+só como registro histórico do porquê a versão própria existiu.
+
+**Contexto (histórico):** pedido do usuário (já registrado no roadmap dele) — alinhar elementos selecionados
 (esquerda/centro/direita, topo/meio/base) e distribuir espaçamento uniforme entre 3+ elementos,
 no canvas de desenho. O Excalidraw nativo tem isso, mas só na UI dele, que este app desliga por
 completo (CSS) em favor de `ToolbarCanvas.tsx`/`PropriedadesCanvas.tsx` próprios.
@@ -504,6 +533,76 @@ virarem uma funcionalidade de verdade.
 decisão do usuário. Segue o mesmo padrão de toda ação que atua sobre "os elementos selecionados
 agora" (cor, espessura, opacidade) e não mexe na ordem fixa e já documentada dos 3 grupos da
 toolbar (doc 06, "Toolbar do canvas").
+
+### ADR-20 · Volta pra UI nativa do Excalidraw; ADR-11/12/17(parcial)/19 revistos
+
+**Contexto:** a toolbar (`ToolbarCanvas.tsx`) e o painel de propriedades (`PropriedadesCanvas.tsx`)
+próprios, construídos numa fatia inteira pra substituir a UI nativa do Excalidraw (escondida por
+CSS), cobriam bem menos do que ela: sem ordem de camadas, espelhar, cantos, pontas de seta,
+copiar/colar estilo, duplicar, agrupar. E o alinhar/distribuir reimplementado (ADR-19) tinha um
+bug real, achado em uso: só movia elementos com id em `selectedElementIds`, e texto vinculado a
+uma forma não está nesse conjunto — alinhar um retângulo com texto deixava o texto pra trás.
+Reclamação do usuário: "as ferramentas de distribuição ficaram bem estranhas, algumas outras
+ferramentas não se comportam como o esperado".
+
+**Investigado antes de decidir** (não presumido): a API pública do Excalidraw 0.18.1 foi
+levantada por completo — `ExcalidrawProps` inteiro, `UIOptions` inteiro, o conteúdo exato do
+painel de propriedades nativo (`Actions.tsx`), os slots de composição (`renderTopRightUI`,
+`MainMenu`, `Footer`, `Sidebar`/`DefaultSidebar`, `WelcomeScreen`, `Stats`), a customização de
+paleta de cor (não existe — hardcoded), e os efeitos do `--theme-filter`/`theme` prop.
+
+**Decisão: ligar a UI nativa, apagar a própria.** O essencial do produto sobrevive por API
+pública:
+
+- `onLinkOpen` (wikilink em elemento) — já em uso, prop pública de primeira classe, não muda.
+- Fundo pontilhado, autocomplete de `[[` na caixa de texto nativa, colar imagem — tudo
+  implementado por fora da UI (CSS abaixo do canvas, listener de DOM, `onPaste`), sobrevive
+  intacto.
+- `renderTopRightUI` (canto superior direito, slot público) hospeda o único pedaço de UI
+  própria que resta: `LinkDoElemento.tsx`, o campo de link com autocomplete de nota — o popup
+  nativo de `Ctrl+K` é um `<input>` cru, sem gancho pra isso.
+
+**O que foi aposentado, e por quê (decisões tomadas com o usuário nesta rodada):**
+
+1. **ADR-12 (cor de elemento acompanha o tema).** O seletor de cor nativo não é customizável —
+   paletas hardcoded nas actions, constantes não exportadas (confirmado: zero ocorrência em
+   qualquer bundle de `dist/prod/*.js`). Sem controle da paleta, manter a conversão só produzia
+   cena mista e um vetor real de corrupção de cor (a "aproximação conhecida" do ADR-12 — falso
+   positivo de `ehPostit` num retângulo sólido de canto vivo — deixa de ser improvável quando o
+   painel nativo dá acesso direto e independente a `stroke`/`background`/`fillStyle`/`edges`). O
+   disco passa a gravar a cor exata escolhida (doc 02 §3.3.1 reescrito).
+2. **ADR-11 (filtro de tema escuro desligado).** Só existia por causa do ADR-12. O modo escuro
+   do canvas volta a ser o filtro de inversão nativo do Excalidraw.
+3. **Post-it (RF5.9, P0 até então).** Não há slot público pra ferramenta nova na toolbar nativa,
+   e decisão do usuário: não precisa dele. Post-its já desenhados continuam renderizando (são
+   retângulo + texto vinculado, formato nativo) — só não dá mais pra criar um novo por botão.
+4. **ADR-19 (alinhar/distribuir reimplementado).** Motivo original — "a UI nativa está
+   desligada" — caiu. `alinharDistribuir.ts` apagado; o recurso nativo trata texto vinculado,
+   seta ligada e grupo corretamente, o que a versão própria não fazia.
+
+**O que ficou visível e não dá pra esconder (aceito, sem escolha):** `UIOptions.tools` só aceita
+`{ image: boolean }` — confirmado nos três níveis (tipo, normalização em `index.tsx`, e o
+`Extract<>` que o dropdown usa pra filtrar `SHAPES`). Frame (`F`), embed/iframe, laser (`K`) e
+"Mermaid to Excalidraw" voltam a aparecer no menu de "mais ferramentas", incondicionalmente.
+`aiEnabled={false}` tira só os dois pontos de entrada de IA (text-to-diagram, magicframe) — não
+tira o Mermaid nem o heading "Generate", que são incondicionais no código do pacote.
+
+**Regressão silenciosa evitada, achada só pela investigação (não por teste manual):** a guarda
+de "ignora clique na nossa UI" da seleção de forma vazia (ADR-17) dependia de
+`closest(".excalidraw")` devolver `null` pra clique na toolbar/painel próprios, que eram irmãos
+do Excalidraw na árvore. Com a UI nativa ligada, toolbar/painel/popovers ficam **dentro** de
+`.excalidraw` — a guarda antiga aceitaria clique neles e podia selecionar uma forma vazia
+escondida atrás do painel. Trocada por `e.target instanceof HTMLCanvasElement`.
+
+**Consequência que a doc 06 registra:** a seção "Toolbar, painel de propriedades e paletas do
+desenho" foi reescrita pra descrever a remoção, não a implementação — inclusive as paletas de
+traço/preenchimento/post-it, que não existem mais como tokens do canvas (o usuário escolhe entre
+as cores nativas do Excalidraw agora).
+
+**Escopo do que não foi tocado nesta rodada:** `atalhosCanvas.ts` (bloqueio de `Ctrl+Delete` e
+reencaminhamento de `Ctrl+S/O/P/T/W`) — revisado e mantido como está, porque `UIOptions.
+canvasActions` (`loadScene`, `saveToActiveFile`, `clearCanvas`, todos `false`) já esconde os
+itens de menu correspondentes, então não há hoje item de menu visível cujo atalho fique morto.
 
 ### ADR-9 · O nome do produto é um problema em aberto
 
@@ -570,7 +669,7 @@ Trate cada item abaixo como suposição a validar antes de depender dele.
 
 11. **`FONT_SIZES` com quatro tamanhos.** S16/M20/L28 são certos; o XL 36 não foi confirmado. O design system usa quatro (P/M/G/GG) — se o XL não existir na versão fixada, ajuste para três.
 
-12. **Esconder ferramentas da toolbar por CSS.** Funciona hoje, mas depende de classes internas. Por isso a recomendação de construir a toolbar própria em vez de estilizar a nativa — o que, por sua vez, exige checar se `setActiveTool` cobre todas as ferramentas que queremos expor. Não confirmei que cobre post-it (que não existe lá) — o post-it terá que ser criado programaticamente via `updateScene`.
+12. ~~**Esconder ferramentas da toolbar por CSS.** Funciona hoje, mas depende de classes internas. Por isso a recomendação de construir a toolbar própria em vez de estilizar a nativa.~~ **Invertido na prática (01/09/2026).** A toolbar própria foi construída, usada por uma fatia inteira, e depois abandonada — cobria menos do que a nativa (sem camadas, espelhar, cantos, agrupar, alinhar/distribuir de verdade) e tinha bug real no alinhar/distribuir. A decisão final foi a oposta desta nota: usar a UI nativa e não esconder nada por CSS. Ver doc 09, ADR-20.
 13. **Renderizar o desenho como SVG para embutir na nota.** `exportToSvg` existe e é a peça certa, mas não testei o custo de renderizar vários embeds numa nota longa. Pode ser necessário cachear o SVG por `mtime` do desenho.
 14. **Números de desempenho dos requisitos não funcionais.** RNF1 (5 000 notas em 2 s), RNF3 (500 elementos a 60 fps) e o limite de 3 000 elementos são metas que eu escolhi como razoáveis, não medições. Ajuste depois do primeiro benchmark real.
 15. **Tamanhos e medidas do design system que não vieram do Taskly** — altura de aba 34px, sidebar 264px, margem de 76px, coluna de texto de 720px, grade de 20px. São decisões minhas, coerentes com o sistema, mas não testadas em tela.

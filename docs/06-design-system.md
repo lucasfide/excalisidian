@@ -292,83 +292,33 @@ No tema escuro: pontos em `regua` (`#34302A`) sobre `papel` (`#16140F`), opacida
 
 Implementação: `background-image` com `radial-gradient` de um ponto, `background-size: 20px 20px`, aplicado no elemento abaixo do canvas do Excalidraw — o `viewBackgroundColor` da cena fica **transparente** para o fundo aparecer. A grade acompanha zoom e pan.
 
-### Paletas do desenho
+### Toolbar, painel de propriedades e paletas do desenho
 
-Cinco traços, cinco opções de preenchimento. Estes valores substituem por inteiro a paleta padrão do Excalidraw (uma variação de Open Color; os hex exatos dela não importam aqui e não estão reproduzidos de propósito — ver item 6 da Parte 3 do documento 09).
+**Removido** (doc 09, ADR-20). Esta seção descrevia uma
+toolbar e um painel de propriedades próprios, com paletas de traço/preenchimento/post-it
+restritas aos tokens do design system, substituindo por inteiro a UI nativa do Excalidraw
+(escondida por CSS). Foi revertido: a UI nativa está ligada, e nenhuma dessas superfícies é mais
+estilizada pelo app.
 
-**Traço:**
+Motivo: o painel próprio cobria menos do que o nativo (sem ordem de camadas, espelhar, cantos,
+pontas de seta, copiar estilo, duplicar, agrupar), e o alinhar/distribuir reimplementado tinha
+um bug real — só movia elementos com id em `selectedElementIds`, e texto vinculado a uma forma
+não está nesse conjunto, então alinhar um retângulo com texto deixava o texto pra trás. O
+Excalidraw nativo trata isso certo. O seletor de cor nativo, além disso, nunca foi
+customizável pela API pública — as paletas são hardcoded nas próprias actions do pacote e as
+constantes não são exportadas — então restringir a paleta exigia mantê-la só do lado do app,
+gerando cena mista quando o usuário usava o seletor nativo por baixo.
 
-| Nome | Claro | Escuro |
-|---|---|---|
-| tinta | `#1C1917` | `#EFEAE0` |
-| musgo | `#3E5C46` | `#86A98B` |
-| ocre | `#A87A1C` | `#D3A845` |
-| bordo | `#7A2E22` | `#C97B69` |
-| suave | `#655E54` | `#9A9384` |
+O que isso muda, em termos concretos: **o usuário escolhe cor entre as opções nativas do
+Excalidraw**, não os tokens `musgo`/`ocre`/`bordo` etc. — essas cores continuam definindo o
+resto da interface, só não mais o canvas. Espessura, estilo de linha, imperfeição, cantos,
+fonte e opacidade também passam a ter as opções nativas (mais amplas que as que o app
+restringia antes). Não existe mais ferramenta de post-it — decisão do usuário; post-its já
+desenhados continuam renderizando (são retângulo + texto vinculado, formato nativo).
 
-**Preenchimento** (sempre `fillStyle: solid`; hachura fica fora do produto):
-
-| Nome | Claro | Escuro |
-|---|---|---|
-| `fundo-nenhum` | `transparent` | `transparent` |
-| `fundo-neutro` | `#E5DFD4` | `#272319` |
-| `fundo-musgo` | `#CFDBD1` | `#2C3A2F` |
-| `fundo-ocre` | `#EDDCB4` | `#3D3323` |
-| `fundo-bordo` | `#E7CEC8` | `#3A2823` |
-
-Os nomes acima são tokens do canvas e **não** se confundem com os tokens da interface: `fundo-neutro` tem o mesmo hex de `lavagem`, mas são coisas diferentes e podem divergir.
-
-**Post-it** — quatro cores, sempre sólidas, traço da mesma cor:
-
-| Nome | Claro | Escuro |
-|---|---|---|
-| `postit-ocre` | `#EDDCB4` | `#4A3E28` |
-| `postit-musgo` | `#CFDBD1` | `#2F4034` |
-| `postit-bordo` | `#E7CEC8` | `#4A2F28` |
-| `postit-neutro` | `#E5DFD4` | `#312C22` |
-
-O texto do post-it é sempre `tinta`, nos dois temas.
-
-No tema claro os pares `fundo-*` e `postit-*` coincidem em hex; no escuro, não. São dois conjuntos de propósito — não os unifique.
-
-**Fundo da cena:** transparente (a grade fica atrás).
-
-O Excalidraw tem o próprio mecanismo de tema escuro (um filtro CSS de inversão no `<canvas>`),
-desligado neste produto porque colidiria com as duas paletas acima — ver doc 09 ADR-11. Um
-elemento colorido com um dos tokens desta seção troca de par ao mudar de tema; ver ADR-12.
-
-### Espessura, estilo e imperfeição
-
-| Propriedade | Opções |
-|---|---|
-| espessura | fina (1), média (2), grossa (4) |
-| estilo de linha | contínua, tracejada, pontilhada |
-| imperfeição | reta (0), à mão (1) — o nível "cartunista" (2) sai do produto |
-| cantos | vivo, arredondado |
-| opacidade | 30, 60, 100 |
-
-### Fontes do desenho
-
-Duas, não quatro:
-
-- **à mão** — Excalifont (a fonte padrão do Excalidraw)
-- **datilografada** — IBM Plex Mono, para combinar com o `meta` do resto do app
-
-Tamanhos: P 16, M 20, G 28, GG 36.
-
-### Toolbar do canvas
-
-Barra flutuante **no topo, centralizada**, fundo `superficie`, hairline `regua`, `raio-ficha`, `sombra-sobreposicao`. Botões de 32px, ícone de 18px em `tinta-media`, ferramenta ativa com fundo `musgo` e ícone em `superficie`.
-
-Ordem, em três grupos separados por hairline vertical:
-
-1. seleção · mão
-2. retângulo · losango · elipse · seta · linha · mão livre
-3. texto · post-it · imagem · borracha
-
-Cada botão mostra a tecla de atalho em `meta-mini` no canto inferior direito, em `tinta-suave`. As teclas são: `V` seleção · `H` mão · `R` retângulo · `D` losango · `O` elipse · `A` seta · `L` linha · `P` mão livre · `T` texto · `S` post-it · `9` imagem · `E` borracha. Todas vêm do Excalidraw, menos `S` — a ferramenta post-it não existe lá.
-
-Painel de propriedades **à esquerda**, ancorado, fundo `superficie`, largura 216px, só visível quando há seleção ou ferramenta de desenho ativa.
+O que continua igual, por baixo da UI nativa: o fundo pontilhado (abaixo), e um painel próprio
+pequeno só para o link com autocomplete de nota (ver `LinkDoElemento` no inventário de
+componentes) — o único ponto em que o Excalidraw nativo não tem equivalente público.
 
 ---
 
@@ -418,16 +368,14 @@ Altura padrão 36px, compacto 30px, ícone 32×32.
 | `PainelSplit` | wrapper do dockview com as divisórias em hairline |
 | `EditorNota` | CodeMirror com live preview |
 | `AlcaBloco` | alça ⠿ que aparece ao passar o mouse sobre um bloco, arrasta pra mover |
-| `BarraFlutuanteFormatacao` | barra que aparece grudada acima do texto selecionado (negrito, itálico, riscado, código, título 1/2/3, citação, lista, lista numerada, checkbox, link) — mesma linguagem visual do `ToolbarCanvas` |
+| `BarraFlutuanteFormatacao` | barra que aparece grudada acima do texto selecionado (negrito, itálico, riscado, código, título 1/2/3, citação, lista, lista numerada, checkbox, link) |
 | `MargemNota` | coluna de 76px com metadados do bloco |
 | `EmbedDesenho` | bloco que renderiza o SVG do desenho dentro da nota |
 | `EmbedNota` | bloco que renderiza a transclusão de nota ou seção |
 | `LinkInterno` | span de link resolvido / não resolvido, com preview no `Ctrl+hover` |
 | `AutocompleteLink` | popover de sugestão ao digitar `[[` |
-| `EditorDesenho` | Excalidraw embutido com tema e paletas do sistema |
-| `ToolbarCanvas` | barra flutuante de ferramentas |
-| `PropriedadesCanvas` | painel esquerdo de propriedades — com 2+ elementos selecionados, ganha a seção "Alinhar e distribuir" (6 botões de alinhar, 2 de distribuir, este último desabilitado com menos de 3 selecionados) |
-| `SeletorCor` | grade de 5 cores, quadrados de 24px, `raio-controle`, selecionada com régua `musgo` de 2px embaixo |
+| `EditorDesenho` | Excalidraw embutido com UI nativa (toolbar, painel de propriedades, menu) e fundo pontilhado do app |
+| `LinkDoElemento` | painel próprio pequeno (canto superior direito, via `renderTopRightUI`) com o campo de link e autocomplete de nota — a única UI de canvas que não é nativa |
 | `PainelBacklinks` | lista de notas que apontam para a atual, com trecho |
 | `PainelBusca` | campo, resultados agrupados por arquivo, trecho com destaque |
 | `QuickSwitcher` | sobreposição de busca por nome |
@@ -493,17 +441,13 @@ Altura padrão 36px, compacto 30px, ícone 32×32.
 | ordenar | `arrow-up-narrow-wide` |
 | preferências | `settings` |
 | aviso | `alert-triangle` |
-| seleção / mão | `mouse-pointer-2` / `hand` |
-| retângulo / losango / elipse | `square` / `diamond` / `circle` |
-| seta / linha / mão livre | `move-right` / `minus` / `pencil` |
-| texto / post-it / borracha | `type` / `sticky-note` / `eraser` |
 | negrito / itálico / riscado / código | `bold` / `italic` / `strikethrough` / `code` |
 | título 1 / 2 / 3 | `heading-1` / `heading-2` / `heading-3` |
 | citação / lista / lista numerada / checkbox / link | `quote` / `list` / `list-ordered` / `square-check` / `link` |
 | mover bloco (alça) | `grip-vertical` |
-| alinhar à esquerda / centralizar horizontal / à direita | `align-horizontal-justify-start` / `align-horizontal-justify-center` / `align-horizontal-justify-end` |
-| alinhar ao topo / centralizar vertical / à base | `align-vertical-justify-start` / `align-vertical-justify-center` / `align-vertical-justify-end` |
-| distribuir horizontal / vertical | `align-horizontal-distribute-center` / `align-vertical-distribute-center` |
+
+Ícones de ferramenta do canvas (seleção, formas, texto, alinhar/distribuir etc.) não aparecem
+aqui — vêm da UI nativa do Excalidraw, fora do controle do app (doc 09, ADR-20).
 
 ---
 

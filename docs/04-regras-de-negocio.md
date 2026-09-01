@@ -119,13 +119,12 @@ Ao digitar `[[`:
 
 ### Post-it
 
-Não existe post-it no Excalidraw original — o que existe é forma com texto dentro. No Excalisidian o post-it é uma ferramenta de primeira classe, e é açúcar sobre isso:
-
-- cria um retângulo de 180×180, cantos arredondados, `fillStyle: solid`, sem traço visível (traço da mesma cor do fundo);
-- cor de fundo: a última cor de post-it usada, começando em `postit-ocre`;
-- já entra em modo de edição de texto, com alinhamento centralizado na vertical;
-- ao digitar mais do que cabe, **o post-it cresce em altura**, nunca reduz a fonte;
-- as quatro cores de post-it (`postit-ocre`, `postit-musgo`, `postit-bordo`, `postit-neutro`) estão no design system.
+**Removido** (doc 09, ADR-20). Não existe post-it no
+Excalidraw original — o que existe é forma com texto dentro — e não existe slot público pra
+adicionar uma ferramenta na toolbar nativa; decisão do usuário de não precisar de post-it como
+ferramenta de primeira classe. Post-its já desenhados em notas antigas continuam renderizando
+normalmente (são retângulo + texto vinculado, formato nativo do Excalidraw) — só não dá mais
+pra criar um novo por um botão dedicado.
 
 ### Seleção de forma sem preenchimento
 

@@ -243,18 +243,14 @@ O `ExcalidrawElement` tem campos que mudam a cada interação sem que nada de se
 
 Sem essa lista, o RNF7 e o teste 2 do documento 05 são impossíveis de passar por construção.
 
-### 3.3.1 Cor gravada é sempre a do tema claro
+### 3.3.1 Cor gravada é a cor escolhida (ADR-12 aposentado)
 
-`strokeColor`/`backgroundColor` (e o `strokeColor` de um `label` aninhado) só carregam um dos
-14 hex normativos da paleta do canvas (doc 06 §295-334) quando o elemento foi colorido pelo
-próprio Excalisidian — nesse caso, **o disco grava sempre o par do tema claro**, mesmo que o
-desenho tenha sido feito no escuro. Ao ler, o app converte para a paleta do tema ativo (doc 09
-ADR-12). Uma cor fora dessa paleta (colada de fora, ou de uma versão antiga do app) é gravada e
-lida sem alteração — a conversão só reconhece os 14 tokens normativos, nunca cores livres.
-
-Isso existe porque as duas paletas são desenhadas à mão para contraste (doc 06 §59: "o tema
-escuro não é inversão automática"), não uma é a inversa da outra — sem essa conversão, um
-desenho feito num tema fica ilegível quando reaberto no outro.
+**Removido** (doc 09, ADR-20). `strokeColor`/
+`backgroundColor` gravam exatamente a cor que o usuário escolheu no seletor nativo do
+Excalidraw, sem conversão nenhuma — o seletor nativo não é customizável (paletas hardcoded nas
+próprias actions do pacote, constantes não exportadas publicamente), então não havia como
+manter uma paleta de tokens própria sem produzir cena mista e um vetor real de corrupção de
+cor. O modo escuro do canvas volta a ser o filtro de inversão nativo do Excalidraw.
 
 ### Por que markdown e não JSON puro
 

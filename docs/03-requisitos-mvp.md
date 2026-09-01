@@ -79,19 +79,19 @@ Persona única: **o autor** — uma pessoa usando o app sozinha no próprio comp
 | ID | Requisito | P |
 |---|---|---|
 | RF5.1 | Canvas infinito com fundo pontilhado sempre visível (é o papel, não uma grade opcional), zoom e pan. | P0 |
-| RF5.2 | Ferramentas: seleção, mão, retângulo, losango, elipse, seta, linha, desenho à mão livre, texto, imagem, post-it, borracha. | P0 |
-| RF5.3 | Atalhos de ferramenta por tecla única: `V` seleção, `H` mão, `R` retângulo, `D` losango, `O` elipse, `A` seta, `L` linha, `P` mão livre, `T` texto, `S` post-it, `9` imagem, `E` borracha. Todos vêm do Excalidraw, menos `S` — a ferramenta post-it não existe lá. | P1 |
-| RF5.4 | Painel de propriedades com cor de traço, cor de preenchimento, estilo de preenchimento, espessura, estilo de linha, imperfeição, cantos, opacidade, camadas e ações. | P0 |
-| RF5.5 | Paletas restritas: 5 cores de traço e 5 opções de preenchimento (uma delas transparente), definidas no design system. | P0 |
+| RF5.2 | Ferramentas: seleção, mão, retângulo, losango, elipse, seta, linha, desenho à mão livre, texto, imagem, borracha. | P0 |
+| RF5.3 | Atalhos de ferramenta por tecla única: `V` seleção, `H` mão, `R` retângulo, `D` losango, `O` elipse, `A` seta, `L` linha, `P` mão livre, `T` texto, `9` imagem, `E` borracha. Todos nativos do Excalidraw (doc 09, ADR-20) — nenhum atalho próprio a manter. | P1 |
+| RF5.4 | Painel de propriedades nativo do Excalidraw: cor de traço, cor de preenchimento, estilo de preenchimento, espessura, estilo de linha, imperfeição, cantos, pontas de seta, opacidade, camadas, copiar/colar estilo, travar, espelhar, agrupar/desagrupar, alinhar e distribuir. | P0 |
+| RF5.5 | ~~Paletas restritas: 5 cores de traço e 5 opções de preenchimento (uma delas transparente), definidas no design system.~~ **Removido** (doc 09, ADR-20): o seletor de cor nativo do Excalidraw não é customizável — as paletas dele são hardcoded nas próprias actions e as constantes não são exportadas publicamente. O usuário escolhe entre as cores nativas do Excalidraw. | P0 |
 | RF5.6 | Escrever texto dentro de uma forma com duplo clique; a forma cresce em altura para caber o texto. | P0 |
 | RF5.7 | Conectores: setas que se prendem a formas e acompanham a forma quando ela é movida ou redimensionada. | P0 |
 | RF5.8 | Rótulo em cima da seta (duplo clique na seta). | P1 |
-| RF5.9 | Post-it: ferramenta que cria um quadrado com preenchimento sólido e texto já em edição, em uma das cores de post-it. | P0 |
+| RF5.9 | ~~Post-it: ferramenta que cria um quadrado com preenchimento sólido e texto já em edição, em uma das cores de post-it.~~ **Removido** (doc 09, ADR-20): não existe slot público pra adicionar ferramenta na toolbar nativa, e decisão do usuário de não precisar dela. Post-its já desenhados continuam renderizando normalmente — são só retângulo + texto vinculado, formato nativo do Excalidraw. | ~~P0~~ |
 | RF5.10 | Colar imagem com `Ctrl+V` e arrastar arquivo de imagem para o canvas; a imagem é gravada como arquivo na pasta de anexos e referenciada pelo desenho. | P0 |
 | RF5.11 | Escrever `[[Nota]]` num elemento de texto cria um link clicável para a nota; o link conta como backlink da nota. | P0 |
 | RF5.12 | Anexar um link a qualquer elemento (não só texto) com `Ctrl+K`, com indicador visual de que o elemento tem link. | P1 |
 | RF5.13 | Selecionar, mover, redimensionar, girar, agrupar, alinhar, duplicar e travar elementos. | P0 |
-| RF5.21 | Bloquear os atalhos destrutivos do Excalidraw embutido, em especial `Ctrl+Delete` (limpar a cena inteira), e deixar passar para o app os atalhos de aplicação (`Ctrl+S`, `Ctrl+O`, `Ctrl+P`, `Ctrl+T`, `Ctrl+W`). | P0 |
+| RF5.21 | Bloquear os atalhos destrutivos do Excalidraw embutido, em especial `Ctrl+Delete` (limpar a cena inteira), e deixar passar para o app os atalhos de aplicação (`Ctrl+S`, `Ctrl+O`, `Ctrl+P`, `Ctrl+T`, `Ctrl+W`). Com a UI nativa ligada (doc 09, ADR-20), os itens de menu correspondentes (`clearCanvas`, `loadScene`, `saveToActiveFile`) continuam desligados por `UIOptions` — sem item de menu visível cujo atalho fique morto. | P0 |
 | RF5.14 | Desfazer e refazer no canvas enquanto a aba estiver visível. O histórico se perde quando a aba sai de vista e a instância é desmontada — comportamento conhecido e aceito. | P0 |
 | RF5.15 | Salvar automaticamente com o mesmo contrato das notas (debounce, atômico). | P0 |
 | RF5.16 | Exportar o desenho como PNG e como SVG, com opção de fundo transparente. | P1 |
