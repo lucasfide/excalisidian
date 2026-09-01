@@ -99,6 +99,7 @@ export const useWorkspaceStore = create<WorkspaceState>((set, get) => ({
     api.addPanel({
       id: ID_PAINEL_INICIO,
       component: "inicio",
+      tabComponent: "inicio",
       title: "Início",
       params: {},
     });
@@ -159,7 +160,10 @@ export const useWorkspaceStore = create<WorkspaceState>((set, get) => ({
 
   fecharAtivo() {
     const { api } = get();
-    api?.activePanel?.api.close();
+    const ativo = api?.activePanel;
+    // A Home é fixa (doc 09 ADR-16): Ctrl+W nela não faz nada, igual o "x" some da aba dela.
+    if (!ativo || ativo.id === ID_PAINEL_INICIO) return;
+    ativo.api.close();
   },
 
   reabrirUltimo() {

@@ -17,7 +17,7 @@ import "./dockview-excalisidian.css";
 import { toast } from "sonner";
 
 import { useVaultStore } from "../estado/vaultStore";
-import { useWorkspaceStore } from "../estado/workspaceStore";
+import { useWorkspaceStore, ID_PAINEL_INICIO } from "../estado/workspaceStore";
 import { useDocumentosStore } from "../estado/documentosStore";
 import { useSobreposicaoStore } from "../estado/sobreposicaoStore";
 import { carregarLayout, salvarLayout, limparLayout } from "./persistencia";
@@ -26,6 +26,7 @@ import PainelDesenho from "./PainelDesenho";
 import PainelVazio from "./PainelVazio";
 import PainelInicio from "./PainelInicio";
 import AbaDocumento from "./AbaDocumento";
+import AbaInicio from "./AbaInicio";
 import BotaoInicioAba from "./BotaoInicioAba";
 
 const COMPONENTES = {
@@ -87,6 +88,12 @@ export default function Workspace() {
         const path = (p.params as { path?: string } | undefined)?.path ?? null;
         window.setTimeout(() => {
           if (!api.getPanel(id)) aoRemoverPainel(id, path);
+          // Fechar a última aba (a Home incluída, se alguma via de fora do app chegar a
+          // fechá-la — closeOthers, Ctrl+W numa corrida, etc.) não pode deixar o painel
+          // principal vazio: sem NENHUM grupo, o próprio cabeçalho de abas some, e junto
+          // dele o botão de abrir a Home (BotaoInicioAba, prefixHeaderActionsComponent) —
+          // aí não sobra nada clicável pra voltar. Reabre a Home sozinha.
+          if (api.panels.length === 0) useWorkspaceStore.getState().abrirInicio();
         }, 0);
       });
       disposables.current = [d1, d2, d3];
@@ -124,21 +131,29 @@ export default function Workspace() {
     [],
   );
 
-  // Dividir pelo menu de contexto da aba (RF3.4).
+  // Dividir pelo menu de contexto da aba (RF3.4). A Home é fixa (doc 09 ADR-16): sem "Fechar"
+  // nela, e "Fechar outras" nunca pode levá-la junto — por isso não usa o "closeOthers" nativo
+  // do dockview (que fecharia tudo, Home incluída), e sim uma versão própria que a poupa.
   const menuDaAba = useCallback((params: GetTabContextMenuItemsParams) => {
     const ws = useWorkspaceStore.getState();
     const alvo = params.panel;
     if (!ws.api || !alvo) return [];
+    const ehInicio = alvo.id === ID_PAINEL_INICIO;
     const dividir = (direcao: "right" | "below") => {
       alvo.api.setActive();
       ws.dividirAtivo(direcao);
+    };
+    const fecharOutras = () => {
+      for (const p of ws.api!.panels) {
+        if (p !== alvo && p.id !== ID_PAINEL_INICIO) p.api.close();
+      }
     };
     return [
       { label: "Dividir à direita", action: () => dividir("right") },
       { label: "Dividir abaixo", action: () => dividir("below") },
       "separator" as const,
-      "close" as const,
-      "closeOthers" as const,
+      ...(ehInicio ? [] : ["close" as const]),
+      { label: "Fechar outras", action: fecharOutras },
     ];
   }, []);
 
@@ -198,6 +213,7 @@ export default function Workspace() {
       dndStrategy="pointer"
       components={COMPONENTES}
       defaultTabComponent={AbaDocumento}
+      tabComponents={{ inicio: AbaInicio }}
       prefixHeaderActionsComponent={BotaoInicioAba}
       getTabContextMenuItems={menuDaAba}
       onReady={onReady}

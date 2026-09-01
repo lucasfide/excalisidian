@@ -357,6 +357,33 @@ uma instância, reaberta em vez de duplicada.
 Abre sozinha no boot quando `api.panels.length === 0` (vault novo, ou a sessão anterior fechou
 tudo) — sem isso o app cairia numa tela em branco igual antes desta fatia.
 
+**Correção (achada em uso real, 01/09/2026): "não pode ser fechada sem código dedicado" não
+estava implementado de verdade.** A `PainelInicio`, uma vez aberta, virava um painel do dockview
+igual qualquer outro — `AbaDocumento.tsx` (a aba padrão) tem um "x" que fecha qualquer painel, a
+Home incluída, e Ctrl+W (`fecharAtivo`) fechava o painel ativo sem checar qual era. Fechando a
+Home e depois todas as outras abas, o painel principal ficava **completamente vazio, sem
+nenhum jeito de voltar pela UI**: sem nenhum grupo do dockview, o próprio cabeçalho de abas
+some, e junto dele o `prefixHeaderActionsComponent` que hospeda o botão de abrir a Home — não
+sobrava nada clicável.
+
+Duas camadas de correção, porque nenhuma sozinha cobre tudo:
+1. **A Home não se fecha mais por UI.** `AbaInicio.tsx`, uma aba dedicada sem "x" (registrada em
+   `tabComponents={{ inicio: AbaInicio }}` do `DockviewReact`, com `tabComponent: "inicio"` no
+   `addPanel` de `abrirInicio`); `fecharAtivo` (Ctrl+W) vira no-op se o painel ativo é a Home; o
+   menu de contexto da aba não oferece "Fechar" nela, e "Fechar outras" deixou de usar o
+   `closeOthers` nativo do dockview (que fecharia tudo, Home incluída) — agora é uma ação própria
+   que sempre poupa a Home.
+2. **Rede de segurança, pro caso de algum caminho eu não ter coberto:** `onDidRemovePanel`
+   (`Workspace.tsx`) confere `api.panels.length === 0` depois de toda remoção e reabre a Home
+   sozinha se zerar — o mesmo `abrirInicio()` que já rodava só no boot, agora chamado durante a
+   sessão inteira. Esta camada é a que realmente garante a invariante ("nunca fica em branco"),
+   independente de eu ter enumerado certo todos os jeitos de fechar um painel.
+
+Ainda não mexido (fora do relato que motivou a correção): `Ctrl+Tab`/`Ctrl+1..9` continuam
+percorrendo `api.panels` sem excluir a Home, então ela AINDA aparece nesses dois atalhos, ao
+contrário do que este ADR sempre disse. Registrado, não corrigido — ninguém reclamou disso ainda
+e mexer em `cicloAba`/`ativarPorIndice` é escopo à parte.
+
 **Nome do usuário — infraestrutura nova:** não existia em lugar nenhum (nem Rust, nem JS).
 Adicionado `src-tauri/src/sistema.rs`, um módulo (não `vault.rs` — a filosofia "três comandos,
 e não mais que isso sem uma boa razão" é do domínio de disco, não de SO) com um comando só,
