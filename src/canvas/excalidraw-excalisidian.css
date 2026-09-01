@@ -56,9 +56,16 @@
   --sidebar-shadow: var(--shadow-sobreposicao);
   --library-dropdown-shadow: var(--shadow-sobreposicao);
 
-  /* Texto e ícone: `tinta`/`tinta-media`, igual o resto da interface — nunca o cinza nativo. */
+  /* Texto e ícone: `tinta`, igual o resto da interface — nunca o cinza nativo.
+     ⚠️ NÃO declarar `--button-color` nem `--icon-fill-color` aqui. Os dois são lidos como
+     PRIMEIRA opção também no estado selecionado do botão (`variables.module.scss`:
+     `&.active { svg { color: var(--button-color, var(--color-on-primary-container)) } }`, e o
+     mesmo padrão pro fill), então declará-los globalmente vaza pro selecionado e mata o
+     contraste: no tema escuro dava `tinta-media` (#BDB6A9) sobre `musgo` (#86A98B) = 1,29:1,
+     ilegível. Deixando os dois sem declaração, o pacote cai no fallback correto —
+     `--color-on-surface` no repouso e `--color-on-primary-container` no selecionado, que é
+     exatamente o par que a gente quer. */
   --color-on-surface: var(--color-tinta);
-  --icon-fill-color: var(--color-tinta-media);
   --icon-green-fill-color: var(--color-musgo);
   --text-primary-color: var(--color-tinta);
   --text-color: var(--color-tinta-media);
@@ -80,9 +87,8 @@
   --button-selected-border: var(--color-musgo);
   --button-selected-hover-bg: var(--color-musgo);
 
-  /* Botão comum: hover em `lavagem` (mesma convenção de `BotaoIcone`/árvore de arquivos),
-     texto/ícone em `tinta-media`, ativo (mousedown) com um traço em `musgo`. */
-  --button-color: var(--color-tinta-media);
+  /* Botão comum: hover em `lavagem` (mesma convenção de `BotaoIcone`/árvore de arquivos) e
+     ativo (mousedown) com um traço em `musgo`. Sem `--button-color` — ver o aviso acima. */
   --button-hover-bg: var(--color-lavagem);
   --button-active-bg: var(--color-lavagem);
   --button-active-border: var(--color-musgo);

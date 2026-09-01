@@ -60,6 +60,15 @@
   --font-sans: var(--fonte-sans);
   --font-mono: var(--fonte-mono);
 
+  /* Escala tipográfica (doc 06, tabela de escala). Sem estes tokens, `text-corpo` e
+   * `text-pequeno` não geravam CSS nenhum — eram classes fantasma: o texto herdava os 15px do
+   * body, então `corpo` parecia certo por coincidência e `pequeno` renderizava 2px maior do
+   * que devia, em silêncio. `cn.ts` também precisa conhecê-las, por outro motivo (ver lá). */
+  --text-corpo: 15px;
+  --text-corpo--line-height: 1.55;
+  --text-pequeno: 13px;
+  --text-pequeno--line-height: 1.45;
+
   --ease-caderno: cubic-bezier(0.2, 0.7, 0.3, 1);
 }
 
