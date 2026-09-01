@@ -5,8 +5,18 @@
 import { useState, useRef, useMemo, useEffect, type ReactNode } from "react";
 import type { ExcalidrawImperativeAPI } from "@excalidraw/excalidraw/types";
 import type { ExcalidrawElement } from "@excalidraw/excalidraw/element/types";
+import {
+  AlignHorizontalJustifyStart,
+  AlignHorizontalJustifyCenter,
+  AlignHorizontalJustifyEnd,
+  AlignVerticalJustifyStart,
+  AlignVerticalJustifyCenter,
+  AlignVerticalJustifyEnd,
+  AlignHorizontalDistributeCenter,
+  AlignVerticalDistributeCenter,
+} from "lucide-react";
 
-import { Campo, GrupoBotoes, SeletorCor, Superficie, type OpcaoGrupo } from "../index";
+import { BotaoIcone, Campo, GrupoBotoes, SeletorCor, Superficie, type OpcaoGrupo } from "../index";
 import IconeArquivo from "../IconeArquivo";
 import type { PaletaCanvas } from "../../canvas/paletaCanvas";
 import { buscarSugestoesLink, type SugestaoLink } from "../../indice/sugestoesLink";
@@ -14,6 +24,12 @@ import {
   aplicarPropriedadesNaCena,
   type MudancaPropriedades,
 } from "../../canvas/aplicarPropriedades";
+import {
+  alinhar,
+  distribuir,
+  type ModoAlinhamento,
+  type EixoDistribuicao,
+} from "../../canvas/alinharDistribuir";
 
 interface Props {
   api: ExcalidrawImperativeAPI | null;
@@ -134,6 +150,20 @@ export default function PropriedadesCanvas({ api, tick, paleta }: Props) {
     api.updateScene({
       elements: novosElementos as never,
       appState: appStateMudanca as never,
+    });
+  };
+
+  // Alinhar/distribuir mexem só em `elements` (x/y), nunca em appState — handler à parte de
+  // `aplicar`, que é específico de MudancaPropriedades (estilo/appState). Um updateScene por
+  // clique, um passo de desfazer, mesmo padrão que CampoLink já usa pra mudar `link` direto.
+  const alinharOuDistribuir = (modo: ModoAlinhamento) => {
+    api.updateScene({
+      elements: alinhar(api.getSceneElements(), selecionados, modo) as never,
+    });
+  };
+  const distribuirEixo = (eixo: EixoDistribuicao) => {
+    api.updateScene({
+      elements: distribuir(api.getSceneElements(), selecionados, eixo) as never,
     });
   };
 
@@ -280,6 +310,57 @@ export default function PropriedadesCanvas({ api, tick, paleta }: Props) {
             />
           </Secao>
         </>
+      )}
+
+      {idsSelecionados.length >= 2 && (
+        <Secao titulo="Alinhar e distribuir">
+          <div className="grid grid-cols-3 gap-1">
+            <BotaoIcone
+              Icone={AlignHorizontalJustifyStart}
+              titulo="Alinhar à esquerda"
+              onClick={() => alinharOuDistribuir("esquerda")}
+            />
+            <BotaoIcone
+              Icone={AlignHorizontalJustifyCenter}
+              titulo="Centralizar horizontal"
+              onClick={() => alinharOuDistribuir("centroH")}
+            />
+            <BotaoIcone
+              Icone={AlignHorizontalJustifyEnd}
+              titulo="Alinhar à direita"
+              onClick={() => alinharOuDistribuir("direita")}
+            />
+            <BotaoIcone
+              Icone={AlignVerticalJustifyStart}
+              titulo="Alinhar ao topo"
+              onClick={() => alinharOuDistribuir("topo")}
+            />
+            <BotaoIcone
+              Icone={AlignVerticalJustifyCenter}
+              titulo="Centralizar vertical"
+              onClick={() => alinharOuDistribuir("centroV")}
+            />
+            <BotaoIcone
+              Icone={AlignVerticalJustifyEnd}
+              titulo="Alinhar à base"
+              onClick={() => alinharOuDistribuir("base")}
+            />
+          </div>
+          <div className="mt-1 grid grid-cols-2 gap-1">
+            <BotaoIcone
+              Icone={AlignHorizontalDistributeCenter}
+              titulo="Distribuir horizontalmente"
+              disabled={idsSelecionados.length < 3}
+              onClick={() => distribuirEixo("horizontal")}
+            />
+            <BotaoIcone
+              Icone={AlignVerticalDistributeCenter}
+              titulo="Distribuir verticalmente"
+              disabled={idsSelecionados.length < 3}
+              onClick={() => distribuirEixo("vertical")}
+            />
+          </div>
+        </Secao>
       )}
 
       <Secao titulo="Opacidade">
