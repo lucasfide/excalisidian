@@ -14,10 +14,12 @@ import {
 import type {
   ExcalidrawImperativeAPI,
   AppState,
+  UIAppState,
 } from "@excalidraw/excalidraw/types";
 import type { NonDeletedExcalidrawElement } from "@excalidraw/excalidraw/element/types";
 import "@excalidraw/excalidraw/index.css";
 import "./excalidraw-excalisidian.css";
+import LinkDoElemento from "../ui/excalisidian/LinkDoElemento";
 
 import { useVaultStore } from "../estado/vaultStore";
 import {
@@ -398,6 +400,21 @@ export default function EditorDesenho({
     [pintarGrade],
   );
 
+  // Único painel próprio que sobra no canvas (doc 09, ADR de migração): o popup nativo de
+  // link (Ctrl+K) não tem gancho pra autocomplete. Slot público `renderTopRightUI`, canto
+  // superior direito — não esconde nada nativo. Só aparece com exatamente 1 elemento
+  // selecionado (link em multi-seleção não tem um alvo único pra editar).
+  const renderTopRightUI = useCallback((_isMobile: boolean, appState: UIAppState) => {
+    if (somenteLeitura) return null;
+    const api = apiRef.current;
+    if (!api) return null;
+    const ids = Object.keys(appState.selectedElementIds ?? {});
+    if (ids.length !== 1) return null;
+    const elemento = api.getSceneElements().find((el) => el.id === ids[0]);
+    if (!elemento) return null;
+    return <LinkDoElemento api={api} elemento={elemento} />;
+  }, [somenteLeitura]);
+
   const aoAbrirLink = useCallback(
     (elemento: NonDeletedExcalidrawElement, evento: CustomEvent) => {
       let link = (elemento as { link?: string | null }).link;
@@ -482,6 +499,7 @@ export default function EditorDesenho({
           onLinkOpen={aoAbrirLink}
           viewModeEnabled={somenteLeitura}
           aiEnabled={false}
+          renderTopRightUI={renderTopRightUI}
         />
       </div>
 
