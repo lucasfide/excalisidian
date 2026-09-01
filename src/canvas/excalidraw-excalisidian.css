@@ -1,24 +1,14 @@
-/* Esconde a UI nativa do Excalidraw — a toolbar e o painel de propriedades são próprios
-   (doc 06). Depende de classes internas da 0.18.1; revalidar a cada upgrade (doc 09
-   Parte 3 item 12). O `UIOptions` no componente cobre o resto (itens de menu). */
+/* A UI nativa do Excalidraw está LIGADA (doc 09, ADR de migração para a UI nativa) — este
+   arquivo não esconde mais toolbar/painel/menu. Sobra só o que continua sendo decisão de
+   produto por cima da UI nativa. */
 
-.excalisidian-canvas .excalidraw .App-toolbar,
-.excalisidian-canvas .excalidraw .App-toolbar-container,
-.excalisidian-canvas .excalidraw .App-menu__left,
-.excalisidian-canvas .excalidraw .App-menu-container,
-.excalisidian-canvas .excalidraw .main-menu-trigger,
-.excalisidian-canvas .excalidraw .help-icon {
-  display: none !important;
-}
-
-/* O tema escuro do Excalisidian não é inversão automática (doc 06 §59): temos paleta própria
-   feita à mão. O Excalidraw aplica por padrão `filter: invert(93%) hue-rotate(180deg)` no canvas,
-   o que destruía o contraste das nossas cores sobre o fundo escuro. Desativamos o filtro aqui. */
-.excalisidian-canvas .excalidraw.theme--dark canvas {
-  filter: none !important;
-}
-
-/* Cor de seleção do canvas com o token de destaque do app */
+/* Cor de seleção do canvas com o token de destaque do app, em vez do roxo padrão do
+   Excalidraw. ⚠️ Verificação manual pendente: com o filtro de inversão do tema escuro
+   religado (ver comentário em EditorDesenho.tsx sobre o ADR-12 aposentado), este valor passa
+   pelo mesmo `filter: invert(93%) hue-rotate(180deg)` que o `<canvas>` inteiro recebe no tema
+   escuro — então o hex efetivamente exibido não é `--color-musgo` puro. Se a cor de seleção
+   sair errada no tema escuro, é aqui que ajusta (provavelmente precisando de um segundo valor,
+   pré-calculado para "dar" musgo depois do filtro, em vez de reusar a variável direto). */
 .excalisidian-canvas .excalidraw {
   --color-selection: var(--color-musgo);
 }

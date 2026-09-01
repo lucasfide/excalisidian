@@ -1,6 +1,9 @@
-// Excalidraw embutido (doc 05 §5). Carrega a cena de um .draw.md, aplica tema, paleta e
-// fundo pontilhado, toolbar/propriedades próprios, post-it, atalhos e colar imagem, e salva
-// de volta com o mesmo contrato de autosave das notas.
+// Excalidraw embutido (doc 05 §5). Carrega a cena de um .draw.md, aplica tema e fundo
+// pontilhado, atalhos e colar imagem, e salva de volta com o mesmo contrato de autosave das
+// notas. A UI nativa do Excalidraw (toolbar, painel de propriedades, menu) está LIGADA — ver
+// doc 09, ADR de migração para a UI nativa: a versão própria (ToolbarCanvas/PropriedadesCanvas)
+// foi apagada, tinha menos recursos e um bug real (alinhar/distribuir deixava texto vinculado
+// pra trás).
 
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import {
@@ -29,12 +32,9 @@ import {
   useTemaEscuro,
   converterElementosParaTema,
 } from "./paletaCanvas";
-import { inserirPostit } from "./postit";
 import { useAtalhosCanvas } from "./atalhosCanvas";
 import { abrirOuCriarPorLink } from "../vault/navegacao";
 import { alvoDeLinkWiki } from "./linkElemento";
-import ToolbarCanvas from "../ui/excalisidian/ToolbarCanvas";
-import PropriedadesCanvas from "../ui/excalisidian/PropriedadesCanvas";
 import { buscarSugestoesLink, type SugestaoLink } from "../indice/sugestoesLink";
 import IconeArquivo from "../ui/IconeArquivo";
 import { acharFormaVaziaNoPonto } from "./selecaoFormaVazia";
@@ -87,8 +87,6 @@ export default function EditorDesenho({
   const gradeRef = useRef<HTMLDivElement | null>(null);
   const timerRef = useRef<number | undefined>(undefined);
   const primeiroRenderTema = useRef(true);
-  const [ferramentaAtiva, setFerramentaAtiva] = useState("selection");
-  const [tick, setTick] = useState(0);
 
   // Estado para autocompleção flutuante na ferramenta de texto do canvas
   const [sugestaoTexto, setSugestaoTexto] = useState<{
@@ -306,9 +304,12 @@ export default function EditorDesenho({
       // "roubar" uma forma vazia que passou por perto do caminho do arraste.
       const distancia = Math.hypot(e.clientX - inicioRef.x, e.clientY - inicioRef.y);
       if (distancia > 4) return;
-      // Ignora clique na nossa própria UI (toolbar, painel de propriedades) — só o canvas
-      // de verdade do Excalidraw interessa aqui.
-      if (!(e.target as HTMLElement | null)?.closest(".excalidraw")) return;
+      // Só o <canvas> de verdade interessa aqui — com a UI nativa ligada, toolbar, painel de
+      // propriedades e popovers do Excalidraw ficam TODOS dentro de `.excalidraw`, então
+      // `closest(".excalidraw")` (a guarda antiga, de quando a UI própria era irmã do
+      // Excalidraw na árvore) passaria a aceitar clique na UI nativa e podia selecionar uma
+      // forma vazia escondida atrás do painel.
+      if (!(e.target instanceof HTMLCanvasElement)) return;
 
       // Um frame pra deixar o próprio Excalidraw terminar de processar o clique antes da
       // gente checar se ele selecionou algo.
@@ -344,8 +345,6 @@ export default function EditorDesenho({
   const aoMudar = useCallback(
     (elements: readonly unknown[], appState: Readonly<AppState>) => {
       pintarGrade(appState);
-      setFerramentaAtiva(appState.activeTool?.type ?? "selection");
-      setTick((t) => (t + 1) % 1_000_000);
 
       // Vista só-leitura (segunda vista do mesmo arquivo via split, doc 09): o Excalidraw
       // ainda dispara onChange ao arrastar/dar zoom mesmo com viewModeEnabled. Sem esta
@@ -519,23 +518,9 @@ export default function EditorDesenho({
           onChange={aoMudar}
           onLinkOpen={aoAbrirLink}
           viewModeEnabled={somenteLeitura}
+          aiEnabled={false}
         />
       </div>
-
-      {!somenteLeitura && (
-        <>
-          <ToolbarCanvas
-            api={apiRef.current}
-            ferramentaAtiva={ferramentaAtiva}
-            onPostit={() => {
-              if (apiRef.current) {
-                inserirPostit(apiRef.current, paleta.postits[0].hex, paleta.textoPostit);
-              }
-            }}
-          />
-          <PropriedadesCanvas api={apiRef.current} tick={tick} paleta={paleta} />
-        </>
-      )}
 
       {sugestaoTexto && sugestoesTextoList.length > 0 && (
         <div
