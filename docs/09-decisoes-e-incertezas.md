@@ -464,6 +464,47 @@ linha de um bloco de várias linhas passe por ela. **Não simplifique isso de vo
 `mouseleave`.** Consequência que vale registrar: nada em reação a um `update()` pode chamar
 `posAtCoords`/`coordsAtPos` — `readMeasured` lança exceção durante um ciclo de update.
 
+### ADR-19 · Alinhar/distribuir no canvas: reimplementado por fora, sem API do Excalidraw
+
+**Contexto:** pedido do usuário (já registrado no roadmap dele) — alinhar elementos selecionados
+(esquerda/centro/direita, topo/meio/base) e distribuir espaçamento uniforme entre 3+ elementos,
+no canvas de desenho. O Excalidraw nativo tem isso, mas só na UI dele, que este app desliga por
+completo (CSS) em favor de `ToolbarCanvas.tsx`/`PropriedadesCanvas.tsx` próprios.
+
+**Investigado e confirmado sem API pública**, mesma classe de achado do ADR-17: o Excalidraw
+0.18.1 tem `alignElements`/`distributeElements` por dentro (`.d.ts` mostram os arquivos
+`align.d.ts`/`distribute.d.ts` e as ações `actionAlign*`/`actionDistribute*`), mas nenhum dos
+dois símbolos é reexportado pelo índice público do pacote (`excalidraw/index.d.ts`, lista de
+exports conferida por inteiro), nem por subpath import (o `package.json` do pacote só declara
+`"types"` nesse subpath, sem `"default"` — um `import ... from "@excalidraw/excalidraw/align"`
+nem compilaria, o bundler não acharia JS correspondente), nem aparece em nenhum bundle de
+`dist/prod/*.js` (grep direto, zero ocorrências — confirma que nem por caminho não-documentado
+dá pra acessar em runtime). Não há atalho de teclado nativo utilizável programaticamente: isso
+dependeria do `actionManager` interno, que também não é exposto pela `ExcalidrawImperativeAPI`.
+
+**Decisão:** reimplementar por fora, `src/canvas/alinharDistribuir.ts` — matemática própria
+sobre campos públicos do elemento (`x`, `y`, `width`, `height`, `angle`), mesma filosofia do
+ADR-17. `boundingBoxRotacionado` gira os 4 cantos do retângulo em torno do centro e tira o
+min/max — mesma trigonometria de `pontoDentroDaForma` (`selecaoFormaVazia.ts`), aplicada ao
+problema inverso. **Deliberadamente não usa `getCommonBounds`**, que o pacote exporta
+publicamente: a assinatura do tipo não documenta se ele já considera rotação, e o ADR-17 já
+rejeitou confiar em comportamento não-documentado do Excalidraw uma vez — não valia a pena
+apostar de novo por uma função a mais.
+
+**Convenção de distribuição escolhida:** espaço vazio igual entre bounding boxes consecutivos
+(como Figma/Illustrator/PowerPoint), não centro-a-centro igual — é o que qualquer usuário vindo
+de outra ferramenta de design espera ao clicar em "distribuir".
+
+**Limitação aceita, v1:** `alinhar`/`distribuir` tratam cada elemento selecionado
+independente — `groupIds` não é respeitado, um grupo pode "esticar" em vez de mover inteiro
+junto. Não há suporte a grupo em nenhum outro lugar do app hoje; revisitar se/quando grupos
+virarem uma funcionalidade de verdade.
+
+**Onde mora na UI:** painel de propriedades (`PropriedadesCanvas.tsx`), não a toolbar flutuante —
+decisão do usuário. Segue o mesmo padrão de toda ação que atua sobre "os elementos selecionados
+agora" (cor, espessura, opacidade) e não mexe na ordem fixa e já documentada dos 3 grupos da
+toolbar (doc 06, "Toolbar do canvas").
+
 ### ADR-9 · O nome do produto é um problema em aberto
 
 Isto não é uma decisão, é um alerta que apareceu ao resolver o ADR-8.

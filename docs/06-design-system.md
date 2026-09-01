@@ -426,7 +426,7 @@ Altura padrão 36px, compacto 30px, ícone 32×32.
 | `AutocompleteLink` | popover de sugestão ao digitar `[[` |
 | `EditorDesenho` | Excalidraw embutido com tema e paletas do sistema |
 | `ToolbarCanvas` | barra flutuante de ferramentas |
-| `PropriedadesCanvas` | painel esquerdo de propriedades |
+| `PropriedadesCanvas` | painel esquerdo de propriedades — com 2+ elementos selecionados, ganha a seção "Alinhar e distribuir" (6 botões de alinhar, 2 de distribuir, este último desabilitado com menos de 3 selecionados) |
 | `SeletorCor` | grade de 5 cores, quadrados de 24px, `raio-controle`, selecionada com régua `musgo` de 2px embaixo |
 | `PainelBacklinks` | lista de notas que apontam para a atual, com trecho |
 | `PainelBusca` | campo, resultados agrupados por arquivo, trecho com destaque |
@@ -501,6 +501,9 @@ Altura padrão 36px, compacto 30px, ícone 32×32.
 | título 1 / 2 / 3 | `heading-1` / `heading-2` / `heading-3` |
 | citação / lista / lista numerada / checkbox / link | `quote` / `list` / `list-ordered` / `square-check` / `link` |
 | mover bloco (alça) | `grip-vertical` |
+| alinhar à esquerda / centralizar horizontal / à direita | `align-horizontal-justify-start` / `align-horizontal-justify-center` / `align-horizontal-justify-end` |
+| alinhar ao topo / centralizar vertical / à base | `align-vertical-justify-start` / `align-vertical-justify-center` / `align-vertical-justify-end` |
+| distribuir horizontal / vertical | `align-horizontal-distribute-center` / `align-vertical-distribute-center` |
 
 ---
 
