@@ -297,8 +297,10 @@ Implementação: `background-image` com `radial-gradient` de um ponto, `backgrou
 **Removido** (doc 09, ADR-20). Esta seção descrevia uma
 toolbar e um painel de propriedades próprios, com paletas de traço/preenchimento/post-it
 restritas aos tokens do design system, substituindo por inteiro a UI nativa do Excalidraw
-(escondida por CSS). Foi revertido: a UI nativa está ligada, e nenhuma dessas superfícies é mais
-estilizada pelo app.
+(escondida por CSS). Foi revertido: a UI nativa está ligada. Ela ganhou um reskin cosmético
+pros tokens do app (cor, fonte, raio — ver "Reskin da UI nativa" abaixo), mas nenhuma
+superfície é mais **construída** pelo app; a estrutura, o layout e os controles são os do
+Excalidraw.
 
 Motivo: o painel próprio cobria menos do que o nativo (sem ordem de camadas, espelhar, cantos,
 pontas de seta, copiar estilo, duplicar, agrupar), e o alinhar/distribuir reimplementado tinha
@@ -319,6 +321,32 @@ desenhados continuam renderizando (são retângulo + texto vinculado, formato na
 O que continua igual, por baixo da UI nativa: o fundo pontilhado (abaixo), e um painel próprio
 pequeno só para o link com autocomplete de nota (ver `LinkDoElemento` no inventário de
 componentes) — o único ponto em que o Excalidraw nativo não tem equivalente público.
+
+### Reskin da UI nativa
+
+A toolbar, o painel de propriedades, os menus e os diálogos do Excalidraw são reskinados por
+CSS custom properties (`src/canvas/excalidraw-excalisidian.css`) — o mecanismo que o próprio
+pacote expõe pro host, mesma família de `--color-selection` (acima). Só cor, fonte e raio;
+nenhum layout, ordem ou controle é alterado, e **a paleta que o usuário aplica nos elementos
+continua nativa** (não é reskinada — decisão explícita).
+
+| O que | Vira |
+|---|---|
+| Fundo de painel/toolbar/popup/diálogo/sidebar | `superficie` |
+| Hairline de painel/diálogo/sidebar | `regua` |
+| Sombra de painel/toolbar/diálogo/sidebar | `sombra-sobreposicao` |
+| Raio grande / pequeno | `raio-ficha` / `raio-controle` |
+| Fonte de interface | `fonte-sans` |
+| Texto e ícone | `tinta` / `tinta-media` |
+| Ferramenta/opção ativa (fundo / ícone) | `musgo` / `superficie` |
+| Hover de botão | `lavagem` |
+| Borda de campo de texto | `regua-forte` |
+| Foco / link | `musgo` |
+| Fundo do backdrop de diálogo | `color-mix(in srgb, tinta 28%, transparent)` — mesma receita de `Dialog.tsx` |
+
+Fora de escopo, deliberadamente: `RadioGroup`/`Switch`/avatar (componentes de colaboração ou de
+telas que este app não expõe hoje, dado o `UIOptions` restrito) e a fonte do tooltip nativo
+(`Tooltip.scss` redeclara a própria — `--ui-font` não alcança).
 
 ---
 

@@ -1,6 +1,6 @@
-/* A UI nativa do Excalidraw está LIGADA (doc 09, ADR de migração para a UI nativa) — este
-   arquivo não esconde mais toolbar/painel/menu. Sobra só o que continua sendo decisão de
-   produto por cima da UI nativa. */
+/* A UI nativa do Excalidraw está LIGADA (doc 09, ADR-20) — este arquivo não esconde mais
+   toolbar/painel/menu. Sobra só o que continua sendo decisão de produto por cima da UI nativa:
+   a cor de seleção, e o reskin cosmético abaixo. */
 
 /* Cor de seleção do canvas com o token de destaque do app, em vez do roxo padrão do
    Excalidraw. ⚠️ Verificação manual pendente: com o filtro de inversão do tema escuro
@@ -11,4 +11,91 @@
    pré-calculado para "dar" musgo depois do filtro, em vez de reusar a variável direto). */
 .excalisidian-canvas .excalidraw {
   --color-selection: var(--color-musgo);
+}
+
+/* Reskin cosmético da UI nativa (doc 09, ADR-20; doc 06, "Toolbar, painel de propriedades e
+   paletas do desenho"): cor, fonte e raio da toolbar, do painel de propriedades, dos menus e
+   dos diálogos, usando as mesmas ~209 custom properties que o próprio Excalidraw expõe pro
+   host reskinar (`--island-bg-color`, `--border-radius-lg`, etc. — levantadas por inteiro do
+   pacote antes de escrever isto, não são API oficial documentada, mas são o mecanismo
+   pretendido: o app já sobrescreve `--color-selection` da mesma forma, acima). Só variável,
+   nunca hex literal — os valores vêm todos de `src/estilos/globals.css` (doc 06).
+
+   Deliberadamente NÃO tocado: a paleta de cor que o usuário aplica nos elementos (o seletor
+   de cor em si, os swatches, `--color-selection` à parte) — pedido explícito de manter só o
+   cosmético da UI, não as opções oferecidas pro desenho. Também não tocado: `--RadioGroup-*`/
+   `--Switch-*`/avatar/userList (componentes de colaboração ou de telas que este app não expõe
+   hoje, dado o `UIOptions` restrito) e a fonte do tooltip nativo (`Tooltip.scss` redeclara a
+   própria, `--ui-font` não alcança). */
+.excalisidian-canvas .excalidraw {
+  /* Tipografia: a mesma fonte de interface do resto do app. */
+  --ui-font: var(--fonte-sans);
+
+  /* Raio quase zero (doc 06: "papel cortado, não bolha") — troca os 8px/6px nativos por
+     `raio-ficha`/`raio-controle`, os mesmos dois raios usados em toda superfície do app. */
+  --border-radius-lg: var(--radius-ficha);
+  --border-radius-md: var(--radius-controle);
+
+  /* Superfícies: island (toolbar/painel/popups), diálogos, sidebar — todas viram `superficie`,
+     com hairline `regua` em vez da borda cinza nativa. */
+  --island-bg-color: var(--color-superficie);
+  --default-border-color: var(--color-regua);
+  --dialog-border-color: var(--color-regua);
+  --popup-bg-color: var(--color-superficie);
+  --popup-secondary-bg-color: var(--color-lavagem);
+  --popup-text-color: var(--color-tinta);
+  --overlay-bg-color: color-mix(in srgb, var(--color-tinta) 28%, transparent);
+  --sidebar-bg-color: var(--color-superficie);
+  --sidebar-border-color: var(--color-regua);
+
+  /* Sombra: só as duas do sistema (doc 06 — "nenhuma outra sombra no projeto"). A island
+     flutuante (toolbar, painel) e diálogos/sidebar usam `sombra-sobreposicao`, a mesma que
+     `ToolbarCanvas`/`PropriedadesCanvas` usavam antes da migração pra UI nativa. */
+  --shadow-island: var(--shadow-sobreposicao);
+  --modal-shadow: var(--shadow-sobreposicao);
+  --sidebar-shadow: var(--shadow-sobreposicao);
+  --library-dropdown-shadow: var(--shadow-sobreposicao);
+
+  /* Texto e ícone: `tinta`/`tinta-media`, igual o resto da interface — nunca o cinza nativo. */
+  --color-on-surface: var(--color-tinta);
+  --icon-fill-color: var(--color-tinta-media);
+  --icon-green-fill-color: var(--color-musgo);
+  --text-primary-color: var(--color-tinta);
+  --text-color: var(--color-tinta-media);
+  --color-disabled: var(--color-tinta-suave);
+  --keybinding-color: var(--color-tinta-suave);
+  --link-color: var(--color-musgo);
+
+  /* Borda de controle (radio/switch/outros, fora do fluxo de botão) — mesma régua de contraste
+     3:1 que `regua-forte` já garante pro resto do app (doc 06, piso de qualidade). */
+  --color-border-outline: var(--color-regua-forte);
+  --color-border-outline-variant: var(--color-regua);
+
+  /* Ferramenta/opção ativa: fundo `musgo`, ícone em `superficie` — o mesmo par que
+     `ToolbarCanvas` usava antes da migração (doc 06). `--button-selected-*` não são
+     declaradas pelo pacote (hooks livres pro host, confirmado no levantamento da UI nativa). */
+  --color-surface-primary-container: var(--color-musgo);
+  --color-on-primary-container: var(--color-superficie);
+  --button-selected-bg: var(--color-musgo);
+  --button-selected-border: var(--color-musgo);
+  --button-selected-hover-bg: var(--color-musgo);
+
+  /* Botão comum: hover em `lavagem` (mesma convenção de `BotaoIcone`/árvore de arquivos),
+     texto/ícone em `tinta-media`, ativo (mousedown) com um traço em `musgo`. */
+  --button-color: var(--color-tinta-media);
+  --button-hover-bg: var(--color-lavagem);
+  --button-active-bg: var(--color-lavagem);
+  --button-active-border: var(--color-musgo);
+
+  /* Campos de texto (busca, hex de cor, nome de arquivo): mesma receita de `Campo.tsx`. */
+  --input-bg-color: var(--color-superficie);
+  --input-border-color: var(--color-regua-forte);
+  --input-hover-bg-color: var(--color-lavagem);
+  --input-label-color: var(--color-tinta-suave);
+  --focus-highlight-color: var(--color-musgo);
+  --select-highlight-color: var(--color-musgo);
+
+  /* Scrollbar interna do Excalidraw (biblioteca, sidebar) — mesma receita de `globals.css`. */
+  --scrollbar-thumb: var(--color-regua);
+  --scrollbar-thumb-hover: var(--color-regua-forte);
 }
