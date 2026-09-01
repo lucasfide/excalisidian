@@ -23,6 +23,7 @@ import { barraFlutuante } from "./extensoes/barraFlutuante";
 import { selecaoDeBloco } from "./extensoes/selecaoDeBloco";
 import { quebraDeBloco } from "./extensoes/quebraDeBloco";
 import { moverBloco } from "./extensoes/moverBloco";
+import { diagnosticoEmoji } from "./extensoes/diagnosticoEmoji";
 import "./extensoes/embedDesenho.css";
 import "./extensoes/moverBloco.css";
 
@@ -38,6 +39,9 @@ const EXTENSOES: readonly Extension[] = [
   selecaoDeBloco,
   quebraDeBloco,
   moverBloco,
+  // TEMPORÁRIO — diagnóstico do bug do painel de emoji do Windows (ver o plano da sessão).
+  // Vazio fora de DEV; remover junto com diagnosticoEmoji.ts assim que o console tiver a resposta.
+  diagnosticoEmoji,
 ];
 
 interface Props {
