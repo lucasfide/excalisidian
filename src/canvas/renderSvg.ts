@@ -9,7 +9,7 @@ import { exportToSvg } from "@excalidraw/excalidraw";
 import { useVaultStore } from "../estado/vaultStore";
 import { parseDesenho } from "./formatoDesenho";
 import { reidratarFiles } from "./reidratarFiles";
-import { temaEscuroAtivo, converterElementosParaTema } from "./paletaCanvas";
+import { temaEscuroAtivo } from "./paletaCanvas";
 
 interface Entrada {
   mtimeMs: number;
@@ -56,10 +56,11 @@ export async function renderizarSvg(caminho: string): Promise<SVGSVGElement> {
   const vivos = dados.cena.elements.filter(
     (e) => !(e as { isDeleted?: boolean }).isDeleted,
   );
-  const elementos = escuro ? converterElementosParaTema(vivos as never, "escuro") : vivos;
 
+  // Cor gravada é a cor escolhida (ADR-12 aposentado, doc 09) — o modo escuro do SVG exportado
+  // vem de `exportWithDarkMode`, o mecanismo nativo do Excalidraw, não de conversão de cor.
   const svg = await exportToSvg({
-    elements: elementos as never,
+    elements: vivos as never,
     appState: {
       ...dados.cena.appState,
       theme: escuro ? "dark" : "light",

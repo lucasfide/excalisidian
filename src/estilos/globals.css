@@ -63,67 +63,6 @@
   --ease-caderno: cubic-bezier(0.2, 0.7, 0.3, 1);
 }
 
-/* Os 14 tokens do canvas existem em dobro, sempre presentes em :root sob os prefixos
- * `--canvas-claro-*`/`--canvas-escuro-*` — nenhum dos dois depende da classe `.dark` estar
- * ativa. Isso permite a canvas/paletaCanvas.ts ler as DUAS paletas ao mesmo tempo (via
- * getComputedStyle, nunca hex literal em TS) para converter a cor de um elemento existente
- * quando o tema muda ou quando um desenho salvo no tema escuro é reaberto no claro (doc 06:
- * "o tema escuro tem paleta própria, não é inversão do claro" — sem conversão, essas cores
- * ficam ilegíveis de um lado ou do outro). Os `--color-traco-*` etc. abaixo só indireciona
- * pro par certo conforme o tema ativo — é o valor que o Excalidraw de fato recebe. */
-:root {
-  --canvas-claro-traco-tinta: #1c1917;
-  --canvas-claro-traco-musgo: #3e5c46;
-  --canvas-claro-traco-ocre: #a87a1c;
-  --canvas-claro-traco-bordo: #7a2e22;
-  --canvas-claro-traco-suave: #655e54;
-  --canvas-claro-fundo-neutro: #e5dfd4;
-  --canvas-claro-fundo-musgo: #cfdbd1;
-  --canvas-claro-fundo-ocre: #eddcb4;
-  --canvas-claro-fundo-bordo: #e7cec8;
-  --canvas-claro-postit-ocre: #eddcb4;
-  --canvas-claro-postit-musgo: #cfdbd1;
-  --canvas-claro-postit-bordo: #e7cec8;
-  --canvas-claro-postit-neutro: #e5dfd4;
-
-  --canvas-escuro-traco-tinta: #efeae0;
-  --canvas-escuro-traco-musgo: #86a98b;
-  --canvas-escuro-traco-ocre: #d3a845;
-  --canvas-escuro-traco-bordo: #c97b69;
-  --canvas-escuro-traco-suave: #9a9384;
-  --canvas-escuro-fundo-neutro: #272319;
-  --canvas-escuro-fundo-musgo: #2c3a2f;
-  --canvas-escuro-fundo-ocre: #3d3323;
-  --canvas-escuro-fundo-bordo: #3a2823;
-  --canvas-escuro-postit-ocre: #4a3e28;
-  --canvas-escuro-postit-musgo: #2f4034;
-  --canvas-escuro-postit-bordo: #4a2f28;
-  --canvas-escuro-postit-neutro: #312c22;
-}
-
-/* Tokens do canvas (tema claro): lidos via getComputedStyle por canvas/paletaCanvas.ts, não
- * por classe utilitária — o Tailwind v4 só emite no :root as variáveis de @theme que alguma
- * classe usa, e nenhuma usa estas. "static" força a emissão mesmo sem uso aparente; sem
- * isso, no tema claro 13 dos 14 tokens voltavam como string vazia (post-it invisível,
- * seletor de cor em branco — bug real, não crash, mas silencioso). */
-@theme static {
-  --color-traco-tinta: var(--canvas-claro-traco-tinta);
-  --color-traco-musgo: var(--canvas-claro-traco-musgo);
-  --color-traco-ocre: var(--canvas-claro-traco-ocre);
-  --color-traco-bordo: var(--canvas-claro-traco-bordo);
-  --color-traco-suave: var(--canvas-claro-traco-suave);
-
-  --color-fundo-neutro: var(--canvas-claro-fundo-neutro);
-  --color-fundo-musgo: var(--canvas-claro-fundo-musgo);
-  --color-fundo-ocre: var(--canvas-claro-fundo-ocre);
-  --color-fundo-bordo: var(--canvas-claro-fundo-bordo);
-
-  --color-postit-ocre: var(--canvas-claro-postit-ocre);
-  --color-postit-musgo: var(--canvas-claro-postit-musgo);
-  --color-postit-bordo: var(--canvas-claro-postit-bordo);
-  --color-postit-neutro: var(--canvas-claro-postit-neutro);
-}
-
 .dark {
   /* --- Tokens de interface (tema escuro: Tinta) --- */
   --color-papel: #16140f;
@@ -141,23 +80,6 @@
 
   --shadow-ficha: 0 8px 20px -6px rgb(0 0 0 / 0.55);
   --shadow-sobreposicao: 0 24px 60px -16px rgb(0 0 0 / 0.7);
-
-  /* --- Tokens do canvas (tema escuro) --- */
-  --color-traco-tinta: var(--canvas-escuro-traco-tinta);
-  --color-traco-musgo: var(--canvas-escuro-traco-musgo);
-  --color-traco-ocre: var(--canvas-escuro-traco-ocre);
-  --color-traco-bordo: var(--canvas-escuro-traco-bordo);
-  --color-traco-suave: var(--canvas-escuro-traco-suave);
-
-  --color-fundo-neutro: var(--canvas-escuro-fundo-neutro);
-  --color-fundo-musgo: var(--canvas-escuro-fundo-musgo);
-  --color-fundo-ocre: var(--canvas-escuro-fundo-ocre);
-  --color-fundo-bordo: var(--canvas-escuro-fundo-bordo);
-
-  --color-postit-ocre: var(--canvas-escuro-postit-ocre);
-  --color-postit-musgo: var(--canvas-escuro-postit-musgo);
-  --color-postit-bordo: var(--canvas-escuro-postit-bordo);
-  --color-postit-neutro: var(--canvas-escuro-postit-neutro);
 }
 
 @layer base {

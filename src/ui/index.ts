@@ -25,7 +25,4 @@ export type { PosicaoMenu } from "./Menu";
 export { default as GrupoBotoes } from "./GrupoBotoes";
 export type { OpcaoGrupo } from "./GrupoBotoes";
 
-export { default as SeletorCor } from "./SeletorCor";
-export type { CorSelecionavel } from "./SeletorCor";
-
 export { default as IconeArquivo } from "./IconeArquivo";

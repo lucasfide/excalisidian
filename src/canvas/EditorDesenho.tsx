@@ -26,12 +26,7 @@ import {
   blockIdsDaCena,
 } from "./formatoDesenho";
 import { reidratarFiles, bytesParaDataUrl } from "./reidratarFiles";
-import {
-  lerPaletaCanvas,
-  temaEscuroAtivo,
-  useTemaEscuro,
-  converterElementosParaTema,
-} from "./paletaCanvas";
+import { lerPaletaCanvas, useTemaEscuro } from "./paletaCanvas";
 import { useAtalhosCanvas } from "./atalhosCanvas";
 import { abrirOuCriarPorLink } from "../vault/navegacao";
 import { alvoDeLinkWiki } from "./linkElemento";
@@ -86,7 +81,6 @@ export default function EditorDesenho({
   const raizRef = useRef<HTMLDivElement | null>(null);
   const gradeRef = useRef<HTMLDivElement | null>(null);
   const timerRef = useRef<number | undefined>(undefined);
-  const primeiroRenderTema = useRef(true);
 
   // Estado para autocompleção flutuante na ferramenta de texto do canvas
   const [sugestaoTexto, setSugestaoTexto] = useState<{
@@ -140,30 +134,6 @@ export default function EditorDesenho({
       vivo = false;
     };
   }, [base]);
-
-  // Sincroniza cores dos elementos existentes e padrões de novas ferramentas ao alternar tema em tempo real
-  useEffect(() => {
-    if (primeiroRenderTema.current) {
-      primeiroRenderTema.current = false;
-      return;
-    }
-    const api = apiRef.current;
-    if (!api) return;
-
-    const elementosAtuais = api.getSceneElements();
-    const elementosConvertidos = converterElementosParaTema(
-      elementosAtuais,
-      escuro ? "escuro" : "claro",
-    );
-
-    api.updateScene({
-      elements: elementosConvertidos as never,
-      appState: {
-        currentItemStrokeColor: paleta.tracos[0].hex,
-        currentItemBackgroundColor: "transparent",
-      },
-    });
-  }, [escuro, paleta]);
 
   const inserirSugestaoTexto = useCallback((sug: SugestaoLink) => {
     const estado = sugestaoTextoRef.current;
@@ -357,12 +327,11 @@ export default function EditorDesenho({
         const vivos = elements.filter(
           (e) => !(e as { isDeleted?: boolean }).isDeleted,
         );
-        // Gravação canônica: no disco (.draw.md), as cores são sempre convertidas
-        // para a paleta do tema claro (Bug C). Isso garante diffs limpos e portabilidade total.
-        const elementosParaSalvar = converterElementosParaTema(
-          vivos as never,
-          "claro",
-        );
+        // Cor gravada é a cor escolhida pelo usuário — sem conversão por tema (ADR-12
+        // aposentado): o seletor de cor nativo do Excalidraw não é customizável, então manter
+        // conversão só produzia cena mista e um vetor real de corrupção. O modo escuro volta a
+        // ser o filtro de inversão nativo do Excalidraw.
+        const elementosParaSalvar = vivos;
         const idPorEl = blockIdsDaCena(
           vivos as unknown as { id: string; type: string }[],
         );
@@ -411,17 +380,11 @@ export default function EditorDesenho({
   // componentDidUpdate interno do Excalidraw dispara onChange em loop contínuo (salvo <-> editando).
   const initialData = useMemo(() => {
     const baseInicial = parseDesenho(conteudoInicial);
-    const elems = temaEscuroAtivo()
-      ? converterElementosParaTema(baseInicial.cena.elements as never, "escuro")
-      : baseInicial.cena.elements;
-    const paletaInicial = lerPaletaCanvas();
     return {
-      elements: elems as never,
+      elements: baseInicial.cena.elements as never,
       appState: {
         ...(baseInicial.cena.appState as Partial<AppState>),
         viewBackgroundColor: "transparent",
-        currentItemStrokeColor: paletaInicial.tracos[0].hex,
-        currentItemBackgroundColor: "transparent",
       },
       scrollToContent: true,
     };
