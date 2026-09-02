@@ -118,8 +118,11 @@ class AlcaBlocoPlugin {
   private arrasto: EstadoArrasto | null = null;
   /** Última posição conhecida do ponteiro, pra reavaliar sem esperar um mousemove novo (rolagem). */
   private ultimoPonteiro: { x: number; y: number } | null = null;
-  /** Retângulos do editor em cache — ler layout a cada pixel de mousemove seria caro. */
+  /** Retângulos do editor em cache — ler layout a cada pixel de mousemove seria caro.
+   * `null` = invalidado, remede na próxima leitura. Quem invalida: rolagem, resize da janela,
+   * o ResizeObserver do próprio view.dom e `geometryChanged` (ver `constructor`/`update`). */
   private retangulos: { editor: DOMRect; conteudo: DOMRect } | null = null;
+  private observadorTamanho: ResizeObserver | null = null;
 
   private medirRetangulos() {
     if (!this.retangulos) {
@@ -322,26 +325,48 @@ class AlcaBlocoPlugin {
     this.reavaliar();
   };
 
+  /** O layout do editor mudou de tamanho/lugar (split, sidebar, divisória). Só invalida e
+   * esconde — de propósito NÃO chama `reavaliar()`, que leria geometria do CodeMirror
+   * (`posAtCoords` → `readMeasured`, que lança se cair dentro de um ciclo de update). O
+   * próximo movimento do mouse remede e reposiciona certo. */
+  private aoMudarTamanho = () => {
+    this.retangulos = null;
+    this.esconderAlca();
+  };
+
   constructor(view: EditorView) {
     this.view = view;
     window.addEventListener("mousemove", this.aoMouseMove);
     window.addEventListener("scroll", this.aoRolarOuRedimensionar, { capture: true, passive: true });
     window.addEventListener("resize", this.aoRolarOuRedimensionar);
+
+    // O `resize` de `window` só dispara quando a JANELA muda de tamanho — dividir a tela
+    // (dockview), recolher a sidebar ou arrastar a divisória do split mudam o tamanho e a
+    // posição do editor sem tocar na janela. Sem isto, o retângulo em cache continuava sendo o
+    // de antes do split e a alça aparecia no painel errado (bug real: nota à direita, alça
+    // desenhada dentro do canvas à esquerda). O ResizeObserver pega exatamente esse caso.
+    if (typeof ResizeObserver !== "undefined") {
+      this.observadorTamanho = new ResizeObserver(this.aoMudarTamanho);
+      this.observadorTamanho.observe(view.dom);
+    }
   }
 
   update(update: ViewUpdate) {
-    // Só `docChanged`: os offsets de `blocoAtual` viraram lixo e a alça precisa sumir até o próximo
+    // `docChanged`: os offsets de `blocoAtual` viraram lixo e a alça precisa sumir até o próximo
     // movimento do mouse. `geometryChanged` NÃO esconde mais nada — dispara o tempo todo por causa
     // do live preview (ver o comentário no topo do arquivo) e era a causa real de a alça sumir
-    // antes do clique chegar nela. E nada de reler geometria aqui: `readMeasured` lança durante um
-    // update; a reposição fica pro mousemove e pro listener de rolagem.
+    // antes do clique chegar nela. Mas ele é um sinal bom de que a geometria pode ter mudado,
+    // então INVALIDA o cache (só põe `null`, não lê layout nenhum — `readMeasured` lança durante
+    // um update); a remedição acontece depois, no mousemove ou na rolagem.
     if (update.docChanged) this.esconderAlca();
+    if (update.geometryChanged) this.retangulos = null;
   }
 
   destroy() {
     window.removeEventListener("mousemove", this.aoMouseMove);
     window.removeEventListener("scroll", this.aoRolarOuRedimensionar, { capture: true });
     window.removeEventListener("resize", this.aoRolarOuRedimensionar);
+    this.observadorTamanho?.disconnect();
     this.finalizarArrasto();
     this.alcaRoot?.unmount();
     this.alcaDom?.remove();
