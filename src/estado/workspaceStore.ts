@@ -80,26 +80,33 @@ export const useWorkspaceStore = create<WorkspaceState>((set, get) => ({
     const { api } = get();
     if (!api) return;
     void useDocumentosStore.getState().abrir(path);
-    const existente = api.getPanel(path);
-    if (existente) {
-      existente.api.setActive();
-      return;
-    }
 
     // Abrir um arquivo a partir de uma aba em branco (Ctrl+T) SUBSTITUI a aba, em vez de
     // abrir mais uma do lado (mesmo comportamento do Obsidian) — só quando a aba em branco
-    // é a ATIVA; não fecha uma aba vazia esquecida num outro grupo/split. `vazio:` é o
-    // prefixo de id que `novaAbaVazia`/`dividirAtivo` já usam pra esse tipo de painel — sem
-    // conteúdo nenhum a perder, então remover direto é seguro.
-    const vazioAtivo = api.activePanel?.id.startsWith("vazio:") ? api.activePanel : null;
-    if (vazioAtivo) api.removePanel(vazioAtivo);
+    // é a ATIVA; não mexe numa aba vazia esquecida em outro grupo/split. `vazio:` é o
+    // prefixo de id que `novaAbaVazia`/`dividirAtivo` já usam pra esse tipo de painel.
+    // Capturado ANTES de mexer nos painéis: abrir/ativar outro painel muda `activePanel`.
+    const vazioParaSubstituir = api.activePanel?.id.startsWith("vazio:")
+      ? api.activePanel
+      : null;
 
-    api.addPanel({
-      id: path,
-      component: componenteDe(path),
-      title: nomeCurto(path),
-      params: { path },
-    });
+    const existente = api.getPanel(path);
+    if (existente) {
+      existente.api.setActive();
+    } else {
+      api.addPanel({
+        id: path,
+        component: componenteDe(path),
+        title: nomeCurto(path),
+        params: { path },
+      });
+    }
+
+    // A remoção vem DEPOIS de o arquivo já estar aberto, de propósito. Na primeira versão
+    // disto ela vinha antes, e o `addPanel` seguinte nunca chegava a rodar: a nota era
+    // criada no disco mas nenhuma aba abria. Nesta ordem, o pior caso é a aba em branco
+    // sobrar na tela — o arquivo abre de qualquer jeito.
+    if (vazioParaSubstituir) api.removePanel(vazioParaSubstituir);
   },
 
   abrirInicio() {
