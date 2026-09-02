@@ -2,7 +2,7 @@
 // O conteúdo dos arquivos vive por aba no documentosStore; a aba ativa, no workspaceStore.
 
 import { useCallback, useEffect, useState } from "react";
-import { Settings } from "lucide-react";
+import { Settings, Trash2 } from "lucide-react";
 import { Toaster } from "sonner";
 
 import { TauriVaultAdapter } from "../vault/TauriVaultAdapter";
@@ -16,6 +16,7 @@ import {
   comandoRenomear,
 } from "./comandos/criacao";
 import { comandoMoverArquivo, comandoMoverPara } from "./comandos/mover";
+import { comandoExcluir } from "./comandos/exclusao";
 import { useAutosave } from "../editor/useAutosave";
 import Workspace from "../layout/Workspace";
 import { Botao, BotaoIcone, EstadoVazio } from "../ui";
@@ -25,6 +26,7 @@ import BarraStatus from "../ui/excalisidian/BarraStatus";
 import DialogoPreferencias from "../ui/excalisidian/DialogoPreferencias";
 import Logotipo from "../ui/excalisidian/Logotipo";
 import PainelBacklinks from "../ui/excalisidian/PainelBacklinks";
+import PainelLixeira from "../ui/excalisidian/PainelLixeira";
 import RaizDialogos from "../ui/excalisidian/RaizDialogos";
 import RaizSobreposicoes from "../ui/excalisidian/RaizSobreposicoes";
 import LimiteDeErro from "../ui/excalisidian/LimiteDeErro";
@@ -42,6 +44,7 @@ type Boot = "carregando" | "sem-vault" | "pronto" | { erro: string };
 export default function App() {
   const [boot, setBoot] = useState<Boot>("carregando");
   const [preferenciasAbertas, setPreferenciasAbertas] = useState(false);
+  const [lixeiraAberta, setLixeiraAberta] = useState(false);
   const tema = usePrefsStore((s) => s.tema);
 
   const arvore = useVaultStore((s) => s.arvore);
@@ -182,6 +185,7 @@ export default function App() {
                   onCriarPasta={(dir) => void comandoNovaPasta(dir)}
                   onMoverArquivo={(path, dir) => void comandoMoverArquivo(path, dir)}
                   onMoverPara={(path) => void comandoMoverPara(path)}
+                  onExcluir={(path, tipo) => void comandoExcluir(path, tipo)}
                 />
               )}
             </div>
@@ -192,11 +196,18 @@ export default function App() {
               <span className="meta text-tinta-suave">
                 {statusIndice === "indexando" ? "reindexando…" : ""}
               </span>
-              <BotaoIcone
-                Icone={Settings}
-                titulo="Configurações"
-                onClick={() => setPreferenciasAbertas(true)}
-              />
+              <div className="flex items-center gap-1">
+                <BotaoIcone
+                  Icone={Trash2}
+                  titulo="Lixeira"
+                  onClick={() => setLixeiraAberta(true)}
+                />
+                <BotaoIcone
+                  Icone={Settings}
+                  titulo="Configurações"
+                  onClick={() => setPreferenciasAbertas(true)}
+                />
+              </div>
             </div>
           </aside>
 
@@ -212,6 +223,7 @@ export default function App() {
       {preferenciasAbertas && (
         <DialogoPreferencias onFechar={() => setPreferenciasAbertas(false)} />
       )}
+      {lixeiraAberta && <PainelLixeira onFechar={() => setLixeiraAberta(false)} />}
       <Toaster
         position="bottom-right"
         toastOptions={{

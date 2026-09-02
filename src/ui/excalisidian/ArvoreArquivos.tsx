@@ -8,7 +8,7 @@
 
 import { useEffect, useMemo, useRef, useState } from "react";
 import { useVirtualizer } from "@tanstack/react-virtual";
-import { FilePlus, SquarePen, FolderPlus, Pencil, Home, Move } from "lucide-react";
+import { FilePlus, SquarePen, FolderPlus, Pencil, Home, Move, Trash2 } from "lucide-react";
 
 import { nomeExibicao, type NoArvore } from "../../vault/arvore";
 import { pastaDe } from "../../vault/caminhos";
@@ -53,6 +53,10 @@ interface Props {
   /** Equivalente por menu de arrastar (doc 06, piso de qualidade) — só faz sentido pra
    * arquivo, mover pasta inteira está fora do escopo (vault/mover.ts). */
   onMoverPara(path: string): void;
+  /** Mover para a lixeira (RF7.1) — arquivo e pasta, diferente de "Mover para…". `tipo` vem
+   * do próprio nó (`menu.no.tipo`) — derivar de novo a partir só do path não distinguiria
+   * pasta de arquivo. */
+  onExcluir(path: string, tipo: NoArvore["tipo"]): void;
 }
 
 type EstadoMenu = (PosicaoMenu & { no: NoArvore }) | null;
@@ -83,6 +87,7 @@ export default function ArvoreArquivos({
   onCriarPasta,
   onMoverArquivo,
   onMoverPara,
+  onExcluir,
 }: Props) {
   const linhas = useMemo(
     () => achatar(raiz, pastasAbertas),
@@ -273,6 +278,13 @@ export default function ArvoreArquivos({
               onClick={comMenuFechado(() => onMoverPara(menu.no.path))}
             />
           )}
+          <SeparadorMenu />
+          <ItemMenu
+            Icone={Trash2}
+            rotulo="Mover para a lixeira"
+            destrutivo
+            onClick={comMenuFechado(() => onExcluir(menu.no.path, menu.no.tipo))}
+          />
         </Menu>
       )}
     </div>
