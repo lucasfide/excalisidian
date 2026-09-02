@@ -1,6 +1,7 @@
 // Linha da árvore de arquivos (doc 06, inventário: `ItemArvore`). Recuo de 16px por nível;
 // o nível ativo ganha uma hairline vertical de 2px em `musgo` — a régua de margem em
-// miniatura, o mesmo gesto da marginália do editor.
+// miniatura. Cada nível de ancestral aberto ganha também uma linha guia de 1px em `regua`,
+// pra ficar visível qual pasta contém o quê (doc 06, "Na sidebar").
 
 import type { CSSProperties } from "react";
 
@@ -51,6 +52,14 @@ export default function ItemArvore({
         boxShadow: destacado ? "inset 2px 0 0 0 var(--color-musgo)" : undefined,
       }}
     >
+      {Array.from({ length: nivel }, (_, d) => (
+        <span
+          key={d}
+          aria-hidden
+          className="absolute inset-y-0 w-px bg-regua"
+          style={{ left: 8 + d * 16 + 7 }}
+        />
+      ))}
       <IconeArquivo
         tipo={no.tipo}
         aberta={aberta}

@@ -274,7 +274,7 @@ direta ("achei uma merda"); decisão de produto: tirar por completo, não simpli
 `src/editor/extensoes/marginalia.ts`/`.css` foram apagados. O editor de nota volta a ser só o
 texto, centralizado na coluna de 720px (seção Layout, abaixo).
 
-**Na sidebar.** A árvore não usa recuo com linhas pontilhadas. Cada nível recua 16px e o nível ativo ganha uma hairline vertical em `musgo` de 2px na altura do item — a régua de margem em miniatura.
+**Na sidebar.** Cada nível recua 16px e o nível ativo ganha uma hairline vertical em `musgo` de 2px na altura do item — a régua de margem em miniatura. Cada nível de ancestral aberto também ganha uma linha guia de 1px em `regua` (pedido do usuário, 02/09/2026 — sem ela, ficava difícil ver que arquivo pertence a qual pasta numa árvore funda). Sem canto/corner: linha reta o comprimento inteiro do nível, sem distinguir o último filho — o mesmo gesto simples de um snippet CSS do Obsidian, não a precisão de um IDE.
 
 **Nas abas.** A aba é uma ficha de arquivo: altura 34px, fundo `lavagem` quando inativa e `superficie` quando ativa, hairline `regua` separando cada uma, sem raio no topo. A aba ativa não tem borda inferior — ela se funde com o conteúdo. Nada de sombra.
 
