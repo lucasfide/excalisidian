@@ -48,6 +48,11 @@ interface WorkspaceState {
   cicloAba(direcao: 1 | -1): void;
   ativarPorIndice(n: number): void;
   aoRemoverPainel(id: string, path: string | null): void;
+  /** Fecha toda aba (inclusive splits) apontando pra `path` — usado ao excluir um arquivo
+   * (doc 02 §7: "sai do índice e das abas abertas"). Por `panel.api.close()`, não
+   * `removePanel` direto: dispara o onDidRemovePanel normal do dockview, que já aciona
+   * `aoRemoverPainel` (salva se sujo, descarta do documentosStore) — zero lógica duplicada. */
+  fecharAbasDoCaminho(path: string): void;
 }
 
 /** Ids de painel que estão sendo renomeados: `aoRemoverPainel` os ignora. */
@@ -214,5 +219,11 @@ export const useWorkspaceStore = create<WorkspaceState>((set, get) => ({
         path,
       ].slice(-20),
     }));
+  },
+
+  fecharAbasDoCaminho(path) {
+    const { api } = get();
+    if (!api) return;
+    for (const p of api.panels.filter((p) => pathDoPainel(p) === path)) p.api.close();
   },
 }));
