@@ -5,7 +5,15 @@
 import { invoke } from "@tauri-apps/api/core";
 import { listen } from "@tauri-apps/api/event";
 import { open } from "@tauri-apps/plugin-dialog";
-import { readTextFile, readFile, mkdir, exists, rename } from "@tauri-apps/plugin-fs";
+import {
+  readTextFile,
+  readFile,
+  mkdir,
+  exists,
+  rename,
+  remove,
+  readDir,
+} from "@tauri-apps/plugin-fs";
 import { load } from "@tauri-apps/plugin-store";
 
 import type {
@@ -94,6 +102,19 @@ export class TauriVaultAdapter implements VaultAdapter {
 
   async mover(de: string, para: string): Promise<void> {
     await rename(absoluto(this.caminhoRaiz, de), absoluto(this.caminhoRaiz, para));
+  }
+
+  async remover(path: string): Promise<void> {
+    await remove(absoluto(this.caminhoRaiz, path), { recursive: true });
+  }
+
+  async listarPasta(path: string): Promise<{ nome: string; isDir: boolean }[]> {
+    try {
+      const entradas = await readDir(absoluto(this.caminhoRaiz, path));
+      return entradas.map((e) => ({ nome: e.name, isDir: e.isDirectory }));
+    } catch {
+      return []; // pasta não existe ainda (lixeira nunca usada) — lista vazia, não erro
+    }
   }
 
   async existe(path: string): Promise<boolean> {

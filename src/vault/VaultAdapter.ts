@@ -27,6 +27,13 @@ export interface VaultAdapter {
   escreverBinario(path: string, dados: Uint8Array): Promise<void>;
   criarPasta(path: string): Promise<void>;
   mover(de: string, para: string): Promise<void>;
+  /** Exclusão PERMANENTE — não vai pra lixeira nenhuma. Usado só por vault/lixeira.ts pra
+   * esvaziar `.trash/`. `recursive` cobre pasta; inofensivo em arquivo solto. */
+  remover(path: string): Promise<void>;
+  /** Lista uma pasta específica, um nível, SEM o filtro de "ignora pasta ponto" do
+   * walk_vault — único jeito de enxergar dentro de `.trash/`, que `listar()` sempre pula
+   * (RF1.6: pastas ponto nunca aparecem em `entradas`). `[]` se a pasta não existir ainda. */
+  listarPasta(path: string): Promise<{ nome: string; isDir: boolean }[]>;
   existe(path: string): Promise<boolean>;
   observar(cb: (eventos: EventoArquivo[]) => void): () => void;
 }
