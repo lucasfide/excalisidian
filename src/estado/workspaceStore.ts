@@ -85,6 +85,15 @@ export const useWorkspaceStore = create<WorkspaceState>((set, get) => ({
       existente.api.setActive();
       return;
     }
+
+    // Abrir um arquivo a partir de uma aba em branco (Ctrl+T) SUBSTITUI a aba, em vez de
+    // abrir mais uma do lado (mesmo comportamento do Obsidian) — só quando a aba em branco
+    // é a ATIVA; não fecha uma aba vazia esquecida num outro grupo/split. `vazio:` é o
+    // prefixo de id que `novaAbaVazia`/`dividirAtivo` já usam pra esse tipo de painel — sem
+    // conteúdo nenhum a perder, então remover direto é seguro.
+    const vazioAtivo = api.activePanel?.id.startsWith("vazio:") ? api.activePanel : null;
+    if (vazioAtivo) api.removePanel(vazioAtivo);
+
     api.addPanel({
       id: path,
       component: componenteDe(path),
