@@ -88,6 +88,8 @@ As outras três vantagens que a versão anterior deste documento alegava **não 
 
 **Condição de reversão:** se o painel de lixeira for rebaixado de P0, a lixeira do sistema passa a ser a escolha melhor, porque elimina a última ação irreversível do produto.
 
+**Status (01/09/2026): RF7.1–7.4 implementados** (`vault/lixeira.ts`, `ui/excalisidian/PainelLixeira.tsx`). Achado só na implementação, não previsto neste ADR: o `walk_vault` (RF1.6) filtra qualquer pasta que comece com "." — inclusive o que está *dentro* dela — então `.trash/*` nunca aparece em `vaultStore().entradas`. O painel de lixeira lista pelo `VaultAdapter.listarPasta()`, um método novo sobre `readDir` do `@tauri-apps/plugin-fs` (não-recursivo, por fora do `walk_vault`), não por cruzar com `entradas` como um levantamento anterior desta sessão presumiu. RF7.5 (desfazer no toast) e RF7.6 (lixeira do sistema, crate `trash`) continuam pendentes.
+
 ### ADR-8 · Extensão `.draw.md`, e não `.excalidraw.md`
 
 **Decisão:** desenhos usam `.draw.md`. Em wikilink, a forma canônica é `[[Nome.draw]]`.

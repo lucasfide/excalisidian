@@ -408,7 +408,7 @@ Altura padrão 36px, compacto 30px, ícone 32×32.
 | `PainelBusca` | campo, resultados agrupados por arquivo, trecho com destaque |
 | `QuickSwitcher` | sobreposição de busca por nome |
 | `PaletaComandos` | sobreposição de comandos com atalho em `meta` |
-| `PainelLixeira` | lista de itens excluídos com restaurar e esvaziar |
+| `PainelLixeira` | diálogo modal (mesmo padrão de `DialogoPreferencias`, não uma seção fixa da sidebar — o diagrama de Layout abaixo é aspiracional nesse ponto) com a lista de itens excluídos, restaurar por item e esvaziar |
 | `EstadoVazio` | bloco com hairline superior e inferior, título, apoio e ação |
 | `TelaInicio` | aba fixa de início, nesta ordem: saudação por horário (`display-1`), o convite de `EstadoVazio` para criar nota/desenho/pasta, atalhos para as pastas de primeiro nível, e — ao clicar num atalho — os arquivos/subpastas dela, navegável (mini-explorador) |
 | `DialogoPreferencias` | configurações do app (tema, largura da nota) — ícone de engrenagem no rodapé da sidebar, ou `Ctrl+,` |
@@ -465,6 +465,7 @@ Altura padrão 36px, compacto 30px, ícone 32×32.
 | busca | `search` |
 | backlinks | `corner-down-left` |
 | lixeira | `trash-2` |
+| restaurar (item da lixeira) | `rotate-ccw` |
 | dividir vertical / horizontal | `columns-2` / `rows-2` |
 | ordenar | `arrow-up-narrow-wide` |
 | preferências | `settings` |
