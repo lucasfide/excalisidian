@@ -18,6 +18,7 @@ import {
 import { comandoMoverArquivo, comandoMoverPara } from "./comandos/mover";
 import { comandoExcluir } from "./comandos/exclusao";
 import { useAutosave } from "../editor/useAutosave";
+import { useRessincronizarAoVoltar } from "./useRessincronizarAoVoltar";
 import Workspace from "../layout/Workspace";
 import { Botao, BotaoIcone, EstadoVazio } from "../ui";
 import ArvoreArquivos from "../ui/excalisidian/ArvoreArquivos";
@@ -55,6 +56,7 @@ export default function App() {
   const abrirDocumento = useWorkspaceStore((s) => s.abrirDocumento);
 
   useAutosave();
+  useRessincronizarAoVoltar();
 
   useEffect(() => {
     void usePrefsStore.getState().carregar();

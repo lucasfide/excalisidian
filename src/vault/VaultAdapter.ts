@@ -36,4 +36,8 @@ export interface VaultAdapter {
   listarPasta(path: string): Promise<{ nome: string; isDir: boolean }[]>;
   existe(path: string): Promise<boolean>;
   observar(cb: (eventos: EventoArquivo[]) => void): () => void;
+  /** Avisa quando o watcher perdeu eventos e o vault precisa ser relido por inteiro (overflow
+   * do buffer do SO — o caso clássico é o PC voltar de uma hibernação longa). Devolve a
+   * função de cancelar, igual `observar`. */
+  aoPerderSincronia(cb: () => void): () => void;
 }

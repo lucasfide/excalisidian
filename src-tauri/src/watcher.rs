@@ -16,6 +16,8 @@ use tauri::{AppHandle, Emitter, State};
 
 const DEBOUNCE_MS: u64 = 150;
 const EVENTO: &str = "vault://eventos";
+/// Emitido quando o watcher perdeu o fio da meada e o front precisa reler o vault inteiro.
+const EVENTO_RESSINCRONIZAR: &str = "vault://ressincronizar";
 
 type WatcherInterno = Debouncer<notify::RecommendedWatcher, RecommendedCache>;
 
@@ -84,7 +86,20 @@ pub fn observar_vault(
         move |resultado: DebounceEventResult| {
             let eventos = match resultado {
                 Ok(e) => e,
-                Err(_) => return,
+                Err(erros) => {
+                    // Antes isto era `Err(_) => return` — silêncio total. O erro que mais
+                    // importa aqui é o overflow do buffer do ReadDirectoryChangesW: quando o
+                    // Windows acumula mudanças demais (o caso clássico é o PC hibernar por
+                    // horas), o notify perde eventos e avisa por este canal. Engolindo, o
+                    // vault ficava dessincronizado do disco sem ninguém saber. Agora loga e
+                    // pede ao front pra reler tudo — os eventos perdidos não voltam, mas o
+                    // estado converge.
+                    for erro in &erros {
+                        eprintln!("[watcher] erro do notify: {erro}");
+                    }
+                    let _ = app_handler.emit(EVENTO_RESSINCRONIZAR, ());
+                    return;
+                }
             };
             let mut lote: Vec<EventoWatcher> = Vec::new();
             for ev in eventos {

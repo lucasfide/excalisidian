@@ -53,6 +53,9 @@ interface VaultState {
   definirAdapter(adapter: TauriVaultAdapter): Promise<void>;
   recarregarArvore(): Promise<void>;
   reindexar(): Promise<void>;
+  /** Relê o vault por inteiro. Para quando não dá pra confiar nos eventos incrementais: o
+   * watcher avisou que perdeu eventos, ou a janela ficou muito tempo sem foco (hibernação). */
+  ressincronizar(): Promise<void>;
   reindexarArquivo(path: string): Promise<void>;
   reconciliar(eventos: EventoArquivo[]): Promise<void>;
   resolver(alvo: string, origem: string): string | null;
@@ -65,6 +68,7 @@ interface VaultState {
 }
 
 let cancelarWatcher: () => void = () => {};
+let cancelarRessincronia: () => void = () => {};
 
 function derivar(indice: Map<string, FileMeta>, todosCaminhos: string[]) {
   const resolucao = construirIndiceResolucao(todosCaminhos);
@@ -100,6 +104,19 @@ export const useVaultStore = create<VaultState>((set, get) => ({
     cancelarWatcher = adapter.observar((eventos) => {
       void get().reconciliar(eventos);
     });
+
+    // O watcher avisou que perdeu eventos (overflow do buffer do SO — típico ao voltar de uma
+    // hibernação longa). Os eventos perdidos não voltam: `emit` é fire-and-forget, sem buffer
+    // nem replay. A única saída é reler o vault inteiro, que é o que `ressincronizar` faz.
+    cancelarRessincronia();
+    cancelarRessincronia = adapter.aoPerderSincronia(() => {
+      void get().ressincronizar();
+    });
+  },
+
+  async ressincronizar() {
+    await get().recarregarArvore();
+    await get().reindexar();
   },
 
   async recarregarArvore() {

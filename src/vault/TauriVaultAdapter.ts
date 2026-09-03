@@ -135,4 +135,12 @@ export class TauriVaultAdapter implements VaultAdapter {
     });
     return () => cancelar();
   }
+
+  aoPerderSincronia(cb: () => void): () => void {
+    let cancelar = () => {};
+    void listen("vault://ressincronizar", () => cb()).then((un) => {
+      cancelar = un;
+    });
+    return () => cancelar();
+  }
 }
