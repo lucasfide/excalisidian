@@ -9,10 +9,74 @@
     <script>
       window.EXCALIDRAW_ASSET_PATH = "/";
     </script>
+    <!-- Cores literais aqui de propósito: este bloco tem que funcionar mesmo quando o bundle
+         (e com ele o globals.css e os tokens) não carregou. São os valores de `papel`/`tinta`/
+         `tinta-suave`/`musgo` do doc 06, não valores inventados. -->
+    <style>
+      #carga-inicial {
+        position: fixed;
+        inset: 0;
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        justify-content: center;
+        gap: 12px;
+        background: #efeae1;
+        color: #655e54;
+        font-family: system-ui, sans-serif;
+        font-size: 13px;
+        text-align: center;
+        padding: 0 32px;
+      }
+      #carga-inicial button {
+        border: 1px solid #3e5c46;
+        background: #3e5c46;
+        color: #fbf9f5;
+        border-radius: 2px;
+        padding: 6px 16px;
+        font: inherit;
+        cursor: pointer;
+      }
+      @media (prefers-color-scheme: dark) {
+        #carga-inicial {
+          background: #16140f;
+          color: #9a9384;
+        }
+        #carga-inicial button {
+          border-color: #86a98b;
+          background: #86a98b;
+          color: #1f1c16;
+        }
+      }
+    </style>
   </head>
 
   <body>
-    <div id="root"></div>
+    <!-- Fallback de carga: o React substitui o conteúdo de #root ao montar, então isto some
+         sozinho no caminho normal. Existe para o caminho ANORMAL — a página servida mas o
+         módulo não (servidor de dev ainda subindo depois de o PC hibernar, bundle que falhou
+         ao baixar). Sem ele, esse caso é uma janela branca muda, indistinguível de um crash. -->
+    <div id="root">
+      <div id="carga-inicial">
+        <span id="carga-inicial-texto">carregando…</span>
+      </div>
+    </div>
+    <script>
+      // Se o React não montou em 10s, o bundle não vem — oferece recarregar em vez de deixar
+      // a janela em branco. Nenhuma dependência do bundle aqui, de propósito.
+      setTimeout(function () {
+        var caixa = document.getElementById("carga-inicial");
+        if (!caixa) return; // React já montou e trocou o conteúdo do #root
+        document.getElementById("carga-inicial-texto").textContent =
+          "O Excalisidian não terminou de carregar.";
+        var botao = document.createElement("button");
+        botao.textContent = "Recarregar";
+        botao.onclick = function () {
+          window.location.reload();
+        };
+        caixa.appendChild(botao);
+      }, 10000);
+    </script>
     <script type="module" src="/src/main.tsx"></script>
   </body>
 </html>
