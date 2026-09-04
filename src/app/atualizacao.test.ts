@@ -17,9 +17,7 @@ const storeMock = vi.mocked(useAtualizacaoStore);
 beforeEach(() => {
   checkMock.mockReset();
   toastMock.mockReset();
-  if (typeof toastErrorMock === "function") {
-    toastErrorMock.mockReset();
-  }
+  toastErrorMock.mockReset();
   storeMock.getState.mockReturnValue({
     oferecer: vi.fn(),
     fase: "oculto",
@@ -62,9 +60,7 @@ describe("verificarAtualizacao", () => {
     checkMock.mockRejectedValue(new Error("rede caiu"));
 
     await expect(verificarAtualizacao({ silencioso: true })).resolves.toBeUndefined();
-    if (typeof toastErrorMock === "function") {
-      expect(toastErrorMock).not.toHaveBeenCalled();
-    }
+    expect(toastErrorMock).not.toHaveBeenCalled();
   });
 
   it("manual + erro: avisa com toast.error", async () => {
@@ -72,8 +68,6 @@ describe("verificarAtualizacao", () => {
 
     await verificarAtualizacao({ silencioso: false });
 
-    if (typeof toastErrorMock === "function") {
-      expect(toastErrorMock).toHaveBeenCalledWith("Não foi possível verificar atualizações.");
-    }
+    expect(toastErrorMock).toHaveBeenCalledWith("Não foi possível verificar atualizações.");
   });
 });
