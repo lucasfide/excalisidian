@@ -66,12 +66,20 @@ export const useAtualizacaoStore = create<AtualizacaoState>((set, get) => ({
             break;
         }
       });
-      await relaunch();
     } catch {
       set({
         fase: "erro",
         mensagemErro: "Não foi possível baixar a atualização. Tente de novo mais tarde.",
       });
+      return;
+    }
+
+    // Relaunch in separate try/catch: if it fails, the update already succeeded,
+    // so don't report an error to the user. Just log and continue.
+    try {
+      await relaunch();
+    } catch {
+      console.warn("Relaunch failed after successful download and install", arguments);
     }
   },
 

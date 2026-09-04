@@ -71,12 +71,32 @@ describe("atualizacaoStore", () => {
     expect(relaunchMock).not.toHaveBeenCalled();
   });
 
+  it("aplicar() com download bem-sucedido mas falha no relaunch não entra em erro", async () => {
+    relaunchMock.mockRejectedValueOnce(new Error("relaunch failed"));
+    const update = updateFalso({
+      downloadAndInstall: async (onEvent) => {
+        onEvent?.({ event: "Started", data: { contentLength: 100 } });
+        onEvent?.({ event: "Progress", data: { chunkLength: 100 } });
+        onEvent?.({ event: "Finished" });
+      },
+    });
+    store().oferecer(update);
+
+    await store().aplicar();
+
+    expect(store().fase).not.toBe("erro");
+    expect(store().mensagemErro).toBeNull();
+    expect(store().progresso).toBe(1);
+  });
+
   it("adiar() esconde o diálogo sem mudar versão/notas", () => {
     store().oferecer(updateFalso({ downloadAndInstall: async () => {} }));
 
     store().adiar();
 
     expect(store().fase).toBe("oculto");
+    expect(store().versao).toBe("0.2.0");
+    expect(store().notas).toBe("Notas do release.");
   });
 
   it("fechar() esconde o diálogo de erro e limpa a mensagem", () => {
