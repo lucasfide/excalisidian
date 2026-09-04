@@ -292,10 +292,11 @@ Hoje a versão está triplicada em `package.json`, `src-tauri/tauri.conf.json` e
 - Modify: `package.json` (script `versao`)
 
 **Interfaces:**
-- Produces: `versaoDoPackageJson(conteudo: string, novaVersao: string): string`,
-  `versaoDoTauriConf(conteudo: string, novaVersao: string): string`,
+- Produces: `substituirVersaoEmJson(conteudo: string, novaVersao: string): string`,
   `versaoDoCargoToml(conteudo: string, novaVersao: string): string` — usadas só pelo teste
-  deste arquivo; nenhuma outra task depende delas.
+  deste arquivo; nenhuma outra task depende delas. `package.json` e `tauri.conf.json` têm o
+  mesmo formato (`{ "version": "..." }` em JSON de duas casas de indentação), então uma única
+  função cobre os dois — não há dois transformadores quase-idênticos.
 
 - [ ] **Step 1: Ensinar o vitest a rodar testes em `scripts/`**
 
@@ -315,17 +316,16 @@ Criar `scripts/lancar-versao.test.mjs`:
 ```js
 import { describe, it, expect } from "vitest";
 import {
-  versaoDoPackageJson,
-  versaoDoTauriConf,
+  substituirVersaoEmJson,
   versaoDoCargoToml,
 } from "./lancar-versao.mjs";
 
 describe("lancar-versao", () => {
-  it("troca a versão no package.json mantendo o resto", () => {
+  it("troca a versão num JSON no formato do package.json, mantendo o resto", () => {
     const original =
       JSON.stringify({ name: "excalisidian", version: "0.1.0", private: true }, null, 2) +
       "\n";
-    const resultado = versaoDoPackageJson(original, "0.2.0");
+    const resultado = substituirVersaoEmJson(original, "0.2.0");
     expect(JSON.parse(resultado)).toEqual({
       name: "excalisidian",
       version: "0.2.0",
@@ -333,10 +333,10 @@ describe("lancar-versao", () => {
     });
   });
 
-  it("troca a versão no tauri.conf.json mantendo o resto", () => {
+  it("troca a versão num JSON no formato do tauri.conf.json, mantendo o resto", () => {
     const original =
       JSON.stringify({ productName: "Excalisidian", version: "0.1.0" }, null, 2) + "\n";
-    const resultado = versaoDoTauriConf(original, "0.2.0");
+    const resultado = substituirVersaoEmJson(original, "0.2.0");
     expect(JSON.parse(resultado)).toEqual({ productName: "Excalisidian", version: "0.2.0" });
   });
 
@@ -372,13 +372,7 @@ Expected: FAIL — `Cannot find module './lancar-versao.mjs'` (ou equivalente).
 import { readFileSync, writeFileSync } from "node:fs";
 import { fileURLToPath } from "node:url";
 
-export function versaoDoPackageJson(conteudo, novaVersao) {
-  const dados = JSON.parse(conteudo);
-  dados.version = novaVersao;
-  return JSON.stringify(dados, null, 2) + "\n";
-}
-
-export function versaoDoTauriConf(conteudo, novaVersao) {
+export function substituirVersaoEmJson(conteudo, novaVersao) {
   const dados = JSON.parse(conteudo);
   dados.version = novaVersao;
   return JSON.stringify(dados, null, 2) + "\n";
@@ -389,8 +383,8 @@ export function versaoDoCargoToml(conteudo, novaVersao) {
 }
 
 const ALVOS = [
-  { caminho: "package.json", transformar: versaoDoPackageJson },
-  { caminho: "src-tauri/tauri.conf.json", transformar: versaoDoTauriConf },
+  { caminho: "package.json", transformar: substituirVersaoEmJson },
+  { caminho: "src-tauri/tauri.conf.json", transformar: substituirVersaoEmJson },
   { caminho: "src-tauri/Cargo.toml", transformar: versaoDoCargoToml },
 ];
 
