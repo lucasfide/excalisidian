@@ -1,6 +1,6 @@
 [package]
 name = "excalisidian"
-version = "0.1.0"
+version = "0.1.1"
 description = "Excalisidian"
 authors = ["Lucas Fidelis de Cristo"]
 edition = "2021"
