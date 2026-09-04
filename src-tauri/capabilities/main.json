@@ -19,6 +19,9 @@
     "fs:allow-remove",
     "fs:allow-stat",
     "fs:allow-exists",
-    "fs:allow-watch"
+    "fs:allow-watch",
+    "core:app:allow-version",
+    "updater:default",
+    "process:allow-restart"
   ]
 }
