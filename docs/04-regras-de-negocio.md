@@ -233,6 +233,8 @@ Toda mensagem diz o que aconteceu e o que fazer. Nunca pede desculpa, nunca culp
 | Busca sem resultado | "Nada encontrado para «xyz»." |
 | Sem backlinks | "Nenhuma nota aponta para esta ainda." |
 | Lixeira vazia | "A lixeira está vazia." |
+| Falha ao baixar atualização | "Não foi possível baixar a atualização. Tente de novo mais tarde." |
+| Falha ao verificar atualização (comando manual) | "Não foi possível verificar atualizações." |
 
 ## 11. Decisões de produto que já estão tomadas
 
@@ -246,3 +248,27 @@ Registradas aqui para não serem redecididas durante a implementação.
 6. **Não existe "projeto" nem "workspace" como entidade.** A pasta é a organização.
 7. **Não existe tag no MVP.** Frontmatter é livre, mas o app não usa nada dele além de `aliases`.
 8. **O app não normaliza o markdown do usuário.** Não reformata, não reindenta, não converte `*` em `-`. Só toca no que o usuário mandou tocar.
+
+## 12. Atualizações
+
+O app verifica sozinho se há uma versão nova ao abrir — silenciosa: se não achar nada ou a
+rede falhar, não interrompe o usuário — e também por um comando manual, "Verificar
+atualizações" (paleta de comandos e em Configurações).
+
+| Contexto | Texto |
+|---|---|
+| Diálogo de oferta — título | "Atualização disponível" |
+| Diálogo de oferta — descrição | "A versão {versão} está pronta para instalar." |
+| Diálogo de oferta — aceitar | "Atualizar agora" |
+| Diálogo de oferta — adiar | "Depois" |
+| Diálogo de download — título | "Baixando atualização…" |
+| Diálogo de download — progresso | "{porcentagem}%" |
+| Diálogo de erro — título | "Não foi possível atualizar" |
+| Diálogo de erro — botão | "Fechar" |
+| Comando manual sem novidade | "Você já está na versão mais recente." |
+| Comando na paleta de comandos | "Verificar atualizações" |
+| Preferências — seção | "Atualizações" |
+| Preferências — versão atual | "Versão {versão}" |
+
+Os erros de rede ("Não foi possível baixar a atualização…" e "Não foi possível verificar
+atualizações.") estão na tabela da seção 10, junto com as demais mensagens de erro do app.
