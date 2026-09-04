@@ -9,6 +9,7 @@
     "preview": "vite preview",
     "tauri": "tauri",
     "test": "vitest run",
+    "versao": "node scripts/lancar-versao.mjs",
     "postinstall": "node scripts/copiar-assets-excalidraw.mjs"
   },
   "dependencies": {
