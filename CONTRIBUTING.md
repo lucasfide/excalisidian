@@ -30,9 +30,17 @@ npm run build
 npm test
 ```
 
-Os dois precisam passar. A CI roda a mesma coisa, mais `cargo check` no `src-tauri`.
+Os dois precisam passar. A CI roda a mesma coisa, mais `cargo check` e `cargo fmt --check`
+no `src-tauri`.
 
 ## Releases
 
 Só o mantenedor publica releases — veja o fluxo em
-`docs/superpowers/specs/2026-09-04-github-release-e-autoupdate-design.md`.
+`docs/superpowers/specs/2026-09-04-github-release-e-autoupdate-design.md`. Para bumpar a
+versão use `npm run versao <versão>`, que sincroniza `package.json`, `tauri.conf.json` e
+`Cargo.toml`.
+
+Rodar `npm run tauri build` localmente exige `TAURI_SIGNING_PRIVATE_KEY` e
+`TAURI_SIGNING_PRIVATE_KEY_PASSWORD` no ambiente — gere um par de chaves com
+`npx tauri signer generate` ou peça ao mantenedor. `npm run tauri dev` não é afetado, porque
+não empacota nem assina nada.

@@ -279,4 +279,4 @@ Fora do MVP funcional, mas precisa existir antes de instalar em outra máquina:
 - `src-tauri/capabilities/main.json` declarando as permissões dos plugins fs, dialog e store. As permissões são declaradas ali; o **escopo** de caminho é concedido em runtime pelo `escolher_vault`.
 - Assinatura de código no Windows: sem certificado, o SmartScreen avisa na primeira instalação. Decisão do usuário (2026-09-04): aceitável por ora, mesmo distribuindo — ver `docs/superpowers/specs/2026-09-04-github-release-e-autoupdate-design.md`.
 - Updater: implementado (2026-09-04) via `tauri-plugin-updater`, assinatura minisign própria — ver o spec acima.
-- Licenças: Excalidraw é MIT; as fontes copiadas do pacote (Excalifont incluída) são OFL-1.1 — ver `THIRD_PARTY_LICENSES.md`.
+- Licenças: Excalidraw é MIT; as fontes copiadas do pacote (Excalifont incluída) são OFL-1.1. As fontes do design system (Fraunces, Instrument Sans, IBM Plex Mono), embutidas em `public/fontes/`, também são OFL-1.1 — ver `THIRD_PARTY_LICENSES.md`.

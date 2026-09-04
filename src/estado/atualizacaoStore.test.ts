@@ -71,7 +71,7 @@ describe("atualizacaoStore", () => {
     expect(relaunchMock).not.toHaveBeenCalled();
   });
 
-  it("aplicar() com download bem-sucedido mas falha no relaunch não entra em erro", async () => {
+  it("aplicar() com download bem-sucedido mas falha no relaunch vai para a fase 'reiniciar'", async () => {
     relaunchMock.mockRejectedValueOnce(new Error("relaunch failed"));
     const update = updateFalso({
       downloadAndInstall: async (onEvent) => {
@@ -84,7 +84,7 @@ describe("atualizacaoStore", () => {
 
     await store().aplicar();
 
-    expect(store().fase).not.toBe("erro");
+    expect(store().fase).toBe("reiniciar");
     expect(store().mensagemErro).toBeNull();
     expect(store().progresso).toBe(1);
   });

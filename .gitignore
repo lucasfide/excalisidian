@@ -29,3 +29,6 @@ npm-debug.log*
 !.vscode/extensions.json
 .idea
 .DS_Store
+
+# Nunca versionar chave de assinatura do updater
+*.key

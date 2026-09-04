@@ -5,7 +5,7 @@ import { create } from "zustand";
 import { relaunch } from "@tauri-apps/plugin-process";
 import type { Update } from "@tauri-apps/plugin-updater";
 
-type Fase = "oculto" | "disponivel" | "baixando" | "erro";
+type Fase = "oculto" | "disponivel" | "baixando" | "reiniciar" | "erro";
 
 interface AtualizacaoState {
   fase: Fase;
@@ -74,12 +74,14 @@ export const useAtualizacaoStore = create<AtualizacaoState>((set, get) => ({
       return;
     }
 
-    // Relaunch in separate try/catch: if it fails, the update already succeeded,
-    // so don't report an error to the user. Just log and continue.
+    // Reinício num try/catch separado: se falhar, a atualização já foi instalada com
+    // sucesso, então não é um erro — mas o usuário não pode ficar preso no diálogo de
+    // download para sempre. Fase "reiniciar" pede pra fechar e abrir o app de novo.
     try {
       await relaunch();
-    } catch {
-      console.warn("Relaunch failed after successful download and install", arguments);
+    } catch (erro) {
+      console.warn("Falha ao reiniciar depois de instalar a atualização:", erro);
+      set({ fase: "reiniciar" });
     }
   },
 

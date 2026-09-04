@@ -263,6 +263,8 @@ atualizações" (paleta de comandos e em Configurações).
 | Diálogo de oferta — adiar | "Depois" |
 | Diálogo de download — título | "Baixando atualização…" |
 | Diálogo de download — progresso | "{porcentagem}%" |
+| Diálogo pós-download sem reinício — título | "Atualização baixada" |
+| Diálogo pós-download sem reinício — descrição | "Feche e abra o Excalisidian de novo para concluir." |
 | Diálogo de erro — título | "Não foi possível atualizar" |
 | Diálogo de erro — botão | "Fechar" |
 | Comando manual sem novidade | "Você já está na versão mais recente." |

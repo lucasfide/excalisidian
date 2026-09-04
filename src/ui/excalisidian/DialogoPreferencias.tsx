@@ -34,9 +34,13 @@ export default function DialogoPreferencias({ onFechar }: Props) {
 
   useEffect(() => {
     let ativo = true;
-    void getVersion().then((v) => {
-      if (ativo) setVersao(v);
-    });
+    void getVersion()
+      .then((v) => {
+        if (ativo) setVersao(v);
+      })
+      .catch(() => {
+        // Sem versão disponível ainda; a seção de Atualizações mostra vazio.
+      });
     return () => {
       ativo = false;
     };
