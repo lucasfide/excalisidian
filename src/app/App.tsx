@@ -2,13 +2,14 @@
 // O conteúdo dos arquivos vive por aba no documentosStore; a aba ativa, no workspaceStore.
 
 import { useCallback, useEffect, useState } from "react";
-import { Settings, Trash2 } from "lucide-react";
+import { ListChecks, Settings, Trash2 } from "lucide-react";
 import { Toaster } from "sonner";
 
 import { TauriVaultAdapter } from "../vault/TauriVaultAdapter";
 import { useVaultStore } from "../estado/vaultStore";
 import { useWorkspaceStore } from "../estado/workspaceStore";
 import { usePrefsStore, type Tema } from "../estado/prefsStore";
+import { useTarefasStore } from "../estado/tarefasStore";
 import {
   comandoNovaNota,
   comandoNovoDesenho,
@@ -28,6 +29,7 @@ import DialogoPreferencias from "../ui/excalisidian/DialogoPreferencias";
 import Logotipo from "../ui/excalisidian/Logotipo";
 import PainelBacklinks from "../ui/excalisidian/PainelBacklinks";
 import PainelLixeira from "../ui/excalisidian/PainelLixeira";
+import PainelTarefas from "../ui/excalisidian/PainelTarefas";
 import RaizDialogos from "../ui/excalisidian/RaizDialogos";
 import RaizSobreposicoes from "../ui/excalisidian/RaizSobreposicoes";
 import LimiteDeErro from "../ui/excalisidian/LimiteDeErro";
@@ -60,6 +62,26 @@ export default function App() {
 
   useEffect(() => {
     void usePrefsStore.getState().carregar();
+  }, []);
+
+  // Prefs do painel de tarefas (aberto/largura) + flush no fechamento da janela.
+  useEffect(() => {
+    void useTarefasStore.getState().carregarPrefs();
+    const flush = () => void useTarefasStore.getState()._persistirAgora();
+    window.addEventListener("beforeunload", flush);
+    return () => window.removeEventListener("beforeunload", flush);
+  }, []);
+
+  // Ctrl+Shift+\ alterna o painel de tarefas (Ctrl+\ sozinho recolhe a sidebar esquerda).
+  useEffect(() => {
+    const onKey = (e: KeyboardEvent) => {
+      if ((e.ctrlKey || e.metaKey) && e.shiftKey && e.key === "\\") {
+        e.preventDefault();
+        useTarefasStore.getState().alternarPainel();
+      }
+    };
+    window.addEventListener("keydown", onKey, true);
+    return () => window.removeEventListener("keydown", onKey, true);
   }, []);
 
   // Ctrl+, é a convenção de "abrir configurações" em várias ferramentas (VS Code, Slack) —
@@ -205,6 +227,11 @@ export default function App() {
                   onClick={() => setLixeiraAberta(true)}
                 />
                 <BotaoIcone
+                  Icone={ListChecks}
+                  titulo="Tarefas"
+                  onClick={() => useTarefasStore.getState().alternarPainel()}
+                />
+                <BotaoIcone
                   Icone={Settings}
                   titulo="Configurações"
                   onClick={() => setPreferenciasAbertas(true)}
@@ -216,6 +243,7 @@ export default function App() {
           <main className="min-h-0 flex-1">
             <Workspace />
           </main>
+          <PainelTarefas />
         </div>
       </LimiteDeErro>
 
