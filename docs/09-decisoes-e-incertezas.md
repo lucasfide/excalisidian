@@ -569,9 +569,9 @@ paleta de cor (não existe — hardcoded), e os efeitos do `--theme-filter`/`the
 pública:
 
 - `onLinkOpen` (wikilink em elemento) — já em uso, prop pública de primeira classe, não muda.
-- Fundo pontilhado, autocomplete de `[[` na caixa de texto nativa, colar imagem — tudo
-  implementado por fora da UI (CSS abaixo do canvas, listener de DOM, `onPaste`), sobrevive
-  intacto.
+- Fundo pontilhado, autocomplete de `[[` na caixa de texto nativa — implementados por fora da
+  UI (CSS abaixo do canvas, listener de DOM), sobrevivem intactos. Colar imagem foi refeito
+  depois (ver ADR-21).
 - `renderTopRightUI` (canto superior direito, slot público) hospeda o único pedaço de UI
   própria que resta: `LinkDoElemento.tsx`, o campo de link com autocomplete de nota — o popup
   nativo de `Ctrl+K` é um `<input>` cru, sem gancho pra isso.
@@ -617,6 +617,38 @@ as cores nativas do Excalidraw agora).
 reencaminhamento de `Ctrl+S/O/P/T/W`) — revisado e mantido como está, porque `UIOptions.
 canvasActions` (`loadScene`, `saveToActiveFile`, `clearCanvas`, todos `false`) já esconde os
 itens de menu correspondentes, então não há hoje item de menu visível cujo atalho fique morto.
+
+### ADR-21 · Imagem no canvas: sem handler de paste, adoção no onChange
+
+**Contexto:** pedido do usuário — colar uma imagem no canvas inseria **duas**: uma com a
+proporção certa e outra minúscula e quadrada; e, ao reabrir o desenho, a imagem boa aparecia
+"desvinculada" (placeholder no lugar dela).
+
+**Investigado no bundle do Excalidraw 0.18.1:**
+
+- O Excalidraw escuta `paste` em `document` (`pasteFromClipboard`) e **não checa
+  `event.defaultPrevented`**. O handler próprio do app (`EditorDesenho.colarImagem`, um
+  `onPaste` no div raiz) chamava `preventDefault()`, mas isso não impedia o nativo de rodar —
+  os dois inseriam uma imagem. A minúscula era a do app: `convertToExcalidrawElements` com um
+  elemento `image` sem `width`/`height` cai no default `zr × zr` (quadrado fixo), sem ler a
+  dimensão real do arquivo.
+- A prop `<Excalidraw onPaste>` **não** serve pra isso: no `pasteFromClipboard`, o ramo de
+  imagem dá `return` antes de `this.props.onPaste` ser chamado. Ela só vê texto/elementos/
+  planilha.
+- `serializarDesenho` grava `files: {}` de propósito (ADR-3). A imagem nativa nunca virava
+  linha em `## Embedded Files` nem arquivo no vault, então ao reabrir o `fileId` dela não
+  reidratava — daí o "desvinculada".
+
+**Decisão: nenhum handler de paste no canvas.** O paste nativo do Excalidraw cria o elemento
+com a proporção certa; `imagensParaAdotar` (`src/canvas/adotarImagens.ts`), chamado no
+`onChange` antes de serializar, pega toda imagem cujo `fileId` ainda não tem embed, grava o
+binário como arquivo em `anexos/` e registra `fileId: [[caminho]]`. Como roda no `onChange`,
+cobre também **arrastar e soltar** e a **ferramenta de imagem** da toolbar — que tinham o
+mesmo bug e nenhum handler antes. Deduplicado por `fileId` (hash de conteúdo do Excalidraw).
+
+**De quebra:** `reidratarFiles` no mount perdia a corrida quando resolvia antes de a API do
+Excalidraw existir (`addFiles` era pulado sem retry). Agora os files ficam num ref e
+`aoObterApi` aplica o que estiver pendente.
 
 ### ADR-9 · O nome do produto é um problema em aberto
 

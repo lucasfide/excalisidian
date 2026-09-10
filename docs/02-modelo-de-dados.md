@@ -279,10 +279,17 @@ O objeto da cena mantém `"type": "excalidraw"`. Isso não é o nome do produto 
 
 O Excalidraw guarda imagens no mapa `files` como data URL base64. O Excalisidian **não faz isso**.
 
-Ao colar uma imagem (`Ctrl+V`) no canvas ou numa nota:
+Ao trazer uma imagem para o canvas (colar com `Ctrl+V`, arrastar e soltar, ou a ferramenta de
+imagem da toolbar) ou colar numa nota:
 
-1. Grava o arquivo em `pastaDeAnexo(nota)/Imagem colada YYYYMMDD-HHmmss.<ext>`.
-2. No canvas: cria o `ExcalidrawImageElement` com um `fileId`, e registra `fileId: [[caminho]]` em `## Embedded Files`. O mapa `files` da cena fica **vazio no disco**; é reidratado em memória ao abrir, lendo os arquivos.
+1. Grava o arquivo em `pastaDeAnexo(nota)/Imagem colada YYYYMMDD-HHmmss.<ext>` (com a numeração
+   de colisão de `caminhoLivre` se o carimbo repetir).
+2. No canvas: o Excalidraw cria o `ExcalidrawImageElement` normalmente (com o binário só na
+   memória, no mapa `files`). No `onChange` seguinte, toda imagem cujo `fileId` ainda não tem
+   embed é **adotada**: o binário vira o arquivo do passo 1 e ganha a linha `fileId: [[caminho]]`
+   em `## Embedded Files`. O mapa `files` da cena fica **vazio no disco**; é reidratado em
+   memória ao abrir, lendo os arquivos. (Não há handler próprio de `paste` no canvas — ver doc
+   09.)
 3. Na nota: insere `![[caminho]]`.
 
 **Por que:** um vault de desenhos com base64 embutido fica com arquivos de 10 MB que o Git não consegue versionar de forma útil, e a mesma imagem colada em três desenhos ocupa três vezes o espaço.

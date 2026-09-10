@@ -1,6 +1,6 @@
 // Excalidraw embutido (doc 05 §5). Carrega a cena de um .draw.md, aplica tema e fundo
-// pontilhado, atalhos e colar imagem, e salva de volta com o mesmo contrato de autosave das
-// notas. A UI nativa do Excalidraw (toolbar, painel de propriedades, menu) está LIGADA — ver
+// pontilhado e atalhos, adota imagens coladas/soltas para o vault (adotarImagens.ts) e salva
+// de volta com o mesmo contrato de autosave das notas. A UI nativa do Excalidraw (toolbar, painel de propriedades, menu) está LIGADA — ver
 // doc 09, ADR de migração para a UI nativa: a versão própria (ToolbarCanvas/PropriedadesCanvas)
 // foi apagada, tinha menos recursos e um bug real (alinhar/distribuir deixava texto vinculado
 // pra trás).
@@ -8,7 +8,6 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import {
   Excalidraw,
-  convertToExcalidrawElements,
   viewportCoordsToSceneCoords,
 } from "@excalidraw/excalidraw";
 import type {
@@ -27,7 +26,9 @@ import {
   serializarDesenho,
   blockIdsDaCena,
 } from "./formatoDesenho";
-import { reidratarFiles, bytesParaDataUrl } from "./reidratarFiles";
+import { reidratarFiles } from "./reidratarFiles";
+import { imagensParaAdotar } from "./adotarImagens";
+import { caminhoLivre } from "../vault/criar";
 import { lerPaletaCanvas, useTemaEscuro } from "./paletaCanvas";
 import { useAtalhosCanvas } from "./atalhosCanvas";
 import { abrirOuCriarPorLink } from "../vault/navegacao";
@@ -121,16 +122,29 @@ export default function EditorDesenho({
 
   const ultimoMdRef = useRef(conteudoInicial);
 
-  // embeddedFiles cresce ao colar imagem; mantido mutável fora do parse base.
+  // embeddedFiles cresce ao adotar imagem (adotarImagens.ts); mantido mutável fora do parse base.
   const embedsRef = useRef(new Map(base.embeddedFiles));
   useEffect(() => {
     embedsRef.current = new Map(base.embeddedFiles);
   }, [base]);
 
+  // fileIds com escrita em disco em voo — impede adotar a mesma imagem de novo enquanto o
+  // `await` do lote anterior não terminou (o embed só entra em `embedsRef` depois dele).
+  const adotandoRef = useRef(new Set<string>());
+
+  // Se `reidratarFiles` resolver antes de a API do Excalidraw existir, guarda os files aqui
+  // pra `aoObterApi` aplicar — sem isso a imagem embedada abre como placeholder numa corrida.
+  const filesPendentesRef = useRef<
+    Parameters<ExcalidrawImperativeAPI["addFiles"]>[0] | null
+  >(null);
+
   useEffect(() => {
     let vivo = true;
     void reidratarFiles(base).then((files) => {
-      if (vivo && apiRef.current) apiRef.current.addFiles(Object.values(files));
+      if (!vivo) return;
+      const lista = Object.values(files);
+      if (apiRef.current) apiRef.current.addFiles(lista);
+      else filesPendentesRef.current = lista;
     });
     return () => {
       vivo = false;
@@ -325,10 +339,40 @@ export default function EditorDesenho({
       if (somenteLeitura) return;
 
       window.clearTimeout(timerRef.current);
-      timerRef.current = window.setTimeout(() => {
+      timerRef.current = window.setTimeout(async () => {
         const vivos = elements.filter(
           (e) => !(e as { isDeleted?: boolean }).isDeleted,
         );
+
+        // Adota imagens de qualquer origem (colar, arrastar e soltar, ferramenta de imagem):
+        // o Excalidraw só guarda o binário em memória (mapa `files`), então aqui ele vira um
+        // arquivo de verdade no vault + linha em `## Embedded Files` antes de serializar
+        // (adotarImagens.ts, doc 02 §"Imagens"). Sem isto a imagem some ao reabrir o desenho.
+        const api = apiRef.current;
+        const adapter = useVaultStore.getState().adapter;
+        if (api && adapter) {
+          const novas = imagensParaAdotar(
+            vivos as { type: string; fileId?: string | null; isDeleted?: boolean }[],
+            api.getFiles() as Record<string, { dataURL?: string }>,
+            new Set(embedsRef.current.keys()),
+          );
+          for (const { fileId, bytes, ext } of novas) {
+            if (adotandoRef.current.has(fileId)) continue;
+            adotandoRef.current.add(fileId);
+            try {
+              const caminho = await caminhoLivre(
+                `anexos/Imagem colada ${carimbo()}`,
+                `.${ext}`,
+              );
+              await adapter.criarPasta("anexos");
+              await adapter.escreverBinario(caminho, bytes);
+              embedsRef.current.set(fileId, `[[${caminho}]]`);
+            } catch {
+              adotandoRef.current.delete(fileId); // deixa tentar de novo no próximo onChange
+            }
+          }
+        }
+
         // Cor gravada é a cor escolhida pelo usuário — sem conversão por tema (ADR-12
         // aposentado): o seletor de cor nativo do Excalidraw não é customizável, então manter
         // conversão só produzia cena mista e um vetor real de corrupção. O modo escuro volta a
@@ -396,6 +440,10 @@ export default function EditorDesenho({
     (api: ExcalidrawImperativeAPI) => {
       apiRef.current = api;
       pintarGrade(api.getAppState());
+      if (filesPendentesRef.current) {
+        api.addFiles(filesPendentesRef.current);
+        filesPendentesRef.current = null;
+      }
     },
     [pintarGrade],
   );
@@ -432,51 +480,15 @@ export default function EditorDesenho({
     [caminho],
   );
 
-  const colarImagem = useCallback(async (e: React.ClipboardEvent) => {
-    const api = apiRef.current;
-    const adapter = useVaultStore.getState().adapter;
-    if (!api || !adapter) return;
-    const item = [...e.clipboardData.items].find((i) => i.type.startsWith("image/"));
-    if (!item) return;
-    e.preventDefault();
-    const blob = item.getAsFile();
-    if (!blob) return;
-    const ext = (blob.type.split("/")[1] ?? "png").replace("+xml", "");
-    const rel = `anexos/Imagem colada ${carimbo()}.${ext}`;
-    const bytes = new Uint8Array(await blob.arrayBuffer());
-    try {
-      await adapter.criarPasta("anexos");
-      await adapter.escreverBinario(rel, bytes);
-    } catch {
-      return;
-    }
-    const fileId = `img-${crypto.randomUUID().slice(0, 12)}`;
-    api.addFiles([
-      {
-        id: fileId as never,
-        mimeType: blob.type as never,
-        dataURL: bytesParaDataUrl(bytes, blob.type) as never,
-        created: Date.now(),
-      },
-    ]);
-    embedsRef.current.set(fileId, `[[${rel}]]`);
-    const st = api.getAppState();
-    const [novo] = convertToExcalidrawElements([
-      {
-        type: "image",
-        x: -st.scrollX + st.width / 2 / st.zoom.value - 100,
-        y: -st.scrollY + st.height / 2 / st.zoom.value - 100,
-        fileId: fileId as never,
-      },
-    ]);
-    api.updateScene({ elements: [...api.getSceneElements(), novo] });
-  }, []);
+  // Colar imagem NÃO tem handler próprio: o paste nativo do Excalidraw cria o elemento com a
+  // proporção certa, e `imagensParaAdotar` (chamado no onChange) transforma o binário em
+  // arquivo do vault + embed. Um handler próprio aqui entrava em conflito com o nativo — ver
+  // adotarImagens.ts e doc 09.
 
   return (
     <div
       ref={raizRef}
       className="excalisidian-canvas relative h-full w-full"
-      onPaste={colarImagem}
     >
       <div
         ref={gradeRef}
