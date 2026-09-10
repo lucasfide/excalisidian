@@ -426,19 +426,31 @@ no seu banco de dados; este app guarda Markdown puro em arquivo (ADR-4, RNF7). N
 `@lezer/markdown` (o mesmo parser que a live preview usa). **Decisão: bloco é o filho direto do
 documento** que contém a posição (parágrafo, heading, citação, código, tabela...), exceto dentro
 de lista, onde desce até o item mais interno — cada item de lista é seu próprio bloco, igual
-Notion, e é isso que faz "mover a linha do título não arrasta a seção" ser verdade (o título é
-um heading solto, bloco próprio, sem relação de bloco-pai com o que vem depois dele).
+Notion. Um heading é um bloco solto, sem relação de bloco-pai com o que vem depois dele: mover
+um heading arrasta só a linha dele, nunca a seção inteira (o título da nota, na linha 1, não
+tem alça nenhuma — ver abaixo).
 
 `src/editor/extensoes/blocoMarkdown.ts` implementa isso puro (`Tree` + `Text`, nunca
 `EditorView`) — testável em `environment: "node"` sem abrir navegador, construindo a árvore
 direto com `markdownLanguage.parser.parse(texto)`. É a base dos três comportamentos abaixo.
 
-**Por que o Enter passou a gravar linha em branco:** Markdown não tem "bloco novo" como conceito
-— `linha1\nlinha2` é **um parágrafo só**, qualquer leitor de Markdown concorda. Pro modelo
-mental "Enter = bloco novo" ser verdade *no arquivo* (não só na tela do app), o Enter precisa
-gravar uma linha em branco. A alternativa — manter Enter como quebra simples e só *mostrar* dois
-blocos na tela — quebraria o round-trip: abrir o arquivo em qualquer outro programa (ou no
-Git diff) mostraria um parágrafo só, contradizendo o que o usuário viu no app.
+**Enter grava `\n`, não `\n\n` (revisão pedida pelo usuário).** A primeira versão desta ADR
+fazia o Enter já gravar uma linha em branco, pra "Enter = bloco novo" ser verdade no arquivo e
+não só na tela. Na prática isso fazia o cursor "pular duas linhas" a cada Enter, contra a
+expectativa de editor de texto comum. Decisão nova: Enter grava uma quebra simples (`\n`); a
+linha em branco que separa blocos no Markdown sai de apertar Enter **de novo** numa linha
+vazia. O modelo mental vira "bloco novo custa dois Enters" — e o round-trip continua honesto,
+porque a linha em branco ainda é gravada de verdade quando ela existe. Shift+Enter continua
+sendo quebra dentro do mesmo bloco (idêntico ao Enter pra parágrafo solto; só difere ao
+repetir prefixo de lista/citação). `quebraDeBloco.ts`.
+
+**O título (linha 1) é blindado.** Duas regras específicas da linha 1, que é sempre o título da
+nota: (1) não recebe alça de mover — `moverBloco.ts` ignora qualquer bloco que comece na linha
+1, seja o H1 ou um parágrafo de nota antiga; (2) quando a linha 1 já é um H1, o prefixo `# ` não
+pode ser editado nem apagado — `tituloSempreH1.ts`, um `EditorState.transactionFilter` que
+recorta do texto digitado a parte que cairia dentro do `# ` (não usa `changeFilter`, que
+descartaria junto o texto que o usuário digitou ao selecionar a linha toda). Não injeta `# ` em
+nota que abre sem H1 na linha 1 (RNF7).
 
 **Por que Shift+Enter é `\n` e não o hard break do CommonMark:** o CommonMark define quebra de
 linha dentro de um parágrafo com dois espaços à direita (`  \n`) ou uma barra invertida. Os

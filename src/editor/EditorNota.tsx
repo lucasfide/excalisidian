@@ -18,6 +18,7 @@ import { atalhosFormatacao } from "./extensoes/atalhosFormatacao";
 import { wikilinksExcalisidian } from "./extensoes/wikilinksExcalisidian";
 import { embedDesenho } from "./extensoes/embedDesenho";
 import { sincronizarTituloComArquivo } from "./extensoes/sincronizarTituloComArquivo";
+import { tituloSempreH1 } from "./extensoes/tituloSempreH1";
 import { selecionarCorpoDaNota } from "./extensoes/selecionarCorpoDaNota";
 import { barraFlutuante } from "./extensoes/barraFlutuante";
 import { selecaoDeBloco } from "./extensoes/selecaoDeBloco";
@@ -34,6 +35,7 @@ const EXTENSOES: readonly Extension[] = [
   wikilinksExcalisidian,
   embedDesenho,
   sincronizarTituloComArquivo,
+  tituloSempreH1,
   selecionarCorpoDaNota,
   barraFlutuante,
   selecaoDeBloco,

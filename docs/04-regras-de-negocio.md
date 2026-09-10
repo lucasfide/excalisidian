@@ -55,8 +55,13 @@ um edita o outro:
 - **Editar o H1** (só quando ele está na linha 1 da nota — um H1 em outro lugar do documento
   não é o título) e sair da linha (mover o cursor pra outra linha, não a cada tecla) dispara
   um rename de verdade, com a mesma reescrita de backlinks de um rename pela árvore.
-- Título vazio (usuário apaga o H1 inteiro) não dispara rename nenhum — a nota fica sem H1
-  até o usuário digitar algo ou renomear pelo arquivo.
+- **O `#` da linha 1 é fixo.** Quando a linha 1 já é um H1, o prefixo `# ` não pode ser
+  editado nem apagado: selecionar a linha inteira e digitar troca só o texto depois do `# `,
+  Backspace no começo do título não come o `#`, e apagar todo o texto do título deixa `# ` —
+  a linha 1 continua sendo um H1. Não dispara rename enquanto o texto está vazio. Só vale
+  quando a linha 1 já é um H1: numa nota antiga que abre sem H1 nenhum na linha 1, o app não
+  insere um (RNF7 — abrir não gera diff); o H1 aparece quando o usuário digita um título ou
+  renomeia pelo arquivo.
 - Não vale pra `.draw.md`: o "título" de um desenho já é o nome do arquivo por definição (doc
   01) — não existe H1 num desenho pra sincronizar com nada.
 - **Limitação conhecida:** como qualquer rename hoje remonta o painel da aba por inteiro
@@ -74,25 +79,26 @@ sintaxe do CommonMark/GFM (ver doc 09 ADR-18). **Bloco é o filho direto do docu
 o cursor** — um parágrafo, um heading, uma citação, um bloco de código, uma tabela — exceto
 dentro de uma lista, onde cada item é seu próprio bloco.
 
-- **Enter** divide o bloco em dois: grava uma **linha em branco** no arquivo. É o que faz
-  "bloco novo" ser verdade no disco, não só na tela — dois parágrafos sem linha em branco entre
-  eles são um parágrafo só pra qualquer leitor de Markdown.
-- **Shift+Enter** quebra dentro do **mesmo** bloco: grava uma **quebra de linha simples**
-  (`\n`), sem os dois espaços do hard break do CommonMark — arquivo mais limpo, compatível com
-  o que o Obsidian escreve.
-- Essa distinção só vale para parágrafo e heading soltos (filhos diretos do documento). Dentro
-  de lista, citação, bloco de código ou tabela, Enter continua fazendo o que já fazia (continuar
-  a lista, por exemplo) — nunca abre linha em branco ali.
-- **Mudar o Enter não reformata nota nenhuma já existente** (§11.8): uma nota antiga onde as
-  linhas foram separadas só por Enter simples continua sendo lida como um parágrafo de várias
-  linhas — o app não sai inserindo linha em branco em texto que o usuário não tocou.
+- **Enter** grava uma **quebra de linha simples** (`\n`) — pula uma linha só, como num editor
+  de texto comum. Apertar Enter **de novo** numa linha vazia é que abre a **linha em branco**
+  que separa um bloco do próximo no Markdown (dois parágrafos sem linha em branco entre eles
+  são um parágrafo só pra qualquer leitor de Markdown). Ou seja: o "bloco novo" custa dois
+  Enters, não um.
+- **Shift+Enter** também quebra dentro do **mesmo** bloco: grava `\n`, mais o prefixo de
+  continuação de lista/citação quando faz sentido. Sem os dois espaços do hard break do
+  CommonMark — arquivo mais limpo, compatível com o que o Obsidian escreve.
+- Isso só vale para parágrafo e heading soltos (filhos diretos do documento). Dentro de lista,
+  citação, bloco de código ou tabela, Enter continua fazendo o que já fazia (continuar a lista,
+  por exemplo).
+- **Mudar o Enter não reformata nota nenhuma já existente** (§11.8): o app não sai inserindo
+  nem removendo linha em branco em texto que o usuário não tocou.
 - **Clique triplo** seleciona o bloco inteiro (inclusive um parágrafo de várias linhas feito com
   Shift+Enter), nunca a linha em branco depois dele.
 - **Mover bloco** é só pela alça (⠿) que aparece ao passar o mouse — sem atalho de teclado.
   Arrasta um bloco pra antes ou depois de outro **do mesmo nível**: parágrafo/heading/citação
-  soltos entre si, ou item de lista dentro da própria lista. Um título (H1) tem seu próprio
-  bloco — mover pela alça na linha do título move só aquela linha, nunca a seção inteira que
-  vem depois dela.
+  soltos entre si, ou item de lista dentro da própria lista.
+- **A linha 1 nunca tem alça de mover** — é o título da nota e fica no lugar. Vale pra qualquer
+  bloco na linha 1, seja o H1 do título ou um parágrafo (nota antiga sem título).
 
 ## 4. Criação de notas por link
 

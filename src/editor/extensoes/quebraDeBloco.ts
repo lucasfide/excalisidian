@@ -1,15 +1,14 @@
-// Enter cria um bloco novo (parágrafo separado por linha em branco); Shift+Enter quebra
-// dentro do mesmo bloco (doc 09 ADR-18, doc 04). Hoje os dois fazem a mesma coisa — o
-// CodeMirror liga Enter e Shift+Enter ao mesmo comando (`standardKeymap`:
-// `{ key: "Enter", run: insertNewlineAndIndent, shift: insertNewlineAndIndent }`), então essa
-// distinção precisa ser criada.
+// Enter em parágrafo/heading solto grava uma quebra de linha simples (`\n`); apertar Enter de
+// novo numa linha vazia é que abre a linha em branco = bloco novo no Markdown (doc 04 §3.2,
+// doc 09 ADR-18 — reversão parcial: antes o primeiro Enter já gravava `\n\n`). Shift+Enter
+// também quebra dentro do mesmo bloco, repetindo o prefixo de continuação de lista/citação.
 //
-// Vai em `Prec.highest` — o mesmo nível que `insertTightListItem` (inline-preview.ts) usa pra
-// vencer o keymap que a própria chamada `markdown({...})` instala por dentro
-// (`addKeymap` é `true` por padrão). Não há disputa entre os dois: `enterQuebraBloco` só age
-// em `Paragraph`/heading soltos (filho direto de `Document`); `insertTightListItem` só age em
-// `BulletList`; `insertNewlineContinueMarkup` só quando há contexto de markup ativo (lista/
-// citação). Fora desses casos, ambos devolvem `false` e quem sobra é o padrão de sempre.
+// `enterQuebraBloco` continua explícito (não só o padrão do CodeMirror) e em `Prec.highest` —
+// o mesmo nível que `insertTightListItem` (inline-preview.ts) — pra fixar "Enter = `\n`" em
+// parágrafo/heading solto independentemente da evolução do keymap padrão. Não há disputa:
+// `enterQuebraBloco` só age em `Paragraph`/heading soltos (filho direto de `Document`);
+// `insertTightListItem` só age em `BulletList`; `insertNewlineContinueMarkup` só quando há
+// contexto de markup ativo (lista/citação). Fora desses casos todos devolvem `false`.
 //
 // Shift+Enter nunca existia como tecla própria (sem `shift` no binding de Enter dos outros
 // três) — esta é a primeira vez que o app reage a ela.
@@ -43,8 +42,8 @@ const enterQuebraBloco: Command = (view) => {
   if (!bloco || !TIPOS_QUEBRAVEIS.has(bloco.tipo)) return false;
 
   view.dispatch({
-    changes: { from: sel.from, insert: "\n\n" },
-    selection: EditorSelection.cursor(sel.from + 2),
+    changes: { from: sel.from, insert: "\n" },
+    selection: EditorSelection.cursor(sel.from + 1),
     scrollIntoView: true,
     userEvent: "input",
   });

@@ -177,6 +177,12 @@ class AlcaBlocoPlugin {
       return;
     }
 
+    // Linha 1 é o título da nota (doc 04 §3.1): nunca recebe alça de mover, seja H1 ou não.
+    if (this.view.state.doc.lineAt(bloco.de).number === 1) {
+      this.esconderAlca();
+      return;
+    }
+
     this.blocoAtual = bloco;
     // Reposiciona sempre, mesmo com o bloco inalterado: a rolagem reavalia por aqui e a alça tem
     // que acompanhar o bloco na tela.
