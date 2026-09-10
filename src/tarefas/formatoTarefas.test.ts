@@ -92,4 +92,7 @@ describe("tarefasIlegivel", () => {
     expect(tarefasIlegivel(JSON.stringify({ versao: 1, tarefas: [] }))).toBe(false);
     expect(tarefasIlegivel(serializarTarefas(exemplo))).toBe(false);
   });
+  it("versao desconhecida é ilegível", () => {
+    expect(tarefasIlegivel(JSON.stringify({ versao: 2, tarefas: [] }))).toBe(true);
+  });
 });

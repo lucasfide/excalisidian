@@ -73,7 +73,12 @@ export function tarefasIlegivel(texto: string): boolean {
     return true;
   }
   if (!obj || typeof obj !== "object") return true;
-  return !Array.isArray((obj as Record<string, unknown>).tarefas);
+  const o = obj as Record<string, unknown>;
+  if (!Array.isArray(o.tarefas)) return true;
+  // `versao` desconhecida conta como corrupção (doc 10 §2.2): sem isto, um arquivo v2 seria
+  // lido como v1 e regravado como v1 na próxima gravação, apagando campos que não conhecemos.
+  if ("versao" in o && o.versao !== 1) return true;
+  return false;
 }
 
 // Reconstrói cada objeto com as chaves na ordem da tabela do doc 10 §2.1 — JSON.stringify

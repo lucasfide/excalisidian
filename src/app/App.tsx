@@ -64,18 +64,17 @@ export default function App() {
     void usePrefsStore.getState().carregar();
   }, []);
 
-  // Prefs do painel de tarefas (aberto/largura) + flush no fechamento da janela.
+  // Prefs do painel de tarefas (aberto/largura). O flush no fechamento da janela vive no
+  // useAutosave (handler de close do Tauri), junto com o flush de notas e desenhos.
   useEffect(() => {
     void useTarefasStore.getState().carregarPrefs();
-    const flush = () => void useTarefasStore.getState()._persistirAgora();
-    window.addEventListener("beforeunload", flush);
-    return () => window.removeEventListener("beforeunload", flush);
   }, []);
 
-  // Ctrl+Shift+\ alterna o painel de tarefas (Ctrl+\ sozinho recolhe a sidebar esquerda).
+  // Ctrl+\ alterna o painel de tarefas. Casa a tecla física (`e.code`), não `e.key`, porque
+  // com layout comum `KeyboardEvent.key` da barra invertida vira "\\" sem Shift e "|" com.
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
-      if ((e.ctrlKey || e.metaKey) && e.shiftKey && e.key === "\\") {
+      if ((e.ctrlKey || e.metaKey) && !e.shiftKey && e.code === "Backslash") {
         e.preventDefault();
         useTarefasStore.getState().alternarPainel();
       }

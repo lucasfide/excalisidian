@@ -21,7 +21,7 @@ export default function Checkbox({ checked, onChange, rotulo, className }: Props
       aria-label={rotulo}
       onClick={() => onChange(!checked)}
       className={cn(
-        "flex h-4 w-4 shrink-0 items-center justify-center rounded-[3px] border transition-colors duration-[140ms]",
+        "flex h-4 w-4 shrink-0 items-center justify-center rounded-controle border transition-colors duration-[140ms]",
         checked
           ? "border-musgo bg-musgo text-superficie"
           : "border-regua-forte text-transparent hover:border-tinta-suave",

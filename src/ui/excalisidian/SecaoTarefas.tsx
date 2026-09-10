@@ -1,8 +1,8 @@
 // Uma seção do painel de tarefas (doc 10 §4.2): cabeçalho com nome + intervalo (quando é
-// semana) + contador, e a lista de linhas. O botão "Nova tarefa" entra no Task 8 via
-// `permiteNova`. O arraste (Task 9, doc 10 §5.2) entra aqui como alvo de soltura: a
-// `<section>` carrega `data-secao` e cada linha carrega `data-tarefa-id`, e uma linha de 1px
-// em `bg-musgo` marca onde a tarefa vai cair.
+// semana) + contador, e a lista de linhas. `permiteNova` liga o campo "Nova tarefa" no fim
+// da lista. O arraste (doc 10 §5.2) entra aqui como alvo de soltura: a `<section>` carrega
+// `data-secao` e cada linha carrega `data-tarefa-id`, e uma linha de 1px em `bg-musgo` marca
+// onde a tarefa vai cair.
 
 import type { ReactNode } from "react";
 
@@ -16,9 +16,9 @@ import {
   formatarIntervalo,
 } from "../../tarefas/agrupamento";
 
-/** Estado de um arraste em andamento, compartilhado pelo `PainelTarefas` (Task 9). `alvo` é
- * atualizado a cada movimento do ponteiro; `null` enquanto o ponteiro não está sobre um
- * destino válido. */
+/** Estado de um arraste em andamento, compartilhado pelo `PainelTarefas`. `alvo` é atualizado
+ * a cada movimento do ponteiro; `null` enquanto o ponteiro não está sobre um destino
+ * válido. */
 export interface Arrasto {
   id: string;
   origem: Secao;
@@ -65,6 +65,7 @@ interface Props {
   aoIniciarArrasto?: (id: string, origem: Secao) => void;
   aoMoverPonteiro?: (x: number, y: number) => void;
   aoSoltar?: () => void;
+  aoCancelarArrasto?: () => void;
 }
 
 export default function SecaoTarefas({
@@ -78,6 +79,7 @@ export default function SecaoTarefas({
   aoIniciarArrasto,
   aoMoverPonteiro,
   aoSoltar,
+  aoCancelarArrasto,
 }: Props) {
   const sub = subtitulo(secao, hoje);
   const cabecalhoClicavel = secao === "concluidas";
@@ -131,6 +133,7 @@ export default function SecaoTarefas({
                   aoIniciarArrasto={aoIniciarArrasto}
                   aoMoverPonteiro={aoMoverPonteiro}
                   aoSoltar={aoSoltar}
+                  aoCancelarArrasto={aoCancelarArrasto}
                 />,
               );
             });

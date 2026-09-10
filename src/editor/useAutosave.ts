@@ -7,6 +7,7 @@ import { getCurrentWindow } from "@tauri-apps/api/window";
 
 import { useDocumentosStore } from "../estado/documentosStore";
 import { useWorkspaceStore } from "../estado/workspaceStore";
+import { useTarefasStore } from "../estado/tarefasStore";
 
 export function useAutosave() {
   useEffect(() => {
@@ -19,6 +20,7 @@ export function useAutosave() {
       evento.preventDefault();
       useWorkspaceStore.getState().flushLayout();
       await useDocumentosStore.getState().flushTudo();
+      await useTarefasStore.getState()._persistirAgora();
       if (!desmontado) void janela.close();
     });
     return () => {

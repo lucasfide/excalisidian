@@ -89,6 +89,7 @@ export default function ComentariosTarefa({ tarefa }: Props) {
             {editandoId === c.id ? (
               <textarea
                 autoFocus
+                data-edicao-comentario=""
                 value={rascunho}
                 onChange={(e) => setRascunho(e.target.value)}
                 onBlur={() => {
@@ -98,7 +99,13 @@ export default function ComentariosTarefa({ tarefa }: Props) {
                 }}
                 onKeyDown={(e) => {
                   if (e.key === "Enter" && !e.shiftKey) { e.preventDefault(); (e.target as HTMLTextAreaElement).blur(); }
-                  if (e.key === "Escape") { setEditandoId(null); }
+                  if (e.key === "Escape") {
+                    // Só cancela a edição inline; sem isto o handler de Escape do modal
+                    // (captura em window) fecharia o modal inteiro e descartaria o rascunho.
+                    e.preventDefault();
+                    e.stopPropagation();
+                    setEditandoId(null);
+                  }
                 }}
                 rows={2}
                 className="w-full resize-none rounded-controle border border-regua-forte bg-papel px-2 py-1 text-[13px] text-tinta focus:border-musgo focus:outline-none"

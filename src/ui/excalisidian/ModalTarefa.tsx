@@ -1,5 +1,5 @@
 // Modal de detalhe da tarefa (doc 10 §5.5): desliza da direita cobrindo só a largura do
-// painel. Título editável + status em button-group. Comentários entram no Task 11.
+// painel. Título editável, status em button-group e a lista de comentários.
 
 import { useEffect, useState } from "react";
 import { X } from "lucide-react";
@@ -35,7 +35,14 @@ export default function ModalTarefa({ tarefa, hoje }: Props) {
   // Esc fecha. Captura em `window` para pegar o evento antes de outros handlers.
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
-      if (e.key === "Escape") fecharModal();
+      if (e.key !== "Escape") return;
+      // Um campo interno que trata o Escape sozinho (cancelar a edição inline de um
+      // comentário) marca `preventDefault` e/ou fica dentro de `[data-edicao-comentario]`.
+      // Nesse caso o modal não fecha e o rascunho não é perdido. O `data-*` é o sinal
+      // confiável: este handler é de captura e roda antes do onKeyDown do textarea.
+      if (e.defaultPrevented) return;
+      if ((e.target as Element)?.closest?.("[data-edicao-comentario]")) return;
+      fecharModal();
     };
     window.addEventListener("keydown", onKey, true);
     return () => window.removeEventListener("keydown", onKey, true);
@@ -45,6 +52,9 @@ export default function ModalTarefa({ tarefa, hoje }: Props) {
   // esteja dentro do `<aside id="painel-tarefas">` (o editor/Workspace à esquerda).
   useEffect(() => {
     const onPointerDown = (e: PointerEvent) => {
+      // O toast do sonner é renderizado no body, fora de #painel-tarefas: sem esta guarda,
+      // clicar em "Desfazer" contaria como clique fora e fecharia o modal.
+      if ((e.target as Element)?.closest?.("[data-sonner-toaster]")) return;
       const painel = document.getElementById("painel-tarefas");
       if (painel && !painel.contains(e.target as Node)) fecharModal();
     };
@@ -61,6 +71,9 @@ export default function ModalTarefa({ tarefa, hoje }: Props) {
   }
 
   function escolherStatus(valor: Exclude<Secao, "atrasado">) {
+    // O GrupoBotoes dispara onEscolher até para a opção já ativa; sem esta saída, clicar na
+    // seção atual chamaria moverTarefa e reordenaria a tarefa para o topo (sem desfazer).
+    if (valor === secaoAtual) return;
     if (valor === "concluidas") {
       if (!tarefa.concluida) alternarConcluida(tarefa.id, hoje);
       return;

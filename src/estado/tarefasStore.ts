@@ -1,6 +1,7 @@
 // Store do painel de tarefas (doc 10 §8.2). Segura as tarefas em memória, aplica as regras
 // de seção/ordem e persiste em .excalisidian/tarefas.json por escrita atômica, com debounce
-// de 800 ms e um flush síncrono para o beforeunload.
+// de 800 ms. O flush no fechamento da janela é async e roda pelo handler de close do Tauri
+// em useAutosave (`_persistirAgora`); a troca de vault flush antes de trocar o adapter.
 
 import { create } from "zustand";
 import { toast } from "sonner";

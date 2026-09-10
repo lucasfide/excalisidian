@@ -1,7 +1,7 @@
 // Uma linha do painel de tarefas (doc 10 §4.3): alça de arraste + checkbox + título. Clique no
 // título (fora do checkbox e da alça) abre o modal de detalhe. A alça `grip-vertical` só
-// aparece no hover e é a origem do arraste (Task 9, doc 10 §5.2): `pointerdown` botão 0 nela
-// registra listeners em `window` de pointermove/pointerup — nunca HTML5 drag-and-drop
+// aparece no hover e é a origem do arraste (doc 10 §5.2): `pointerdown` botão 0 nela registra
+// listeners em `window` de pointermove/pointerup/pointercancel — nunca HTML5 drag-and-drop
 // (doc 09 ADR-18), mesmo padrão de `editor/extensoes/moverBloco.ts`.
 
 import { GripVertical } from "lucide-react";
@@ -24,6 +24,9 @@ interface Props {
   aoIniciarArrasto?: (id: string, origem: Secao) => void;
   aoMoverPonteiro?: (x: number, y: number) => void;
   aoSoltar?: () => void;
+  /** Chamado quando o ponteiro é cancelado (toque/caneta interrompido, gesto do SO): limpa
+   * o estado de arraste SEM cometer o movimento. */
+  aoCancelarArrasto?: () => void;
 }
 
 export default function LinhaTarefa({
@@ -35,6 +38,7 @@ export default function LinhaTarefa({
   aoIniciarArrasto,
   aoMoverPonteiro,
   aoSoltar,
+  aoCancelarArrasto,
 }: Props) {
   const alternarConcluida = useTarefasStore((s) => s.alternarConcluida);
   const abrirModal = useTarefasStore((s) => s.abrirModal);
@@ -45,13 +49,22 @@ export default function LinhaTarefa({
     e.stopPropagation();
     aoIniciarArrasto(tarefa.id, secao);
     const mover = (ev: PointerEvent) => aoMoverPonteiro?.(ev.clientX, ev.clientY);
-    const encerrar = () => {
+    const limpar = () => {
       window.removeEventListener("pointermove", mover);
       window.removeEventListener("pointerup", encerrar);
+      window.removeEventListener("pointercancel", cancelar);
+    };
+    const encerrar = () => {
+      limpar();
       aoSoltar?.();
+    };
+    const cancelar = () => {
+      limpar();
+      aoCancelarArrasto?.();
     };
     window.addEventListener("pointermove", mover);
     window.addEventListener("pointerup", encerrar);
+    window.addEventListener("pointercancel", cancelar);
   }
 
   return (

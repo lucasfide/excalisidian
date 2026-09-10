@@ -1,6 +1,6 @@
 // Painel de tarefas (doc 10 §4): barra lateral vertical à direita. Cabeçalho, corpo rolável
-// com as seções em ordem fixa e a divisória de largura. O estado do arraste (Task 9,
-// doc 10 §5.2) mora aqui e desce por props: a árvore é rasa (Painel → Seção → Linha).
+// com as seções em ordem fixa e a divisória de largura. O estado do arraste (doc 10 §5.2)
+// mora aqui e desce por props: a árvore é rasa (Painel → Seção → Linha).
 
 import { useCallback, useMemo, useRef, useState } from "react";
 import { X } from "lucide-react";
@@ -67,8 +67,8 @@ export default function PainelTarefas() {
   const grupos = useMemo(() => agruparTarefas(tarefas, hoje), [tarefas, hoje]);
   const vazioTotal = tarefas.length === 0;
 
-  // Modal de detalhe (Task 10, doc 10 §5.5): `tarefaAberta` é o id; resolvemos a tarefa aqui
-  // e passamos por prop. Se ela some (excluída, vault trocado), o modal não renderiza.
+  // Modal de detalhe (doc 10 §5.5): `tarefaAberta` é o id; resolvemos a tarefa aqui e
+  // passamos por prop. Se ela some (excluída, vault trocado), o modal não renderiza.
   const tarefaAberta = useTarefasStore((s) => s.tarefaAberta);
   const tarefaDoModal = useMemo(
     () => tarefas.find((t) => t.id === tarefaAberta) ?? null,
@@ -90,16 +90,18 @@ export default function PainelTarefas() {
         arrastando.current = false;
         window.removeEventListener("pointermove", mover);
         window.removeEventListener("pointerup", soltar);
+        window.removeEventListener("pointercancel", soltar);
       };
       window.addEventListener("pointermove", mover);
       window.addEventListener("pointerup", soltar);
+      window.addEventListener("pointercancel", soltar);
     },
     [definirLargura],
   );
 
-  // --- Arraste de tarefa (Task 9). `arrastoRef` acompanha o estado para os listeners de
-  // `window` registrados no pointerdown não lerem um valor obsoleto; `arrasto` é só o gatilho
-  // de re-render que desce para as seções desenharem a linha indicadora. ---
+  // --- Arraste de tarefa. `arrastoRef` acompanha o estado para os listeners de `window`
+  // registrados no pointerdown não lerem um valor obsoleto; `arrasto` é só o gatilho de
+  // re-render que desce para as seções desenharem a linha indicadora. ---
   const [arrasto, setArrasto] = useState<Arrasto | null>(null);
   const arrastoRef = useRef<Arrasto | null>(null);
   const aplicarArrasto = useCallback((a: Arrasto | null) => {
@@ -131,6 +133,9 @@ export default function PainelTarefas() {
     }
     aplicarArrasto(null);
   }, [aplicarArrasto, moverTarefa, hoje]);
+
+  // pointercancel: só descarta o estado de arraste, sem cometer o movimento.
+  const cancelarArrasto = useCallback(() => aplicarArrasto(null), [aplicarArrasto]);
 
   if (!aberto) return null;
 
@@ -177,6 +182,7 @@ export default function PainelTarefas() {
                 aoIniciarArrasto={iniciarArrasto}
                 aoMoverPonteiro={moverPonteiro}
                 aoSoltar={soltar}
+                aoCancelarArrasto={cancelarArrasto}
               />
             );
           })

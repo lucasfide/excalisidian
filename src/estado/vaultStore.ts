@@ -90,6 +90,10 @@ export const useVaultStore = create<VaultState>((set, get) => ({
   statusIndice: "vazio",
 
   async definirAdapter(adapter) {
+    // Troca de vault: grava qualquer edição de tarefa ainda no debounce ANTES de trocar o
+    // adapter, senão `_persistirAgora` (que lê o adapter atual) escreveria as tarefas do
+    // vault antigo dentro do vault novo. No boot inicial isto é no-op (adapter ainda nulo).
+    await useTarefasStore.getState()._persistirAgora();
     set({
       adapter,
       raiz: adapter.raiz(),

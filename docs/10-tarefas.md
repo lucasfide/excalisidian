@@ -50,12 +50,12 @@ Escrito aqui para não virar discussão depois:
       "ordem": 30,
       "concluida": false,
       "concluidaEm": null,
-      "criadaEm": "2026-09-10T09:15:00-03:00",
+      "criadaEm": "2026-09-10T12:15:00Z",
       "comentarios": [
         {
           "id": "c-9f8e7d6c",
           "texto": "ver [[Setup da mesa]]",
-          "criadoEm": "2026-09-10T09:20:00-03:00",
+          "criadoEm": "2026-09-10T12:20:00Z",
           "editadoEm": null
         }
       ]
@@ -73,13 +73,13 @@ Escrito aqui para não virar discussão depois:
 | `vencimento` | string | Data local `YYYY-MM-DD`, **sem hora e sem fuso**. Único eixo temporal da tarefa. O usuário nunca digita isto; sai da seção (§3.3). |
 | `ordem` | número | Só serve para ordenar tarefas dentro de uma mesma seção calculada. Não precisa ser inteiro, contíguo, nem começar em zero. Ao soltar/mover, o store reatribui `10, 20, 30…` a todas as tarefas da seção afetada, na nova ordem (§8.2) — mantém os valores limpos sem acoplar o formato à lógica de data. `parseTarefas`/`serializarTarefas` só leem e escrevem o número como está. |
 | `concluida` | booleano | — |
-| `concluidaEm` | string \| null | ISO 8601 com fuso (`2026-09-10T14:03:11-03:00`), gravado no instante do check. `null` sempre que `concluida` é `false`. |
-| `criadaEm` | string | ISO 8601 com fuso, no instante da criação. |
+| `concluidaEm` | string \| null | ISO 8601 (`new Date().toISOString()`, UTC — `2026-09-10T17:03:11Z`), gravado no instante do check. `null` sempre que `concluida` é `false`. |
+| `criadaEm` | string | ISO 8601 (`new Date().toISOString()`, UTC), no instante da criação. |
 | `comentarios` | array | Ordem do array = ordem de exibição (mais antigo primeiro). |
 | `comentarios[].id` | string | `c-` + 8 hex. Imutável. |
 | `comentarios[].texto` | string | Texto com `[[wikilink]]` reconhecido e clicável na UI (§5.5). Guardado cru, sem escape. |
-| `comentarios[].criadoEm` | string | ISO 8601 com fuso. |
-| `comentarios[].editadoEm` | string \| null | ISO 8601 com fuso da última edição; `null` até a primeira. |
+| `comentarios[].criadoEm` | string | ISO 8601 (`new Date().toISOString()`, UTC). |
+| `comentarios[].editadoEm` | string \| null | ISO 8601 (`new Date().toISOString()`, UTC) da última edição; `null` até a primeira. |
 
 ### 2.2 Escrita e leitura
 
@@ -218,9 +218,9 @@ Formato do intervalo: `D–D de <mês>` quando início e fim caem no mesmo mês;
 - Largura padrão **320px**, ajustável entre **280 e 480px** por uma divisória de 1px com área
   de arraste de 8px (mesmo padrão da divisória de split, doc 06).
 - **Alternável.** Começa aberto. Fecha e reabre por:
-  - atalho `Ctrl+Shift+\` (o `Ctrl+\` já recolhe a sidebar esquerda) — a implementação confirma
-    que está livre em `src/app/atalhos.ts` antes de fixar; se colidir, escolhe outro e atualiza
-    este documento;
+  - atalho `Ctrl+\` (`Cmd+\` no macOS). O handler casa a tecla física (`e.code === "Backslash"`),
+    não `e.key` — com layout comum a barra invertida vira `"\\"` sem Shift e `"|"` com. Nada
+    mais no app liga essa combinação;
   - um botão de alternância no rodapé da sidebar esquerda, ao lado dos ícones de lixeira e
     configurações.
 - `painelAberto` (booleano) e `larguraPainel` (número) são preferência **de app**, gravadas no
@@ -414,7 +414,7 @@ Estende a tabela do doc 06 §Ícones (lucide, traço 1.5):
 
 | RF | Descrição | Prioridade |
 |---|---|---|
-| RF10.1 | Abrir e fechar o painel de tarefas por `Ctrl+Shift+\` e por um botão na sidebar; estado e largura persistem entre sessões. | P0 |
+| RF10.1 | Abrir e fechar o painel de tarefas por `Ctrl+\` e por um botão na sidebar; estado e largura persistem entre sessões. | P0 |
 | RF10.2 | Exibir as tarefas em seis seções calculadas a partir de `vencimento` vs. hoje, na ordem fixa da §4.2. | P0 |
 | RF10.3 | Criar tarefas em cadeia pelo botão "Nova tarefa" de cada seção (exceto Atrasado e Concluídas); campo vazio nunca vira tarefa. | P0 |
 | RF10.4 | Reordenar tarefas dentro de uma seção arrastando. | P0 |
@@ -457,7 +457,8 @@ mais o estado transitório de arrasto.
 
 Ações (todas as que mudam `tarefas` agendam `persistir()` — debounce 800 ms, `escritaAtomica`):
 `carregar()`, `criar(secao, titulo, hoje)`, `editarTitulo(id, titulo)`,
-`moverParaSecao(id, secao, ordemAlvo, hoje)`, `reordenar(id, ordemAlvo)`,
+`moverTarefa(id, secaoAlvo, indiceAlvo, hoje)` (reordenar dentro da seção e mover entre
+seções colapsaram nesta única ação — o índice-alvo cobre os dois casos),
 `alternarConcluida(id, hoje)`, `adicionarComentario(id, texto)`,
 `editarComentario(id, comentarioId, texto)`, `removerComentario(id, comentarioId)` +
 `restaurarComentario(...)` para o desfazer, `abrirModal(id)`, `fecharModal()`,
