@@ -1,6 +1,10 @@
 // Uma seção do painel de tarefas (doc 10 §4.2): cabeçalho com nome + intervalo (quando é
 // semana) + contador, e a lista de linhas. O botão "Nova tarefa" entra no Task 8 via
-// `permiteNova`.
+// `permiteNova`. O arraste (Task 9, doc 10 §5.2) entra aqui como alvo de soltura: a
+// `<section>` carrega `data-secao` e cada linha carrega `data-tarefa-id`, e uma linha de 1px
+// em `bg-musgo` marca onde a tarefa vai cair.
+
+import type { ReactNode } from "react";
 
 import LinhaTarefa from "./LinhaTarefa";
 import NovaTarefaInline from "./NovaTarefaInline";
@@ -11,6 +15,23 @@ import {
   intervaloDaSemana,
   formatarIntervalo,
 } from "../../tarefas/agrupamento";
+
+/** Estado de um arraste em andamento, compartilhado pelo `PainelTarefas` (Task 9). `alvo` é
+ * atualizado a cada movimento do ponteiro; `null` enquanto o ponteiro não está sobre um
+ * destino válido. */
+export interface Arrasto {
+  id: string;
+  origem: Secao;
+  alvo: { secao: Secao; indice: number } | null;
+}
+
+/** Regras de destino do doc 10 §5.2: "Concluídas" nunca aceita soltura; "Atrasado" só aceita
+ * reordenação interna, nunca uma tarefa vinda de outra seção. Todo o resto aceita. */
+export function dropPermitido(secao: Secao, origem: Secao): boolean {
+  if (secao === "concluidas") return false;
+  if (secao === "atrasado" && origem !== "atrasado") return false;
+  return true;
+}
 
 const NOME: Record<Secao, string> = {
   atrasado: "Atrasado",
@@ -40,6 +61,10 @@ interface Props {
   colapsada?: boolean;
   onAlternarColapso?: () => void;
   permiteNova?: boolean;
+  arrasto?: Arrasto | null;
+  aoIniciarArrasto?: (id: string, origem: Secao) => void;
+  aoMoverPonteiro?: (x: number, y: number) => void;
+  aoSoltar?: () => void;
 }
 
 export default function SecaoTarefas({
@@ -49,12 +74,26 @@ export default function SecaoTarefas({
   colapsada = false,
   onAlternarColapso,
   permiteNova = false,
+  arrasto = null,
+  aoIniciarArrasto,
+  aoMoverPonteiro,
+  aoSoltar,
 }: Props) {
   const sub = subtitulo(secao, hoje);
   const cabecalhoClicavel = secao === "concluidas";
 
+  // Índice (0-based, na lista visível SEM a tarefa arrastada — mesma coordenada que o store
+  // espera em `moverTarefa`) onde desenhar a linha indicadora. -1 = não desenhar.
+  const mostrarLinha =
+    !!arrasto?.alvo && arrasto.alvo.secao === secao && dropPermitido(secao, arrasto.origem);
+  const indiceLinha = mostrarLinha ? arrasto!.alvo!.indice : -1;
+
+  const linhaIndicadora = (chave: string) => (
+    <div key={chave} className="pointer-events-none h-px bg-musgo" data-linha-soltura="" />
+  );
+
   return (
-    <section className="mb-4">
+    <section className="mb-4" data-secao={secao}>
       <button
         type="button"
         disabled={!cabecalhoClicavel}
@@ -70,9 +109,34 @@ export default function SecaoTarefas({
 
       {!colapsada && (
         <div className="flex flex-col gap-0.5">
-          {tarefas.map((t) => (
-            <LinhaTarefa key={t.id} tarefa={t} hoje={hoje} />
-          ))}
+          {(() => {
+            const filhos: ReactNode[] = [];
+            let indiceStore = 0;
+            tarefas.forEach((t, i) => {
+              const ehArrastada = arrasto?.id === t.id;
+              if (!ehArrastada) {
+                if (indiceStore === indiceLinha) {
+                  filhos.push(linhaIndicadora(`soltura-${indiceStore}`));
+                }
+                indiceStore += 1;
+              }
+              filhos.push(
+                <LinhaTarefa
+                  key={t.id}
+                  tarefa={t}
+                  hoje={hoje}
+                  secao={secao}
+                  indice={i}
+                  arrastando={ehArrastada}
+                  aoIniciarArrasto={aoIniciarArrasto}
+                  aoMoverPonteiro={aoMoverPonteiro}
+                  aoSoltar={aoSoltar}
+                />,
+              );
+            });
+            if (indiceStore === indiceLinha) filhos.push(linhaIndicadora("soltura-fim"));
+            return filhos;
+          })()}
           {permiteNova && <NovaTarefaInline secao={secao} hoje={hoje} />}
         </div>
       )}

@@ -1,15 +1,56 @@
 // Painel de tarefas (doc 10 §4): barra lateral vertical à direita. Cabeçalho, corpo rolável
-// com as seções em ordem fixa e a divisória de largura.
+// com as seções em ordem fixa e a divisória de largura. O estado do arraste (Task 9,
+// doc 10 §5.2) mora aqui e desce por props: a árvore é rasa (Painel → Seção → Linha).
 
-import { useCallback, useMemo, useRef } from "react";
+import { useCallback, useMemo, useRef, useState } from "react";
 import { X } from "lucide-react";
 
 import { BotaoIcone, EstadoVazio } from "../index";
-import SecaoTarefas from "./SecaoTarefas";
+import SecaoTarefas, { dropPermitido, type Arrasto } from "./SecaoTarefas";
 import NovaTarefaInline from "./NovaTarefaInline";
 import { useHojeLocal } from "../../app/useHojeLocal";
 import { agruparTarefas, SECOES_ORDEM } from "../../tarefas/agrupamento";
 import { useTarefasStore } from "../../estado/tarefasStore";
+import type { Secao } from "../../tarefas/tipos";
+
+/**
+ * Geometria da soltura — espelha `gapMaisProximo` de `moverBloco.ts`, adaptado a componentes
+ * React marcados com `data-*`. Acha a `<section data-secao>` sob o ponteiro e devolve o índice
+ * (0-based, na lista visível SEM a tarefa arrastada — a coordenada que `moverTarefa` espera)
+ * onde a linha indicadora deve ficar. `null` quando o ponteiro não está sobre um destino
+ * permitido (doc 10 §5.2: fora de qualquer seção, "Concluídas", ou "Atrasado" vindo de fora).
+ */
+function alvoNoPonto(
+  x: number,
+  y: number,
+  origem: Secao,
+  idArrastada: string,
+): { secao: Secao; indice: number } | null {
+  const pilha = document.elementsFromPoint(x, y);
+  let secaoEl: HTMLElement | null = null;
+  for (const el of pilha) {
+    const s = (el as HTMLElement).closest?.("section[data-secao]") as HTMLElement | null;
+    if (s) {
+      secaoEl = s;
+      break;
+    }
+  }
+  if (!secaoEl) return null;
+
+  const secao = secaoEl.dataset.secao as Secao;
+  if (!dropPermitido(secao, origem)) return null;
+
+  const linhas = Array.from(
+    secaoEl.querySelectorAll<HTMLElement>("[data-tarefa-id]"),
+  ).filter((el) => el.dataset.tarefaId !== idArrastada);
+  if (linhas.length === 0) return { secao, indice: 0 };
+
+  for (let i = 0; i < linhas.length; i += 1) {
+    const r = linhas[i].getBoundingClientRect();
+    if (y < r.top + r.height / 2) return { secao, indice: i };
+  }
+  return { secao, indice: linhas.length };
+}
 
 export default function PainelTarefas() {
   const aberto = useTarefasStore((s) => s.painelAberto);
@@ -19,6 +60,7 @@ export default function PainelTarefas() {
 
   const hoje = useHojeLocal();
   const tarefas = useTarefasStore((s) => s.tarefas);
+  const moverTarefa = useTarefasStore((s) => s.moverTarefa);
   const concluidasExpandidas = useTarefasStore((s) => s.concluidasExpandidas);
   const alternarConcluidas = useTarefasStore((s) => s.alternarConcluidas);
   const grupos = useMemo(() => agruparTarefas(tarefas, hoje), [tarefas, hoje]);
@@ -45,6 +87,41 @@ export default function PainelTarefas() {
     },
     [definirLargura],
   );
+
+  // --- Arraste de tarefa (Task 9). `arrastoRef` acompanha o estado para os listeners de
+  // `window` registrados no pointerdown não lerem um valor obsoleto; `arrasto` é só o gatilho
+  // de re-render que desce para as seções desenharem a linha indicadora. ---
+  const [arrasto, setArrasto] = useState<Arrasto | null>(null);
+  const arrastoRef = useRef<Arrasto | null>(null);
+  const aplicarArrasto = useCallback((a: Arrasto | null) => {
+    arrastoRef.current = a;
+    setArrasto(a);
+  }, []);
+
+  const iniciarArrasto = useCallback(
+    (id: string, origem: Secao) => aplicarArrasto({ id, origem, alvo: null }),
+    [aplicarArrasto],
+  );
+
+  const moverPonteiro = useCallback(
+    (x: number, y: number) => {
+      const atual = arrastoRef.current;
+      if (!atual) return;
+      const alvo = alvoNoPonto(x, y, atual.origem, atual.id);
+      const anterior = atual.alvo;
+      if (anterior?.secao === alvo?.secao && anterior?.indice === alvo?.indice) return;
+      aplicarArrasto({ ...atual, alvo });
+    },
+    [aplicarArrasto],
+  );
+
+  const soltar = useCallback(() => {
+    const atual = arrastoRef.current;
+    if (atual?.alvo && dropPermitido(atual.alvo.secao, atual.origem)) {
+      moverTarefa(atual.id, atual.alvo.secao, atual.alvo.indice, hoje);
+    }
+    aplicarArrasto(null);
+  }, [aplicarArrasto, moverTarefa, hoje]);
 
   if (!aberto) return null;
 
@@ -86,6 +163,10 @@ export default function PainelTarefas() {
                   secao === "concluidas" ? alternarConcluidas : undefined
                 }
                 permiteNova={secao !== "atrasado" && secao !== "concluidas"}
+                arrasto={arrasto}
+                aoIniciarArrasto={iniciarArrasto}
+                aoMoverPonteiro={moverPonteiro}
+                aoSoltar={soltar}
               />
             );
           })
