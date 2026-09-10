@@ -13,6 +13,8 @@ export type { TamanhoBotaoIcone } from "./BotaoIcone";
 export { default as Superficie } from "./Superficie";
 export { default as EstadoVazio } from "./EstadoVazio";
 
+export { default as Checkbox } from "./Checkbox";
+
 export { default as Select } from "./Select";
 export type { OpcaoSelect } from "./Select";
 
