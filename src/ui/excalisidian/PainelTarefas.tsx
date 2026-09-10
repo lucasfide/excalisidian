@@ -6,6 +6,7 @@ import { X } from "lucide-react";
 
 import { BotaoIcone, EstadoVazio } from "../index";
 import SecaoTarefas from "./SecaoTarefas";
+import NovaTarefaInline from "./NovaTarefaInline";
 import { useHojeLocal } from "../../app/useHojeLocal";
 import { agruparTarefas, SECOES_ORDEM } from "../../tarefas/agrupamento";
 import { useTarefasStore } from "../../estado/tarefasStore";
@@ -69,7 +70,7 @@ export default function PainelTarefas() {
             titulo="Nenhuma tarefa"
             apoio="Crie a primeira e ela aparece agrupada por prazo."
           >
-            {/* o botão "Nova tarefa" real entra no Task 8 */}
+            <NovaTarefaInline secao="hoje" hoje={hoje} />
           </EstadoVazio>
         ) : (
           SECOES_ORDEM.map((secao) => {
@@ -84,6 +85,7 @@ export default function PainelTarefas() {
                 onAlternarColapso={
                   secao === "concluidas" ? alternarConcluidas : undefined
                 }
+                permiteNova={secao !== "atrasado" && secao !== "concluidas"}
               />
             );
           })

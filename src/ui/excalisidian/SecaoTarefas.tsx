@@ -3,6 +3,7 @@
 // `permiteNova`.
 
 import LinhaTarefa from "./LinhaTarefa";
+import NovaTarefaInline from "./NovaTarefaInline";
 import type { Secao, Tarefa } from "../../tarefas/tipos";
 import {
   addDias,
@@ -38,6 +39,7 @@ interface Props {
   tarefas: Tarefa[];
   colapsada?: boolean;
   onAlternarColapso?: () => void;
+  permiteNova?: boolean;
 }
 
 export default function SecaoTarefas({
@@ -46,6 +48,7 @@ export default function SecaoTarefas({
   tarefas,
   colapsada = false,
   onAlternarColapso,
+  permiteNova = false,
 }: Props) {
   const sub = subtitulo(secao, hoje);
   const cabecalhoClicavel = secao === "concluidas";
@@ -70,6 +73,7 @@ export default function SecaoTarefas({
           {tarefas.map((t) => (
             <LinhaTarefa key={t.id} tarefa={t} hoje={hoje} />
           ))}
+          {permiteNova && <NovaTarefaInline secao={secao} hoje={hoje} />}
         </div>
       )}
     </section>
