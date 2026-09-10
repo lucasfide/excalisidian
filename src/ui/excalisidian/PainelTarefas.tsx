@@ -8,6 +8,7 @@ import { X } from "lucide-react";
 import { BotaoIcone, EstadoVazio } from "../index";
 import SecaoTarefas, { dropPermitido, type Arrasto } from "./SecaoTarefas";
 import NovaTarefaInline from "./NovaTarefaInline";
+import ModalTarefa from "./ModalTarefa";
 import { useHojeLocal } from "../../app/useHojeLocal";
 import { agruparTarefas, SECOES_ORDEM } from "../../tarefas/agrupamento";
 import { useTarefasStore } from "../../estado/tarefasStore";
@@ -65,6 +66,14 @@ export default function PainelTarefas() {
   const alternarConcluidas = useTarefasStore((s) => s.alternarConcluidas);
   const grupos = useMemo(() => agruparTarefas(tarefas, hoje), [tarefas, hoje]);
   const vazioTotal = tarefas.length === 0;
+
+  // Modal de detalhe (Task 10, doc 10 §5.5): `tarefaAberta` é o id; resolvemos a tarefa aqui
+  // e passamos por prop. Se ela some (excluída, vault trocado), o modal não renderiza.
+  const tarefaAberta = useTarefasStore((s) => s.tarefaAberta);
+  const tarefaDoModal = useMemo(
+    () => tarefas.find((t) => t.id === tarefaAberta) ?? null,
+    [tarefas, tarefaAberta],
+  );
 
   const arrastando = useRef(false);
 
@@ -127,6 +136,7 @@ export default function PainelTarefas() {
 
   return (
     <aside
+      id="painel-tarefas"
       className="relative flex shrink-0 flex-col border-l border-regua bg-superficie"
       style={{ width: `${largura}px` }}
     >
@@ -172,6 +182,10 @@ export default function PainelTarefas() {
           })
         )}
       </div>
+
+      {tarefaAberta && tarefaDoModal && (
+        <ModalTarefa tarefa={tarefaDoModal} hoje={hoje} />
+      )}
     </aside>
   );
 }
