@@ -28,6 +28,10 @@ fatia, entrou por pedido direto do usuário depois de testar o app em tela):
 - **Split de um arquivo já aberto**: a segunda vista abre travada pra edição, pra não perder
   conteúdo silenciosamente (doc 09 ADR-13) — sincronizar as duas vistas de verdade ainda não
   existe, ver a limitação registrada lá.
+- **Painel de tarefas** (`10-tarefas.md`): lista vertical estreita na lateral direita,
+  agrupada por prazo em seis seções calculadas, persistida em `.excalisidian/tarefas.json`.
+  Pedido direto do usuário depois do MVP; o doc 10 é autocontido (modelo, formato, UI, RF10.x,
+  decisões).
 
 ---
 

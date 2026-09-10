@@ -24,6 +24,7 @@ O ponto do produto não é ter as duas coisas lado a lado. É que **desenho e no
 | `07-prompt-claude-design.md` | Prompt pronto para colar no Claude Design e gerar as telas. |
 | `08-roadmap.md` | Ordem de construção em fatias verticais, com critério de pronto por fatia. |
 | `09-decisoes-e-incertezas.md` | ADRs curtos e — importante — a lista do que foi **verificado em fonte** e do que é **suposição minha**. |
+| `10-tarefas.md` | Normativo e autocontido. O painel de tarefas: modelo de dados, formato no disco, cálculo das seções, interface, RF10.x, decisões. Escrito depois do MVP, por pedido do usuário. |
 | `CLAUDE.md` | vai na raiz do repositório, não em `docs/`. É o que o Claude Code lê primeiro. |
 | `HANDOFF.md` | também na raiz. A Fatia 0 passo a passo, com comandos e código. É por onde a primeira sessão de código começa. |
 

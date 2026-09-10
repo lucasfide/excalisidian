@@ -59,6 +59,7 @@ Cinco cores de traço, cinco opções de preenchimento (uma delas transparente),
 - Busca por nome (quick switcher) e por conteúdo.
 - Backlinks.
 - Lixeira com restaurar e esvaziar.
+- Um painel de tarefas na lateral direita: lista vertical estreita, agrupada por prazo, fora do vault de notas (ver `10-tarefas.md`).
 
 ## O que o produto explicitamente NÃO é (no MVP)
 
@@ -68,7 +69,8 @@ Escrito aqui para não virar discussão depois:
 - Não tem plugins nem API de extensão.
 - Não tem sincronização, conta, nuvem ou colaboração.
 - Não tem mobile.
-- Não tem tags, kanban, daily notes, templates, dataview.
+- Não tem tags, daily notes, templates, dataview.
+- Não tem quadro kanban (colunas horizontais que o usuário cria e configura). O painel de tarefas (`10-tarefas.md`) é uma lista **vertical** estreita, agrupada em seções fixas por prazo — decidido depois deste documento por pedido direto do usuário.
 - Não tem canvas infinito de cards estilo "Obsidian Canvas" — o canvas do Excalisidian é o de desenho.
 - Não tem editor de tabelas WYSIWYG (tabela é markdown puro em live preview simples).
 - Não tem colaboração em tempo real no desenho.

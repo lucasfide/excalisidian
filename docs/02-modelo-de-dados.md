@@ -19,7 +19,8 @@ MeuVault/
 │   └── Imagem colada 20260828-231455.png
 ├── .trash/                      ← lixeira do vault
 └── .excalisidian/               ← config DO VAULT (versionável)
-    └── vault.json
+    ├── vault.json
+    └── tarefas.json             ← painel de tarefas, formato em 10-tarefas.md
 ```
 
 Fora do vault, em `%APPDATA%\Excalisidian\` (Windows):

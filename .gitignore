@@ -29,3 +29,6 @@ npm-debug.log*
 !.vscode/extensions.json
 .idea
 .DS_Store
+
+# Workspace do subagent-driven-development (scratch, descartável)
+.superpowers/
