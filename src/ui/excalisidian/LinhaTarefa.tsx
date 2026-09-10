@@ -1,10 +1,11 @@
-// Uma linha do painel de tarefas (doc 10 §4.3): alça de arraste + checkbox + título. Clique no
-// título (fora do checkbox e da alça) abre o modal de detalhe. A alça `grip-vertical` só
-// aparece no hover e é a origem do arraste (doc 10 §5.2): `pointerdown` botão 0 nela registra
+// Uma linha do painel de tarefas (doc 10 §4.3): alça de arraste + checkbox + título + apagar.
+// Clique no título (fora do checkbox e da alça) abre o modal de detalhe. A alça `grip-vertical`
+// só aparece no hover e é a origem do arraste (doc 10 §5.2): `pointerdown` botão 0 nela registra
 // listeners em `window` de pointermove/pointerup/pointercancel — nunca HTML5 drag-and-drop
 // (doc 09 ADR-18), mesmo padrão de `editor/extensoes/moverBloco.ts`.
 
-import { GripVertical } from "lucide-react";
+import { GripVertical, Trash2 } from "lucide-react";
+import { toast } from "sonner";
 
 import { cn } from "../cn";
 import { Checkbox } from "../index";
@@ -42,6 +43,15 @@ export default function LinhaTarefa({
 }: Props) {
   const alternarConcluida = useTarefasStore((s) => s.alternarConcluida);
   const abrirModal = useTarefasStore((s) => s.abrirModal);
+  const removerTarefa = useTarefasStore((s) => s.removerTarefa);
+  const restaurarTarefa = useTarefasStore((s) => s.restaurarTarefa);
+
+  function apagar() {
+    removerTarefa(tarefa.id);
+    toast("Tarefa apagada", {
+      action: { label: "Desfazer", onClick: () => restaurarTarefa(tarefa) },
+    });
+  }
 
   function aoPegarAlca(e: React.PointerEvent) {
     if (e.button !== 0 || !aoIniciarArrasto || !secao) return;
@@ -101,6 +111,15 @@ export default function LinhaTarefa({
         )}
       >
         {tarefa.titulo}
+      </button>
+      <button
+        type="button"
+        onClick={apagar}
+        aria-label="Apagar tarefa"
+        title="Apagar tarefa"
+        className="shrink-0 text-tinta-suave opacity-0 hover:text-bordo group-hover:opacity-100"
+      >
+        <Trash2 size={14} strokeWidth={1.5} aria-hidden />
       </button>
     </div>
   );

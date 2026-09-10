@@ -69,6 +69,8 @@ interface TarefasState {
   editarTitulo(id: string, titulo: string): void;
   alternarConcluida(id: string, hoje: string): void;
   moverTarefa(id: string, secaoAlvo: Secao, indiceAlvo: number, hoje: string): void;
+  removerTarefa(id: string): void;
+  restaurarTarefa(tarefa: Tarefa): void;
   adicionarComentario(idTarefa: string, texto: string): void;
   editarComentario(idTarefa: string, idComentario: string, texto: string): void;
   removerComentario(idTarefa: string, idComentario: string): void;
@@ -224,6 +226,22 @@ export const useTarefasStore = create<TarefasState>(() => ({
       const ordens = renormalizarSecao(idsAlvo);
       return base.map((x) => (x.id in ordens ? { ...x, ordem: ordens[x.id] } : x));
     });
+  },
+
+  removerTarefa(id) {
+    mutar((ts) => ts.filter((x) => x.id !== id));
+    // Se a tarefa apagada era a que estava aberta no modal, fecha — não sobra um modal
+    // mostrando uma tarefa que já não existe em `tarefas`.
+    if (useTarefasStore.getState().tarefaAberta === id) {
+      useTarefasStore.setState({ tarefaAberta: null });
+    }
+  },
+
+  restaurarTarefa(tarefa) {
+    // Ao contrário de restaurarComentario, não precisa de índice: a posição visual da tarefa
+    // vem inteira de `ordem`/`vencimento`/`concluida` (já preservados no objeto), não da
+    // posição dela no array.
+    mutar((ts) => [...ts, tarefa]);
   },
 
   adicionarComentario(idTarefa, texto) {

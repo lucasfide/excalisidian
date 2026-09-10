@@ -267,7 +267,8 @@ Formato do intervalo: `D–D de <mês>` quando início e fim caem no mesmo mês;
 - Checkbox (componente base `Checkbox`) à esquerda + título.
 - Alça `grip-vertical` aparece no hover da linha, à esquerda do checkbox — mesmo
   comportamento visual da `AlcaBloco` do editor.
-- Clique na linha, fora do checkbox e da alça, abre o modal de detalhe (§5.5).
+- Ícone `trash-2` de apagar aparece no hover, à direita da linha (§5.6).
+- Clique na linha, fora do checkbox, da alça e do apagar, abre o modal de detalhe (§5.5).
 - Título que não cabe: trunca com reticências. O texto inteiro está no modal.
 - Tarefa concluída (na seção Concluídas): título com `line-through` e `tinta-suave`.
 
@@ -366,6 +367,18 @@ Três formas. Todas limpam `concluida`/`concluidaEm`:
   estado. Se a tarefa é concluída pelo checkbox da linha enquanto o modal dela está aberto, o
   modal continua e o button-group passa a mostrar `Concluídas` aceso.
 
+### 5.6 Apagar tarefa
+
+- Ícone `trash-2` na linha, visível só no hover (§4.3) — não existe no modal; apagar é sempre
+  pela linha, em qualquer seção, Atrasado e Concluídas incluídos.
+- **Apaga na hora**: some da lista, sem diálogo de confirmação. Mostra o toast "Tarefa apagada"
+  com a ação "Desfazer" — mesmo padrão de apagar comentário (§5.5), não o de excluir nota/pasta
+  (que vai pra lixeira e pede confirmação): uma tarefa não tem lixeira própria, o toast é a volta
+  atrás.
+- Se a tarefa apagada estava aberta no modal, o modal fecha junto.
+- Desfazer devolve a tarefa exatamente como estava — mesmo `id`, `vencimento`, `ordem`,
+  `concluida`/`concluidaEm` e `comentarios` —, então ela reaparece na mesma seção e posição.
+
 ---
 
 ## 6. Textos da interface
@@ -402,12 +415,14 @@ Estende a tabela do doc 06 §Ícones (lucide, traço 1.5):
 | alça de arraste da tarefa | `grip-vertical` (igual à alça de bloco) |
 | fechar o modal | `x` |
 | apagar comentário | `trash-2` |
+| apagar tarefa | `trash-2` (mesmo ícone do apagar comentário) |
 
 ### 6.4 Erros e avisos (toasts)
 
 | Situação | Texto |
 |---|---|
 | Comentário apagado | `Comentário apagado` + ação `Desfazer` |
+| Tarefa apagada | `Tarefa apagada` + ação `Desfazer` |
 | `tarefas.json` ilegível na abertura | `Não foi possível ler as tarefas. O arquivo pode estar corrompido; ele não será sobrescrito até você criar uma tarefa nova.` |
 | Falha ao gravar `tarefas.json` | `Não foi possível salvar as tarefas. Verifique a permissão da pasta do vault.` |
 
@@ -417,7 +432,7 @@ Estende a tabela do doc 06 §Ícones (lucide, traço 1.5):
 
 | RF | Descrição | Prioridade |
 |---|---|---|
-| RF10.1 | Abrir e fechar o painel de tarefas por `Ctrl+\` e por um botão na sidebar; estado e largura persistem entre sessões. | P0 |
+| RF10.1 | Abrir e fechar o painel de tarefas por `Ctrl+\` e por um botão fixo no canto superior direito da janela; estado e largura persistem entre sessões. | P0 |
 | RF10.2 | Exibir as tarefas em seis seções calculadas a partir de `vencimento` vs. hoje, na ordem fixa da §4.2. | P0 |
 | RF10.3 | Criar tarefas em cadeia pelo botão "Nova tarefa" de cada seção (exceto Atrasado e Concluídas); campo vazio nunca vira tarefa. | P0 |
 | RF10.4 | Reordenar tarefas dentro de uma seção arrastando. | P0 |
@@ -429,6 +444,7 @@ Estende a tabela do doc 06 §Ícones (lucide, traço 1.5):
 | RF10.10 | Reagrupar as seções sozinho na virada do dia com o app aberto. | P1 |
 | RF10.11 | Persistir tudo em `.excalisidian/tarefas.json` por escrita atômica, com debounce e flush no fechamento; abrir sem editar não gera diff. | P0 |
 | RF10.12 | Tolerar `tarefas.json` ausente ou corrompido sem travar o app e sem destruir o arquivo. | P0 |
+| RF10.13 | Apagar uma tarefa pelo ícone da linha (qualquer seção), sem diálogo — toast "Tarefa apagada" com "Desfazer". | P1 |
 
 ---
 

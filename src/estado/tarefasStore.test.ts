@@ -163,6 +163,46 @@ describe("tarefasStore — comentários", () => {
   });
 });
 
+describe("tarefasStore — apagar tarefa", () => {
+  beforeEach(reset);
+
+  it("removerTarefa tira a tarefa da lista", async () => {
+    await useTarefasStore.getState().carregar();
+    useTarefasStore.getState().criar("hoje", "T", HOJE);
+    const t = useTarefasStore.getState().tarefas[0];
+    useTarefasStore.getState().removerTarefa(t.id);
+    expect(useTarefasStore.getState().tarefas).toEqual([]);
+  });
+
+  it("removerTarefa fecha o modal se a tarefa apagada era a aberta", async () => {
+    await useTarefasStore.getState().carregar();
+    useTarefasStore.getState().criar("hoje", "T", HOJE);
+    const t = useTarefasStore.getState().tarefas[0];
+    useTarefasStore.getState().abrirModal(t.id);
+    useTarefasStore.getState().removerTarefa(t.id);
+    expect(useTarefasStore.getState().tarefaAberta).toBeNull();
+  });
+
+  it("removerTarefa não mexe no modal de outra tarefa", async () => {
+    await useTarefasStore.getState().carregar();
+    useTarefasStore.getState().criar("hoje", "A", HOJE);
+    useTarefasStore.getState().criar("hoje", "B", HOJE);
+    const [a, b] = useTarefasStore.getState().tarefas;
+    useTarefasStore.getState().abrirModal(b.id);
+    useTarefasStore.getState().removerTarefa(a.id);
+    expect(useTarefasStore.getState().tarefaAberta).toBe(b.id);
+  });
+
+  it("restaurarTarefa devolve a tarefa exatamente como estava", async () => {
+    await useTarefasStore.getState().carregar();
+    useTarefasStore.getState().criar("proxima-semana", "T", HOJE);
+    const t = useTarefasStore.getState().tarefas[0];
+    useTarefasStore.getState().removerTarefa(t.id);
+    useTarefasStore.getState().restaurarTarefa(t);
+    expect(useTarefasStore.getState().tarefas).toEqual([t]);
+  });
+});
+
 describe("tarefasStore — estado de UI", () => {
   beforeEach(() => {
     reset();
