@@ -4,6 +4,7 @@
 
 import { create } from "zustand";
 import { toast } from "sonner";
+import { load } from "@tauri-apps/plugin-store";
 
 import type { Tarefa, Comentario, Secao } from "../tarefas/tipos";
 import { parseTarefas, serializarTarefas, tarefasIlegivel } from "../tarefas/formatoTarefas";
@@ -13,6 +14,28 @@ import { useVaultStore } from "./vaultStore";
 
 export const CAMINHO_TAREFAS = ".excalisidian/tarefas.json";
 const DEBOUNCE_MS = 800;
+
+const CLAMP_LARGURA: [number, number] = [280, 480];
+const DEFAULT_LARGURA = 320;
+
+// Prefs de app do painel de tarefas: vivem no settings.json (mesmo arquivo que prefsStore),
+// não no tarefas.json do vault. Painel aberto/fechado e largura da coluna.
+const CHAVE_ABERTO = "painelTarefasAberto";
+const CHAVE_LARGURA = "larguraPainelTarefas";
+
+function clampLargura(px: number): number {
+  return Math.min(CLAMP_LARGURA[1], Math.max(CLAMP_LARGURA[0], Math.round(px)));
+}
+
+async function gravarPref(chave: string, valor: unknown) {
+  try {
+    const s = await load("settings.json", { autoSave: false });
+    await s.set(chave, valor);
+    await s.save();
+  } catch {
+    // sem settings.json ainda (1ª execução): ignora
+  }
+}
 
 let timer: number | undefined;
 /** Último JSON escrito (ou lido) — pula a gravação quando nada mudou (RNF7). `null` depois de
@@ -27,6 +50,18 @@ function novoId(prefixo: "t" | "c"): string {
 interface TarefasState {
   tarefas: Tarefa[];
   carregado: boolean;
+
+  painelAberto: boolean;
+  larguraPainel: number;
+  concluidasExpandidas: boolean;
+  tarefaAberta: string | null;
+
+  carregarPrefs(): Promise<void>;
+  alternarPainel(): void;
+  definirLargura(px: number): void;
+  alternarConcluidas(): void;
+  abrirModal(id: string): void;
+  fecharModal(): void;
 
   carregar(): Promise<void>;
   criar(secao: Secao, titulo: string, hoje: string): void;
@@ -57,12 +92,55 @@ export const useTarefasStore = create<TarefasState>(() => ({
   tarefas: [],
   carregado: false,
 
+  painelAberto: true,
+  larguraPainel: DEFAULT_LARGURA,
+  concluidasExpandidas: false,
+  tarefaAberta: null,
+
+  async carregarPrefs() {
+    try {
+      const s = await load("settings.json", { autoSave: false });
+      const aberto = await s.get<boolean>(CHAVE_ABERTO);
+      const largura = await s.get<number>(CHAVE_LARGURA);
+      useTarefasStore.setState({
+        painelAberto: typeof aberto === "boolean" ? aberto : true,
+        larguraPainel: typeof largura === "number" ? clampLargura(largura) : DEFAULT_LARGURA,
+      });
+    } catch {
+      // padrões locais
+    }
+  },
+
+  alternarPainel() {
+    const proximo = !useTarefasStore.getState().painelAberto;
+    useTarefasStore.setState({ painelAberto: proximo });
+    void gravarPref(CHAVE_ABERTO, proximo);
+  },
+
+  definirLargura(px) {
+    const larguraPainel = clampLargura(px);
+    useTarefasStore.setState({ larguraPainel });
+    void gravarPref(CHAVE_LARGURA, larguraPainel);
+  },
+
+  alternarConcluidas() {
+    useTarefasStore.setState((s) => ({ concluidasExpandidas: !s.concluidasExpandidas }));
+  },
+
+  abrirModal(id) {
+    useTarefasStore.setState({ tarefaAberta: id });
+  },
+
+  fecharModal() {
+    useTarefasStore.setState({ tarefaAberta: null });
+  },
+
   async carregar() {
     window.clearTimeout(timer);
     const adapter = useVaultStore.getState().adapter;
     if (!adapter) {
       ultimoJson = serializarTarefas({ versao: 1, tarefas: [] });
-      useTarefasStore.setState({ tarefas: [], carregado: true });
+      useTarefasStore.setState({ tarefas: [], carregado: true, tarefaAberta: null });
       return;
     }
     try {
@@ -71,20 +149,20 @@ export const useTarefasStore = create<TarefasState>(() => ({
         if (tarefasIlegivel(texto)) {
           toast("Não foi possível ler as tarefas. O arquivo pode estar corrompido; ele não será sobrescrito até você criar uma tarefa nova.");
           ultimoJson = serializarTarefas({ versao: 1, tarefas: [] });
-          useTarefasStore.setState({ tarefas: [], carregado: true });
+          useTarefasStore.setState({ tarefas: [], carregado: true, tarefaAberta: null });
           return;
         }
         const dados = parseTarefas(texto);
         ultimoJson = serializarTarefas(dados);
-        useTarefasStore.setState({ tarefas: dados.tarefas, carregado: true });
+        useTarefasStore.setState({ tarefas: dados.tarefas, carregado: true, tarefaAberta: null });
       } else {
         ultimoJson = serializarTarefas({ versao: 1, tarefas: [] });
-        useTarefasStore.setState({ tarefas: [], carregado: true });
+        useTarefasStore.setState({ tarefas: [], carregado: true, tarefaAberta: null });
       }
     } catch {
       toast("Não foi possível ler as tarefas. O arquivo pode estar corrompido; ele não será sobrescrito até você criar uma tarefa nova.");
       ultimoJson = serializarTarefas({ versao: 1, tarefas: [] });
-      useTarefasStore.setState({ tarefas: [], carregado: true });
+      useTarefasStore.setState({ tarefas: [], carregado: true, tarefaAberta: null });
     }
   },
 

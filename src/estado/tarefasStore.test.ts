@@ -20,6 +20,17 @@ vi.mock("./vaultStore", () => ({
   useVaultStore: { getState: () => ({ adapter: adapterStub }) },
 }));
 
+// Mock do plugin-store (mesmo estilo de prefsStore.test.ts): um settings.json em memória.
+const { storeMem } = vi.hoisted(() => ({ storeMem: new Map<string, unknown>() }));
+
+vi.mock("@tauri-apps/plugin-store", () => ({
+  load: async () => ({
+    get: async (k: string) => storeMem.get(k),
+    set: async (k: string, v: unknown) => void storeMem.set(k, v),
+    save: async () => {},
+  }),
+}));
+
 import { useTarefasStore, CAMINHO_TAREFAS } from "./tarefasStore";
 
 const HOJE = "2026-09-09";
@@ -149,5 +160,49 @@ describe("tarefasStore — comentários", () => {
     expect(useTarefasStore.getState().tarefas[0].comentarios.map((c) => c.texto)).toEqual(["b"]);
     useTarefasStore.getState().restaurarComentario(id, c0 as Comentario, 0);
     expect(useTarefasStore.getState().tarefas[0].comentarios.map((c) => c.texto)).toEqual(["a", "b"]);
+  });
+});
+
+describe("tarefasStore — estado de UI", () => {
+  beforeEach(() => {
+    reset();
+    storeMem.clear();
+    useTarefasStore.setState({
+      painelAberto: true,
+      larguraPainel: 320,
+      concluidasExpandidas: false,
+      tarefaAberta: null,
+    });
+  });
+
+  it("definirLargura faz clamp em [280, 480]", () => {
+    useTarefasStore.getState().definirLargura(100);
+    expect(useTarefasStore.getState().larguraPainel).toBe(280);
+    useTarefasStore.getState().definirLargura(9999);
+    expect(useTarefasStore.getState().larguraPainel).toBe(480);
+    useTarefasStore.getState().definirLargura(360);
+    expect(useTarefasStore.getState().larguraPainel).toBe(360);
+  });
+
+  it("alternarPainel inverte e escreve no settings", async () => {
+    useTarefasStore.getState().alternarPainel();
+    expect(useTarefasStore.getState().painelAberto).toBe(false);
+    await Promise.resolve();
+    expect(storeMem.get("painelTarefasAberto")).toBe(false);
+  });
+
+  it("abrir e fechar modal", () => {
+    useTarefasStore.getState().abrirModal("t-1");
+    expect(useTarefasStore.getState().tarefaAberta).toBe("t-1");
+    useTarefasStore.getState().fecharModal();
+    expect(useTarefasStore.getState().tarefaAberta).toBeNull();
+  });
+
+  it("carregarPrefs lê do settings", async () => {
+    storeMem.set("painelTarefasAberto", false);
+    storeMem.set("larguraPainelTarefas", 400);
+    await useTarefasStore.getState().carregarPrefs();
+    expect(useTarefasStore.getState().painelAberto).toBe(false);
+    expect(useTarefasStore.getState().larguraPainel).toBe(400);
   });
 });
