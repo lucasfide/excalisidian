@@ -5,6 +5,7 @@ import { useEffect, useState } from "react";
 import { X } from "lucide-react";
 
 import { BotaoIcone, GrupoBotoes } from "../index";
+import ComentariosTarefa from "./ComentariosTarefa";
 import { useTarefasStore } from "../../estado/tarefasStore";
 import { secaoDe } from "../../tarefas/agrupamento";
 import type { Secao, Tarefa } from "../../tarefas/tipos";
@@ -107,7 +108,7 @@ export default function ModalTarefa({ tarefa, hoje }: Props) {
           </div>
         </div>
 
-        {/* Comentários entram no Task 11 */}
+        <ComentariosTarefa tarefa={tarefa} />
       </div>
     </div>
   );
