@@ -32,3 +32,6 @@ npm-debug.log*
 
 # Workspace do subagent-driven-development (scratch, descartável)
 .superpowers/
+
+# Nunca versionar chave de assinatura do updater
+*.key

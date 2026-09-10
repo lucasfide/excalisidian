@@ -2,13 +2,14 @@
 // atalho mostrado em `meta` à direita quando existe (doc 06, escala de tipografia).
 
 import { useMemo, useState } from "react";
-import { FilePlus, SquarePen, FolderPlus, Home, Columns2, Rows2, X } from "lucide-react";
+import { FilePlus, SquarePen, FolderPlus, Home, Columns2, Rows2, X, RefreshCw } from "lucide-react";
 
 import {
   comandoNovaNota,
   comandoNovoDesenho,
   comandoNovaPasta,
 } from "../../app/comandos/criacao";
+import { verificarAtualizacao } from "../../app/atualizacao";
 import { useWorkspaceStore } from "../../estado/workspaceStore";
 import { useSobreposicaoStore } from "../../estado/sobreposicaoStore";
 import { usePrefsStore } from "../../estado/prefsStore";
@@ -32,6 +33,12 @@ function construirComandos(): Comando[] {
     { id: "dividir-direita", rotulo: "Dividir à direita", Icone: Columns2, executar: () => ws.dividirAtivo("right") },
     { id: "dividir-abaixo", rotulo: "Dividir abaixo", Icone: Rows2, executar: () => ws.dividirAtivo("below") },
     { id: "fechar-aba", rotulo: "Fechar aba", Icone: X, atalho: "CTRL W", executar: () => ws.fecharAtivo() },
+    {
+      id: "verificar-atualizacoes",
+      rotulo: "Verificar atualizações",
+      Icone: RefreshCw,
+      executar: () => void verificarAtualizacao({ silencioso: false }),
+    },
     { id: "tema-sistema", rotulo: "Tema: sistema", executar: () => prefs.definirTema("sistema") },
     { id: "tema-claro", rotulo: "Tema: claro", executar: () => prefs.definirTema("claro") },
     { id: "tema-escuro", rotulo: "Tema: escuro", executar: () => prefs.definirTema("escuro") },

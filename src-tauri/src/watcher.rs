@@ -103,7 +103,9 @@ pub fn observar_vault(
             };
             let mut lote: Vec<EventoWatcher> = Vec::new();
             for ev in eventos {
-                let Some(tipo) = tipo_de(&ev.kind) else { continue };
+                let Some(tipo) = tipo_de(&ev.kind) else {
+                    continue;
+                };
                 for p in &ev.paths {
                     if let Some(rel) = relativo(&raiz_handler, p) {
                         if !deve_ignorar_rel(&rel) {

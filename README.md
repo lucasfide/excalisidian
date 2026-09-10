@@ -20,6 +20,29 @@ npm run tauri build
 npm test
 ```
 
+Projeto em desenvolvimento ativo (MVP). Espere bugs.
+
+## Instalação
+
+Baixe o instalador mais recente (`Excalisidian_x.y.z_x64-setup.exe`) em
+[Releases](https://github.com/lucasfide/excalisidian/releases). O instalador ainda não é
+assinado digitalmente: o Windows mostra "O Windows protegeu o computador" na primeira
+instalação — clique em "Mais informações" e depois em "Executar assim mesmo".
+
+## Atualizações
+
+O app verifica sozinho se há uma versão nova ao abrir e avisa quando encontra. Também dá
+para checar na hora pelo comando "Verificar atualizações" (`Ctrl+P`) ou em
+Configurações → Atualizações.
+
+## Contribuindo
+
+Veja `CONTRIBUTING.md`.
+
+## Licença
+
+MIT — veja `LICENSE`. Licenças de terceiros embutidos em `THIRD_PARTY_LICENSES.md`.
+
 ## Documentação
 
 `docs/00-LEIA-PRIMEIRO.md` é o índice. `docs/02-modelo-de-dados.md` e

@@ -26,6 +26,8 @@ import ArvoreArquivos from "../ui/excalisidian/ArvoreArquivos";
 import BarraFerramentasSidebar from "../ui/excalisidian/BarraFerramentasSidebar";
 import BarraStatus from "../ui/excalisidian/BarraStatus";
 import DialogoPreferencias from "../ui/excalisidian/DialogoPreferencias";
+import DialogoAtualizacao from "../ui/excalisidian/DialogoAtualizacao";
+import { verificarAtualizacao } from "./atualizacao";
 import Logotipo from "../ui/excalisidian/Logotipo";
 import PainelBacklinks from "../ui/excalisidian/PainelBacklinks";
 import PainelLixeira from "../ui/excalisidian/PainelLixeira";
@@ -131,6 +133,16 @@ export default function App() {
       ativo = false;
     };
   }, []);
+
+  // Checagem silenciosa de atualização: só depois que o vault carregou, fora do caminho
+  // crítico do boot (spec 2026-09-04, "Ao abrir + item de menu manual").
+  useEffect(() => {
+    if (boot !== "pronto") return;
+    const id = window.setTimeout(() => {
+      void verificarAtualizacao({ silencioso: true });
+    }, 3000);
+    return () => window.clearTimeout(id);
+  }, [boot]);
 
   const escolher = useCallback(async () => {
     try {
@@ -262,6 +274,7 @@ export default function App() {
       <BarraStatus />
       <RaizDialogos />
       <RaizSobreposicoes />
+      <DialogoAtualizacao />
       {preferenciasAbertas && (
         <DialogoPreferencias onFechar={() => setPreferenciasAbertas(false)} />
       )}
