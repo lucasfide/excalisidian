@@ -109,3 +109,45 @@ describe("tarefasStore — carga e CRUD", () => {
     expect(adapterStub.escreverTexto).not.toHaveBeenCalled();
   });
 });
+
+import type { Comentario } from "../tarefas/tipos";
+
+describe("tarefasStore — comentários", () => {
+  beforeEach(reset);
+
+  async function comUmaTarefa() {
+    await useTarefasStore.getState().carregar();
+    useTarefasStore.getState().criar("hoje", "T", "2026-09-09");
+    return useTarefasStore.getState().tarefas[0].id;
+  }
+
+  it("adiciona comentário com carimbo e editadoEm nulo", async () => {
+    const id = await comUmaTarefa();
+    useTarefasStore.getState().adicionarComentario(id, "oi [[Nota]]");
+    const c = useTarefasStore.getState().tarefas[0].comentarios[0];
+    expect(c.texto).toBe("oi [[Nota]]");
+    expect(c.editadoEm).toBeNull();
+    expect(typeof c.criadoEm).toBe("string");
+  });
+
+  it("editar seta editadoEm e troca o texto", async () => {
+    const id = await comUmaTarefa();
+    useTarefasStore.getState().adicionarComentario(id, "a");
+    const cid = useTarefasStore.getState().tarefas[0].comentarios[0].id;
+    useTarefasStore.getState().editarComentario(id, cid, "b");
+    const c = useTarefasStore.getState().tarefas[0].comentarios[0];
+    expect(c.texto).toBe("b");
+    expect(typeof c.editadoEm).toBe("string");
+  });
+
+  it("remover e restaurar no mesmo índice", async () => {
+    const id = await comUmaTarefa();
+    useTarefasStore.getState().adicionarComentario(id, "a");
+    useTarefasStore.getState().adicionarComentario(id, "b");
+    const [c0] = useTarefasStore.getState().tarefas[0].comentarios;
+    useTarefasStore.getState().removerComentario(id, c0.id);
+    expect(useTarefasStore.getState().tarefas[0].comentarios.map((c) => c.texto)).toEqual(["b"]);
+    useTarefasStore.getState().restaurarComentario(id, c0 as Comentario, 0);
+    expect(useTarefasStore.getState().tarefas[0].comentarios.map((c) => c.texto)).toEqual(["a", "b"]);
+  });
+});

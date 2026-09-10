@@ -5,7 +5,7 @@
 import { create } from "zustand";
 import { toast } from "sonner";
 
-import type { Tarefa, Secao } from "../tarefas/tipos";
+import type { Tarefa, Comentario, Secao } from "../tarefas/tipos";
 import { parseTarefas, serializarTarefas, tarefasIlegivel } from "../tarefas/formatoTarefas";
 import { secaoDe, dataDaSecao, agruparTarefas } from "../tarefas/agrupamento";
 import { renormalizarSecao } from "../tarefas/ordem";
@@ -33,6 +33,10 @@ interface TarefasState {
   editarTitulo(id: string, titulo: string): void;
   alternarConcluida(id: string, hoje: string): void;
   moverTarefa(id: string, secaoAlvo: Secao, indiceAlvo: number, hoje: string): void;
+  adicionarComentario(idTarefa: string, texto: string): void;
+  editarComentario(idTarefa: string, idComentario: string, texto: string): void;
+  removerComentario(idTarefa: string, idComentario: string): void;
+  restaurarComentario(idTarefa: string, comentario: Comentario, indice: number): void;
   _persistirAgora(): Promise<void>;
 }
 
@@ -141,6 +145,49 @@ export const useTarefasStore = create<TarefasState>(() => ({
       const ordens = renormalizarSecao(idsAlvo);
       return base.map((x) => (x.id in ordens ? { ...x, ordem: ordens[x.id] } : x));
     });
+  },
+
+  adicionarComentario(idTarefa, texto) {
+    const t = texto.trim();
+    if (!t) return;
+    const c: Comentario = { id: novoId("c"), texto: t, criadoEm: new Date().toISOString(), editadoEm: null };
+    mutar((ts) => ts.map((x) => (x.id === idTarefa ? { ...x, comentarios: [...x.comentarios, c] } : x)));
+  },
+
+  editarComentario(idTarefa, idComentario, texto) {
+    const t = texto.trim();
+    if (!t) return;
+    mutar((ts) =>
+      ts.map((x) =>
+        x.id !== idTarefa
+          ? x
+          : {
+              ...x,
+              comentarios: x.comentarios.map((c) =>
+                c.id === idComentario ? { ...c, texto: t, editadoEm: new Date().toISOString() } : c,
+              ),
+            },
+      ),
+    );
+  },
+
+  removerComentario(idTarefa, idComentario) {
+    mutar((ts) =>
+      ts.map((x) =>
+        x.id !== idTarefa ? x : { ...x, comentarios: x.comentarios.filter((c) => c.id !== idComentario) },
+      ),
+    );
+  },
+
+  restaurarComentario(idTarefa, comentario, indice) {
+    mutar((ts) =>
+      ts.map((x) => {
+        if (x.id !== idTarefa) return x;
+        const lista = [...x.comentarios];
+        lista.splice(Math.max(0, Math.min(indice, lista.length)), 0, comentario);
+        return { ...x, comentarios: lista };
+      }),
+    );
   },
 
   async _persistirAgora() {
