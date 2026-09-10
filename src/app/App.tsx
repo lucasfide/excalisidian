@@ -56,6 +56,7 @@ export default function App() {
   const statusIndice = useVaultStore((s) => s.statusIndice);
   const caminhoAtivo = useWorkspaceStore((s) => s.caminhoAtivo);
   const abrirDocumento = useWorkspaceStore((s) => s.abrirDocumento);
+  const painelTarefasAberto = useTarefasStore((s) => s.painelAberto);
 
   useAutosave();
   useRessincronizarAoVoltar();
@@ -181,7 +182,7 @@ export default function App() {
         onFechar={() => window.location.reload()}
         rotuloFechar="Recarregar"
       >
-        <div className="flex min-h-0 flex-1">
+        <div className="relative flex min-h-0 flex-1">
           <aside className="flex w-[264px] shrink-0 flex-col border-r border-regua bg-superficie">
             <div className="flex items-center justify-between border-b border-regua px-3 py-2">
               <Logotipo />
@@ -226,11 +227,6 @@ export default function App() {
                   onClick={() => setLixeiraAberta(true)}
                 />
                 <BotaoIcone
-                  Icone={ListChecks}
-                  titulo="Tarefas"
-                  onClick={() => useTarefasStore.getState().alternarPainel()}
-                />
-                <BotaoIcone
                   Icone={Settings}
                   titulo="Configurações"
                   onClick={() => setPreferenciasAbertas(true)}
@@ -243,6 +239,23 @@ export default function App() {
             <Workspace />
           </main>
           <PainelTarefas />
+
+          {/* Canto superior direito da janela: antes era o dropdown nativo "abas escondidas"
+              do dockview ("⌄ N"), que o usuário achava inútil e confundia com contagem de
+              notas abertas (desligado em Workspace.tsx). Some quando o painel já está aberto —
+              o X dele já fecha. */}
+          {!painelTarefasAberto && (
+            <div
+              className="absolute right-0 top-0 z-20 flex items-center border-b border-l border-regua bg-superficie px-1"
+              style={{ height: 34 /* --dv-tabs-and-actions-container-height */ }}
+            >
+              <BotaoIcone
+                Icone={ListChecks}
+                titulo="Tarefas"
+                onClick={() => useTarefasStore.getState().alternarPainel()}
+              />
+            </div>
+          )}
         </div>
       </LimiteDeErro>
 

@@ -221,8 +221,11 @@ Formato do intervalo: `D–D de <mês>` quando início e fim caem no mesmo mês;
   - atalho `Ctrl+\` (`Cmd+\` no macOS). O handler casa a tecla física (`e.code === "Backslash"`),
     não `e.key` — com layout comum a barra invertida vira `"\\"` sem Shift e `"|"` com. Nada
     mais no app liga essa combinação;
-  - um botão de alternância no rodapé da sidebar esquerda, ao lado dos ícones de lixeira e
-    configurações.
+  - um botão fixo no canto superior direito da janela (`App.tsx`, sobreposto ao `<main>`, some
+    quando o painel já está aberto). Ocupa o lugar do dropdown nativo "abas escondidas" do
+    dockview ("⌄ N", fim da faixa de abas de cada grupo) — desligado de propósito
+    (`disableTabsOverflowList` em `Workspace.tsx`): o usuário achava que indicava quantas notas
+    estavam abertas, não indicava isso, e não usava.
 - `painelAberto` (booleano) e `larguraPainel` (número) são preferência **de app**, gravadas no
   `settings.json` como o tema — não por vault.
 - Ícone do painel: `list-checks` (lucide).

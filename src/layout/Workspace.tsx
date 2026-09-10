@@ -211,6 +211,11 @@ export default function Workspace() {
       // histórico de falhar dentro do WebView2 do Tauri (cursor "não permitido", o drop nunca
       // é aceito). "pointer" usa só eventos de ponteiro, sem depender da API nativa.
       dndStrategy="pointer"
+      // O dockview mostra por padrão um dropdown "⌄ N" no fim da faixa de abas de cada grupo,
+      // com as abas que não couberam. O usuário achou confuso (parecia contador de notas
+      // abertas) e não usava — desligado. O canto superior direito da janela agora hospeda o
+      // botão do painel de tarefas (App.tsx), não esse controle nativo.
+      disableTabsOverflowList
       components={COMPONENTES}
       defaultTabComponent={AbaDocumento}
       tabComponents={{ inicio: AbaInicio }}
