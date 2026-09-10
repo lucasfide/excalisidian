@@ -21,6 +21,7 @@ import {
 import { carregarIndice, salvarIndice } from "../indice/cache";
 import { hashConteudo, deveIgnorarEvento } from "../vault/escritaAtomica";
 import { useDocumentosStore } from "./documentosStore";
+import { useTarefasStore } from "./tarefasStore";
 import type { EventoArquivo } from "../vault/VaultAdapter";
 
 // Acima deste número de eventos num lote (ex.: git checkout), reindexa tudo em vez de
@@ -98,6 +99,8 @@ export const useVaultStore = create<VaultState>((set, get) => ({
       statusIndice: "vazio",
     });
     await get().recarregarArvore();
+    // Painel de tarefas: recarrega do novo vault (doc 10 §2.2).
+    void useTarefasStore.getState().carregar();
     await get().reindexar();
 
     cancelarWatcher();
