@@ -19,6 +19,7 @@ import { toast } from "sonner";
 import { useVaultStore } from "../estado/vaultStore";
 import { useDocumentosStore } from "../estado/documentosStore";
 import { useWorkspaceStore } from "../estado/workspaceStore";
+import { useAgenteStore } from "../estado/agenteStore";
 import { analisarMiolo } from "../indice/wikilink";
 import { validarNomeArquivo, pastaDe, dividirExtensao } from "./caminhos";
 import { tipoDoArquivo } from "./arvore";
@@ -231,6 +232,8 @@ export async function aplicarMovimentacao(
   } catch (e) {
     return { ok: false, motivo: `Não foi possível renomear: ${String(e)}` };
   }
+  // O agente acompanha a nota pelo caminho (doc 11 §2.2): move a participação junto.
+  useAgenteStore.getState().migrarParticipacao(pathAntigo, pathNovo);
 
   // Nome do arquivo e H1 são a mesma coisa (doc 04): sincroniza o H1 do próprio arquivo
   // com o nome novo. Só para notas — um .draw.md não tem H1, o "título" dele já É o nome

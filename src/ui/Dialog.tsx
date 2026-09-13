@@ -13,6 +13,12 @@ import Superficie from "./Superficie";
 const FOCAVEIS =
   'button:not([disabled]), input:not([disabled]), select:not([disabled]), textarea:not([disabled]), [href], [tabindex]:not([tabindex="-1"])';
 
+// Pilha de diálogos abertos na ordem de montagem. Dois Dialogos podem conviver (ex.:
+// Configurações + assistente do agente por cima), e o handler de Esc de cada um só
+// fecha o topo — senão um Esc fechava os dois de uma vez.
+const fila: number[] = [];
+let proximoId = 1;
+
 interface Props {
   titulo: string;
   descricao?: string;
@@ -33,17 +39,25 @@ export default function Dialog({
 }: Props) {
   const caixaRef = useRef<HTMLDivElement | null>(null);
   const anteriorRef = useRef<HTMLElement | null>(null);
+  const fecharRef = useRef(onFechar);
+  fecharRef.current = onFechar;
 
   useEffect(() => {
     anteriorRef.current = document.activeElement as HTMLElement | null;
     const caixa = caixaRef.current;
     caixa?.querySelector<HTMLElement>(FOCAVEIS)?.focus();
 
+    const id = proximoId++;
+    fila.push(id);
+
     const aoTeclar = (e: KeyboardEvent) => {
       if (e.key === "Escape") {
+        // Só o diálogo do topo da pilha fecha — com a Configurações embaixo do
+        // assistente, um Esc não pode fechar os dois.
+        if (fila[fila.length - 1] !== id) return;
         e.preventDefault();
         e.stopPropagation();
-        onFechar();
+        fecharRef.current();
         return;
       }
       if (e.key !== "Tab" || !caixa) return;
@@ -64,9 +78,13 @@ export default function Dialog({
     window.addEventListener("keydown", aoTeclar, true);
     return () => {
       window.removeEventListener("keydown", aoTeclar, true);
+      const i = fila.indexOf(id);
+      if (i >= 0) fila.splice(i, 1);
       anteriorRef.current?.focus?.();
     };
-  }, [onFechar]);
+    // Sem dependências: o efeito monta/desmonta UMA vez por diálogo aberto. O callback
+    // de fechar é lido via ref — mudar a identidade dele no pai não deve re-empilhar.
+  }, []);
 
   return (
     <div

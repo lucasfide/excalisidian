@@ -166,3 +166,15 @@
     transform: translateX(0);
   }
 }
+
+/* Balão do agente "pensando" (doc 06, "Balão e painel do agente"): anel `ocre` pulsando,
+ * 1,6s, senão parece travado. Só a opacidade do anel anima — não é movimento de layout. */
+@keyframes pulsoAgente {
+  0%,
+  100% {
+    box-shadow: 0 0 0 0 color-mix(in srgb, var(--color-ocre) 55%, transparent);
+  }
+  50% {
+    box-shadow: 0 0 0 5px color-mix(in srgb, var(--color-ocre) 0%, transparent);
+  }
+}

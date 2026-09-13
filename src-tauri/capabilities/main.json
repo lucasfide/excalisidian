@@ -22,6 +22,19 @@
     "fs:allow-watch",
     "core:app:allow-version",
     "updater:default",
-    "process:allow-restart"
+    "process:allow-restart",
+    {
+      "identifier": "http:default",
+      "allow": [
+        { "url": "https://api.anthropic.com/*" },
+        { "url": "https://api.openai.com/*" },
+        { "url": "https://generativelanguage.googleapis.com/*" },
+        { "url": "https://openrouter.ai/*" },
+        { "url": "https://dashscope.aliyuncs.com/*" },
+        { "url": "https://dashscope-intl.aliyuncs.com/*" },
+        { "url": "http://localhost:11434/*" },
+        { "url": "http://localhost:11434" }
+      ]
+    }
   ]
 }

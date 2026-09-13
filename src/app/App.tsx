@@ -10,6 +10,7 @@ import { useVaultStore } from "../estado/vaultStore";
 import { useWorkspaceStore } from "../estado/workspaceStore";
 import { usePrefsStore, type Tema } from "../estado/prefsStore";
 import { useTarefasStore } from "../estado/tarefasStore";
+import { useAgenteStore } from "../estado/agenteStore";
 import { comandoNovaNota, comandoNovoDesenho } from "./comandos/criacao";
 import { useAutosave } from "../editor/useAutosave";
 import { useRessincronizarAoVoltar } from "./useRessincronizarAoVoltar";
@@ -23,6 +24,9 @@ import DialogoAtualizacao from "../ui/excalisidian/DialogoAtualizacao";
 import { verificarAtualizacao } from "./atualizacao";
 import PainelLixeira from "../ui/excalisidian/PainelLixeira";
 import PainelTarefas from "../ui/excalisidian/PainelTarefas";
+import BalaoAgente from "../ui/excalisidian/BalaoAgente";
+import PainelAgente from "../ui/excalisidian/PainelAgente";
+import DialogoAgente from "../ui/excalisidian/DialogoAgente";
 import RaizDialogos from "../ui/excalisidian/RaizDialogos";
 import RaizSobreposicoes from "../ui/excalisidian/RaizSobreposicoes";
 import LimiteDeErro from "../ui/excalisidian/LimiteDeErro";
@@ -80,12 +84,22 @@ export default function App() {
 
   const caminhoAtivo = useWorkspaceStore((s) => s.caminhoAtivo);
   const painelTarefasAberto = useTarefasStore((s) => s.painelAberto);
+  const agenteHabilitado = useAgenteStore((s) => s.config?.habilitado ?? false);
+  const agenteAssistenteAberto = useAgenteStore((s) => s.assistenteAberto);
 
   useAutosave();
   useRessincronizarAoVoltar();
 
   useEffect(() => {
     void usePrefsStore.getState().carregar();
+  }, []);
+
+  // Config do agente de IA: carregada junto com as preferências. Sem configuração ou
+  // desabilitado, nada do agente renderiza (RF11.2). Os gatilhos (doc 11 §5.0) assinam
+  // os stores uma vez e morrem com o app.
+  useEffect(() => {
+    void useAgenteStore.getState().carregar();
+    useAgenteStore.getState().conectarGatilhos();
   }, []);
 
   // Prefs do painel de tarefas (aberto/largura). O flush no fechamento da janela vive no
@@ -142,6 +156,7 @@ export default function App() {
         if (!ativo) return;
         if (adapter) {
           await useVaultStore.getState().definirAdapter(adapter);
+          await useAgenteStore.getState().aoAbrirVault(adapter.raiz());
           if (ativo) setBoot("pronto");
         } else {
           setBoot("sem-vault");
@@ -174,6 +189,7 @@ export default function App() {
         return;
       }
       await useVaultStore.getState().definirAdapter(adapter);
+      await useAgenteStore.getState().aoAbrirVault(adapter.raiz());
       setBoot("pronto");
     } catch (e) {
       setBoot({ erro: String(e) });
@@ -326,13 +342,23 @@ export default function App() {
       <BarraStatus />
       <RaizDialogos />
       <RaizSobreposicoes />
+      <BalaoAgente />
+      <PainelAgente />
       <DialogoAtualizacao />
       {preferenciasAbertas && (
         <DialogoPreferencias onFechar={() => setPreferenciasAbertas(false)} />
       )}
       {lixeiraAberta && <PainelLixeira onFechar={() => setLixeiraAberta(false)} />}
+      {/* Por trás do DialogoPreferencias no DOM o assistente saía escondido — os dois
+          Dialogos dividem o mesmo z-[100], e a ordem no DOM desempata. Montado por
+          último para abrir por cima de quem o chamou. */}
+      {agenteAssistenteAberto && <DialogoAgente key="agente" />}
       <Toaster
         position="bottom-right"
+        // O balão do agente mora no canto inferior direito: com ele presente, os toasts
+        // sobem 72px (40px do balão + 16 de cada margem + folga) pra não ficarem atrás
+        // (doc 06, "Balão e painel do agente").
+        offset={agenteHabilitado ? { bottom: 72 } : undefined}
         toastOptions={{
           style: {
             background: "var(--color-superficie)",
