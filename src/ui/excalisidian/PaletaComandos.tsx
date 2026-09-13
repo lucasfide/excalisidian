@@ -2,7 +2,7 @@
 // atalho mostrado em `meta` à direita quando existe (doc 06, escala de tipografia).
 
 import { useMemo, useState } from "react";
-import { FilePlus, SquarePen, FolderPlus, Home, Columns2, Rows2, X, RefreshCw } from "lucide-react";
+import { FilePlus, SquarePen, FolderPlus, Home, Columns2, Rows2, X, RefreshCw, Search } from "lucide-react";
 
 import {
   comandoNovaNota,
@@ -29,6 +29,13 @@ function construirComandos(): Comando[] {
     { id: "nova-nota", rotulo: "Nova nota", Icone: FilePlus, executar: () => void comandoNovaNota() },
     { id: "novo-desenho", rotulo: "Novo desenho", Icone: SquarePen, executar: () => void comandoNovoDesenho() },
     { id: "nova-pasta", rotulo: "Nova pasta", Icone: FolderPlus, executar: () => void comandoNovaPasta() },
+    {
+      id: "buscar-conteudo",
+      rotulo: "Buscar no vault",
+      Icone: Search,
+      atalho: "CTRL SHIFT F",
+      executar: () => useSobreposicaoStore.getState().abrir("busca"),
+    },
     { id: "ir-inicio", rotulo: "Ir para o início", Icone: Home, executar: () => ws.abrirInicio() },
     { id: "dividir-direita", rotulo: "Dividir à direita", Icone: Columns2, executar: () => ws.dividirAtivo("right") },
     { id: "dividir-abaixo", rotulo: "Dividir abaixo", Icone: Rows2, executar: () => ws.dividirAtivo("below") },
@@ -83,8 +90,10 @@ export default function PaletaComandos() {
       onValorMudar={setValor}
       itens={itens}
       onEscolher={(item) => {
-        executarPorId(item.id);
+        // Fecha ANTES de executar: comandos que abrem outra sobreposição (ex.: "Buscar no
+        // vault") trocam `aberta` — se o fechar viesse depois, anulava a abertura.
         fechar();
+        executarPorId(item.id);
       }}
       onFechar={fechar}
       mensagemVazio={`Nada encontrado para «${valor}».`}

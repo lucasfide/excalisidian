@@ -1,9 +1,10 @@
-// Qual sobreposição de busca está aberta agora — QuickSwitcher (Ctrl+O) ou PaletaComandos
-// (Ctrl+P). Uma de cada vez, como o dialogoStore (RaizSobreposicoes as monta, ver App.tsx).
+// Qual sobreposição de busca está aberta agora — QuickSwitcher (Ctrl+O), PaletaComandos
+// (Ctrl+P) ou PainelBusca (Ctrl+Shift+F). Uma de cada vez, como o dialogoStore
+// (RaizSobreposicoes as monta, ver App.tsx).
 
 import { create } from "zustand";
 
-export type TipoSobreposicao = "switcher" | "comandos";
+export type TipoSobreposicao = "switcher" | "comandos" | "busca";
 
 interface SobreposicaoState {
   aberta: TipoSobreposicao | null;

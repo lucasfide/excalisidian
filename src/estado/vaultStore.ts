@@ -19,6 +19,12 @@ import {
   type IndiceLinks,
 } from "../indice/backlinks";
 import { carregarIndice, salvarIndice } from "../indice/cache";
+import {
+  inicializarBusca,
+  sincronizarBusca,
+  atualizarDocumentoBusca,
+  removerDocumentoBusca,
+} from "../busca/minisearchIndex";
 import { hashConteudo, deveIgnorarEvento } from "../vault/escritaAtomica";
 import { useDocumentosStore } from "./documentosStore";
 import { useTarefasStore } from "./tarefasStore";
@@ -102,6 +108,9 @@ export const useVaultStore = create<VaultState>((set, get) => ({
       links: LINKS_VAZIO,
       statusIndice: "vazio",
     });
+    // Índice de busca por conteúdo: carrega o persistido deste vault (ou começa vazio);
+    // a sincronização do que mudou acontece dentro do reindexar (RF4.8).
+    await inicializarBusca(adapter.raiz());
     await get().recarregarArvore();
     // Painel de tarefas: recarrega do novo vault (doc 10 §2.2).
     void useTarefasStore.getState().carregar();
@@ -169,6 +178,9 @@ export const useVaultStore = create<VaultState>((set, get) => ({
     const { resolucao, links } = derivar(novo, todosCaminhos);
     set({ indice: novo, resolucao, links, statusIndice: "pronto" });
     void salvarIndice(adapter.raiz(), novo.values());
+    // Busca por conteúdo: fora do caminho crítico do boot — indexa em paralelo o que
+    // mudou desde o último índice persistido (mtimeMs+size), com debounce de gravação.
+    void sincronizarBusca(entradas, (p) => adapter.lerTexto(p));
   },
 
   async reindexarArquivo(path) {
@@ -178,15 +190,15 @@ export const useVaultStore = create<VaultState>((set, get) => ({
     const novo = new Map(indice);
     try {
       const texto = await adapter.lerTexto(path);
-      novo.set(
-        path,
-        parsearNota(path, texto, {
-          mtimeMs: entrada?.mtimeMs ?? Date.now(),
-          size: entrada?.size ?? texto.length,
-        }),
-      );
+      const mtimeMs = entrada?.mtimeMs ?? Date.now();
+      const size = entrada?.size ?? texto.length;
+      novo.set(path, parsearNota(path, texto, { mtimeMs, size }));
+      // Busca por conteúdo acompanha o índice de metadados (RF4.8, doc 04 §8:
+      // "cada arquivo salvo ou alterado atualiza só o próprio documento no índice").
+      atualizarDocumentoBusca(path, texto, mtimeMs, size);
     } catch {
       novo.delete(path);
+      removerDocumentoBusca(path);
     }
     const todosCaminhos = entradas.filter((e) => !e.isDir).map((e) => e.path);
     const { resolucao, links } = derivar(novo, todosCaminhos);

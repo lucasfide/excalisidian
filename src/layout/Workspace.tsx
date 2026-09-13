@@ -197,6 +197,9 @@ export default function Workspace() {
       } else if (k === "p" && !e.shiftKey) {
         e.preventDefault();
         useSobreposicaoStore.getState().abrir("comandos");
+      } else if (k === "f" && e.shiftKey) {
+        e.preventDefault();
+        useSobreposicaoStore.getState().abrir("busca");
       }
     };
     window.addEventListener("keydown", onKey, true);
