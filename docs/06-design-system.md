@@ -414,6 +414,9 @@ Altura padrão 36px, compacto 30px, ícone 32×32.
 | `DialogoPreferencias` | configurações do app (tema, largura da nota) — ícone de engrenagem no rodapé da sidebar, ou `Ctrl+,` |
 | `ConfirmacaoDestrutiva` | diálogo com a contagem real do que será perdido |
 | `FaixaConflito` | faixa no topo do editor com as duas ações |
+| `BalaoAgente` | balão flutuante do agente de IA, canto inferior direito (doc 11 §6.1) — só existe com o agente habilitado |
+| `PainelAgente` | cartão flutuante do agente: convite, sugestões, conversa, medidor de uso (doc 11 §6.2) |
+| `DialogoAgente` | assistente de configuração do agente em etapas — provedor, chave, modelo da leitura inicial, modelo do acompanhamento, revisão (doc 11 §6.3); a seção "Agente de IA" das Configurações o abre |
 
 **Estado vazio** nunca é só texto centralizado: é um bloco com hairline superior e inferior, título em `titulo-2`, uma linha de apoio em `pequeno` e um botão primário.
 
@@ -447,6 +450,24 @@ Altura padrão 36px, compacto 30px, ícone 32×32.
 - Divisória de split: 1px de `regua`, área de arraste de 8px, cursor de redimensionar, `musgo` durante o arraste.
 - Largura mínima de janela: 900×600. Abaixo disso a sidebar recolhe sozinha.
 
+### Balão e painel do agente de IA
+
+Especificado no doc 11 (§6); os valores visuais normativos moram aqui. Só existem quando o
+agente está habilitado — o produto sem agente não tem nenhum destes elementos.
+
+- **Balão**: canto inferior direito, `position: fixed`, 16px das bordas, redondo de 40px
+  (`raio-pilula`), fundo `superficie`, hairline `regua`, `sombra-ficha`, ícone `bot` 18px.
+  O Toaster (sonner) sobe para não ficar atrás dele.
+- **Estados do balão**: ocioso `tinta-suave`; observando `tinta-media`; pensando com anel
+  `ocre` em pulso de 1,6s; convite/sugestões com badge `musgo`; pausado a 50% de opacidade;
+  erro `bordo`.
+- **Painel**: cartão flutuante ancorado acima do balão, 360px de largura, máx. 60vh com
+  scroll, fundo `superficie`, `raio-ficha`, `sombra-sobreposicao`, hairline `regua` no
+  escuro (regra geral de superfície flutuante). Fora do dockview.
+- **Realce de termo de busca** (PainelBusca e trechos do agente): fundo
+  `color-mix(in srgb, var(--color-ocre) 30%, transparent)`, texto `tinta` — o mesmo realce
+  do search do editor (`tokens-excalisidian.css`).
+
 ---
 
 ## Ícones
@@ -477,6 +498,7 @@ Altura padrão 36px, compacto 30px, ícone 32×32.
 | título 1 / 2 / 3 | `heading-1` / `heading-2` / `heading-3` |
 | citação / lista / lista numerada / checkbox / link | `quote` / `list` / `list-ordered` / `square-check` / `link` |
 | mover bloco (alça) | `grip-vertical` |
+| agente de IA (balão) | `bot` — demais ícones do agente no doc 11 §8 |
 
 Ícones de ferramenta do canvas (seleção, formas, texto, alinhar/distribuir etc.) não aparecem
 aqui — vêm da UI nativa do Excalidraw, fora do controle do app (doc 09, ADR-20).

@@ -650,6 +650,44 @@ mesmo bug e nenhum handler antes. Deduplicado por `fileId` (hash de conteúdo do
 Excalidraw existir (`addFiles` era pulado sem retry). Agora os files ficam num ref e
 `aoObterApi` aplica o que estiver pendente.
 
+### ADR-22 · Agente de IA opcional é a única exceção ao local-first
+
+**Contexto:** pedido do usuário (12/09/2026): um agente que acompanha a escrita de uma nota,
+relaciona com outras notas do vault e auxilia com perguntas, conteúdo e gaps — conexão por
+API key, dois modelos (gateiro barato + assistente forte), balão flutuante, pasta de
+memória própria. Spec completa no doc 11.
+
+**Decisão:** o agente existe, é 100% opcional e desligado por padrão; com ele desligado, o
+app não faz nenhuma chamada de rede além da verificação de atualização (já existente). A
+memória do agente vive em `%APPDATA%` por vault, nunca dentro do vault (transcript de IA
+não entra no Git sem o usuário decidir). O agente **nunca escreve no vault** — sugere, o
+usuário cola.
+
+**Alternativa rejeitada:** não ter agente (o produto perde a feature pedida) ou ter agente
+sempre ativo (viola o princípio local-first e o RNF5 para quem não quer).
+
+**Consequência ruim:** é a primeira superfície que envia conteúdo do usuário para fora da
+máquina, e a API key fica em texto puro no `settings.json`. Mitigações: escopo de hosts no
+plugin-http (nada além dos provedores sai), aviso explícito nas configurações, participação
+por nota (nada é enviado sem aceite), upgrade previsto para `keyring`/DPAPI.
+
+**Condição de reversão:** se um provedor mudar ToS/preço a ponto de inviabilizar, ou se a
+superfície de rede crescer além do catálogo de provedores (ex.: telemetria própria — que
+está proibida), o agente inteiro sai do produto sem tocar em nada: todo o código mora em
+`src/agente/` + `agenteStore` + três componentes de UI, e o resto do app não importa nada
+dali.
+
+### ADR-23 · API key antes de OAuth de assinatura
+
+**Decisão:** a conexão com provedores do agente é por API key (doc 11 §10.1). OAuth de
+assinatura (usar o plano Claude Pro/Max do usuário, como OpenClaw/Hermes) fica adiado.
+
+**Motivo:** PKCE com deep link/servidor local + client ID próprio + zona cinzenta de ToS
+para apps de terceiros, contra uma API key que é oficial e funciona em todos os provedores.
+
+**Condição de reversão:** custo de API virar objeção real de uso → fase própria de OAuth,
+começando pelo provedor que o usuário usar.
+
 ### ADR-9 · O nome do produto é um problema em aberto
 
 Isto não é uma decisão, é um alerta que apareceu ao resolver o ADR-8.
@@ -725,6 +763,16 @@ Trate cada item abaixo como suposição a validar antes de depender dele.
 20. **Tamanho de arquivo por elemento.** Os números do ADR-2 (450–700 bytes por forma, ~14 bytes por ponto de traço à mão livre, limiar de 1,5 MB) vêm de contar os campos reais do `ExcalidrawElement`, não de benchmark publicado — não existe dado oficial. Meça com suas cenas antes de confiar no limiar.
 21. **A resolução de desenho por nome base duplo** (`Nome.draw` e `Nome`, com a nota vencendo o empate) é decisão desta rodada e não foi testada. É o teste 3 do documento 05.
 22. **Nada aqui foi visto funcionando.** Não rodei código, não abri o Obsidian, não instalei nada. Tudo é leitura de documentação e de código-fonte. Onde a documentação estava errada ou desatualizada, este pacote está errado junto.
+
+23. **Streaming (SSE) pelo `@tauri-apps/plugin-http`.** O plugin faz a ponte de reqwest para o JS, mas o comportamento com Server-Sent Events (respostas streamadas de LLM) não foi verificado na versão que será instalada. A v1 do agente é não-streaming de propósito; validar antes de prometer streaming no painel de conversa (doc 11 §11).
+
+24. **Web search da OpenAI exige a Responses API**, não o Chat Completions — o tool `web_search` não está disponível no endpoint `/chat/completions` que o dialeto `openai` do agente usa. Não verificado em chamada real. Se não validar, OpenAI fica sem web search na v1 (doc 11 §5.4 já registra a contingência).
+
+25. **Passthrough de tools pelo OpenRouter** (web search nativo do provedor de origem) não é garantido para todos os modelos — o próprio OpenRouter documenta suporte parcial. Tratar como indisponível até teste real.
+
+26. **Preços por milhão de tokens do catálogo do agente** (doc 11 §3.1) mudam com frequência e os números que entrarem no catálogo são aproximados na data da escrita. O medidor de custo é estimativa; a verdade é o billing do provedor.
+
+27. **Endpoint exato do "Alibaba token plan" do usuário.** O catálogo assume o DashScope compatible-mode (`https://dashscope.aliyuncs.com/compatible-mode/v1`); se a conta do usuário usar um gateway diferente, o campo de base URL editável cobre — mas a URL real precisa ser confirmada com o usuário antes da fase 1 (doc 11 §3).
 
 ---
 

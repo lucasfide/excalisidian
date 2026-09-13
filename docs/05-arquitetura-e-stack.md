@@ -19,6 +19,7 @@ Todas as versões abaixo foram verificadas no registry do npm em **28/08/2026**.
 | Parsing markdown | `unified` 11.0.5 + `remark-parse` 11.0.0 + `remark-gfm` 4.0.1 | |
 | Frontmatter | `gray-matter` | 4.0.3 |
 | Busca | `minisearch` | 7.2.0 |
+| Rede HTTP (agente de IA) | `@tauri-apps/plugin-http` + `tauri-plugin-http` (Rust) | 2.6.0 / 2.6.0 — verificado 13/09/2026 no install; único ponto de rede do app com o provedor, escopado por host em `capabilities/main.json` (doc 11) |
 | Estado | `zustand` | 5.0.15 |
 | Estilo | Tailwind v4 com os tokens do design system | |
 | Ícones | `lucide-react` | |
@@ -74,6 +75,17 @@ src/
 │   └── backlinks.ts
 ├── busca/
 │   └── minisearchIndex.ts
+├── agente/                    agente de IA opcional (doc 11) — único código que fala com rede
+│   ├── tipos.ts
+│   ├── provedores.ts          catálogo de provedores, dialetos, base URLs, preços
+│   ├── cliente.ts             completar() nos 3 dialetas sobre plugin-http
+│   ├── orcamento.ts           tokens/custo, teto diário
+│   ├── gatilhos.ts            disparo local: inatividade + diff mínimo
+│   ├── gateiro.ts             análise inicial e convite
+│   ├── assistente.ts          ciclo de sugestões estruturadas
+│   ├── recuperacao.ts         top-k local (minisearch + backlinks)
+│   ├── memoria.ts             pasta de memória em %APPDATA% (escrita atômica)
+│   └── webSearch.ts           tool nativo do provedor
 ├── editor/
 │   ├── EditorNota.tsx
 │   └── extensoes/           livePreview, wikilink, embed, atalhos, tema
@@ -89,7 +101,8 @@ src/
 ├── estado/
 │   ├── vaultStore.ts
 │   ├── workspaceStore.ts
-│   └── prefsStore.ts
+│   ├── prefsStore.ts
+│   └── agenteStore.ts         agente de IA (doc 11)
 └── estilos/
     └── globals.css          tokens
 
@@ -133,6 +146,7 @@ Quatro pontos de contato com o Rust, e não mais que isso sem uma boa razão:
 | `walk_vault` | `(path: String) -> Vec<EntradaArquivo>` | percorre a pasta inteira em uma chamada; devolve `path`, `mtimeMs`, `birthtimeMs`, `size`, `isDir` |
 | `observar_vault` | `(path: String) -> Result<()>` + canal de eventos | file watcher com debounce, emitindo **lotes** para o front |
 | `lixeira_sistema` | `(path: String) -> Result<()>` | só quando RF7.6 sair do P2 — ver a nota abaixo |
+| `revelar_pasta` | `(path: String) -> Result<()>` | abre uma pasta no Explorer do sistema (`explorer.exe`); usado por "Abrir pasta do agente" (doc 11 §6.3). Domínio de SO, mora em `sistema.rs` como `nome_usuario` |
 
 Sobre o `observar_vault`: o `@tauri-apps/plugin-fs` já expõe `watch` e `watchImmediate` com `delayMs`, e para um watcher simples isso bastaria. O comando próprio existe por um motivo específico — a seção Watcher abaixo exige processar **lotes** de eventos (um `git checkout` gera milhares em um segundo), e agrupar do lado Rust evita atravessar o IPC uma vez por arquivo. Se na Fatia 5 o `watch` do plugin se mostrar suficiente, use-o e apague este comando: um ponto de contato a menos com o Rust é ganho, não perda.
 
@@ -232,6 +246,7 @@ Na leitura, o mapa `files` é reidratado lendo cada arquivo referenciado em `## 
 | `workspaceStore` | layout do dockview, aba ativa, estado por documento | `workspace/<hash-do-vault>.json`, debounce 1 s |
 | `prefsStore` | tema (`claro`/`escuro`/`sistema`), tamanho da janela, vaults recentes | `settings.json` via plugin-store |
 | `vaultPrefsStore` | pasta de anexos, local de novas notas, formato de link, lixeira | `.excalisidian/vault.json`, **dentro do vault** |
+| `agenteStore` | config do agente de IA, participação, sugestões, uso de tokens | `settings.json` (config) + `%APPDATA%/Excalisidian/agente/<hash>/` (memória) — doc 11 |
 
 Nada de conteúdo de arquivo no store global. O conteúdo vive dentro do estado do CodeMirror / Excalidraw da aba.
 
@@ -276,7 +291,7 @@ Não é para ter cobertura alta. É para ter estes:
 Fora do MVP funcional, mas precisa existir antes de instalar em outra máquina:
 
 - `tauri.conf.json` com identificador, ícones e bundle `nsis` para Windows.
-- `src-tauri/capabilities/main.json` declarando as permissões dos plugins fs, dialog e store. As permissões são declaradas ali; o **escopo** de caminho é concedido em runtime pelo `escolher_vault`.
+- `src-tauri/capabilities/main.json` declarando as permissões dos plugins fs, dialog e store. As permissões são declaradas ali; o **escopo** de caminho é concedido em runtime pelo `escolher_vault`. O plugin-http (agente de IA, doc 11) também é escopado ali — por host, não por caminho.
 - Assinatura de código no Windows: sem certificado, o SmartScreen avisa na primeira instalação. Decisão do usuário (2026-09-04): aceitável por ora, mesmo distribuindo — ver `docs/superpowers/specs/2026-09-04-github-release-e-autoupdate-design.md`.
 - Updater: implementado (2026-09-04) via `tauri-plugin-updater`, assinatura minisign própria — ver o spec acima.
 - Licenças: Excalidraw é MIT; as fontes copiadas do pacote (Excalifont incluída) são OFL-1.1. As fontes do design system (Fraunces, Instrument Sans, IBM Plex Mono), embutidas em `public/fontes/`, também são OFL-1.1 — ver `THIRD_PARTY_LICENSES.md`.

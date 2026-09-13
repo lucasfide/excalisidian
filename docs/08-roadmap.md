@@ -10,9 +10,10 @@ não só pelo histórico do Git). Cada uma teve pelo menos um desvio de decisão
 corrigida depois de testada em tela (ver a lista de ADRs abaixo).
 
 **Fatia 8: parcialmente concluída nesta revisão.** Feito: quick switcher, paleta de comandos,
-persistência de tema, e o "Mover para..." de acessibilidade. Pendente: busca por conteúdo,
-lixeira, e o restante das mensagens de erro/estados vazios do doc 04 §10 — ver o detalhamento
-na seção da própria Fatia 8, abaixo.
+persistência de tema, e o "Mover para..." de acessibilidade. Pendente: lixeira completa
+(RF7.5/7.6), e o restante das mensagens de erro/estados vazios do doc 04 §10 — ver o
+detalhamento na seção da própria Fatia 8, abaixo. A busca por conteúdo foi implementada em
+12/09/2026 (ver a seção da Fatia 8).
 
 **Fora do roadmap original, decidido e construído no meio do caminho** (não estava em nenhuma
 fatia, entrou por pedido direto do usuário depois de testar o app em tela):
@@ -157,16 +158,19 @@ A fatia mais cara do projeto.
 
 ### Pendente
 
-- **Busca por conteúdo (`Ctrl+Shift+F`) com minisearch**, incluindo textos de desenhos. A
-  dependência já está instalada (`minisearch` no `package.json`); falta tudo: índice
-  incremental persistido, extração de texto de dentro de `.draw.md`, painel de resultados com
-  trechos (doc 04 §8: no máximo 3 por arquivo). Maior peça pendente da Fatia 8 — não entrou
-  nesta revisão por ser grande demais pra fazer com a mesma qualidade do resto do produto sem
-  poder testar em tela junto com o usuário.
-- **Lixeira**: mover pra `.trash/`, painel, restaurar, esvaziar, desfazer pelo toast (doc 02
-  §7, doc 04 §9). Não iniciada — mexe em fluxo destrutivo (excluir), então merece uma rodada
-  própria com confirmação explícita do usuário antes de codar, não uma decisão tomada sozinha
-  numa revisão autônoma.
+- ~~**Busca por conteúdo (`Ctrl+Shift+F`) com minisearch**, incluindo textos de desenhos.~~
+  **Feito em 12/09/2026**: `busca/minisearchIndex.ts` (índice persistido em
+  `busca-<hash>.json` no mesmo padrão do cache de metadados, atualização incremental por
+  documento via `mtimeMs+size`, extração de texto de `.draw.md` pelo `parseDesenho` — verso,
+  Text Elements e Element Links, nunca o JSON da cena), sobreposição `BuscaConteudo.tsx`
+  (agrupada por arquivo, até 3 trechos por arquivo com número da linha e termo destacado,
+  doc 04 §8), consulta com `"frase exata"` e `-termo`, atalho `Ctrl+Shift+F` e comando na
+  paleta. Integração no `vaultStore`: boot via `sincronizarBusca` (fora do caminho crítico),
+  save/watcher via `reindexarArquivo`. Testes em `busca/minisearchIndex.test.ts`. **Não
+  testado em tela ainda** — validar com vault real (tempo de boot a quente/frio, RNF1).
+- **Lixeira**: RF7.1–7.4 implementados (doc 09, ADR-7, status 01/09/2026 —
+  `vault/lixeira.ts`, `PainelLixeira.tsx`). Pendentes: RF7.5 (desfazer pelo toast) e RF7.6
+  (lixeira do sistema, crate `trash`).
 - ~~**Preferências**~~ — feito em 30/08/2026: `DialogoPreferencias.tsx`, aberto por um ícone
   de engrenagem no rodapé da sidebar (ou `Ctrl+,`) — tema e largura da nota moraram só na
   paleta de comandos por um tempo, e o usuário relatou não achar (`Ctrl+P` não é um lugar
@@ -185,6 +189,37 @@ A fatia mais cara do projeto.
   abaixo do contraste mínimo.
 
 **Pronto quando:** você consegue passar uma semana usando só o Excalisidian.
+
+---
+
+## Fatia 10 — Agente de IA (doc 11)
+
+Pedida pelo usuário em 12/09/2026, depois da revisão da Fatia 8. Spec normativa completa no
+doc 11; ADR-22/23 no doc 09. Resumo do escopo:
+
+- 100% opcional e desligado por padrão; sem configuração, nenhum traço na UI e nenhuma
+  chamada de rede nova.
+- Conexão por API key (OAuth adiado), catálogo com Anthropic, OpenAI, Gemini, OpenRouter
+  (Zen/Go), Alibaba (DashScope) e Ollama; base URL editável.
+- Dois modelos: gateiro (convite para participar da nota) e assistente (ciclos de sugestão
+  disparados por inatividade + diff, nunca por linha).
+- Recuperação local sem embeddings: minisearch (depende da busca da Fatia 8, pronta) +
+  backlinks; resumos em cache invalidados por mtime+size.
+- Memória em `%APPDATA%/Excalisidian/agente/<hash>/`, fora do Git; acesso e limpeza pelas
+  configurações.
+- Balão flutuante no canto inferior direito + painel com sugestões, conversa e medidor de
+  tokens/custo; teto diário opcional (sem teto por padrão).
+- Transporte por `@tauri-apps/plugin-http` com escopo de hosts em capabilities.
+
+Ordem de construção (doc 11 §13): fase 1 infra + conversa manual → fase 2 gateiro + convite
+→ fase 3 pipeline contínuo + orçamento → fase 4 memória + pasta do agente.
+
+**Status 13/09/2026:** fases 1–4 construídas (fase 1 testada em tela pelo usuário; 2–4
+aguardando validação em tela). Web search virou fase 5 e está escondida na UI até ser
+implementada. Fase 5 pendente.
+
+**Pronto quando:** uma nota com participação aceita gera sugestões úteis sem estourar o
+orçamento configurado, e um app sem agente configurado é indistinguível do app anterior.
 
 ---
 
