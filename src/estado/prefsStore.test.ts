@@ -18,7 +18,12 @@ import { usePrefsStore } from "./prefsStore";
 
 beforeEach(() => {
   armazenado.clear();
-  usePrefsStore.setState({ tema: "sistema", larguraNota: "media", carregado: false });
+  usePrefsStore.setState({
+    tema: "sistema",
+    larguraNota: "media",
+    sidebarColapsada: false,
+    carregado: false,
+  });
 });
 
 describe("prefsStore", () => {
@@ -63,5 +68,18 @@ describe("prefsStore", () => {
     usePrefsStore.setState({ larguraNota: "media", carregado: false });
     await usePrefsStore.getState().carregar();
     expect(usePrefsStore.getState().larguraNota).toBe("media");
+  });
+
+  it("sidebarColapsada: padrão false, alternarSidebar persiste", async () => {
+    await usePrefsStore.getState().carregar();
+    expect(usePrefsStore.getState().sidebarColapsada).toBe(false);
+
+    usePrefsStore.getState().alternarSidebar();
+    expect(usePrefsStore.getState().sidebarColapsada).toBe(true);
+    await new Promise((r) => setTimeout(r, 0));
+
+    usePrefsStore.setState({ sidebarColapsada: false, carregado: false });
+    await usePrefsStore.getState().carregar();
+    expect(usePrefsStore.getState().sidebarColapsada).toBe(true);
   });
 });

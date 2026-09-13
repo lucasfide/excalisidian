@@ -105,6 +105,8 @@ export default function ArvoreArquivos({
     startY: number;
     engajado: boolean;
     alvo: AlvoArrasto;
+    elemento: HTMLElement;
+    pointerId: number;
   } | null>(null);
 
   const virt = useVirtualizer({
@@ -146,7 +148,13 @@ export default function ArvoreArquivos({
 
   const iniciarArrasto = (e: React.PointerEvent, no: NoArvore) => {
     if (no.tipo === "folder" || e.button !== 0) return;
+    e.preventDefault();
     const origem = pastaDe(no.path);
+    const elemento = e.currentTarget as HTMLElement;
+    // Sem captura explícita, a entrega de pointermove/pointerup pra este gesto não é
+    // garantida assim que o cursor sai dos limites do elemento original (é pra isso que
+    // a API de Pointer Events tem esse método — o dockview em Workspace.tsx faz o mesmo).
+    elemento.setPointerCapture(e.pointerId);
 
     arrastoRef.current = {
       path: no.path,
@@ -156,6 +164,8 @@ export default function ArvoreArquivos({
       startY: e.clientY,
       engajado: false,
       alvo: null,
+      elemento,
+      pointerId: e.pointerId,
     };
 
     const aoMover = (ev: PointerEvent) => {
@@ -175,10 +185,20 @@ export default function ArvoreArquivos({
     const aoSoltar = () => {
       window.removeEventListener("pointermove", aoMover);
       window.removeEventListener("pointerup", aoSoltar);
+      window.removeEventListener("pointercancel", aoSoltar);
       window.removeEventListener("keydown", aoTeclar, true);
       const info = arrastoRef.current;
       arrastoRef.current = null;
       setArraste(null);
+      // `info` pode já ser null aqui se pointerup e pointercancel dispararem os dois pro
+      // mesmo gesto (a 2ª chamada não tem o que liberar). Quando não é null, o elemento
+      // pode ter saído da virtualização entre o início do arrasto e agora — liberar a
+      // captura de um nó desmontado lança, e isso é esperado, não um erro real.
+      try {
+        info?.elemento.releasePointerCapture(info.pointerId);
+      } catch {
+        /* elemento já desmontado ou captura já perdida — esperado */
+      }
       if (info?.engajado && info.alvo !== null) {
         onMoverArquivo(info.path, info.alvo);
       }
@@ -190,6 +210,9 @@ export default function ArvoreArquivos({
 
     window.addEventListener("pointermove", aoMover);
     window.addEventListener("pointerup", aoSoltar);
+    // Captura de ponteiro pode ser perdida por motivos fora do controle do app (ex. um
+    // diálogo do sistema abrindo no meio do gesto); sem tratar isso o estado fica preso.
+    window.addEventListener("pointercancel", aoSoltar);
     window.addEventListener("keydown", aoTeclar, true);
   };
 
@@ -227,17 +250,20 @@ export default function ArvoreArquivos({
         })}
       </div>
 
-      {/* Alvo explícito para "voltar pra raiz" — sem depender de acertar um vazio ambíguo. */}
-      <div
-        style={{ height: ALTURA_RAIZ }}
-        className={cn(
-          "flex items-center gap-2 border-t border-regua px-3 text-[12px] text-tinta-suave",
-          arraste?.alvo === "" && "bg-[color-mix(in_srgb,var(--color-musgo)_12%,transparent)]",
-        )}
-      >
-        <Home size={14} strokeWidth={1.5} />
-        raiz do vault
-      </div>
+      {/* Alvo explícito para "voltar pra raiz" — sem depender de acertar um vazio ambíguo.
+          Só existe durante um arrasto: fora disso é só espaço ocupado à toa. */}
+      {arraste && (
+        <div
+          style={{ height: ALTURA_RAIZ }}
+          className={cn(
+            "flex items-center gap-2 border-t border-regua px-3 text-[12px] text-tinta-suave",
+            arraste.alvo === "" && "bg-[color-mix(in_srgb,var(--color-musgo)_12%,transparent)]",
+          )}
+        >
+          <Home size={14} strokeWidth={1.5} />
+          raiz do vault
+        </div>
+      )}
 
       {arraste && (
         <div

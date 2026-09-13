@@ -1,6 +1,6 @@
 // Painel de backlinks do arquivo ativo (RF4.9): quem aponta para a nota aberta, com o
-// trecho de contexto de cada menção. Doc 04 §10: vazio -> "Nenhuma nota aponta para esta
-// ainda."
+// trecho de contexto de cada menção. Sem nenhum backlink, o painel inteiro não é
+// renderizado (nada de cabeçalho ou estado vazio ocupando espaço na sidebar).
 
 import { useMemo } from "react";
 
@@ -32,43 +32,39 @@ export default function PainelBacklinks() {
 
   const total = grupos.reduce((n, [, refs]) => n + refs.length, 0);
 
+  if (!caminhoAberto || total === 0) return null;
+
   return (
     <div className="flex flex-col border-t border-regua">
       <div className="flex items-center justify-between px-3 py-2">
         <span className="meta text-tinta-suave">backlinks</span>
-        {total > 0 && <span className="meta text-tinta-suave">{total}</span>}
+        <span className="meta text-tinta-suave">{total}</span>
       </div>
 
-      {!caminhoAberto ? null : total === 0 ? (
-        <p className="px-3 pb-3 text-[13px] text-tinta-media">
-          Nenhuma nota aponta para esta ainda.
-        </p>
-      ) : (
-        <ul className="max-h-56 overflow-auto pb-2">
-          {grupos.map(([origem, refs]) => (
-            <li key={origem} className="px-3 py-1">
-              <button
-                onClick={() => abrirArquivo(origem)}
-                className="text-[13px] text-musgo hover:underline"
+      <ul className="max-h-56 overflow-auto pb-2">
+        {grupos.map(([origem, refs]) => (
+          <li key={origem} className="px-3 py-1">
+            <button
+              onClick={() => abrirArquivo(origem)}
+              className="text-[13px] text-musgo hover:underline"
+            >
+              {nomeCurto(origem)}
+            </button>
+            {refs.map((r, i) => (
+              <p
+                key={i}
+                className="mt-0.5 truncate text-[12px] leading-snug text-tinta-media"
+                title={r.contexto}
               >
-                {nomeCurto(origem)}
-              </button>
-              {refs.map((r, i) => (
-                <p
-                  key={i}
-                  className="mt-0.5 truncate text-[12px] leading-snug text-tinta-media"
-                  title={r.contexto}
-                >
-                  {r.embed && (
-                    <span className="meta mr-1 text-tinta-suave">embute</span>
-                  )}
-                  {r.contexto || "—"}
-                </p>
-              ))}
-            </li>
-          ))}
-        </ul>
-      )}
+                {r.embed && (
+                  <span className="meta mr-1 text-tinta-suave">embute</span>
+                )}
+                {r.contexto || "—"}
+              </p>
+            ))}
+          </li>
+        ))}
+      </ul>
     </div>
   );
 }

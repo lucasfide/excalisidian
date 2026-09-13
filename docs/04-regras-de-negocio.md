@@ -237,7 +237,6 @@ Toda mensagem diz o que aconteceu e o que fazer. Nunca pede desculpa, nunca culp
 | Índice reconstruindo | "Reindexando o vault… 1 240 de 5 000" |
 | Vault vazio | "Este vault está em branco." / "Crie a primeira nota ou o primeiro desenho." |
 | Busca sem resultado | "Nada encontrado para «xyz»." |
-| Sem backlinks | "Nenhuma nota aponta para esta ainda." |
 | Lixeira vazia | "A lixeira está vazia." |
 | Falha ao baixar atualização | "Não foi possível baixar a atualização. Tente de novo mais tarde." |
 | Falha ao verificar atualização (comando manual) | "Não foi possível verificar atualizações." |

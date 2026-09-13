@@ -1,8 +1,8 @@
 // Casca do app: barra lateral (árvore + backlinks) e o workspace de abas (dockview).
 // O conteúdo dos arquivos vive por aba no documentosStore; a aba ativa, no workspaceStore.
 
-import { useCallback, useEffect, useState } from "react";
-import { ListChecks, Settings, Trash2 } from "lucide-react";
+import { useCallback, useEffect, useRef, useState } from "react";
+import { FilePlus, ListChecks, PanelLeft, Settings, SquarePen, Trash2 } from "lucide-react";
 import { Toaster } from "sonner";
 
 import { TauriVaultAdapter } from "../vault/TauriVaultAdapter";
@@ -10,26 +10,17 @@ import { useVaultStore } from "../estado/vaultStore";
 import { useWorkspaceStore } from "../estado/workspaceStore";
 import { usePrefsStore, type Tema } from "../estado/prefsStore";
 import { useTarefasStore } from "../estado/tarefasStore";
-import {
-  comandoNovaNota,
-  comandoNovoDesenho,
-  comandoNovaPasta,
-  comandoRenomear,
-} from "./comandos/criacao";
-import { comandoMoverArquivo, comandoMoverPara } from "./comandos/mover";
-import { comandoExcluir } from "./comandos/exclusao";
+import { comandoNovaNota, comandoNovoDesenho } from "./comandos/criacao";
 import { useAutosave } from "../editor/useAutosave";
 import { useRessincronizarAoVoltar } from "./useRessincronizarAoVoltar";
 import Workspace from "../layout/Workspace";
 import { Botao, BotaoIcone, EstadoVazio } from "../ui";
-import ArvoreArquivos from "../ui/excalisidian/ArvoreArquivos";
-import BarraFerramentasSidebar from "../ui/excalisidian/BarraFerramentasSidebar";
 import BarraStatus from "../ui/excalisidian/BarraStatus";
+import ConteudoSidebar from "../ui/excalisidian/ConteudoSidebar";
+import ArvoreEBacklinks from "../ui/excalisidian/ArvoreEBacklinks";
 import DialogoPreferencias from "../ui/excalisidian/DialogoPreferencias";
 import DialogoAtualizacao from "../ui/excalisidian/DialogoAtualizacao";
 import { verificarAtualizacao } from "./atualizacao";
-import Logotipo from "../ui/excalisidian/Logotipo";
-import PainelBacklinks from "../ui/excalisidian/PainelBacklinks";
 import PainelLixeira from "../ui/excalisidian/PainelLixeira";
 import PainelTarefas from "../ui/excalisidian/PainelTarefas";
 import RaizDialogos from "../ui/excalisidian/RaizDialogos";
@@ -50,14 +41,44 @@ export default function App() {
   const [boot, setBoot] = useState<Boot>("carregando");
   const [preferenciasAbertas, setPreferenciasAbertas] = useState(false);
   const [lixeiraAberta, setLixeiraAberta] = useState(false);
+  const [sidebarComMouse, setSidebarComMouse] = useState(false);
+  const [painelFlutuanteAberto, setPainelFlutuanteAberto] = useState(false);
+  const abrirPainelTimerRef = useRef<number | null>(null);
+  const fecharPainelTimerRef = useRef<number | null>(null);
   const tema = usePrefsStore((s) => s.tema);
+  const sidebarColapsada = usePrefsStore((s) => s.sidebarColapsada);
+  const alternarSidebar = usePrefsStore((s) => s.alternarSidebar);
 
-  const arvore = useVaultStore((s) => s.arvore);
-  const pastasAbertas = useVaultStore((s) => s.pastasAbertas);
-  const alternarPasta = useVaultStore((s) => s.alternarPasta);
-  const statusIndice = useVaultStore((s) => s.statusIndice);
+  const cancelarAberturaPainel = useCallback(() => {
+    if (abrirPainelTimerRef.current !== null) {
+      window.clearTimeout(abrirPainelTimerRef.current);
+      abrirPainelTimerRef.current = null;
+    }
+  }, []);
+  const cancelarFechamentoPainel = useCallback(() => {
+    if (fecharPainelTimerRef.current !== null) {
+      window.clearTimeout(fecharPainelTimerRef.current);
+      fecharPainelTimerRef.current = null;
+    }
+  }, []);
+
+  useEffect(() => {
+    return () => {
+      cancelarAberturaPainel();
+      cancelarFechamentoPainel();
+    };
+  }, [cancelarAberturaPainel, cancelarFechamentoPainel]);
+
+  // Volta a sidebar ancorada zera o painel: sem isso, colapsar de novo com o mouse ainda
+  // parado sobre a faixa não dispara mouseenter, e o painel reapareceria sozinho.
+  useEffect(() => {
+    if (sidebarColapsada) return;
+    cancelarAberturaPainel();
+    cancelarFechamentoPainel();
+    setPainelFlutuanteAberto(false);
+  }, [sidebarColapsada, cancelarAberturaPainel, cancelarFechamentoPainel]);
+
   const caminhoAtivo = useWorkspaceStore((s) => s.caminhoAtivo);
-  const abrirDocumento = useWorkspaceStore((s) => s.abrirDocumento);
   const painelTarefasAberto = useTarefasStore((s) => s.painelAberto);
 
   useAutosave();
@@ -195,44 +216,59 @@ export default function App() {
         rotuloFechar="Recarregar"
       >
         <div className="relative flex min-h-0 flex-1">
-          <aside className="flex w-[264px] shrink-0 flex-col border-r border-regua bg-superficie">
-            <div className="flex items-center justify-between border-b border-regua px-3 py-2">
-              <Logotipo />
-              {/* Sempre cria na raiz do vault; organizar é por clique direito numa pasta
-                  ("Nova nota aqui" etc., em ArvoreArquivos) ou arrastando depois. */}
-              <BarraFerramentasSidebar
-                onCriarNota={() => void comandoNovaNota("")}
-                onCriarDesenho={() => void comandoNovoDesenho("")}
-                onCriarPasta={() => void comandoNovaPasta("")}
-              />
-            </div>
-
-            <div className="min-h-0 flex-1">
-              {arvore && (
-                <ArvoreArquivos
-                  raiz={arvore}
-                  pastasAbertas={pastasAbertas}
-                  caminhoAberto={caminhoAtivo}
-                  onAlternarPasta={alternarPasta}
-                  onAbrirArquivo={abrirDocumento}
-                  onRenomear={(path) => void comandoRenomear(path)}
-                  onCriarNota={(dir) => void comandoNovaNota(dir)}
-                  onCriarDesenho={(dir) => void comandoNovoDesenho(dir)}
-                  onCriarPasta={(dir) => void comandoNovaPasta(dir)}
-                  onMoverArquivo={(path, dir) => void comandoMoverArquivo(path, dir)}
-                  onMoverPara={(path) => void comandoMoverPara(path)}
-                  onExcluir={(path, tipo) => void comandoExcluir(path, tipo)}
+          <aside
+            className={`relative flex shrink-0 flex-col border-r border-regua bg-superficie transition-[width] duration-[220ms] ease-caderno ${
+              sidebarColapsada ? "w-12" : "w-[264px]"
+            }`}
+            onMouseEnter={() => {
+              setSidebarComMouse(true);
+              // Cancela antes do guard: com o painel já aberto, o mouse que sai e volta
+              // dentro dos 150ms precisa matar o fechamento agendado, senão fecha na cara.
+              cancelarFechamentoPainel();
+              if (!sidebarColapsada || painelFlutuanteAberto) return;
+              abrirPainelTimerRef.current = window.setTimeout(() => {
+                abrirPainelTimerRef.current = null;
+                setPainelFlutuanteAberto(true);
+              }, 200);
+            }}
+            onMouseLeave={() => {
+              setSidebarComMouse(false);
+              cancelarAberturaPainel();
+              if (!sidebarColapsada) return;
+              fecharPainelTimerRef.current = window.setTimeout(() => {
+                fecharPainelTimerRef.current = null;
+                setPainelFlutuanteAberto(false);
+              }, 150);
+            }}
+          >
+            {sidebarColapsada ? (
+              <div className="flex flex-col items-center gap-1 border-b border-regua px-2 py-2">
+                <BotaoIcone
+                  Icone={PanelLeft}
+                  titulo="Expandir sidebar"
+                  onClick={alternarSidebar}
                 />
-              )}
-            </div>
+                <BotaoIcone
+                  Icone={FilePlus}
+                  titulo="Nova nota"
+                  onClick={() => void comandoNovaNota("")}
+                />
+                <BotaoIcone
+                  Icone={SquarePen}
+                  titulo="Novo desenho"
+                  onClick={() => void comandoNovoDesenho("")}
+                />
+              </div>
+            ) : (
+              <ConteudoSidebar
+                comMouse={sidebarComMouse}
+                onAbrirLixeira={() => setLixeiraAberta(true)}
+                onAbrirPreferencias={() => setPreferenciasAbertas(true)}
+              />
+            )}
 
-            {caminhoAtivo && <PainelBacklinks />}
-
-            <div className="flex items-center justify-between border-t border-regua px-3 py-1.5">
-              <span className="meta text-tinta-suave">
-                {statusIndice === "indexando" ? "reindexando…" : ""}
-              </span>
-              <div className="flex items-center gap-1">
+            {sidebarColapsada && (
+              <div className="mt-auto flex flex-col items-center gap-1 border-t border-regua px-2 py-1.5">
                 <BotaoIcone
                   Icone={Trash2}
                   titulo="Lixeira"
@@ -244,7 +280,23 @@ export default function App() {
                   onClick={() => setPreferenciasAbertas(true)}
                 />
               </div>
-            </div>
+            )}
+
+            {/* Filho do <aside>, não irmão: o painel fica ao lado da faixa colapsada, e
+                sendo descendente DOM o mouseleave do <aside> só dispara quando o ponteiro sai
+                de tudo — atravessar do <aside> pro painel (ou pro menu de contexto da árvore,
+                que também é inline) não corre entre fechar e reabrir. */}
+            {sidebarColapsada && painelFlutuanteAberto && (
+              <div className="absolute left-12 top-0 z-30 flex h-full w-[216px] flex-col border-r border-regua bg-superficie shadow-sobreposicao motion-safe:animate-[surgirLateral_220ms_var(--ease-caderno)]">
+                <ArvoreEBacklinks
+                  onArquivoAberto={() => {
+                    cancelarAberturaPainel();
+                    cancelarFechamentoPainel();
+                    setPainelFlutuanteAberto(false);
+                  }}
+                />
+              </div>
+            )}
           </aside>
 
           <main className="min-h-0 flex-1">

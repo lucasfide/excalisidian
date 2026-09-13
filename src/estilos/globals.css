@@ -153,3 +153,16 @@
     transform: scale(1);
   }
 }
+
+/* Abertura de painel lateral (doc 06, tabela de movimento): 220ms, opacidade +
+ * translateX(16px) → 0. */
+@keyframes surgirLateral {
+  from {
+    opacity: 0;
+    transform: translateX(16px);
+  }
+  to {
+    opacity: 1;
+    transform: translateX(0);
+  }
+}

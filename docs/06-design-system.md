@@ -404,7 +404,7 @@ Altura padrão 36px, compacto 30px, ícone 32×32.
 | `AutocompleteLink` | popover de sugestão ao digitar `[[` |
 | `EditorDesenho` | Excalidraw embutido com UI nativa (toolbar, painel de propriedades, menu) e fundo pontilhado do app |
 | `LinkDoElemento` | painel próprio pequeno (canto superior direito, via `renderTopRightUI`) com o campo de link e autocomplete de nota — a única UI de canvas que não é nativa |
-| `PainelBacklinks` | lista de notas que apontam para a atual, com trecho |
+| `PainelBacklinks` | lista de notas que apontam para a atual, com trecho — só aparece havendo backlink, sem estado vazio |
 | `PainelBusca` | campo, resultados agrupados por arquivo, trecho com destaque |
 | `QuickSwitcher` | sobreposição de busca por nome |
 | `PaletaComandos` | sobreposição de comandos com atalho em `meta` |
@@ -439,6 +439,8 @@ Altura padrão 36px, compacto 30px, ícone 32×32.
 ```
 
 - Sidebar fixa de 264px, fundo `superficie`, redimensionável entre 200 e 400px, recolhível com `Ctrl+\` (`Ctrl+B` é negrito no editor).
+- Sidebar colapsada em 48px: a faixa de ícones fica no lugar, imóvel, e o hover abre ao lado dela um painel flutuante com a árvore e os backlinks — 216px, somando os mesmos 264px da sidebar expandida. Abre 200ms depois que o mouse entra, fecha 150ms depois que sai, leva `sombra-sobreposicao`, não tem backdrop, e fecha ao abrir um arquivo ou ao expandir. Animação: "Abertura de painel lateral".
+- Esse painel não repete o cabeçalho nem o rodapé da sidebar. O motivo é o erro de clique: a faixa já tem os mesmos ícones na vertical, e trazê-los de novo na horizontal fazia o alvo trocar de lugar sob o cursor entre a intenção de clicar e o clique.
 - Hairline `regua` separando sidebar, conteúdo e barra de status. Sem sombra entre eles.
 - Barra de status de 24px, fundo `superficie`, tudo em `meta`, `tinta-suave`: caminho à esquerda, contagem de palavras e estado de salvamento à direita.
 - Coluna de texto da nota: centralizada no painel, padding lateral de 32px, largura conforme a preferência do usuário (tela de Configurações) — `pequena` 728px, `média` 936px (padrão), `full` sem teto de largura (só a margem de 32px de cada lado).
@@ -469,6 +471,7 @@ Altura padrão 36px, compacto 30px, ícone 32×32.
 | dividir vertical / horizontal | `columns-2` / `rows-2` |
 | ordenar | `arrow-up-narrow-wide` |
 | preferências | `settings` |
+| colapsar sidebar / expandir sidebar | `panel-left-close` / `panel-left` |
 | aviso | `alert-triangle` |
 | negrito / itálico / riscado / código | `bold` / `italic` / `strikethrough` / `code` |
 | título 1 / 2 / 3 | `heading-1` / `heading-2` / `heading-3` |
