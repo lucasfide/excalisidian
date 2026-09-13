@@ -5,12 +5,35 @@ vi.mock("@tauri-apps/plugin-process", () => ({
   relaunch: () => relaunchMock(),
 }));
 
+// O flush completo puxa documentosStore/tarefasStore (que usam `window` e plugins do
+// Tauri); aqui ele é simulado e controlado pelo teste.
+interface ResultadoFlushFalso {
+  falhas: string[];
+  bloqueados: string[];
+  tarefasOk: boolean;
+}
+const flushMock = vi.fn(
+  async (): Promise<ResultadoFlushFalso> => ({ falhas: [], bloqueados: [], tarefasOk: true }),
+);
+vi.mock("./flushGeral", () => ({
+  flusharTudoAntesDeSair: () => flushMock(),
+}));
+
+const confirmarMock = vi.fn(async () => false);
+vi.mock("./dialogoStore", () => ({
+  confirmar: () => confirmarMock(),
+}));
+
 import { useAtualizacaoStore } from "./atualizacaoStore";
 
 const store = () => useAtualizacaoStore.getState();
 
 beforeEach(() => {
   relaunchMock.mockClear();
+  flushMock.mockClear();
+  flushMock.mockImplementation(async () => ({ falhas: [], bloqueados: [], tarefasOk: true }));
+  confirmarMock.mockClear();
+  confirmarMock.mockImplementation(async () => false);
   useAtualizacaoStore.setState({
     fase: "oculto",
     versao: null,
@@ -106,5 +129,53 @@ describe("atualizacaoStore", () => {
 
     expect(store().fase).toBe("oculto");
     expect(store().mensagemErro).toBeNull();
+  });
+
+  // Regressão do achado 06 da auditoria de 12/09: downloadAndInstall encerra o processo
+  // no Windows, então o flush completo tem que acontecer ANTES da instalação.
+  it("aplicar() drena as pendências antes de baixar a atualização", async () => {
+    const download = vi.fn(async () => {});
+    store().oferecer(updateFalso({ downloadAndInstall: download }));
+
+    await store().aplicar();
+
+    expect(flushMock).toHaveBeenCalledTimes(1);
+    expect(download).toHaveBeenCalledTimes(1);
+    expect(flushMock.mock.invocationCallOrder[0]).toBeLessThan(
+      download.mock.invocationCallOrder[0],
+    );
+  });
+
+  it("aplicar() com flush falho pergunta e não instala se o usuário cancelar", async () => {
+    flushMock.mockImplementation(async () => ({
+      falhas: ["Nota.md"],
+      bloqueados: [],
+      tarefasOk: true,
+    }));
+    const download = vi.fn(async () => {});
+    store().oferecer(updateFalso({ downloadAndInstall: download }));
+
+    await store().aplicar();
+
+    expect(confirmarMock).toHaveBeenCalledTimes(1);
+    expect(download).not.toHaveBeenCalled();
+    expect(relaunchMock).not.toHaveBeenCalled();
+    expect(store().fase).toBe("disponivel");
+  });
+
+  it("aplicar() com flush falho instala quando o usuário confirma", async () => {
+    flushMock.mockImplementation(async () => ({
+      falhas: [],
+      bloqueados: ["Nota.md"],
+      tarefasOk: true,
+    }));
+    confirmarMock.mockImplementation(async () => true);
+    const download = vi.fn(async () => {});
+    store().oferecer(updateFalso({ downloadAndInstall: download }));
+
+    await store().aplicar();
+
+    expect(download).toHaveBeenCalledTimes(1);
+    expect(relaunchMock).toHaveBeenCalledTimes(1);
   });
 });

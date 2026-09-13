@@ -5,6 +5,9 @@ import { create } from "zustand";
 import { relaunch } from "@tauri-apps/plugin-process";
 import type { Update } from "@tauri-apps/plugin-updater";
 
+import { flusharTudoAntesDeSair } from "./flushGeral";
+import { confirmar } from "./dialogoStore";
+
 type Fase = "oculto" | "disponivel" | "baixando" | "reiniciar" | "erro";
 
 interface AtualizacaoState {
@@ -44,6 +47,21 @@ export const useAtualizacaoStore = create<AtualizacaoState>((set, get) => ({
   async aplicar() {
     const update = updateAtual;
     if (!update) return;
+
+    // `downloadAndInstall()` encerra o app no Windows assim que o instalador começa
+    // (contrato do plugin-updater) — salvar depois seria tarde. Drena canvas, documentos,
+    // tarefas e layout ANTES, e só instala com tudo em dia ou com o usuário ciente da
+    // pendência (auditoria 12/09, achado 06).
+    const { falhas, bloqueados, tarefasOk } = await flusharTudoAntesDeSair();
+    if (falhas.length > 0 || bloqueados.length > 0 || !tarefasOk) {
+      const seguir = await confirmar({
+        titulo: "Não foi possível salvar",
+        descricao: "Atualizar agora descarta as alterações.",
+        textoConfirmar: "Atualizar mesmo assim",
+        destrutivo: true,
+      });
+      if (!seguir) return; // continua no diálogo de oferta
+    }
 
     set({ fase: "baixando", progresso: 0 });
     let total = 0;

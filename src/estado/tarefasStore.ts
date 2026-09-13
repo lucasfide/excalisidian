@@ -75,7 +75,9 @@ interface TarefasState {
   editarComentario(idTarefa: string, idComentario: string, texto: string): void;
   removerComentario(idTarefa: string, idComentario: string): void;
   restaurarComentario(idTarefa: string, comentario: Comentario, indice: number): void;
-  _persistirAgora(): Promise<void>;
+  /** Grava já, cancelando o debounce. `false` se a gravação falhou (achado 02 da
+   * auditoria: o fechamento do app precisa saber de pendências). */
+  _persistirAgora(): Promise<boolean>;
 }
 
 function agendarPersistir() {
@@ -290,15 +292,17 @@ export const useTarefasStore = create<TarefasState>(() => ({
   async _persistirAgora() {
     window.clearTimeout(timer);
     const adapter = useVaultStore.getState().adapter;
-    if (!adapter) return;
+    if (!adapter) return true;
     const json = serializarTarefas({ versao: 1, tarefas: useTarefasStore.getState().tarefas });
-    if (json === ultimoJson) return;
+    if (json === ultimoJson) return true;
     try {
       await adapter.criarPasta(".excalisidian");
       await adapter.escreverTexto(CAMINHO_TAREFAS, json);
       ultimoJson = json;
+      return true;
     } catch {
       toast("Não foi possível salvar as tarefas. Verifique a permissão da pasta do vault.");
+      return false;
     }
   },
 }));

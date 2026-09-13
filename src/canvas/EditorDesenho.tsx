@@ -28,6 +28,11 @@ import {
 } from "./formatoDesenho";
 import { reidratarFiles } from "./reidratarFiles";
 import { imagensParaAdotar } from "./adotarImagens";
+import {
+  registrarFlushCanvas,
+  desregistrarFlushCanvas,
+  marcarFlushCanvasEmVoo,
+} from "./flushCanvas";
 import { caminhoLivre } from "../vault/criar";
 import { lerPaletaCanvas, useTemaEscuro } from "./paletaCanvas";
 import { useAtalhosCanvas } from "./atalhosCanvas";
@@ -328,6 +333,99 @@ export default function EditorDesenho({
     el.style.backgroundPosition = `${appState.scrollX * appState.zoom.value}px ${appState.scrollY * appState.zoom.value}px`;
   }, []);
 
+  // Última cena vista num onChange. O corpo da gravação lê daqui (e não do closure do
+  // onChange) para que o flush imediato — no desmontar ou antes de fechar o app (achado 05
+  // da auditoria) — serialize sempre a versão mais recente, inclusive adoção de imagens.
+  const ultimaCenaRef = useRef<{
+    elements: readonly unknown[];
+    appState: Readonly<AppState>;
+  } | null>(null);
+  /** true enquanto o timer de debounce está armado: só então o flush tem o que fazer. */
+  const gravacaoPendenteRef = useRef(false);
+
+  const executarGravacao = useCallback(async () => {
+    gravacaoPendenteRef.current = false;
+    window.clearTimeout(timerRef.current);
+    const cena = ultimaCenaRef.current;
+    if (!cena) return;
+    const { elements, appState } = cena;
+    const vivos = elements.filter(
+      (e) => !(e as { isDeleted?: boolean }).isDeleted,
+    );
+
+    // Adota imagens de qualquer origem (colar, arrastar e soltar, ferramenta de imagem):
+    // o Excalidraw só guarda o binário em memória (mapa `files`), então aqui ele vira um
+    // arquivo de verdade no vault + linha em `## Embedded Files` antes de serializar
+    // (adotarImagens.ts, doc 02 §"Imagens"). Sem isto a imagem some ao reabrir o desenho.
+    const api = apiRef.current;
+    const adapter = useVaultStore.getState().adapter;
+    if (api && adapter) {
+      const novas = imagensParaAdotar(
+        vivos as { type: string; fileId?: string | null; isDeleted?: boolean }[],
+        api.getFiles() as Record<string, { dataURL?: string }>,
+        new Set(embedsRef.current.keys()),
+      );
+      for (const { fileId, bytes, ext } of novas) {
+        if (adotandoRef.current.has(fileId)) continue;
+        adotandoRef.current.add(fileId);
+        try {
+          const caminho = await caminhoLivre(
+            `anexos/Imagem colada ${carimbo()}`,
+            `.${ext}`,
+          );
+          await adapter.criarPasta("anexos");
+          await adapter.escreverBinario(caminho, bytes);
+          embedsRef.current.set(fileId, `[[${caminho}]]`);
+        } catch {
+          adotandoRef.current.delete(fileId); // deixa tentar de novo no próximo onChange
+        }
+      }
+    }
+
+    // Cor gravada é a cor escolhida pelo usuário — sem conversão por tema (ADR-12
+    // aposentado): o seletor de cor nativo do Excalidraw não é customizável, então manter
+    // conversão só produzia cena mista e um vetor real de corrupção. O modo escuro volta a
+    // ser o filtro de inversão nativo do Excalidraw.
+    const elementosParaSalvar = vivos;
+    const idPorEl = blockIdsDaCena(
+      vivos as unknown as { id: string; type: string }[],
+    );
+    const textElements = new Map<string, string>();
+    const elementLinks = new Map<string, string>();
+    for (const e of vivos as unknown as {
+      id: string;
+      type: string;
+      text?: string;
+      link?: string | null;
+    }[]) {
+      if (e.type === "text") {
+        textElements.set(idPorEl.get(e.id)!, e.text ?? "");
+      } else if (e.link) {
+        elementLinks.set(e.id, e.link);
+      }
+    }
+    const b = baseRef.current;
+    const md = serializarDesenho({
+      frontmatter: b.frontmatter,
+      verso: b.verso,
+      textElements,
+      elementLinks,
+      embeddedFiles: embedsRef.current,
+      cena: {
+        elements: elementosParaSalvar as never,
+        appState: {
+          scrollX: appState.scrollX,
+          scrollY: appState.scrollY,
+          zoom: appState.zoom,
+        },
+      },
+    });
+    if (md !== ultimoMdRef.current) {
+      ultimoMdRef.current = md;
+      onEditar(md);
+    }
+  }, [onEditar]);
+
   const aoMudar = useCallback(
     (elements: readonly unknown[], appState: Readonly<AppState>) => {
       pintarGrade(appState);
@@ -338,87 +436,33 @@ export default function EditorDesenho({
       // desde o mount — sobrescrevendo qualquer edição feita na vista editável.
       if (somenteLeitura) return;
 
+      ultimaCenaRef.current = { elements, appState };
+      gravacaoPendenteRef.current = true;
+      // O flush de fechamento (useAutosave / aoRemoverPainel) executa a serialização
+      // imediatamente se o debounce ainda não venceu — sem isto, a última edição do
+      // canvas não existe no documentosStore quando o app fecha (achado 05).
+      registrarFlushCanvas(caminho, executarGravacao);
       window.clearTimeout(timerRef.current);
-      timerRef.current = window.setTimeout(async () => {
-        const vivos = elements.filter(
-          (e) => !(e as { isDeleted?: boolean }).isDeleted,
-        );
-
-        // Adota imagens de qualquer origem (colar, arrastar e soltar, ferramenta de imagem):
-        // o Excalidraw só guarda o binário em memória (mapa `files`), então aqui ele vira um
-        // arquivo de verdade no vault + linha em `## Embedded Files` antes de serializar
-        // (adotarImagens.ts, doc 02 §"Imagens"). Sem isto a imagem some ao reabrir o desenho.
-        const api = apiRef.current;
-        const adapter = useVaultStore.getState().adapter;
-        if (api && adapter) {
-          const novas = imagensParaAdotar(
-            vivos as { type: string; fileId?: string | null; isDeleted?: boolean }[],
-            api.getFiles() as Record<string, { dataURL?: string }>,
-            new Set(embedsRef.current.keys()),
-          );
-          for (const { fileId, bytes, ext } of novas) {
-            if (adotandoRef.current.has(fileId)) continue;
-            adotandoRef.current.add(fileId);
-            try {
-              const caminho = await caminhoLivre(
-                `anexos/Imagem colada ${carimbo()}`,
-                `.${ext}`,
-              );
-              await adapter.criarPasta("anexos");
-              await adapter.escreverBinario(caminho, bytes);
-              embedsRef.current.set(fileId, `[[${caminho}]]`);
-            } catch {
-              adotandoRef.current.delete(fileId); // deixa tentar de novo no próximo onChange
-            }
-          }
-        }
-
-        // Cor gravada é a cor escolhida pelo usuário — sem conversão por tema (ADR-12
-        // aposentado): o seletor de cor nativo do Excalidraw não é customizável, então manter
-        // conversão só produzia cena mista e um vetor real de corrupção. O modo escuro volta a
-        // ser o filtro de inversão nativo do Excalidraw.
-        const elementosParaSalvar = vivos;
-        const idPorEl = blockIdsDaCena(
-          vivos as unknown as { id: string; type: string }[],
-        );
-        const textElements = new Map<string, string>();
-        const elementLinks = new Map<string, string>();
-        for (const e of vivos as unknown as {
-          id: string;
-          type: string;
-          text?: string;
-          link?: string | null;
-        }[]) {
-          if (e.type === "text") {
-            textElements.set(idPorEl.get(e.id)!, e.text ?? "");
-          } else if (e.link) {
-            elementLinks.set(e.id, e.link);
-          }
-        }
-        const b = baseRef.current;
-        const md = serializarDesenho({
-          frontmatter: b.frontmatter,
-          verso: b.verso,
-          textElements,
-          elementLinks,
-          embeddedFiles: embedsRef.current,
-          cena: {
-            elements: elementosParaSalvar as never,
-            appState: {
-              scrollX: appState.scrollX,
-              scrollY: appState.scrollY,
-              zoom: appState.zoom,
-            },
-          },
-        });
-        if (md !== ultimoMdRef.current) {
-          ultimoMdRef.current = md;
-          onEditar(md);
-        }
+      timerRef.current = window.setTimeout(() => {
+        void executarGravacao();
       }, DEBOUNCE_MS);
     },
-    [onEditar, pintarGrade, somenteLeitura],
+    [caminho, executarGravacao, pintarGrade, somenteLeitura],
   );
+
+  // Desmontar (fechar aba, trocar vault, renomear): se há gravação pendente, executa já e
+  // deixa o registro "em voo" para o dreno de quem está fechando aguardar (adoção de
+  // imagens é assíncrona).
+  useEffect(() => {
+    return () => {
+      window.clearTimeout(timerRef.current);
+      if (gravacaoPendenteRef.current) {
+        gravacaoPendenteRef.current = false;
+        marcarFlushCanvasEmVoo(caminho, executarGravacao());
+      }
+      desregistrarFlushCanvas(caminho);
+    };
+  }, [caminho, executarGravacao]);
 
   // initialData é usado APENAS na montagem do Excalidraw. A identidade deste objeto
   // DEVE ser estritamente estável durante toda a vida do componente (só remonta quando a

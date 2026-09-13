@@ -6,6 +6,8 @@ import { create } from "zustand";
 import type { DockviewApi, IDockviewPanel } from "dockview";
 
 import { useDocumentosStore } from "./documentosStore";
+import { confirmar } from "./dialogoStore";
+import { flusharCanvas } from "../canvas/flushCanvas";
 import { tipoDoArquivo } from "../vault/arvore";
 
 function nomeCurto(path: string): string {
@@ -226,8 +228,39 @@ export const useWorkspaceStore = create<WorkspaceState>((set, get) => ({
     const api = get().api;
     const aindaAberto = api?.panels.some((p) => pathDoPainel(p) === path) ?? false;
     if (!aindaAberto) {
-      void useDocumentosStore.getState().salvar(path);
-      useDocumentosStore.getState().fechar(path);
+      // Drena ANTES de descartar (auditoria 12/09, achados 02/03/05): o flush do canvas
+      // põe a última edição no documentosStore, e `salvarAteDrenar` aguarda a fila de
+      // gravação capturar a revisão mais recente. O estado só é descartado com o disco
+      // em dia — em falha ou conflito, a aba volta.
+      void (async () => {
+        await flusharCanvas(path);
+        const resultado = await useDocumentosStore
+          .getState()
+          .salvarAteDrenar(path);
+        const reabertoEntrementes =
+          get().api?.panels.some((p) => pathDoPainel(p) === path) ?? false;
+        if (resultado === "salvo") {
+          if (!reabertoEntrementes) useDocumentosStore.getState().fechar(path);
+          return;
+        }
+        if (resultado === "bloqueado") {
+          // Conflito/órfão: decisão pendente do usuário (doc 04 §1). Reabre a aba para a
+          // faixa de conflito continuar visível — fechar aqui descartaria em silêncio.
+          if (!reabertoEntrementes) get().abrirDocumento(path);
+          return;
+        }
+        const descartar = await confirmar({
+          titulo: "Não foi possível salvar",
+          descricao: "Fechar mesmo assim descarta as alterações.",
+          textoConfirmar: "Fechar mesmo assim",
+          destrutivo: true,
+        });
+        if (descartar) {
+          if (!reabertoEntrementes) useDocumentosStore.getState().fechar(path);
+        } else {
+          get().abrirDocumento(path);
+        }
+      })();
     }
     set((s) => ({
       fechadosRecentes: [

@@ -119,6 +119,15 @@ describe("tarefasStore — carga e CRUD", () => {
     await useTarefasStore.getState()._persistirAgora();
     expect(adapterStub.escreverTexto).not.toHaveBeenCalled();
   });
+
+  it("_persistirAgora retorna false quando a gravação falha (auditoria, achado 02)", async () => {
+    await useTarefasStore.getState().carregar();
+    useTarefasStore.getState().criar("hoje", "X", HOJE);
+    adapterStub.escreverTexto.mockRejectedValueOnce(new Error("EACCES"));
+
+    expect(await useTarefasStore.getState()._persistirAgora()).toBe(false);
+    expect(await useTarefasStore.getState()._persistirAgora()).toBe(true);
+  });
 });
 
 import type { Comentario } from "../tarefas/tipos";
