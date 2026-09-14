@@ -269,7 +269,7 @@ todas obrigatórias:
 4. nenhuma chamada em voo para a mesma nota;
 5. teto diário não atingido (quando configurado) e agente não pausado.
 
-O gateiro tem disparo próprio: nota ativa com ≥ 400 caracteres, participação ausente
+O gateiro tem disparo próprio: nota ativa com ≥ 140 caracteres, participação ausente
 (`participacao.json` sem entrada), 5 s de inatividade, uma tentativa por nota por sessão.
 
 ### 5.1 Gateiro

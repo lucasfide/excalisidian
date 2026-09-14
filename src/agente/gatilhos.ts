@@ -5,7 +5,7 @@
 export const INATIVIDADE_CICLO_MS = 10_000;
 export const INATIVIDADE_GATEIRO_MS = 5_000;
 export const DIFUS_MINIMO_CHARS = 200;
-export const GATEIRO_NOTA_MINIMA_CHARS = 400;
+export const GATEIRO_NOTA_MINIMA_CHARS = 140;
 
 /**
  * Quantos caracteres a nota ganhou desde o último ciclo. Multiconjunto de linhas: linhas
