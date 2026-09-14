@@ -13,7 +13,11 @@ corrigida depois de testada em tela (ver a lista de ADRs abaixo).
 persistência de tema, e o "Mover para..." de acessibilidade. Pendente: lixeira completa
 (RF7.5/7.6), e o restante das mensagens de erro/estados vazios do doc 04 §10 — ver o
 detalhamento na seção da própria Fatia 8, abaixo. A busca por conteúdo foi implementada em
-12/09/2026 (ver a seção da Fatia 8).
+12/09/2026 (ver a seção da própria Fatia 8).
+
+**Status 13/09/2026 (v0.4.0):** busca por conteúdo entregue (Fatia 8); todos os P1 da
+auditoria de 12/09 (01–10) e o P2 11 corrigidos com testes de regressão; Fatia 10 (agente
+de IA, doc 11) com fases 1–4 construídas (web search, fase 5, segue pendente).
 
 **Fora do roadmap original, decidido e construído no meio do caminho** (não estava em nenhuma
 fatia, entrou por pedido direto do usuário depois de testar o app em tela):
