@@ -45,6 +45,7 @@ export default function PainelAgente() {
   const pausado = useAgenteStore((s) => s.pausado);
   const uso = useAgenteStore((s) => s.usoSessao);
   const convite = useAgenteStore((s) => s.convite);
+  const analises = useAgenteStore((s) => s.analises);
   const sugestoesPorPath = useAgenteStore((s) => s.sugestoes);
   const fatos = useAgenteStore((s) => s.fatos);
   const caminhoAtivo = useWorkspaceStore((s) => s.caminhoAtivo);
@@ -308,8 +309,20 @@ export default function PainelAgente() {
             className="h-9 w-9"
           />
         </div>
-        <div className="mt-1 px-1">
+        <div className="mt-1 flex items-baseline justify-between gap-2 px-1">
           <span className="meta text-tinta-suave">{textoMedidor}</span>
+          {/* A decisão do gateiro nunca some sem dizer nada (doc 11 §5.1, revisado
+              13/09): "não vale" e "falhou" aparecem aqui. */}
+          {caminhoAtivo && analises[caminhoAtivo] === "nao-vale" && (
+            <span className="meta text-tinta-suave">
+              O agente leu esta nota e decidiu não participar por enquanto.
+            </span>
+          )}
+          {caminhoAtivo && analises[caminhoAtivo] === "erro" && (
+            <span className="meta text-tinta-suave">
+              A análise desta nota falhou. O agente tenta de novo quando você escrever mais.
+            </span>
+          )}
         </div>
       </footer>
     </div>

@@ -29,9 +29,11 @@ const ROTULOS_PASSO = [
   "Revisão",
 ] as const;
 
+// "Mínimo" fora da lista: a família gpt-5.6 recusa reasoning_effort "minimal" (verificado
+// na API em 13/09 — aceita none/low/medium/high/xhigh). O valor continua no tipo e no
+// mapeamento por compatibilidade com modelos que o aceitam; não é mais oferecido na UI.
 const OPCOES_THINKING: OpcaoGrupo<Thinking>[] = [
   { rotulo: "Padrão", valor: "padrao" },
-  { rotulo: "Mínimo", valor: "minimal" },
   { rotulo: "Baixo", valor: "baixo" },
   { rotulo: "Médio", valor: "medio" },
   { rotulo: "Alto", valor: "alto" },

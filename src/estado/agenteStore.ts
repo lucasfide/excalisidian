@@ -93,6 +93,11 @@ export interface Convite {
   tema: string;
 }
 
+/** O que a análise do gateiro decidiu sobre a nota ativa — exibido no painel para o
+ * resultado nunca ficar invisível (a decisão "não vale" é legítima, sumir sem dizer é que
+ * não era). */
+export type AnaliseNota = "convite" | "nao-vale" | "erro";
+
 interface AgenteState {
   config: ConfigAgente | null;
   carregado: boolean;
@@ -108,6 +113,8 @@ interface AgenteState {
   raiz: string | null;
   participacao: Record<string, Participacao>;
   convite: Convite | null;
+  /** path → veredito da última análise do gateiro nesta sessão (painel mostra a linha). */
+  analises: Record<string, AnaliseNota>;
   sugestoes: Record<string, SugestaoAgente[]>;
   /** Memória de longo prazo (doc 11 §2.2): fatos propostos pelo assistente. */
   fatos: Fato[];
@@ -272,19 +279,32 @@ export const useAgenteStore = create<AgenteState>((set, get) => {
         thinking: cfg.thinking,
         system: SYSTEM_GATEIRO,
         mensagens: [{ papel: "usuario", texto: promptGateiro(texto) }],
-        maxTokens: 200,
+        // 500, não 200: em modelos de raciocínio os tokens de thinking contam no teto,
+        // e um corte no meio do JSON virava "resposta inválida" invisível (achado em
+        // uso real, 13/09).
+        maxTokens: 500,
       });
       set((st) => ({ usoSessao: somarUso(st.usoSessao, r.uso) }));
       const veredito = interpretarGateiro(r.texto);
       if (deveConvidar(veredito)) {
-        set({ convite: { path, tema: veredito.tema } });
+        set({
+          convite: { path, tema: veredito.tema },
+          analises: { ...get().analises, [path]: "convite" },
+        });
         if (!get().painelAberto) set({ painelAberto: true });
+      } else if (veredito) {
+        set((st) => ({ analises: { ...st.analises, [path]: "nao-vale" } }));
+      } else {
+        // resposta que não parseia: trata como erro, não como "não vale" — e libera a
+        // próxima tentativa (a guarda de +50% é para decisão legítima, não para pane).
+        set((st) => ({ analises: { ...st.analises, [path]: "erro" } }));
+        delete tentativasGateiro[path];
       }
-      // sem convite: `tentativasGateiro` já segura a próxima tentativa até a nota
-      // crescer >50% (doc 11 §5.1 — "recusar não pergunta de novo" vale para o
-      // `recusado` explícito; o "não vale" silencioso pode voltar se o assunto mudar).
     } catch {
-      // gateiro silencioso: erro de rede aqui não merece UI (doc 11 §7).
+      // gateiro silencioso: erro de rede não vira faixa, mas fica na linha de status do
+      // painel e não bloqueia a próxima tentativa.
+      set((st) => ({ analises: { ...st.analises, [path]: "erro" } }));
+      delete tentativasGateiro[path];
     } finally {
       emVoo.delete(path);
       set((st) => ({ status: st.status === "pensando" ? statusBase(st) : st.status }));
@@ -370,7 +390,7 @@ export const useAgenteStore = create<AgenteState>((set, get) => {
                 "Resuma a nota em até 60 palavras, em português do Brasil, " +
                 "dizendo sobre o que ela é. Só o resumo, sem título nem comentário.",
               mensagens: [{ papel: "usuario", texto: bruto.slice(0, 6000) }],
-              maxTokens: 200,
+              maxTokens: 500,
             });
             textoR = res.texto.trim();
             set((st) => ({ usoSessao: somarUso(st.usoSessao, res.uso) }));
@@ -446,6 +466,7 @@ export const useAgenteStore = create<AgenteState>((set, get) => {
     raiz: null,
     participacao: {},
     convite: null,
+    analises: {},
     sugestoes: {},
     fatos: [],
 
@@ -583,6 +604,7 @@ export const useAgenteStore = create<AgenteState>((set, get) => {
         raiz,
         participacao: await carregarParticipacao(raiz),
         convite: null,
+        analises: {},
         sugestoes: {},
         fatos: await carregarFatos(raiz),
         conversas: Object.fromEntries(

@@ -83,7 +83,7 @@ de gravar.
 | `chaves` | uma API key por provedor, para trocar sem redigitar. |
 | `baseUrls` | override opcional por provedor (passo "Avançado" do assistente); ausente = URL do catálogo. |
 | `modeloGateiro` / `modeloAssistente` | escolhidos da lista do provedor no assistente (§6.3); o mesmo modelo pode ocupar os dois. |
-| `thinking` | profundidade de raciocínio, só tem efeito em modelos que suportam (`gpt-5*`/`o*` via `reasoning_effort`): `padrao` (não envia o parâmetro), `minimal`, `baixo`, `medio`, `alto`. Anthropic/Gemini ignoram o campo na v1. |
+| `thinking` | profundidade de raciocínio, só tem efeito em modelos que suportam (`gpt-5*`/`o*` via `reasoning_effort`): `padrao` (não envia o parâmetro), `baixo`, `medio`, `alto`. `minimal` existe no tipo por compatibilidade mas saiu da UI: a família gpt-5.6 recusa o valor (verificado na API 13/09 — ela aceita `none`/`low`/`medium`/`high`/`xhigh`). Anthropic/Gemini ignoram o campo na v1. |
 | `webSearch` | liga o tool nativo do provedor (§5.4). Só aparece se o provedor suportar. |
 | `tetoDiarioUsd` | `null` = sem teto (padrão). Número = pausa automática ao atingir. |
 
@@ -281,9 +281,12 @@ Entrada: até os primeiros 2.000 caracteres da nota (sem frontmatter). Saída JS
   "confianca": 0.8, "pergunta": "Quer que eu acompanhe esta nota?" }
 ```
 
-Parse defensivo (JSON inválido = não convida, sem erro visível). `valeParticipar: false` ou
-`confianca < 0.5`: registra `adiado` implicitamente (nova tentativa só se o tema mudar —
-diff > 50% do texto). O convite aparece no balão (§6.1) com o tema detectado.
+Parse defensivo. `valeParticipar: false` ou `confianca < 0.5`: não convida, e o rodapé do
+painel diz por quê — "O agente leu esta nota e decidiu não participar por enquanto"
+(revisão 13/09: a decisão era invisível, e invisível parecia bug). Nova tentativa só se a
+nota crescer >50%. Falha de rede ou JSON inválido: mesma linha de status em versão de erro,
+e a tentativa fica liberada para o próximo ciclo de inatividade (pane não consome a
+espera de +50%). O convite, quando vem, aparece no balão (§6.1) com o tema detectado.
 
 ### 5.2 Convite
 
@@ -462,7 +465,8 @@ Português do Brasil, sentence case, sem emoji (doc 06, Voz da interface).
 | Cota do provedor (429) | "O provedor limitou as chamadas agora. Tente de novo em instantes." |
 | Provedor fora do ar (5xx/rede) | "Não foi possível falar com o provedor. Verifique a conexão." |
 | Modelo inexistente (404) | "O provedor não conhece o modelo «{modelo}». Confira o nome nas configurações." |
-| Resposta inválida (JSON fora do schema) | silencioso — descarta e tenta no próximo ciclo; 3 falhas seguidas → estado `erro` com "O provedor devolveu respostas inválidas. Tente outro modelo." |
+| Resposta inválida (JSON fora do schema) | no gateiro: linha de status no rodapé do painel ("A análise desta nota falhou. O agente tenta de novo quando você escrever mais.") e a tentativa fica liberada; no assistente em ciclo: silenciosa até 3 falhas seguidas → estado `erro` com "O provedor devolveu respostas inválidas. Tente outro modelo." |
+| Gateiro decidiu não participar | "O agente leu esta nota e decidiu não participar por enquanto." |
 | Sem rede (offline) | "Sem conexão. O agente volta quando a rede voltar." |
 | Limpar memória (confirmação) | "Apagar resumos, fatos, participações e conversas do agente? As notas não são afetadas." |
 | Aviso da seção de configurações | "Opcional. Nada é enviado sem a sua configuração, e o agente só acompanha uma nota depois que você aceita o convite." |

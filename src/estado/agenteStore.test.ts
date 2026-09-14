@@ -110,6 +110,7 @@ beforeEach(() => {
     raiz: null,
     participacao: {},
     convite: null,
+    analises: {},
     sugestoes: {},
     fatos: [],
   });
@@ -222,6 +223,36 @@ describe("agenteStore — gateiro, convite e ciclo", () => {
 
     expect(st().convite).toEqual({ path: "Nota.md", tema: "arquitetura" });
     expect(st().painelAberto).toBe(true);
+  });
+
+  it("gateiro que decide 'não vale' registra a decisão visível, sem convite", async () => {
+    vi.useFakeTimers();
+    vi.mocked(completar).mockImplementation(async () => ({
+      texto: '{"valeParticipar": false, "tema": "lista de compras", "confianca": 0.9}',
+      uso: { tokensEntrada: 5, tokensSaida: 5 },
+    }));
+    notaAberta.conteudoEditor = "x".repeat(500);
+    await st().aplicarConfig(CONFIG);
+    await st().aoAbrirVault("C:/vault");
+    await vi.advanceTimersByTimeAsync(6000);
+
+    expect(st().convite).toBeNull();
+    expect(st().analises["Nota.md"]).toBe("nao-vale");
+  });
+
+  it("gateiro que falha marca 'erro' e tenta de novo no próximo repouso (pane não consome a espera)", async () => {
+    vi.useFakeTimers();
+    vi.mocked(completar).mockRejectedValue(new Error("sem rede"));
+    notaAberta.conteudoEditor = "x".repeat(500);
+    await st().aplicarConfig(CONFIG);
+    await st().aoAbrirVault("C:/vault");
+
+    await vi.advanceTimersByTimeAsync(6000);
+    expect(st().analises["Nota.md"]).toBe("erro");
+    const aposPrimeira = vi.mocked(completar).mock.calls.length;
+
+    await vi.advanceTimersByTimeAsync(6000); // outro repouso: tenta de novo
+    expect(vi.mocked(completar).mock.calls.length).toBeGreaterThan(aposPrimeira);
   });
 
   it("aceitar dispara o ciclo imediatamente; sugestão entra no estado e a participação persiste", async () => {
