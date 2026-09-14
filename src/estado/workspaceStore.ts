@@ -41,6 +41,13 @@ interface WorkspaceState {
   setFlushLayout(fn: () => void): void;
   definirAtivo(path: string | null): void;
   abrirDocumento(path: string): void;
+  /**
+   * Segunda aba para o mesmo `.draw.md`, mas no editor de texto (doc 04 §11.3 —
+   * "Abrir como texto"). Id diferente do painel do desenho de propósito. Usado pelo modo
+   * de recuperação de cena ilegível (auditoria 08): enquanto o desenho está em recuperação
+   * o canvas não monta nem salva, então esta é a única vista editável do arquivo.
+   */
+  abrirComoTexto(path: string): void;
   abrirInicio(): void;
   renomearDocumento(antigo: string, novo: string): void;
   novaAbaVazia(): void;
@@ -111,6 +118,19 @@ export const useWorkspaceStore = create<WorkspaceState>((set, get) => ({
     if (vazioParaSubstituir) api.removePanel(vazioParaSubstituir);
   },
 
+  abrirComoTexto(path) {
+    const { api } = get();
+    if (!api) return;
+    void useDocumentosStore.getState().abrir(path);
+    const id = `${path}::texto::${crypto.randomUUID()}`;
+    api.addPanel({
+      id,
+      component: "documento",
+      title: `${nomeCurto(path)} (texto)`,
+      params: { path },
+    });
+  },
+
   abrirInicio() {
     const { api } = get();
     if (!api) return;
@@ -139,13 +159,21 @@ export const useWorkspaceStore = create<WorkspaceState>((set, get) => ({
       const eraAtivo = api.activePanel === painel;
       const idNovo =
         painel.id === antigo ? novo : `${novo}::${crypto.randomUUID()}`;
+      // Preserva os demais params do painel (auditoria 12/09, achado 09): a segunda
+      // vista de um split nasce com `somenteLeitura: true` (doc 09, ADR-13) — descartar
+      // isto no rename reabria justamente a edição dupla que a trava existe para impedir.
+      const { path: _path, ...paramsRestantes } = painel.params as Record<
+        string,
+        unknown
+      >;
+      void _path;
       renomeando.add(painel.id);
       api.removePanel(painel);
       api.addPanel({
         id: idNovo,
         component: componenteDe(novo),
         title: nomeCurto(novo),
-        params: { path: novo },
+        params: { ...paramsRestantes, path: novo },
       });
       if (eraAtivo) api.getPanel(idNovo)?.api.setActive();
     }

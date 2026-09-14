@@ -27,6 +27,7 @@
 //   %%
 
 import { lerFrontmatter } from "../indice/frontmatter";
+import { dump } from "js-yaml";
 import { compressToBase64, decompressFromBase64 } from "lz-string";
 import type { ExcalidrawElement } from "@excalidraw/excalidraw/element/types";
 import type { AppState } from "@excalidraw/excalidraw/types";
@@ -49,6 +50,16 @@ export interface DadosDesenho {
   /** fileId do Excalidraw -> `[[caminho]]` da imagem no vault. */
   embeddedFiles: Map<string, string>;
   cena: CenaDesenho;
+  /**
+   * A cena existe no arquivo mas não pôde ser lida (JSON quebrado, fence não
+   * reconhecido, `elements` ausente). Diferente de "desenho vazio" de propósito:
+   * quem abre decide o que fazer, e o round-trip preserva o bloco original
+   * (auditoria 12/09, achado 08 — antes a cena inviral virava vazia e a gravação
+   * seguinte destruía o que talvez fosse recuperável).
+   */
+  cenaInvalida?: boolean;
+  /** Texto do bloco `%%…%%` cru, presente só com `cenaInvalida` — reemitido byte a byte. */
+  blocoBruto?: string;
 }
 
 const ZWSP = "​";
@@ -152,20 +163,18 @@ function indentarRegistro(texto: string, blockId: string): string {
 
 // --- serialize ------------------------------------------------------------------------------
 
-function emitirValorYaml(v: unknown): string {
-  if (Array.isArray(v)) return `[${v.map((x) => String(x)).join(", ")}]`;
-  return String(v);
-}
-
 function emitirFrontmatter(fm: Record<string, unknown>): string {
   const dados: Record<string, unknown> = {
     ...fm,
     [CHAVE_FRONTMATTER_DESENHO]: "drawing",
   };
-  const linhas = Object.keys(dados)
-    .sort()
-    .map((k) => `${k}: ${emitirValorYaml(dados[k])}`);
-  return `---\n${linhas.join("\n")}\n---\n`;
+  // js-yaml em vez de concatenação própria (auditoria 12/09, achado 07): `String(v)`
+  // produzia YAML inválido para "a: b", `[object Object]` para aninhados e nada de
+  // escaping. `dump` faz os três; `sortKeys` mantém a ordem estável que o round-trip
+  // byte-a-byte do teste 2 exige; `lineWidth: -1` impede quebra de linha em strings
+  // longas (a quebra do js-yaml mudaria os bytes entre salvar e reabrir).
+  const corpo = dump(dados, { sortKeys: true, lineWidth: -1, noRefs: true });
+  return `---\n${corpo.endsWith("\n") ? corpo : `${corpo}\n`}---\n`;
 }
 
 function limparElemento(el: ExcalidrawElement): Record<string, unknown> {
@@ -175,6 +184,13 @@ function limparElemento(el: ExcalidrawElement): Record<string, unknown> {
 }
 
 export function serializarDesenho(dados: DadosDesenho): string {
+  const cabecalho = `${emitirFrontmatter(dados.frontmatter)}${dados.verso}`;
+  if (dados.cenaInvalida && dados.blocoBruto !== undefined) {
+    // Cena ilegível: reemite o bloco `%%…%%` exatamente como estava. Sem isto, serializar
+    // a cena vazia reidratada apagaria o JSON quebrado que o usuário talvez consiga
+    // recuperar à mão (auditoria 12/09, achado 08).
+    return `${cabecalho}${dados.blocoBruto}`;
+  }
   const elementosVivos = dados.cena.elements.filter(
     (e) => !(e as { isDeleted?: boolean }).isDeleted,
   );
@@ -233,7 +249,7 @@ export function serializarDesenho(dados: DadosDesenho): string {
   ].join("\n");
 
   // `verso` já vem do parse com "\n" final quando não-vazio; emitido como está.
-  return `${emitirFrontmatter(dados.frontmatter)}${dados.verso}%%\n${bloco}\n%%\n`;
+  return `${cabecalho}%%\n${bloco}\n%%\n`;
 }
 
 // --- parse -------------------------------------------------------------------------------
@@ -287,9 +303,11 @@ function parsearParesLink(secao: string): Map<string, string> {
   return mapa;
 }
 
-function parsearCena(secao: string): CenaDesenho {
+function parsearCena(secao: string): { cena: CenaDesenho; invalida: boolean } {
+  const VAZIA: CenaDesenho = { elements: [], appState: {} };
   const m = /^(`{3,})(draw-json(?:-lz)?)\n([\s\S]*?)\n\1\s*$/.exec(secao.trim());
-  if (!m) return { elements: [], appState: {} };
+  // Seção presente mas o fence não é reconhecido: corrupção, não vazio.
+  if (!m) return { cena: VAZIA, invalida: secao.trim() !== "" };
   const lingua = m[2];
   const bruto =
     lingua === "draw-json-lz"
@@ -299,15 +317,23 @@ function parsearCena(secao: string): CenaDesenho {
   try {
     obj = JSON.parse(bruto || "{}");
   } catch {
-    return { elements: [], appState: {} };
+    return { cena: VAZIA, invalida: true };
   }
-  const elements = ((obj.elements as ExcalidrawElement[] | undefined) ?? []).map((el) => ({
+  // Validação mínima de schema antes do `elements.map` (auditoria 07-08): um JSON que
+  // parseia mas não é a cena não pode ser tratado como desenho vazio.
+  if (!obj || typeof obj !== "object" || !Array.isArray(obj.elements)) {
+    return { cena: VAZIA, invalida: true };
+  }
+  const elements = (obj.elements as ExcalidrawElement[]).map((el) => ({
     version: 1,
     versionNonce: 0,
     updated: 0,
     ...(el as object),
   })) as ExcalidrawElement[];
-  return { elements, appState: (obj.appState as Partial<AppState>) ?? {} };
+  return {
+    cena: { elements, appState: (obj.appState as Partial<AppState>) ?? {} },
+    invalida: false,
+  };
 }
 
 export function ehDesenho(md: string): boolean {
@@ -356,6 +382,8 @@ export function parseDesenho(md: string): DadosDesenho {
   const verso = versoBruto === "" ? "" : `${versoBruto}\n`;
   const bloco = linhas.slice(iAbre + 1, iFecha).join("\n");
   const secoes = extrairSecoes(bloco);
+  const secaoCena = secoes.get("Scene") ?? "";
+  const { cena, invalida } = parsearCena(secaoCena);
 
   return {
     frontmatter,
@@ -363,6 +391,11 @@ export function parseDesenho(md: string): DadosDesenho {
     textElements: parsearTextElements(secoes.get("Text Elements") ?? ""),
     elementLinks: parsearParesLink(secoes.get("Element Links") ?? ""),
     embeddedFiles: parsearParesLink(secoes.get("Embedded Files") ?? ""),
-    cena: parsearCena(secoes.get("Scene") ?? ""),
+    cena,
+    // cena quebrada: guarda o bloco `%%…%%` cru para o serialize reemitir como estava
+    // (round-trip não-destrutivo) e para a UI abrir em modo de recuperação.
+    ...(invalida
+      ? { cenaInvalida: true, blocoBruto: `%%\n${bloco}\n%%\n` }
+      : {}),
   };
 }

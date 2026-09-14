@@ -133,6 +133,14 @@ export const useVaultStore = create<VaultState>((set, get) => ({
   async ressincronizar() {
     await get().recarregarArvore();
     await get().reindexar();
+    // O motivo de existir do ressincronizar é justamente "não confio nos eventos que
+    // perdi" — então os documentos abertos também precisam ser conferidos contra o disco
+    // (auditoria 12/09, achado 11): aba limpa recarrega em silêncio, suja vira conflito.
+    // O `aoEventoExterno` não re-grava nada: só compara e reage.
+    const abertos = [...useDocumentosStore.getState().docs.keys()];
+    if (abertos.length > 0) {
+      await useDocumentosStore.getState().aoEventoExterno(abertos);
+    }
   },
 
   async recarregarArvore() {

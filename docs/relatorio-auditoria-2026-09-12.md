@@ -2,6 +2,14 @@
 
 Data: 12/09/2026. Versão: 0.2.0. Commit examinado: `5bff5f2a333e511e7203b8056a0c92192bd7d4a9`.
 
+> **Status 13/09/2026:** todos os 10 achados P1 (01–10) corrigidos, mais o P2 11. Os
+> cenários viraram testes de regressão no `vitest` (`documentosStore`, `workspaceStore`,
+> `atualizacaoStore`, `formatoDesenho`, `embedDesenho`); o script
+> `scripts/auditoria-reproducoes.cjs` agora **falha de propósito** na primeira asserção —
+> ele afirma os bugs antigos, e a falha dele é a prova da correção. P2 12–20 permanecem
+> abertos, com as prioridades da "Ordem recomendada de tratamento". Este texto abaixo
+> permanece como foi escrito no dia da auditoria.
+
 ## Resumo executivo
 
 Foram identificados **20 achados: 10 de prioridade P1 e 10 de prioridade P2**. Os problemas mais urgentes são de integridade: sobrescrita de conflitos, descarte de edições ao fechar, gravações incompletas do canvas e corrupção de metadados de desenhos. Também há falhas na indexação concorrente, inconsistências de links, processamento quadrático de texto e fragilidades na contenção do acesso ao disco.

@@ -6,8 +6,9 @@ import { describe, it, expect, vi, beforeEach } from "vitest";
 const salvarAteDrenar = vi.fn();
 const fechar = vi.fn();
 const abrir = vi.fn(async () => {});
+const renomearNoMapa = vi.fn();
 vi.mock("./documentosStore", () => ({
-  useDocumentosStore: { getState: () => ({ salvarAteDrenar, fechar, abrir }) },
+  useDocumentosStore: { getState: () => ({ salvarAteDrenar, fechar, abrir, renomearNoMapa }) },
 }));
 
 const flusharCanvas = vi.fn(async (_path?: string) => {});
@@ -115,5 +116,33 @@ describe("workspaceStore.aoRemoverPainel — dreno ao fechar aba", () => {
 
     expect(salvarAteDrenar).not.toHaveBeenCalled();
     expect(fechar).not.toHaveBeenCalled();
+  });
+});
+
+// Regressão do achado 09 da auditoria de 12/09: o rename remonta todos os painéis do
+// arquivo e precisa levar os params junto — perder `somenteLeitura` do clone de split
+// reabri a edição dupla que a trava do ADR-13 existe para impedir.
+describe("workspaceStore.renomearDocumento — preservação de params", () => {
+  it("segunda vista do split continua somenteLeitura depois do rename", () => {
+    const paineis = [
+      { id: "Nota.md", params: { path: "Nota.md" }, title: "Nota" },
+      { id: "clone", params: { path: "Nota.md", somenteLeitura: true }, title: "Nota" },
+    ];
+    const novos: Array<{ id: string; params: Record<string, unknown> }> = [];
+    const api = {
+      panels: paineis,
+      activePanel: paineis[0],
+      addPanel: (p: { id: string; params: Record<string, unknown> }) => void novos.push(p),
+      removePanel: () => {},
+      getPanel: () => null,
+    };
+    useWorkspaceStore.setState({ api: api as never });
+
+    ws().renomearDocumento("Nota.md", "Nova.md");
+
+    expect(novos).toHaveLength(2);
+    expect(novos[0].params).toEqual({ path: "Nova.md" });
+    expect(novos[1].params).toEqual({ path: "Nova.md", somenteLeitura: true });
+    expect(novos[1].id).not.toBe("clone");
   });
 });

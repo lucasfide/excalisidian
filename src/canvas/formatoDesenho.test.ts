@@ -124,4 +124,64 @@ describe("formatoDesenho — .draw.md (doc 05 §10)", () => {
       expect(parseDesenho(md).frontmatter.aliases).toEqual(["X"]);
     });
   });
+
+  // Regressões da auditoria de 12/09/2026, achados 07 e 08.
+  describe("auditoria 12/09 — frontmatter e cena quebrada", () => {
+    it("achado 07: frontmatter com valores difíceis sobrevive ao round-trip byte a byte", () => {
+      const x = cenaCompleta();
+      x.frontmatter.descricao = "a: b";
+      x.frontmatter.detalhes = { autor: "Ana", notas: ["x, y", "z"] };
+      x.frontmatter.atualizado = true;
+      x.frontmatter.ordem = 3;
+      x.frontmatter.notaNula = null;
+      x.frontmatter.listaComCrase = "tem ``` dentro";
+
+      const serializado = serializarDesenho(x);
+      const volta = parseDesenho(serializado);
+
+      expect(volta.frontmatter.descricao).toBe("a: b");
+      expect(volta.frontmatter.detalhes).toEqual({ autor: "Ana", notas: ["x, y", "z"] });
+      expect(volta.frontmatter.atualizado).toBe(true);
+      expect(volta.frontmatter.ordem).toBe(3);
+      expect(volta.frontmatter.notaNula).toBeNull();
+      expect(volta.frontmatter.listaComCrase).toBe("tem ``` dentro");
+      // bytes estáveis entre gravações (RNF7): reabrir e salvar não gera diff
+      expect(serializarDesenho(volta)).toBe(serializado);
+    });
+
+    it("achado 08: cena ilegível marca cenaInvalida e o round-trip preserva o arquivo", () => {
+      const bom = serializarDesenho(cenaCompleta());
+      const quebrado = bom.replace(
+        /```draw-json\n[\s\S]*?\n```/,
+        "```draw-json\n{ JSON INVALIDO }\n```",
+      );
+
+      const dados = parseDesenho(quebrado);
+
+      expect(dados.cenaInvalida).toBe(true);
+      expect(dados.cena.elements).toEqual([]);
+      // o serialize não destrói o que talvez seja recuperável à mão
+      expect(serializarDesenho(dados)).toBe(quebrado);
+    });
+
+    it("achado 08: fence não reconhecido e elements ausente também contam como corrupção", () => {
+      const semFence = serializarDesenho(cenaCompleta()).replace(
+        /```draw-json\n[\s\S]*?\n```/,
+        "```json\n{\"elements\":[]}\n```",
+      );
+      expect(parseDesenho(semFence).cenaInvalida).toBe(true);
+
+      const semElements = serializarDesenho(cenaCompleta()).replace(
+        /```draw-json\n[\s\S]*?\n```/,
+        '```draw-json\n{"appState":{}}\n```',
+      );
+      expect(parseDesenho(semElements).cenaInvalida).toBe(true);
+    });
+
+    it("desenho vazio de verdade não é confundido com cena quebrada", () => {
+      const vazio = parseDesenho(desenhoVazio());
+      expect(vazio.cenaInvalida).toBeUndefined();
+      expect(vazio.cena.elements).toEqual([]);
+    });
+  });
 });

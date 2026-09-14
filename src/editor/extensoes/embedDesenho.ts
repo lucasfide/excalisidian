@@ -12,16 +12,29 @@
 // recurse de verdade. O guarda abaixo cobre o único caso hoje alcançável (o alvo resolvido
 // ser o próprio arquivo aberto) e existe para não deixar a checagem ausente no dia em que um
 // desenho ou uma nota puderem embutir outro conteúdo que reabra este componente.
+//
+// Decorações de BLOCO vêm de um StateField, nunca de ViewPlugin: o CodeMirror rejeita
+// `block: true` fornecido por plugin com `RangeError("Block decorations may not be
+// specified via plugins")` — formato que quebrava o embed inteiro em tela (auditoria 12/09,
+// achado 10; o precedente no projeto é `atomico/image-blocks.ts`, que faz o mesmo). O
+// ViewPlugin que sobra só observa a troca de tema no `<html>` e manda um efeito pedindo
+// re-construção; não fornece decoração nenhuma.
 
 import {
   Decoration,
   type DecorationSet,
   EditorView,
   ViewPlugin,
-  type ViewUpdate,
   WidgetType,
+  type ViewUpdate,
 } from "@codemirror/view";
-import { RangeSetBuilder } from "@codemirror/state";
+import {
+  RangeSetBuilder,
+  StateEffect,
+  StateField,
+  type EditorState,
+  type Extension,
+} from "@codemirror/state";
 
 import { extrairLinks } from "../../indice/wikilink";
 import { useVaultStore } from "../../estado/vaultStore";
@@ -103,21 +116,21 @@ function larguraDoAlias(alias: string | undefined): string | undefined {
   return m ? `${m[1]}px` : undefined;
 }
 
-function construirDecoracoes(view: EditorView): DecorationSet {
+function construirDecoracoes(state: EditorState): DecorationSet {
   const builder = new RangeSetBuilder<Decoration>();
   const vault = useVaultStore.getState();
   const origem = useWorkspaceStore.getState().caminhoAtivo ?? "";
   if (!vault.adapter) return builder.finish();
 
-  const texto = view.state.doc.toString();
+  const texto = state.doc.toString();
   const embeds = extrairLinks(texto).filter((l) => l.embed);
 
   for (const link of embeds) {
     const alvo = vault.resolver(link.target, origem);
     if (!alvo || tipoDoArquivo(alvo) !== "drawing") continue;
-    if (link.line > view.state.doc.lines) continue;
+    if (link.line > state.doc.lines) continue;
 
-    const linha = view.state.doc.line(link.line);
+    const linha = state.doc.line(link.line);
     const widget = new EmbedDesenhoWidget(
       alvo,
       origem,
@@ -135,24 +148,38 @@ function construirDecoracoes(view: EditorView): DecorationSet {
   return builder.finish();
 }
 
-export const embedDesenho = ViewPlugin.fromClass(
+/** Efeito que pede a re-construção das decorações; disparado na troca de tema. */
+const refrescarEmbeds = StateEffect.define<null>();
+
+// Exportado só para o teste de regressão do achado 10 ler as decorações direto do estado.
+export const embedDesenhoField = StateField.define<DecorationSet>({
+  create: (state) => construirDecoracoes(state),
+  update(deco, tr) {
+    // Troca de tema: o `eq()` do widget inclui `escuro`, mas o documento não mudou, então
+    // só reconstruímos quando o observador abaixo avisa — não a cada transação.
+    for (const e of tr.effects) if (e.is(refrescarEmbeds)) return construirDecoracoes(tr.state);
+    if (tr.docChanged) return construirDecoracoes(tr.state);
+    return deco;
+  },
+  provide: (f) => EditorView.decorations.from(f),
+});
+
+/**
+ * A troca de tema (App.tsx alterna a classe `dark` no `<html>`) não mexe no documento,
+ * então o StateField acima nunca seria re-computado sozinho. Este ViewPlugin só observa o
+ * atributo `class` e despacha `refrescarEmbeds` — sem fornecer decorações (não pode: são
+ * de bloco). `view.dispatch({})` não bastaria: sem efeito nem mudança, o CodeMirror ignora.
+ */
+const observadorDeTema = ViewPlugin.fromClass(
   class {
-    decorations: DecorationSet;
     private observador: MutationObserver | undefined;
 
     constructor(private readonly view: EditorView) {
-      this.decorations = construirDecoracoes(view);
-
-      // A troca de tema (App.tsx alterna a classe `dark` no <html>) não mexe no documento,
-      // então `update()` abaixo nunca dispararia sozinho. Reconstrói as decorações (o `eq()`
-      // do widget agora inclui `escuro`, então isso força um novo `toDOM()`/renderizarSvg) e
-      // despacha uma transação vazia só para o CodeMirror repintar com o novo conjunto.
       if (typeof MutationObserver !== "undefined") {
         this.observador = new MutationObserver((mutations) => {
           for (const m of mutations) {
             if (m.type === "attributes" && m.attributeName === "class") {
-              this.decorations = construirDecoracoes(this.view);
-              this.view.dispatch({});
+              this.view.dispatch({ effects: refrescarEmbeds.of(null) });
               return;
             }
           }
@@ -164,15 +191,12 @@ export const embedDesenho = ViewPlugin.fromClass(
       }
     }
 
-    update(update: ViewUpdate) {
-      if (update.docChanged) {
-        this.decorations = construirDecoracoes(update.view);
-      }
-    }
+    update(_update: ViewUpdate): void {}
 
     destroy() {
       this.observador?.disconnect();
     }
   },
-  { decorations: (v) => v.decorations },
 );
+
+export const embedDesenho: Extension = [embedDesenhoField, observadorDeTema];
