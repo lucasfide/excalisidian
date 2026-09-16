@@ -1,13 +1,24 @@
-// Logotipo (doc 06): "«Excalisidian» em Fraunces 600 a 16px, e abaixo dele uma régua de 2px
-// em `musgo` com 40% da largura da palavra, alinhada à esquerda. Nada mais."
+// Logotipo (doc 06): lettering "Excalisidian", alinhado à esquerda. Nada mais.
 
-export default function Logotipo() {
+import lettering from "./lettering-excalisidian.png";
+
+interface Props {
+  /** Altura em px. Padrão 16 (cabeçalho histórico da sidebar); 32 na TelaBoasVindas
+   * (doc 06, "Tela de boas-vindas" / doc 15 §0, decisão do usuário 16/09/2026). */
+  altura?: number;
+}
+
+export default function Logotipo({ altura = 16 }: Props) {
   return (
-    <div className="leading-none">
-      <div className="font-display text-[16px] font-semibold leading-none text-tinta">
-        Excalisidian
-      </div>
-      <div aria-hidden className="mt-1 h-[2px] w-[42%] bg-musgo" />
-    </div>
+    <img
+      src={lettering}
+      alt="Excalisidian"
+      className="block w-auto select-none"
+      // 16px casa com a altura dos botões-ícone ao lado (h-4, BotaoIcone sem `grande`), que são
+      // quem define a altura da linha do cabeçalho — assim trocar o lettering não mexe no layout.
+      // A imagem tem 27px de altura nativa: aqui ela reduz, nunca amplia.
+      style={{ height: altura }}
+      draggable={false}
+    />
   );
 }

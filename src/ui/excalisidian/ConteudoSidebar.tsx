@@ -3,21 +3,20 @@
 import { PanelLeftClose, Settings, Trash2 } from "lucide-react";
 
 import { BotaoIcone } from "../index";
-import { useVaultStore } from "../../estado/vaultStore";
 import { usePrefsStore } from "../../estado/prefsStore";
+import { useVaultStore } from "../../estado/vaultStore";
 import { comandoNovaNota, comandoNovoDesenho, comandoNovaPasta } from "../../app/comandos/criacao";
 import ArvoreEBacklinks from "./ArvoreEBacklinks";
 import BarraFerramentasSidebar from "./BarraFerramentasSidebar";
-import Logotipo from "./Logotipo";
+import CampoBuscaSidebar from "./CampoBuscaSidebar";
+import SeletorVault from "./SeletorVault";
 
 interface Props {
-  comMouse?: boolean;
   onAbrirLixeira(): void;
   onAbrirPreferencias(): void;
 }
 
 export default function ConteudoSidebar({
-  comMouse,
   onAbrirLixeira,
   onAbrirPreferencias,
 }: Props) {
@@ -26,16 +25,10 @@ export default function ConteudoSidebar({
 
   return (
     <>
-      <div className="flex items-center justify-between border-b border-regua px-3 py-2">
-        {comMouse ? (
-          <BotaoIcone
-            Icone={PanelLeftClose}
-            titulo="Colapsar sidebar"
-            onClick={alternarSidebar}
-          />
-        ) : (
-          <Logotipo />
-        )}
+      <div className="flex items-center gap-1 border-b border-regua px-3 py-2">
+        {/* SeletorVault no lugar do Logotipo (doc 12 §4.1): ocupa o espaço flexível à
+            esquerda do cabeçalho. */}
+        <SeletorVault />
         {/* Sempre cria na raiz do vault; organizar é por clique direito numa pasta
             ("Nova nota aqui" etc., em ArvoreArquivos) ou arrastando depois. */}
         <BarraFerramentasSidebar
@@ -43,7 +36,18 @@ export default function ConteudoSidebar({
           onCriarDesenho={() => void comandoNovoDesenho("")}
           onCriarPasta={() => void comandoNovaPasta("")}
         />
+        {/* Colapsar fica sempre visível no fim do grupo de ícones — não troca mais de
+            lugar com o seletor sob o mouse (doc 06, "o alvo trocar de lugar sob o cursor"). */}
+        <BotaoIcone
+          Icone={PanelLeftClose}
+          titulo="Colapsar sidebar"
+          onClick={alternarSidebar}
+        />
       </div>
+
+      {/* Entrada visível da busca unificada (doc 13 §1.1): abaixo do cabeçalho, antes da
+          árvore de arquivos. */}
+      <CampoBuscaSidebar />
 
       <ArvoreEBacklinks />
 

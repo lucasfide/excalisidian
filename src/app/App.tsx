@@ -2,20 +2,31 @@
 // O conteúdo dos arquivos vive por aba no documentosStore; a aba ativa, no workspaceStore.
 
 import { useCallback, useEffect, useRef, useState } from "react";
-import { FilePlus, ListChecks, PanelLeft, Settings, SquarePen, Trash2 } from "lucide-react";
-import { Toaster } from "sonner";
+import { FilePlus, ListChecks, PanelLeft, Search, Settings, SquarePen, Trash2 } from "lucide-react";
+import { Toaster, toast } from "sonner";
 
 import { TauriVaultAdapter } from "../vault/TauriVaultAdapter";
+import { abrirNestaJanela } from "../vault/abrirNestaJanela";
+import { escolherPasta } from "../vault/janelas";
+import {
+  listarRecentes,
+  removerDosRecentes,
+  type VaultRecente,
+} from "../vault/vaultsRecentes";
 import { useVaultStore } from "../estado/vaultStore";
 import { useWorkspaceStore } from "../estado/workspaceStore";
 import { usePrefsStore, type Tema } from "../estado/prefsStore";
 import { useTarefasStore } from "../estado/tarefasStore";
 import { useAgenteStore } from "../estado/agenteStore";
+import { useSobreposicaoStore } from "../estado/sobreposicaoStore";
 import { comandoNovaNota, comandoNovoDesenho } from "./comandos/criacao";
 import { useAutosave } from "../editor/useAutosave";
 import { useRessincronizarAoVoltar } from "./useRessincronizarAoVoltar";
+import { instalarOuvintesEntreJanelas } from "./flushEntreJanelas";
 import Workspace from "../layout/Workspace";
-import { Botao, BotaoIcone, EstadoVazio } from "../ui";
+import { BotaoIcone } from "../ui";
+import TelaBoasVindas from "../ui/excalisidian/TelaBoasVindas";
+import { criarConteudoInicial } from "../vault/conteudoInicial";
 import BarraStatus from "../ui/excalisidian/BarraStatus";
 import ConteudoSidebar from "../ui/excalisidian/ConteudoSidebar";
 import ArvoreEBacklinks from "../ui/excalisidian/ArvoreEBacklinks";
@@ -45,7 +56,6 @@ export default function App() {
   const [boot, setBoot] = useState<Boot>("carregando");
   const [preferenciasAbertas, setPreferenciasAbertas] = useState(false);
   const [lixeiraAberta, setLixeiraAberta] = useState(false);
-  const [sidebarComMouse, setSidebarComMouse] = useState(false);
   const [painelFlutuanteAberto, setPainelFlutuanteAberto] = useState(false);
   const abrirPainelTimerRef = useRef<number | null>(null);
   const fecharPainelTimerRef = useRef<number | null>(null);
@@ -82,13 +92,22 @@ export default function App() {
     setPainelFlutuanteAberto(false);
   }, [sidebarColapsada, cancelarAberturaPainel, cancelarFechamentoPainel]);
 
+  const raiz = useVaultStore((s) => s.raiz);
   const caminhoAtivo = useWorkspaceStore((s) => s.caminhoAtivo);
   const painelTarefasAberto = useTarefasStore((s) => s.painelAberto);
   const agenteHabilitado = useAgenteStore((s) => s.config?.habilitado ?? false);
   const agenteAssistenteAberto = useAgenteStore((s) => s.assistenteAberto);
 
+  // Tela de boas-vindas (doc 15 §1.1): recentes carregados só quando ela aparece (sem vault
+  // ou erro de abertura) — outra janela pode ter mudado a lista enquanto esta ficava sem vault.
+  const [recentesSemVault, setRecentesSemVault] = useState<VaultRecente[]>([]);
+
   useAutosave();
   useRessincronizarAoVoltar();
+
+  // T4 (flushEntreJanelas.ts): flush coordenado entre janelas antes de aplicar atualização,
+  // e propagação de preferências da máquina (doc 12 §6). Instalado uma vez por janela.
+  useEffect(() => instalarOuvintesEntreJanelas(), []);
 
   useEffect(() => {
     void usePrefsStore.getState().carregar();
@@ -148,6 +167,23 @@ export default function App() {
     return () => mq.removeEventListener("change", aoMudar);
   }, [tema]);
 
+  // Todo caminho até `definirAdapter` passa antes por `abrirNestaJanela` (doc 12 §4.4):
+  // registra o vault desta janela no Rust, e se outra janela já o tem aberto, foca ela e
+  // esta janela fica na tela sem vault em vez de duplicar o vault em duas janelas. Devolve se
+  // o vault abriu NESTA janela — o onboarding (doc 15 §1.1) só cria o conteúdo de exemplo
+  // quando o vault de fato ficou aberto aqui, nunca quando a abertura só focou outra janela.
+  const ativarVaultNestaJanela = useCallback(async (adapter: TauriVaultAdapter) => {
+    const resultado = await abrirNestaJanela(adapter);
+    if (resultado !== "ok") {
+      setBoot("sem-vault");
+      return false;
+    }
+    await useVaultStore.getState().definirAdapter(adapter);
+    await useAgenteStore.getState().aoAbrirVault(adapter.raiz());
+    setBoot("pronto");
+    return true;
+  }, []);
+
   useEffect(() => {
     let ativo = true;
     (async () => {
@@ -155,9 +191,7 @@ export default function App() {
         const adapter = await TauriVaultAdapter.doBoot();
         if (!ativo) return;
         if (adapter) {
-          await useVaultStore.getState().definirAdapter(adapter);
-          await useAgenteStore.getState().aoAbrirVault(adapter.raiz());
-          if (ativo) setBoot("pronto");
+          await ativarVaultNestaJanela(adapter);
         } else {
           setBoot("sem-vault");
         }
@@ -168,7 +202,7 @@ export default function App() {
     return () => {
       ativo = false;
     };
-  }, []);
+  }, [ativarVaultNestaJanela]);
 
   // Checagem silenciosa de atualização: só depois que o vault carregou, fora do caminho
   // crítico do boot (spec 2026-09-04, "Ao abrir + item de menu manual").
@@ -180,21 +214,84 @@ export default function App() {
     return () => window.clearTimeout(id);
   }, [boot]);
 
-  const escolher = useCallback(async () => {
+  // Recentes da tela de boas-vindas (doc 12 §4.4, doc 15 §1.1): carrega toda vez que a tela
+  // aparece (sem vault OU erro de abertura — mesma tela) — outra janela pode ter mudado a
+  // lista enquanto esta ficava sem vault.
+  useEffect(() => {
+    if (boot === "pronto" || boot === "carregando") return;
+    let ativo = true;
+    void listarRecentes().then((lista) => {
+      if (ativo) setRecentesSemVault(lista);
+    });
+    return () => {
+      ativo = false;
+    };
+  }, [boot]);
+
+  const abrirPasta = useCallback(async () => {
     try {
       setBoot("carregando");
-      const adapter = await TauriVaultAdapter.escolher();
-      if (!adapter) {
+      const caminho = await escolherPasta();
+      if (!caminho) {
         setBoot((b) => (b === "carregando" ? "sem-vault" : b));
         return;
       }
-      await useVaultStore.getState().definirAdapter(adapter);
-      await useAgenteStore.getState().aoAbrirVault(adapter.raiz());
-      setBoot("pronto");
+      const adapter = await TauriVaultAdapter.abrir(caminho);
+      await ativarVaultNestaJanela(adapter);
     } catch (e) {
       setBoot({ erro: String(e) });
     }
-  }, []);
+  }, [ativarVaultNestaJanela]);
+
+  // Recente clicado na tela sem vault: abre NESTA janela (doc 12 §4.4), não numa janela nova.
+  // Pasta sumida do disco vira o mesmo toast "não encontrada" do menu do seletor (doc 04 §10).
+  const abrirRecenteNestaJanela = useCallback(
+    async (caminho: string) => {
+      try {
+        const adapter = await TauriVaultAdapter.abrir(caminho);
+        await ativarVaultNestaJanela(adapter);
+      } catch {
+        toast("A pasta deste vault não foi encontrada.", {
+          action: {
+            label: "Remover da lista",
+            onClick: () => {
+              void removerDosRecentes(caminho).then(() =>
+                listarRecentes().then(setRecentesSemVault),
+              );
+            },
+          },
+        });
+      }
+    },
+    [ativarVaultNestaJanela],
+  );
+
+  // "Criar e começar" do onboarding (doc 15 §1.1): a `TelaBoasVindas` já criou a pasta
+  // (`criarVault`) antes de chamar isto — aqui só faltam os passos 3-5, que são os mesmos de
+  // sempre para abrir um vault nesta janela, mais o conteúdo de exemplo. Falha ao criar o
+  // conteúdo de exemplo nunca impede o vault de abrir (doc 04 §14): só avisa por toast.
+  const onAbrirVaultCriado = useCallback(
+    async (caminho: string, opcoes?: { conteudoInicial?: boolean }) => {
+      try {
+        const adapter = await TauriVaultAdapter.abrir(caminho);
+        const abriuNestaJanela = await ativarVaultNestaJanela(adapter);
+        if (abriuNestaJanela && opcoes?.conteudoInicial) {
+          try {
+            const caminhoNota = await criarConteudoInicial();
+            // O Workspace só monta com boot "pronto", e a API do dockview só existe dentro
+            // do onReady dele — abrirDocumentoQuandoPronto guarda o pedido até lá em vez de
+            // um setTimeout arbitrário (ver comentário em workspaceStore.ts).
+            useWorkspaceStore.getState().abrirDocumentoQuandoPronto(caminhoNota);
+          } catch {
+            toast("O vault foi criado, mas não foi possível criar a nota de boas-vindas.");
+          }
+        }
+      } catch (e) {
+        setBoot({ erro: String(e) });
+      }
+    },
+    [ativarVaultNestaJanela],
+  );
 
   if (boot === "carregando") {
     return (
@@ -207,21 +304,13 @@ export default function App() {
   if (boot === "sem-vault" || typeof boot === "object") {
     const erro = typeof boot === "object" ? boot.erro : null;
     return (
-      <div className="flex h-screen items-center justify-center bg-papel px-8">
-        <EstadoVazio
-          className="w-full max-w-md"
-          tom={erro ? "erro" : "neutro"}
-          titulo={erro ? "Não foi possível abrir o vault" : "Nenhum vault aberto"}
-          apoio={
-            erro ??
-            "Escolha a pasta com suas notas. O Excalisidian pede isso uma vez e lembra nas próximas aberturas."
-          }
-        >
-          <Botao variante="primario" onClick={escolher}>
-            Escolher pasta do vault
-          </Botao>
-        </EstadoVazio>
-      </div>
+      <TelaBoasVindas
+        erro={erro}
+        recentes={recentesSemVault}
+        onAbrirVault={onAbrirVaultCriado}
+        onAbrirPasta={abrirPasta}
+        onAbrirRecente={abrirRecenteNestaJanela}
+      />
     );
   }
 
@@ -237,7 +326,6 @@ export default function App() {
               sidebarColapsada ? "w-12" : "w-[264px]"
             }`}
             onMouseEnter={() => {
-              setSidebarComMouse(true);
               // Cancela antes do guard: com o painel já aberto, o mouse que sai e volta
               // dentro dos 150ms precisa matar o fechamento agendado, senão fecha na cara.
               cancelarFechamentoPainel();
@@ -248,7 +336,6 @@ export default function App() {
               }, 200);
             }}
             onMouseLeave={() => {
-              setSidebarComMouse(false);
               cancelarAberturaPainel();
               if (!sidebarColapsada) return;
               fecharPainelTimerRef.current = window.setTimeout(() => {
@@ -264,6 +351,12 @@ export default function App() {
                   titulo="Expandir sidebar"
                   onClick={alternarSidebar}
                 />
+                {/* Entrada da busca unificada na faixa recolhida (doc 13 §1.1/§2.4). */}
+                <BotaoIcone
+                  Icone={Search}
+                  titulo="Buscar"
+                  onClick={() => useSobreposicaoStore.getState().abrir("busca")}
+                />
                 <BotaoIcone
                   Icone={FilePlus}
                   titulo="Nova nota"
@@ -277,7 +370,6 @@ export default function App() {
               </div>
             ) : (
               <ConteudoSidebar
-                comMouse={sidebarComMouse}
                 onAbrirLixeira={() => setLixeiraAberta(true)}
                 onAbrirPreferencias={() => setPreferenciasAbertas(true)}
               />
@@ -316,7 +408,9 @@ export default function App() {
           </aside>
 
           <main className="min-h-0 flex-1">
-            <Workspace />
+            {/* key={raiz}: força o dockview a remontar do zero se esta janela trocar de
+                vault (doc 12 §4.4) — layout, painéis e listeners nascem de novo. */}
+            <Workspace key={raiz} />
           </main>
           <PainelTarefas />
 

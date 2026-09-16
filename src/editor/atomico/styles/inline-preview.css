@@ -462,6 +462,155 @@
   -webkit-overflow-scrolling: touch;
 }
 
+/* [excalisidian] Hover controls (doc 14 §1.3/§2.3, T2): "+" strips to grow the table and
+ * grip handles to reorder rows/columns. `.cm-atomic-table-surface` (built only in edit mode —
+ * `table-widget.ts`'s `toDOM` skips it entirely when read-only) is the positioned ancestor
+ * every one of them is placed against.
+ *
+ * The 16px of padding on every side is PERMANENT — present whether or not the mouse is over the
+ * table — and that's deliberate, not an oversight: it's what keeps `.cm-atomic-table`'s
+ * rendered box size constant regardless of hover. Only `opacity`/`display`/`pointer-events` of
+ * the overlay children toggle on hover; the box itself never does. This mirrors the
+ * padding-vs-margin reasoning in the comment on `.cm-atomic-table` right above — if this
+ * padding instead appeared only on `:hover`, every hover/unhover would change
+ * `.cm-atomic-table`'s `getBoundingClientRect()` height and width out from under CM6's
+ * heightmap, the exact desync that comment describes (wrong line under the cursor, caret
+ * landing on the wrong row).
+ *
+ * It also solves the clipping half of the same problem (doc 14 §2.3 item 7): `.cm-atomic-table`
+ * has `overflow-x: auto` for wide tables, and per the CSS overflow spec a non-`visible`
+ * `overflow-x` silently forces `overflow-y` to compute as `auto` too — so anything positioned
+ * outside this padded box (the row handle to the left, the column handle above) would be
+ * clipped on whichever axis it stuck out on. Every control lives INSIDE this padding instead,
+ * never outside it. */
+.cm-atomic-table-surface {
+  position: relative;
+  padding: 16px;
+}
+
+.cm-atomic-table-add-col,
+.cm-atomic-table-add-row {
+  position: absolute;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: var(--atomic-editor-fg-faint);
+  cursor: pointer;
+  /* Present but invisible/inert at rest — `.is-hovering` on the wrapper (plain pointerenter/
+   * leave, doc 14 §1.3 "só com o mouse sobre a tabela") flips both without moving anything. */
+  opacity: 0;
+  pointer-events: none;
+  transition: opacity 120ms ease, background-color 120ms ease;
+}
+
+.cm-atomic-table.is-hovering .cm-atomic-table-add-col,
+.cm-atomic-table.is-hovering .cm-atomic-table-add-row {
+  opacity: 1;
+  pointer-events: auto;
+}
+
+.cm-atomic-table-add-col:hover,
+.cm-atomic-table-add-row:hover {
+  background: var(--atomic-editor-bg-surface); /* lavagem */
+}
+
+/* Right of the last column, at the table's height (doc 14 §1.3) — the reserved top/bottom 16px
+ * are exactly where the column-handle strip and add-row strip live, so `top`/`bottom: 16px`
+ * lines this strip's height up with the table's, not the whole padded surface's. */
+.cm-atomic-table-add-col {
+  top: 16px;
+  bottom: 16px;
+  right: 0;
+  width: 16px;
+}
+
+/* Below the last row, at the table's width — same reasoning, mirrored. */
+.cm-atomic-table-add-row {
+  left: 16px;
+  right: 16px;
+  bottom: 0;
+  height: 16px;
+}
+
+.cm-atomic-table-row-handle,
+.cm-atomic-table-col-handle {
+  position: absolute;
+  display: none;
+  align-items: center;
+  justify-content: center;
+  color: var(--atomic-editor-fg-faint);
+  border-radius: var(--radius-controle);
+  cursor: grab;
+  z-index: 1;
+}
+
+.cm-atomic-table-row-handle:active,
+.cm-atomic-table-col-handle:active {
+  cursor: grabbing;
+}
+
+.cm-atomic-table-row-handle.is-visible,
+.cm-atomic-table-col-handle.is-visible {
+  display: flex;
+}
+
+.cm-atomic-table-row-handle:hover,
+.cm-atomic-table-col-handle:hover {
+  background: var(--atomic-editor-bg-surface); /* lavagem */
+}
+
+/* Left of the hovered row, in the reserved left 16px — `top`/`height` set per-hover by JS. */
+.cm-atomic-table-row-handle {
+  left: 0;
+  width: 16px;
+}
+
+/* Above the hovered column, in the reserved top 16px — `left`/`width` set per-hover by JS. */
+.cm-atomic-table-col-handle {
+  top: 0;
+  height: 16px;
+}
+
+/* Drop indicator (doc 14 §1.3): 2px `cristal` line at the destination gap — same visual
+ * language as `.cm-linha-soltura` in `moverBloco.css`, but positioned inside the table's own
+ * surface instead of `position: fixed`: this DOM already lives in the right coordinate space
+ * (it's a child of the block widget itself), so there's no ancestor overflow to escape the way
+ * the block-move alça needs to. */
+.cm-atomic-table-drop-indicator {
+  position: absolute;
+  display: none;
+  background: var(--atomic-editor-accent); /* cristal */
+  border-radius: 1px;
+  pointer-events: none;
+  z-index: 2;
+}
+
+.cm-atomic-table-drop-indicator.is-visible {
+  display: block;
+}
+
+.cm-atomic-table-drop-indicator.is-row {
+  left: 16px;
+  right: 16px;
+  height: 2px;
+}
+
+.cm-atomic-table-drop-indicator.is-col {
+  top: 16px;
+  bottom: 16px;
+  width: 2px;
+}
+
+/* The row or column currently being dragged (doc 14 §1.3): `sombra-ficha` on every cell in it.
+ * Applied per `<td>`/`<th>` rather than to a `<tr>` — box-shadow on a table ROW doesn't reliably
+ * paint under the table visual-formatting model across engines, cell-level does, and
+ * `border-collapse: collapse` doesn't stop each cell from casting its own shadow outward. */
+.cm-atomic-table-cell-dragging {
+  position: relative;
+  box-shadow: var(--shadow-ficha);
+  z-index: 1;
+}
+
 .cm-atomic-table table {
   border-collapse: collapse;
   width: max-content;
@@ -592,44 +741,13 @@
   cursor: pointer;
 }
 
-/* Table context menu — right-click a cell to insert / delete rows
- * and columns. Mounted on document.body so positioning isn't
- * affected by CM6's overflow scroll. */
-.cm-atomic-table-menu {
-  position: fixed;
-  z-index: 1000;
-  min-width: 170px;
-  padding: 0.25rem 0;
-  background: var(--atomic-editor-bg-panel, #252525);
-  border: 1px solid var(--atomic-editor-border, #3d3d3d);
-  border-radius: var(--atomic-editor-radius, 6px);
-  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.3);
-  font-family: var(--atomic-editor-font, system-ui, sans-serif);
-  font-size: 0.82rem;
-  color: var(--atomic-editor-fg, #dcddde);
-}
-
-.cm-atomic-table-menu-item {
-  display: block;
-  width: 100%;
-  text-align: left;
-  padding: 0.35rem 0.75rem;
-  background: transparent;
-  border: 0;
-  color: inherit;
-  font: inherit;
-  cursor: pointer;
-}
-
-.cm-atomic-table-menu-item:hover {
-  background: var(--atomic-editor-bg-surface, #2d2d2d);
-}
-
-.cm-atomic-table-menu-sep {
-  height: 1px;
-  margin: 0.25rem 0;
-  background: var(--atomic-editor-border, #3d3d3d);
-}
+/* [excalisidian] The table row/column/alignment menu used to be built and styled right here
+ * (`.cm-atomic-table-menu*`, upstream) — a DOM popup outside the app's design system (doc 14
+ * §0 item 2: its own shadow/radius, not tokens). It's gone: `table-widget.ts` only detects the
+ * right-click and hands off a `TableMenuRequest`; `src/editor/extensoes/menuTabela.tsx` renders
+ * the app's own `Menu`/`ItemMenu` (`src/ui/Menu.tsx`) in a React root, which already pulls its
+ * visuals from the design-system tokens — nothing to style here.
+ */
 
 /* Find-in-document panel — single compact row of input + match
  * counter + prev / next / close icon buttons. Rendered at the top

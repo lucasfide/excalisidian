@@ -1,0 +1,60 @@
+/* Imagens na nota (doc 04 §3.6, doc 06 "Imagem na nota"). A fileira quebra linha quando as
+ * imagens não cabem: cada uma mantém a largura escolhida (decisão do usuário, 16/09/2026). */
+
+.cm-embed-imagens {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: flex-start;
+  gap: 8px;
+}
+
+.cm-embed-imagem {
+  position: relative;
+  flex: 0 0 auto;
+  max-width: 100%;
+  cursor: grab;
+}
+
+/* O `.cm-atomic-image img` do editor dá o recorte e o `max-width`; aqui só impede o arrasto
+ * nativo de imagem do navegador (que falha no WebView2 e brigaria com o nosso). */
+.cm-embed-imagem img {
+  -webkit-user-drag: none;
+  user-select: none;
+}
+
+.cm-embed-imagem-arrastando {
+  box-shadow: var(--shadow-ficha);
+  cursor: grabbing;
+}
+
+/* Alça de tamanho: canto inferior direito, só no hover. Duas réguas de 2px formando o canto —
+ * mesma espessura do indicador de soltura. */
+.cm-embed-imagem-alca {
+  position: absolute;
+  right: 4px;
+  bottom: 4px;
+  width: 12px;
+  height: 12px;
+  border-right: 2px solid var(--color-cristal);
+  border-bottom: 2px solid var(--color-cristal);
+  border-bottom-right-radius: var(--radius-controle);
+  cursor: nwse-resize;
+  opacity: 0;
+  transition: opacity 140ms var(--ease-caderno);
+}
+
+.cm-embed-imagem:hover .cm-embed-imagem-alca,
+.cm-embed-imagem-redimensionando .cm-embed-imagem-alca {
+  opacity: 1;
+}
+
+/* Indicador de soltura: vertical ao lado de uma imagem, horizontal entre linhas. `fixed` no
+ * body, como em moverBloco.css, pelo mesmo motivo (o overflow do editor cortaria). */
+.cm-embed-imagem-soltura {
+  position: fixed;
+  display: none;
+  background: var(--color-cristal);
+  border-radius: 1px;
+  pointer-events: none;
+  z-index: 40;
+}

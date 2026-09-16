@@ -193,7 +193,15 @@ export const useVaultStore = create<VaultState>((set, get) => ({
 
   async reindexarArquivo(path) {
     const { adapter, entradas, indice } = get();
-    if (!adapter || tipoDoArquivo(path) === "attachment") return;
+    if (!adapter) return;
+    if (tipoDoArquivo(path) === "attachment") {
+      // Anexo não é parseado nem vai pra busca, mas é alvo de link (`![[imagem.png]]`): sem
+      // refazer a resolução, um anexo criado durante a sessão (imagem colada, arquivo copiado
+      // por fora) só resolvia depois de reabrir o vault.
+      const todosCaminhos = entradas.filter((e) => !e.isDir).map((e) => e.path);
+      set(derivar(indice, todosCaminhos));
+      return;
+    }
     const entrada = entradas.find((e) => e.path === path);
     const novo = new Map(indice);
     try {

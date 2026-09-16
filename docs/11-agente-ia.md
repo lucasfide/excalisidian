@@ -366,8 +366,8 @@ Só existe quando `habilitado`. Estados:
 | `ocioso` | ícone `tinta-suave` |
 | `observando` | ícone `tinta-media` |
 | `pensando` | ícone + anel `ocre` pulsando (animação "pulso", 1,6s) |
-| `convite` | badge `musgo` com `!` + card de convite aberto (§6.2) |
-| `sugestões` | badge `musgo` com o número |
+| `convite` | badge `cristal` com `!` + card de convite aberto (§6.2) |
+| `sugestões` | badge `cristal` com o número |
 | `pausado` | ícone `tinta-suave` + barra diagonal (lucide `bot-off` quando existir; senão opacidade 50%) |
 | `erro` | ícone `bordo`; clique mostra o erro no painel |
 

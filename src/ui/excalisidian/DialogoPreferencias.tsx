@@ -3,10 +3,11 @@
 // usuário relatou como difícil de achar (29/08/2026).
 
 import { useEffect, useState, type ReactNode } from "react";
+import { CornerDownLeft } from "lucide-react";
 import { getVersion } from "@tauri-apps/api/app";
 import { toast } from "sonner";
 
-import { Botao, Dialog, GrupoBotoes, cn, type OpcaoGrupo } from "../index";
+import { Botao, Campo, Dialog, GrupoBotoes, cn, type OpcaoGrupo } from "../index";
 import { usePrefsStore, type Tema, type LarguraNota } from "../../estado/prefsStore";
 import { useAgenteStore } from "../../estado/agenteStore";
 import { confirmar } from "../../estado/dialogoStore";
@@ -32,11 +33,27 @@ const OPCOES_LARGURA: OpcaoGrupo<LarguraNota>[] = [
 export default function DialogoPreferencias({ onFechar }: Props) {
   const tema = usePrefsStore((s) => s.tema);
   const larguraNota = usePrefsStore((s) => s.larguraNota);
+  const nomeUsuario = usePrefsStore((s) => s.nomeUsuario);
   const definirTema = usePrefsStore((s) => s.definirTema);
   const definirLarguraNota = usePrefsStore((s) => s.definirLarguraNota);
+  const definirNomeUsuario = usePrefsStore((s) => s.definirNomeUsuario);
   const [versao, setVersao] = useState<string | null>(null);
   const [testando, setTestando] = useState(false);
   const [resultadoTeste, setResultadoTeste] = useState<string | null>(null);
+
+  // Estado local do campo (não grava a cada tecla — só no blur/Enter, doc 15 §1.2). Sincroniza
+  // quando `nomeUsuario` muda por fora (outra janela emitiu `app://prefs-mudou`, this store
+  // recarregou): só enquanto o campo não está focado, pra não atropelar o que o usuário está
+  // digitando aqui.
+  const [nome, setNome] = useState(nomeUsuario ?? "");
+  const [nomeFocado, setNomeFocado] = useState(false);
+  useEffect(() => {
+    if (!nomeFocado) setNome(nomeUsuario ?? "");
+  }, [nomeUsuario, nomeFocado]);
+
+  function gravarNomeSeMudou() {
+    if (nome.trim() !== (nomeUsuario ?? "")) definirNomeUsuario(nome);
+  }
 
   useEffect(() => {
     let ativo = true;
@@ -55,6 +72,34 @@ export default function DialogoPreferencias({ onFechar }: Props) {
   return (
     <Dialog titulo="Configurações" onFechar={onFechar} className="max-w-sm">
       <div className="flex flex-col gap-4">
+        <Secao titulo="Seu nome">
+          <div className="flex flex-col gap-1.5">
+            <Campo
+              rotulo="Nome"
+              value={nome}
+              onChange={(e) => setNome(e.target.value)}
+              onFocus={() => setNomeFocado(true)}
+              onBlur={() => {
+                setNomeFocado(false);
+                gravarNomeSeMudou();
+              }}
+              onKeyDown={(e) => {
+                if (e.key === "Enter") gravarNomeSeMudou();
+              }}
+              // Sem isto nada dizia como salvar depois de mudar o nome (usuário, 16/09/2026).
+              // Sair do campo também salva; a dica mostra o gesto explícito.
+              sufixo={
+                <>
+                  <CornerDownLeft size={12} strokeWidth={1.5} />
+                  <span className="meta">Enter</span>
+                </>
+              }
+            />
+            <p className="text-pequeno text-tinta-media">
+              Aparece na saudação da tela de início.
+            </p>
+          </div>
+        </Secao>
         <Secao titulo="Tema">
           <GrupoBotoes
             rotuloGrupo="Tema"
@@ -204,7 +249,7 @@ function SecaoAgente({
         <p
           className={cn(
             "text-pequeno",
-            resultadoTeste === "Conexão funcionando." ? "text-musgo" : "text-bordo",
+            resultadoTeste === "Conexão funcionando." ? "text-cristal" : "text-bordo",
           )}
         >
           {resultadoTeste}

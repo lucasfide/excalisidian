@@ -5,18 +5,24 @@ vi.mock("@tauri-apps/plugin-process", () => ({
   relaunch: () => relaunchMock(),
 }));
 
-// O flush completo puxa documentosStore/tarefasStore (que usam `window` e plugins do
-// Tauri); aqui ele é simulado e controlado pelo teste.
+// O flush entre janelas puxa documentosStore/tarefasStore/getAllWebviewWindows (que usam
+// `window` e plugins do Tauri); aqui ele é simulado e controlado pelo teste.
 interface ResultadoFlushFalso {
   falhas: string[];
   bloqueados: string[];
   tarefasOk: boolean;
+  semResposta: string[];
 }
 const flushMock = vi.fn(
-  async (): Promise<ResultadoFlushFalso> => ({ falhas: [], bloqueados: [], tarefasOk: true }),
+  async (): Promise<ResultadoFlushFalso> => ({
+    falhas: [],
+    bloqueados: [],
+    tarefasOk: true,
+    semResposta: [],
+  }),
 );
-vi.mock("./flushGeral", () => ({
-  flusharTudoAntesDeSair: () => flushMock(),
+vi.mock("../app/flushEntreJanelas", () => ({
+  flusharTodasAsJanelas: () => flushMock(),
 }));
 
 const confirmarMock = vi.fn(async () => false);
@@ -31,7 +37,12 @@ const store = () => useAtualizacaoStore.getState();
 beforeEach(() => {
   relaunchMock.mockClear();
   flushMock.mockClear();
-  flushMock.mockImplementation(async () => ({ falhas: [], bloqueados: [], tarefasOk: true }));
+  flushMock.mockImplementation(async () => ({
+    falhas: [],
+    bloqueados: [],
+    tarefasOk: true,
+    semResposta: [],
+  }));
   confirmarMock.mockClear();
   confirmarMock.mockImplementation(async () => false);
   useAtualizacaoStore.setState({
@@ -151,6 +162,7 @@ describe("atualizacaoStore", () => {
       falhas: ["Nota.md"],
       bloqueados: [],
       tarefasOk: true,
+      semResposta: [],
     }));
     const download = vi.fn(async () => {});
     store().oferecer(updateFalso({ downloadAndInstall: download }));
@@ -168,6 +180,7 @@ describe("atualizacaoStore", () => {
       falhas: [],
       bloqueados: ["Nota.md"],
       tarefasOk: true,
+      semResposta: [],
     }));
     confirmarMock.mockImplementation(async () => true);
     const download = vi.fn(async () => {});
@@ -177,5 +190,23 @@ describe("atualizacaoStore", () => {
 
     expect(download).toHaveBeenCalledTimes(1);
     expect(relaunchMock).toHaveBeenCalledTimes(1);
+  });
+
+  // Regressão doc 12 §6: janela que não respondeu ao pedido de flush também conta como
+  // pendência — perder silenciosamente as edições dela seria pior que perguntar.
+  it("aplicar() com janela sem resposta pergunta antes de instalar", async () => {
+    flushMock.mockImplementation(async () => ({
+      falhas: [],
+      bloqueados: [],
+      tarefasOk: true,
+      semResposta: ["vault-sumiu"],
+    }));
+    const download = vi.fn(async () => {});
+    store().oferecer(updateFalso({ downloadAndInstall: download }));
+
+    await store().aplicar();
+
+    expect(confirmarMock).toHaveBeenCalledTimes(1);
+    expect(download).not.toHaveBeenCalled();
   });
 });

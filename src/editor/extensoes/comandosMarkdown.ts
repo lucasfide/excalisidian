@@ -5,6 +5,8 @@
 import { EditorSelection, type ChangeSpec } from "@codemirror/state";
 import type { Command, EditorView } from "@codemirror/view";
 
+import { focusTableCell } from "../atomico/table-widget";
+
 /**
  * Envolve a seleção com `marcador` (negrito, itálico, riscado, código, destaque). Toggle
  * robusto: cada ponta é checada de forma independente, cobrindo o caso em que o live preview
@@ -141,6 +143,56 @@ export function alternarListaNumerada(): Command {
       }
     }
     view.dispatch({ changes: mudancas, scrollIntoView: true });
+    return true;
+  };
+}
+
+// Foco em célula de tabela (doc 14 §2.2): a implementação mora no widget, que sabe achar a
+// tabela pela posição e esperar o DOM ser recriado depois do dispatch. Reexportada aqui porque
+// `tabelaMarkdown.ts` já importa daqui.
+export { focusTableCell };
+
+/**
+ * Insere uma tabela 2×1 (mais cabeçalho) na posição do cursor (doc 14 §1.1): linha vazia é
+ * substituída pela tabela; linha com texto ganha a tabela depois dela, separada por uma linha
+ * em branco. Sempre garante uma linha em branco depois da tabela (senão o parser GFM gruda o
+ * parágrafo seguinte nela). Uma transação só — um `Ctrl+Z` desfaz tudo. Foco vai para a célula
+ * "Coluna 1" com o texto selecionado, pronto pra digitar por cima.
+ */
+export function inserirTabela(): Command {
+  return (view) => {
+    if (view.state.readOnly) return false;
+
+    const sel = view.state.selection.main;
+    const linha = view.state.doc.lineAt(sel.from);
+    const linhaVaziaAtual = linha.text.length === 0;
+
+    const cabecalho = "| Coluna 1 | Coluna 2 |";
+    const delimitadora = "| --- | --- |";
+    const linhaVaziaNova = "|  |  |";
+    const tabela = `${cabecalho}\n${delimitadora}\n${linhaVaziaNova}`;
+
+    // Linha com texto: entra depois dela, com uma linha em branco separando as duas.
+    const prefixo = linhaVaziaAtual ? "" : "\n\n";
+    const ponto = linhaVaziaAtual ? linha.from : linha.to;
+    const tableFrom = ponto + prefixo.length;
+
+    // Depois da tabela precisa sobrar uma linha em branco — só falta acrescentar se o que já
+    // vem a seguir no documento não for, ela mesma, uma linha em branco.
+    const proximoNumero = linha.number + 1;
+    const jaTemLinhaEmBrancoDepois =
+      proximoNumero <= view.state.doc.lines &&
+      view.state.doc.line(proximoNumero).text.length === 0;
+    const sufixo = jaTemLinhaEmBrancoDepois ? "" : "\n";
+
+    view.dispatch({
+      changes: { from: ponto, to: ponto, insert: prefixo + tabela + sufixo },
+      selection: EditorSelection.cursor(tableFrom),
+      scrollIntoView: true,
+      userEvent: "input",
+    });
+
+    focusTableCell(view, tableFrom, -1, 0, { selectAll: true });
     return true;
   };
 }

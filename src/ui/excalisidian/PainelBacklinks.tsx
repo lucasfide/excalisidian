@@ -46,7 +46,7 @@ export default function PainelBacklinks() {
           <li key={origem} className="px-3 py-1">
             <button
               onClick={() => abrirArquivo(origem)}
-              className="text-[13px] text-musgo hover:underline"
+              className="text-[13px] text-cristal hover:underline"
             >
               {nomeCurto(origem)}
             </button>

@@ -1,5 +1,5 @@
 // Linha da árvore de arquivos (doc 06, inventário: `ItemArvore`). Recuo de 16px por nível;
-// o nível ativo ganha uma hairline vertical de 2px em `musgo` — a régua de margem em
+// o nível ativo ganha uma hairline vertical de 2px em `cristal` — a régua de margem em
 // miniatura. Cada nível de ancestral aberto ganha também uma linha guia de 1px em `regua`,
 // pra ficar visível qual pasta contém o quê (doc 06, "Na sidebar").
 
@@ -44,12 +44,12 @@ export default function ItemArvore({
         "transition-colors duration-[140ms] ease-caderno",
         destacado ? "bg-lavagem text-tinta" : "text-tinta-media hover:bg-lavagem",
         alvoDeArrasto &&
-          "bg-[color-mix(in_srgb,var(--color-musgo)_12%,transparent)] outline outline-1 outline-musgo -outline-offset-1",
+          "bg-[color-mix(in_srgb,var(--color-cristal)_12%,transparent)] outline outline-1 outline-cristal -outline-offset-1",
       )}
       style={{
         ...style,
         paddingLeft: 8 + nivel * 16,
-        boxShadow: destacado ? "inset 2px 0 0 0 var(--color-musgo)" : undefined,
+        boxShadow: destacado ? "inset 2px 0 0 0 var(--color-cristal)" : undefined,
       }}
     >
       {Array.from({ length: nivel }, (_, d) => (

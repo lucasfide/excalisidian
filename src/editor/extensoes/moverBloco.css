@@ -20,7 +20,7 @@
   position: fixed;
   display: none;
   height: 2px;
-  background: var(--color-musgo);
+  background: var(--color-cristal);
   border-radius: 1px;
   pointer-events: none;
   z-index: 40;

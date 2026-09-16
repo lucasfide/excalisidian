@@ -13,8 +13,11 @@ import {
   criarNota,
   criarDesenho,
   criarPasta,
+  duplicarArquivo,
   type ResultadoCriacao,
 } from "../../vault/criar";
+import { useDocumentosStore } from "../../estado/documentosStore";
+import { flusharCanvas } from "../../canvas/flushCanvas";
 import { renomearArquivo, SEM_TITULO } from "../../vault/renomear";
 
 /** "raiz" quando vazio, para o texto do diálogo não ficar com um buraco. */
@@ -59,6 +62,21 @@ export async function comandoNovaNota(dir = ""): Promise<void> {
   await concluir(await criarNota(SEM_TITULO, dir), true);
 }
 
+/** Busca unificada, item "Criar nota «consulta»" (doc 13 §1.3 item 3): cria com o nome já
+ * digitado, sempre na raiz (mesma regra dos botões da sidebar — não existe "pasta
+ * selecionada"), e abre. `aoLado` replica o Ctrl+Enter da busca (doc 13 §1.4) na aba nova. */
+export async function comandoCriarNotaComNome(
+  nome: string,
+  opcoes?: { aoLado?: boolean },
+): Promise<void> {
+  const r = await criarNota(nome, "");
+  if (!r.ok) {
+    toast.error(r.motivo);
+    return;
+  }
+  useWorkspaceStore.getState().abrirDocumento(r.caminho, { aoLado: opcoes?.aoLado });
+}
+
 export async function comandoNovoDesenho(dir = ""): Promise<void> {
   await concluir(await criarDesenho(SEM_TITULO, dir), true);
 }
@@ -87,4 +105,23 @@ export async function comandoRenomear(path: string): Promise<void> {
 
   const r = await renomearArquivo(path, novo);
   if (!r.ok) toast.error(r.motivo ?? "Não foi possível renomear.");
+}
+
+/** Menu da aba, "Duplicar": a cópia sai do que está NA TELA, não do último autosave — por isso
+ * drena canvas e documento antes de ler o arquivo (mesma ordem do fechamento de aba, achado 05
+ * da auditoria de 12/09). Abre a cópia numa aba nova. */
+export async function comandoDuplicar(path: string): Promise<void> {
+  if (useDocumentosStore.getState().docs.has(path)) {
+    await flusharCanvas(path);
+    const resultado = await useDocumentosStore.getState().salvarAteDrenar(path);
+    if (resultado !== "salvo") {
+      toast.error("Não foi possível duplicar: salve ou resolva as alterações desta nota antes.");
+      return;
+    }
+  }
+  try {
+    await concluir(await duplicarArquivo(path), true);
+  } catch {
+    toast.error("Não foi possível duplicar.");
+  }
 }

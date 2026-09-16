@@ -15,6 +15,11 @@ import { useSyncExternalStore } from "react";
 export interface PaletaCanvas {
   /** Cor dos pontos da grade de fundo. */
   grade: string;
+  /** Cor de traço para cenas geradas pelo app (desenho de exemplo do onboarding, doc 15):
+   * a tinta do tema CLARO, sempre. O escuro do canvas é o filtro de inversão do Excalidraw
+   * sobre as cores gravadas na cena — gravar a tinta do tema escuro (clara) viraria traço
+   * escuro sobre fundo escuro depois da inversão. */
+  traco: string;
 }
 
 function lerToken(nome: string): string {
@@ -22,8 +27,44 @@ function lerToken(nome: string): string {
   return getComputedStyle(document.documentElement).getPropertyValue(`--color-${nome}`).trim();
 }
 
+/** Valor do token no tema claro, lido da regra `:root` das folhas de estilo (onde o `@theme`
+ * do Tailwind declara os tokens) — o `getComputedStyle` devolveria o do tema ativo. Cai no
+ * valor computado se não achar (folha de outra origem, ambiente sem CSSOM). */
+function lerTokenTemaClaro(nome: string): string {
+  const prop = `--color-${nome}`;
+  if (typeof document === "undefined") return "";
+  for (const folha of Array.from(document.styleSheets)) {
+    let regras: CSSRuleList;
+    try {
+      regras = folha.cssRules;
+    } catch {
+      continue;
+    }
+    const valor = procurarEmRoot(regras, prop);
+    if (valor) return valor;
+  }
+  return lerToken(nome);
+}
+
+function procurarEmRoot(regras: CSSRuleList, prop: string): string {
+  for (const regra of Array.from(regras)) {
+    // `@layer theme { :root, :host { … } }`: desce nas regras agrupadas.
+    if ("cssRules" in regra && !(regra instanceof CSSStyleRule)) {
+      const valor = procurarEmRoot((regra as CSSGroupingRule).cssRules, prop);
+      if (valor) return valor;
+      continue;
+    }
+    if (!(regra instanceof CSSStyleRule)) continue;
+    const seletor = regra.selectorText;
+    if (!seletor.includes(":root") || seletor.includes(".dark")) continue;
+    const valor = regra.style.getPropertyValue(prop).trim();
+    if (valor) return valor;
+  }
+  return "";
+}
+
 export function lerPaletaCanvas(): PaletaCanvas {
-  return { grade: lerToken("regua") };
+  return { grade: lerToken("regua"), traco: lerTokenTemaClaro("tinta") };
 }
 
 /** true quando o tema escuro está ativo (classe `dark` no <html>, alternada por App.tsx). */

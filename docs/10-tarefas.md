@@ -307,7 +307,7 @@ HTML5 drag-and-drop — o projeto já apanhou disso duas vezes (doc 09 ADR-18; d
 de `dndStrategy="pointer"`; `ArvoreArquivos` e `moverBloco` arrastam assim). Reaproveitar o
 padrão de `moverBloco.ts`.
 
-- Durante o arrasto, uma linha-alvo de 1px em `musgo` marca onde a tarefa vai cair (igual
+- Durante o arrasto, uma linha-alvo de 1px em `cristal` marca onde a tarefa vai cair (igual
   `cm-linha-soltura` do editor).
 - Soltar **na mesma seção**, em outra posição: só recalcula `ordem` (§2.1).
 - Soltar **em outra seção**: recalcula `vencimento` (§3.3) e `ordem` (posição onde soltou).

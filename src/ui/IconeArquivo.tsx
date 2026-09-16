@@ -1,6 +1,6 @@
 // Mapa tipo de arquivo → ícone (doc 06, seção Ícones: traço 1.5, 16px em linha de árvore e
-// menu). Fonte única — a árvore, o quick switcher, a busca e a lixeira precisam concordar
-// sobre o ícone de cada tipo.
+// menu). Fonte única — a árvore, a busca unificada e a lixeira precisam concordar sobre o
+// ícone de cada tipo.
 
 import {
   FileText,

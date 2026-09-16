@@ -28,7 +28,9 @@ pub struct EntradaArquivo {
 
 /// Concede a este processo acesso de leitura e escrita a uma pasta.
 /// NÃO persiste entre execuções: precisa ser chamado a cada boot, com o caminho salvo.
-fn conceder_escopo(app: &AppHandle, path: &str) -> Result<(), String> {
+/// `pub(crate)` porque `janelas.rs` reaproveita (abrir janela nova e criar vault também
+/// precisam do escopo, e duplicar a chamada ao plugin de FS não tem vantagem nenhuma).
+pub(crate) fn conceder_escopo(app: &AppHandle, path: &str) -> Result<(), String> {
     app.fs_scope()
         .allow_directory(path, true)
         .map_err(|e| e.to_string())

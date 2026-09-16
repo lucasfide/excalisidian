@@ -13,7 +13,7 @@ interface Props extends Omit<ButtonHTMLAttributes<HTMLButtonElement>, "title"> {
   Icone: LucideIcon;
   titulo: string;
   tamanho?: TamanhoBotaoIcone;
-  /** Ferramenta selecionada: fundo `musgo`, ícone em `superficie` (doc 06, toolbar). */
+  /** Ferramenta selecionada: fundo `cristal`, ícone em `superficie` (doc 06, toolbar). */
   ativo?: boolean;
 }
 
@@ -39,7 +39,7 @@ export default function BotaoIcone({
         "disabled:pointer-events-none disabled:opacity-50",
         grande ? "h-8 w-8" : "h-4 w-4",
         ativo
-          ? "bg-musgo text-superficie"
+          ? "bg-cristal text-superficie"
           : "text-tinta-media hover:bg-lavagem hover:text-tinta",
         className,
       )}

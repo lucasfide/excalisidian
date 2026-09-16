@@ -16,8 +16,17 @@ import { hashVault } from "../indice/cache";
 import { lerFrontmatter } from "../indice/frontmatter";
 import { parseDesenho } from "../canvas/formatoDesenho";
 import { tipoDoArquivo } from "../vault/arvore";
+import { dobrar } from "./normalizacao";
 
-const VERSAO_INDICE = 1;
+// Sobe quando o formato do índice persistido muda de um jeito que exige reconstrução (doc
+// 13 §2.1): a v2 troca o `processTerm` padrão do MiniSearch (toLowerCase) por `dobrar`
+// (sem acento), então um índice v1 salvo em disco tem termos com acento e não bate mais
+// com a consulta dobrada — precisa reindexar do zero.
+const VERSAO_INDICE = 2;
+/** Tamanho mínimo do termo pra entrar em busca fuzzy — termo curto com erro de digitação
+ * vira outra palavra válida com muita facilidade (ex.: "de" -> "se"), fuzzy só compensa a
+ * partir de um termo com corpo. */
+const TAMANHO_MINIMO_FUZZY = 5;
 /** Quantos candidatos o MiniSearch devolve antes do filtro de frase/exclusão e dos trechos. */
 const LIMITE_CANDIDATOS = 40;
 /** Máximo de arquivos no resultado. */
@@ -53,7 +62,18 @@ function opcoesMini() {
   return {
     fields: ["titulo", "corpo"],
     storeFields: ["path", "titulo", "kind"],
-    searchOptions: { boost: { titulo: 2 } },
+    // `dobrar` no lugar do toLowerCase padrão: indexa e consulta sem acento (doc 13 §2.1,
+    // problema 2 — "reuniao" tem que achar "Reunião"). É a mesma função usada em
+    // parsearConsulta/buscaTitulos, então título e conteúdo casam pela mesma regra.
+    processTerm: dobrar,
+    searchOptions: {
+      boost: { titulo: 2 },
+      // Prefixo: "proj" acha "Projeto" (problema 3). Fuzzy só para termo com corpo
+      // (ver TAMANHO_MINIMO_FUZZY) — em termo curto o ruído de falsos positivos supera o
+      // ganho de tolerância a erro de digitação.
+      prefix: true,
+      fuzzy: (termo: string) => (termo.length >= TAMANHO_MINIMO_FUZZY ? 0.2 : false),
+    },
   };
 }
 
@@ -223,16 +243,16 @@ export function parsearConsulta(consulta: string): ConsultaBusca {
   let m: RegExpExecArray | null;
   while ((m = re.exec(consulta)) !== null) {
     if (m[1] !== undefined) {
-      const frase = m[1].trim().toLowerCase();
+      const frase = dobrar(m[1].trim());
       if (frase) {
         frases.push(frase);
         termos.push(...frase.split(/\s+/));
       }
     } else if (m[2] !== undefined) {
-      const t = m[2].slice(1).toLowerCase();
+      const t = dobrar(m[2].slice(1));
       if (t) excluidos.push(t);
     } else if (m[3] !== undefined) {
-      const t = m[3].toLowerCase();
+      const t = dobrar(m[3]);
       if (t && t !== "-") termos.push(t);
     }
   }
@@ -244,6 +264,9 @@ export interface TrechoBusca {
    * o número bate com o arquivo; no desenho, o texto extraído). */
   linha: number;
   trecho: string;
+  /** Linha inteira, sem recorte nem "…" — usada pelo `revealText` do editor (doc 13 §1.5),
+   * que precisa da linha completa pra achar e revelar, não do trecho recortado pra exibição. */
+  linhaCompleta: string;
 }
 
 export interface ResultadoConteudo {
@@ -254,15 +277,23 @@ export interface ResultadoConteudo {
 }
 
 /** Busca e monta os resultados com trechos. `lerTexto` vem do adapter do vault: só os
- * candidatos são lidos, para filtrar frase/exclusão e recortar os trechos. */
+ * candidatos são lidos, para filtrar frase/exclusão e recortar os trechos.
+ *
+ * `combinar` decide se os termos soltos (fora de frase/exclusão) precisam TODOS aparecer
+ * ("AND", doc 13 §1.3: "reunião time" só traz nota com as duas palavras) ou se BASTA um
+ * ("OR", padrão). O padrão continua "OR" porque `src/agente/recuperacao.ts` chama esta
+ * função com uma lista de palavras-chave livres do diff — ali "um dos termos aparece" é o
+ * comportamento certo, e mudar o padrão quebraria a recuperação do agente sem ele pedir
+ * nada diferente. A UI da busca unificada passa `{ combinar: "AND" }` explicitamente. */
 export async function buscarConteudo(
   consulta: string,
   lerTexto: (path: string) => Promise<string>,
+  opcoes?: { combinar?: "AND" | "OR" },
 ): Promise<ResultadoConteudo[]> {
   const { termos, frases, excluidos } = parsearConsulta(consulta);
   if (!mini || termos.length === 0) return [];
   const brutos = mini
-    .search(termos.join(" "))
+    .search(termos.join(" "), { combineWith: opcoes?.combinar ?? "OR" })
     .slice(0, LIMITE_CANDIDATOS) as ResultadoBruto[];
 
   const resultados: ResultadoConteudo[] = [];
@@ -275,8 +306,8 @@ export async function buscarConteudo(
       continue; // sumiu do disco desde a indexação
     }
     const corpo = textoParaBusca(r.path, texto);
-    const buscavel = corpo.toLowerCase();
-    const tituloMin = r.titulo.toLowerCase();
+    const buscavel = dobrar(corpo);
+    const tituloMin = dobrar(r.titulo);
     if (frases.some((f) => !buscavel.includes(f) && !tituloMin.includes(f))) continue;
     if (excluidos.some((t) => buscavel.includes(t) || tituloMin.includes(t))) continue;
     // Trechos saem do texto original nas notas (número de linha bate com o arquivo);
@@ -297,27 +328,35 @@ export function montarTrechos(
   termos: string[],
   frases: string[],
 ): TrechoBusca[] {
-  const agulhas = [...frases, ...termos].filter((a) => a.length > 0);
+  // `dobrar` nas agulhas é defensivo (parsearConsulta já entrega tudo dobrado) — mantém
+  // a função correta se for chamada direto com termos "crus", como faz o teste dela.
+  const agulhas = [...frases, ...termos].map(dobrar).filter((a) => a.length > 0);
   if (agulhas.length === 0) return [];
   const linhas = texto.split("\n");
   const trechos: TrechoBusca[] = [];
   for (let i = 0; i < linhas.length && trechos.length < TRECHOS_POR_ARQUIVO; i++) {
     const linha = linhas[i];
-    const min = linha.toLowerCase();
-    if (!agulhas.some((a) => min.includes(a))) continue;
-    trechos.push({ linha: i + 1, trecho: recortarLinha(linha, agulhas) });
+    // `dobrar` preserva o comprimento em UTF-16 (texto NFC): a posição achada aqui é a
+    // mesma posição no `linha` original, por isso o recorte abaixo pode indexar `linha`
+    // diretamente com a posição encontrada no texto dobrado.
+    const dobrada = dobrar(linha);
+    if (!agulhas.some((a) => dobrada.includes(a))) continue;
+    trechos.push({
+      linha: i + 1,
+      trecho: recortarLinha(linha, dobrada, agulhas),
+      linhaCompleta: linha,
+    });
   }
   return trechos;
 }
 
 const LARGURA_TRECHO = 140;
 
-function recortarLinha(linha: string, agulhas: string[]): string {
+function recortarLinha(linha: string, dobrada: string, agulhas: string[]): string {
   if (linha.length <= LARGURA_TRECHO) return linha;
-  const min = linha.toLowerCase();
   let pos = -1;
   for (const a of agulhas) {
-    const p = min.indexOf(a);
+    const p = dobrada.indexOf(a);
     if (p >= 0 && (pos < 0 || p < pos)) pos = p;
   }
   if (pos < 0) return `${linha.slice(0, LARGURA_TRECHO)}…`;
@@ -332,23 +371,64 @@ export interface ParteDestaque {
 }
 
 /** Divide um trecho em partes marcando as ocorrências dos termos — a UI renderiza as
- * marcadas com o realce de busca (mesma cor do search do editor, `ocre` a 30%). */
+ * marcadas com o realce de busca (mesma cor do search do editor, `ocre` a 30%).
+ *
+ * O destaque sai do texto ORIGINAL (com acento): a busca é feita em `dobrar(trecho)`, que
+ * preserva o comprimento em UTF-16 do trecho original (NFC), então a posição de cada
+ * ocorrência encontrada no texto dobrado vale também no texto original — dá pra recortar
+ * `trecho` direto com esses índices em vez de casar regex contra o texto acentuado.
+ *
+ * Com prefixo (ex.: consulta "proj"), destaca só o trecho que casou — "Proj" dentro de
+ * "Projeto" — e não a palavra inteira. Escolha: destacar a palavra inteira exigiria achar
+ * limite de palavra (e decidir o que é "palavra" em nomes com hífen/underscore, que o
+ * resto da base não define), enquanto destacar exatamente o que casou é o que as outras
+ * funções desta tarefa já fazem (frase exata, termo, exclusão) — consistência com o
+ * restante do destaque valeu mais que marcar a palavra toda por um prefixo parcial. */
 export function partesComDestaque(
   trecho: string,
   termos: string[],
   frases: string[],
 ): ParteDestaque[] {
+  // `dobrar` é defensivo aqui pelo mesmo motivo de `montarTrechos`: os chamadores reais já
+  // mandam tudo dobrado, mas a função fica correta mesmo chamada com termos "crus".
   const agulhas = [...frases, ...termos]
+    .map(dobrar)
     .filter((a) => a.length > 0)
-    .sort((a, b) => b.length - a.length);
+    .sort((a, b) => b.length - a.length); // agulha mais longa primeiro cobre a mais curta
   if (agulhas.length === 0) return [{ texto: trecho, destaque: false }];
-  const escapar = (s: string) => s.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
-  const re = new RegExp(`(${agulhas.map(escapar).join("|")})`, "gi");
-  return trecho
-    .split(re)
-    .filter((p) => p !== "")
-    .map((p) => ({
-      texto: p,
-      destaque: agulhas.some((a) => p.toLowerCase() === a),
-    }));
+
+  const dobrado = dobrar(trecho);
+  const ocorrencias: { inicio: number; fim: number }[] = [];
+  for (const agulha of agulhas) {
+    let pos = 0;
+    let i: number;
+    while ((i = dobrado.indexOf(agulha, pos)) >= 0) {
+      ocorrencias.push({ inicio: i, fim: i + agulha.length });
+      pos = i + 1; // avança 1 (não `agulha.length`) pra não perder ocorrências sobrepostas
+    }
+  }
+  if (ocorrencias.length === 0) return [{ texto: trecho, destaque: false }];
+
+  // Mescla ocorrências sobrepostas/adjacentes (ex.: termo e frase que se cruzam) pra não
+  // fatiar o mesmo trecho em duas marcações.
+  ocorrencias.sort((a, b) => a.inicio - b.inicio || b.fim - a.fim);
+  const mescladas: { inicio: number; fim: number }[] = [];
+  for (const oc of ocorrencias) {
+    const ultima = mescladas[mescladas.length - 1];
+    if (ultima && oc.inicio <= ultima.fim) {
+      ultima.fim = Math.max(ultima.fim, oc.fim);
+    } else {
+      mescladas.push({ ...oc });
+    }
+  }
+
+  const partes: ParteDestaque[] = [];
+  let cursor = 0;
+  for (const { inicio, fim } of mescladas) {
+    if (inicio > cursor) partes.push({ texto: trecho.slice(cursor, inicio), destaque: false });
+    partes.push({ texto: trecho.slice(inicio, fim), destaque: true });
+    cursor = fim;
+  }
+  if (cursor < trecho.length) partes.push({ texto: trecho.slice(cursor), destaque: false });
+  return partes;
 }

@@ -14,14 +14,21 @@ vi.mock("@tauri-apps/plugin-store", () => ({
   }),
 }));
 
+const emitMock = vi.fn(async (..._args: unknown[]) => {});
+vi.mock("@tauri-apps/api/event", () => ({
+  emit: (...args: unknown[]) => emitMock(...args),
+}));
+
 import { usePrefsStore } from "./prefsStore";
 
 beforeEach(() => {
   armazenado.clear();
+  emitMock.mockClear();
   usePrefsStore.setState({
     tema: "sistema",
     larguraNota: "media",
     sidebarColapsada: false,
+    nomeUsuario: null,
     carregado: false,
   });
 });
@@ -45,6 +52,9 @@ describe("prefsStore", () => {
     usePrefsStore.setState({ tema: "sistema", carregado: false });
     await usePrefsStore.getState().carregar();
     expect(usePrefsStore.getState().tema).toBe("escuro");
+
+    // Doc 12 §6: outras janelas precisam saber que o tema mudou.
+    expect(emitMock).toHaveBeenCalledWith("app://prefs-mudou");
   });
 
   it("ignora um valor salvo inválido, mantendo o padrão", async () => {
@@ -63,6 +73,7 @@ describe("prefsStore", () => {
     usePrefsStore.setState({ larguraNota: "media", carregado: false });
     await usePrefsStore.getState().carregar();
     expect(usePrefsStore.getState().larguraNota).toBe("full");
+    expect(emitMock).toHaveBeenCalledWith("app://prefs-mudou");
 
     armazenado.set("larguraNota", "gigante");
     usePrefsStore.setState({ larguraNota: "media", carregado: false });
@@ -81,5 +92,53 @@ describe("prefsStore", () => {
     usePrefsStore.setState({ sidebarColapsada: false, carregado: false });
     await usePrefsStore.getState().carregar();
     expect(usePrefsStore.getState().sidebarColapsada).toBe(true);
+
+    // Doc 04 §5.1 e doc 12 §6 listam sidebar colapsada entre as preferências compartilhadas.
+    expect(emitMock).toHaveBeenCalledWith("app://prefs-mudou");
+  });
+
+  describe("nomeUsuario", () => {
+    it("carrega null quando nada foi salvo (nunca informado)", async () => {
+      await usePrefsStore.getState().carregar();
+      expect(usePrefsStore.getState().nomeUsuario).toBeNull();
+    });
+
+    it("carrega a string salva, incluindo vazia (informado, sem nome)", async () => {
+      armazenado.set("nomeUsuario", "Lucas");
+      await usePrefsStore.getState().carregar();
+      expect(usePrefsStore.getState().nomeUsuario).toBe("Lucas");
+
+      armazenado.set("nomeUsuario", "");
+      usePrefsStore.setState({ nomeUsuario: null, carregado: false });
+      await usePrefsStore.getState().carregar();
+      expect(usePrefsStore.getState().nomeUsuario).toBe("");
+    });
+
+    it("trata valor salvo que não é string como nunca informado", async () => {
+      armazenado.set("nomeUsuario", 42);
+      await usePrefsStore.getState().carregar();
+      expect(usePrefsStore.getState().nomeUsuario).toBeNull();
+    });
+
+    it("definirNomeUsuario aplica na hora, corta espaços e persiste; emite prefs-mudou", async () => {
+      usePrefsStore.getState().definirNomeUsuario("  Lucas  ");
+      expect(usePrefsStore.getState().nomeUsuario).toBe("Lucas");
+      await new Promise((r) => setTimeout(r, 0));
+
+      usePrefsStore.setState({ nomeUsuario: null, carregado: false });
+      await usePrefsStore.getState().carregar();
+      expect(usePrefsStore.getState().nomeUsuario).toBe("Lucas");
+      expect(emitMock).toHaveBeenCalledWith("app://prefs-mudou");
+    });
+
+    it("definirNomeUsuario com string vazia grava '' (informado, sem nome), não null", async () => {
+      usePrefsStore.getState().definirNomeUsuario("   ");
+      expect(usePrefsStore.getState().nomeUsuario).toBe("");
+      await new Promise((r) => setTimeout(r, 0));
+
+      usePrefsStore.setState({ nomeUsuario: null, carregado: false });
+      await usePrefsStore.getState().carregar();
+      expect(usePrefsStore.getState().nomeUsuario).toBe("");
+    });
   });
 });

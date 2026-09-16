@@ -257,7 +257,7 @@ export default function ArvoreArquivos({
           style={{ height: ALTURA_RAIZ }}
           className={cn(
             "flex items-center gap-2 border-t border-regua px-3 text-[12px] text-tinta-suave",
-            arraste.alvo === "" && "bg-[color-mix(in_srgb,var(--color-musgo)_12%,transparent)]",
+            arraste.alvo === "" && "bg-[color-mix(in_srgb,var(--color-cristal)_12%,transparent)]",
           )}
         >
           <Home size={14} strokeWidth={1.5} />

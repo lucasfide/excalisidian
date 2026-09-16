@@ -85,7 +85,7 @@ export default function NovaTarefaInline({ secao, hoje }: Props) {
       onKeyDown={aoTeclar}
       onBlur={aoBlur}
       placeholder="Escreva o título e tecle Enter"
-      className="mt-1 w-full rounded-controle border border-regua-forte bg-papel px-2 py-1 text-[13px] text-tinta placeholder:text-tinta-suave focus:border-musgo focus:outline-none"
+      className="mt-1 w-full rounded-controle border border-regua-forte bg-papel px-2 py-1 text-[13px] text-tinta placeholder:text-tinta-suave focus:border-cristal focus:outline-none"
     />
   );
 }

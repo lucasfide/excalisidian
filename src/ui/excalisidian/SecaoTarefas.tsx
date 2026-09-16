@@ -1,7 +1,7 @@
 // Uma seção do painel de tarefas (doc 10 §4.2): cabeçalho com nome + intervalo (quando é
 // semana) + contador, e a lista de linhas. `permiteNova` liga o campo "Nova tarefa" no fim
 // da lista. O arraste (doc 10 §5.2) entra aqui como alvo de soltura: a `<section>` carrega
-// `data-secao` e cada linha carrega `data-tarefa-id`, e uma linha de 1px em `bg-musgo` marca
+// `data-secao` e cada linha carrega `data-tarefa-id`, e uma linha de 1px em `bg-cristal` marca
 // onde a tarefa vai cair.
 
 import type { ReactNode } from "react";
@@ -91,7 +91,7 @@ export default function SecaoTarefas({
   const indiceLinha = mostrarLinha ? arrasto!.alvo!.indice : -1;
 
   const linhaIndicadora = (chave: string) => (
-    <div key={chave} className="pointer-events-none h-px bg-musgo" data-linha-soltura="" />
+    <div key={chave} className="pointer-events-none h-px bg-cristal" data-linha-soltura="" />
   );
 
   return (

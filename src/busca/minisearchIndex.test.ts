@@ -200,6 +200,80 @@ describe("buscarConteudo", () => {
   });
 });
 
+describe("busca sem acento, com prefixo e combinando termos (doc 13 §2.1)", () => {
+  it("acento: 'reuniao' acha 'Reunião'", async () => {
+    const disco = new Map([["A.md", "Pauta da reunião de hoje.\n"]]);
+    atualizarDocumentoBusca("A.md", disco.get("A.md")!, 1, 10);
+
+    const resultados = await buscarConteudo("reuniao", leitor(disco));
+
+    expect(resultados.map((r) => r.path)).toEqual(["A.md"]);
+  });
+
+  it("prefixo: 'proj' acha 'Projeto'", async () => {
+    const disco = new Map([["A.md", "Projeto novo começou hoje.\n"]]);
+    atualizarDocumentoBusca("A.md", disco.get("A.md")!, 1, 10);
+
+    const resultados = await buscarConteudo("proj", leitor(disco));
+
+    expect(resultados.map((r) => r.path)).toEqual(["A.md"]);
+  });
+
+  it("padrão OR: um dos termos já basta (recuperacao.ts depende disto)", async () => {
+    const disco = new Map([
+      ["A.md", "so alfa aqui\n"],
+      ["B.md", "so beta aqui\n"],
+      ["C.md", "nem um nem outro\n"],
+    ]);
+    atualizarDocumentoBusca("A.md", disco.get("A.md")!, 1, 10);
+    atualizarDocumentoBusca("B.md", disco.get("B.md")!, 1, 10);
+    atualizarDocumentoBusca("C.md", disco.get("C.md")!, 1, 10);
+
+    const resultados = await buscarConteudo("alfa beta", leitor(disco));
+
+    expect(resultados.map((r) => r.path).sort()).toEqual(["A.md", "B.md"]);
+  });
+
+  it("combinar 'AND': só o arquivo com os dois termos", async () => {
+    const disco = new Map([
+      ["A.md", "so alfa aqui\n"],
+      ["B.md", "alfa e beta juntos\n"],
+    ]);
+    atualizarDocumentoBusca("A.md", disco.get("A.md")!, 1, 10);
+    atualizarDocumentoBusca("B.md", disco.get("B.md")!, 1, 10);
+
+    const resultados = await buscarConteudo("alfa beta", leitor(disco), { combinar: "AND" });
+
+    expect(resultados.map((r) => r.path)).toEqual(["B.md"]);
+  });
+
+  it("frase exata com acento: só casa a sequência contígua acentuada", async () => {
+    const disco = new Map([
+      ["A.md", "A reunião de segunda foi cancelada.\n"],
+      ["B.md", "A reunião marcada para segunda.\n"],
+    ]);
+    atualizarDocumentoBusca("A.md", disco.get("A.md")!, 1, 10);
+    atualizarDocumentoBusca("B.md", disco.get("B.md")!, 1, 10);
+
+    const resultados = await buscarConteudo('"reuniao de segunda"', leitor(disco));
+
+    expect(resultados.map((r) => r.path)).toEqual(["A.md"]);
+  });
+
+  it("exclusão com acento: '-adiada' exclui mesmo escrito sem acento na nota", async () => {
+    const disco = new Map([
+      ["A.md", "reunião urgente\n"],
+      ["B.md", "reunião adiáda\n"],
+    ]);
+    atualizarDocumentoBusca("A.md", disco.get("A.md")!, 1, 10);
+    atualizarDocumentoBusca("B.md", disco.get("B.md")!, 1, 10);
+
+    const resultados = await buscarConteudo("reuniao -adiada", leitor(disco));
+
+    expect(resultados.map((r) => r.path)).toEqual(["A.md"]);
+  });
+});
+
 describe("manutenção do índice", () => {
   it("removerDocumentoBusca tira o arquivo dos resultados", async () => {
     const disco = new Map([["A.md", "orcamento secreto\n"]]);
@@ -294,5 +368,18 @@ describe("montarTrechos e partesComDestaque", () => {
     const partes = partesComDestaque("O Orcamento de 2026", ["orcamento"], []);
     expect(partes.map((p) => p.texto).join("")).toBe("O Orcamento de 2026");
     expect(partes.filter((p) => p.destaque).map((p) => p.texto)).toEqual(["Orcamento"]);
+  });
+
+  it("partesComDestaque acha pelo termo sem acento mas destaca o texto ORIGINAL com acento", () => {
+    const partes = partesComDestaque("A Reunião de hoje", ["reuniao"], []);
+    expect(partes.map((p) => p.texto).join("")).toBe("A Reunião de hoje");
+    expect(partes.filter((p) => p.destaque).map((p) => p.texto)).toEqual(["Reunião"]);
+  });
+
+  it("linhaCompleta vem sem recorte nem reticências, mesmo em linha longa", () => {
+    const linha = `${"x".repeat(200)} orcamento ${"y".repeat(200)}`;
+    const [trecho] = montarTrechos(linha, ["orcamento"], []);
+    expect(trecho.linhaCompleta).toBe(linha);
+    expect(trecho.trecho.length).toBeLessThan(trecho.linhaCompleta.length);
   });
 });

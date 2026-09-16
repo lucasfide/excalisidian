@@ -3,7 +3,7 @@
 // O watcher (observar) entra na Fatia 5. Escrita passa sempre por escritaAtomica.ts.
 
 import { invoke } from "@tauri-apps/api/core";
-import { listen } from "@tauri-apps/api/event";
+import { getCurrentWebviewWindow } from "@tauri-apps/api/webviewWindow";
 import { open } from "@tauri-apps/plugin-dialog";
 import {
   readTextFile,
@@ -25,6 +25,7 @@ import {
   escreverTextoAtomico,
   escreverBinarioAtomico,
 } from "./escritaAtomica";
+import { registrarAbertura } from "./vaultsRecentes";
 
 const CHAVE_VAULT = "vaultPath";
 
@@ -47,26 +48,40 @@ export class TauriVaultAdapter implements VaultAdapter {
   }
 
   /**
-   * Boot: se há um vault salvo, reaplica o escopo de FS (não persiste entre execuções)
-   * e devolve o adapter pronto. Se não há, devolve null — a UI pede a pasta.
+   * Boot: se a URL da janela tem `?vault=`, usa esse caminho (janela nova de
+   * `abrir_janela_vault`, doc 12 §1); senão usa o último vault salvo (`vaultPath`, RF1.2).
+   * Reaplica o escopo de FS (não persiste entre execuções) e devolve o adapter pronto. Se não
+   * há nenhum dos dois, devolve null — a UI pede a pasta.
    */
   static async doBoot(): Promise<TauriVaultAdapter | null> {
-    const store = await load("settings.json", { autoSave: false });
-    const salvo = await store.get<string>(CHAVE_VAULT);
-    if (!salvo) return null;
-    await invoke("permitir_vault", { path: salvo });
-    return new TauriVaultAdapter(salvo);
+    const daUrl = new URLSearchParams(window.location.search).get("vault");
+    let caminho = daUrl ?? undefined;
+    if (!caminho) {
+      const store = await load("settings.json", { autoSave: false });
+      caminho = (await store.get<string>(CHAVE_VAULT)) ?? undefined;
+    }
+    if (!caminho) return null;
+    await invoke("permitir_vault", { path: caminho });
+    return new TauriVaultAdapter(caminho);
   }
 
-  /** Abre o diálogo de pasta, concede o escopo, salva o caminho e devolve o adapter. */
+  /**
+   * Concede o escopo de FS pra `caminho` e devolve o adapter, sem mexer em recentes nem em
+   * `vaultPath` — usado pela tela sem vault pra abrir na própria janela; quem chama decide se
+   * registra (via `abrirNestaJanela`).
+   */
+  static async abrir(caminho: string): Promise<TauriVaultAdapter> {
+    await invoke("permitir_vault", { path: caminho });
+    return new TauriVaultAdapter(caminho);
+  }
+
+  /** Abre o diálogo de pasta, concede o escopo, registra a abertura e devolve o adapter. */
   static async escolher(): Promise<TauriVaultAdapter | null> {
     // O diálogo do Tauri v2 não concede escopo de FS; quem concede é o comando Rust.
     const escolhido = await open({ directory: true, multiple: false });
     if (typeof escolhido !== "string") return null;
     await invoke("permitir_vault", { path: escolhido });
-    const store = await load("settings.json", { autoSave: false });
-    await store.set(CHAVE_VAULT, escolhido);
-    await store.save();
+    await registrarAbertura(escolhido);
     return new TauriVaultAdapter(escolhido);
   }
 
@@ -124,23 +139,32 @@ export class TauriVaultAdapter implements VaultAdapter {
   observar(cb: (eventos: EventoArquivo[]) => void): () => void {
     let cancelar = () => {};
     void invoke("observar_vault", { path: this.caminhoRaiz }).catch(() => {});
-    void listen<EventoArquivo[]>("vault://eventos", (e) => {
-      const norm = e.payload.map((ev) => ({
-        ...ev,
-        path: ev.path.normalize("NFC"),
-      }));
-      cb(norm);
-    }).then((un) => {
-      cancelar = un;
-    });
+    // getCurrentWebviewWindow().listen registra com target { kind: "WebviewWindow", label },
+    // que o backend do plugin-event só entrega a eventos emitidos com emit_to(label, …) pra
+    // esse label — o `listen` global de @tauri-apps/api/event usa target "Any" e receberia os
+    // eventos de vault de TODAS as janelas (doc 12 §2, watcher por janela).
+    void getCurrentWebviewWindow()
+      .listen<EventoArquivo[]>("vault://eventos", (e) => {
+        const norm = e.payload.map((ev) => ({
+          ...ev,
+          path: ev.path.normalize("NFC"),
+        }));
+        cb(norm);
+      })
+      .then((un) => {
+        cancelar = un;
+      });
     return () => cancelar();
   }
 
   aoPerderSincronia(cb: () => void): () => void {
     let cancelar = () => {};
-    void listen("vault://ressincronizar", () => cb()).then((un) => {
-      cancelar = un;
-    });
+    // Mesmo motivo do `observar`: só o evento desta janela.
+    void getCurrentWebviewWindow()
+      .listen("vault://ressincronizar", () => cb())
+      .then((un) => {
+        cancelar = un;
+      });
     return () => cancelar();
   }
 }

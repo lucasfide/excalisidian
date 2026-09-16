@@ -25,16 +25,16 @@
   --dv-paneview-header-border-color: var(--color-regua);
 
   --dv-sash-color: transparent;
-  --dv-active-sash-color: var(--color-musgo);
+  --dv-active-sash-color: var(--color-cristal);
 
-  --dv-drag-over-background-color: color-mix(in srgb, var(--color-musgo) 12%, transparent);
-  --dv-drag-over-border-color: var(--color-musgo);
-  --dv-edge-dock-indicator-color: var(--color-musgo);
-  --dv-dnd-compass-color: var(--color-musgo);
+  --dv-drag-over-background-color: color-mix(in srgb, var(--color-cristal) 12%, transparent);
+  --dv-drag-over-border-color: var(--color-cristal);
+  --dv-edge-dock-indicator-color: var(--color-cristal);
+  --dv-dnd-compass-color: var(--color-cristal);
   --dv-dnd-compass-cell-color: var(--color-superficie);
-  --dv-dnd-compass-active-cell-color: var(--color-musgo);
+  --dv-dnd-compass-active-cell-color: var(--color-cristal);
   --dv-dnd-compass-edge-cell-color: var(--color-lavagem);
-  --dv-smart-guides-color: var(--color-musgo);
+  --dv-smart-guides-color: var(--color-cristal);
 
   --dv-icon-hover-background-color: var(--color-lavagem);
   --dv-context-menu-background-color: var(--color-superficie);
@@ -59,7 +59,22 @@
   padding-bottom: 1px;
 }
 
-/* A divisória do split: 1px em `regua`, área de arraste de 8px, `musgo` no arraste. */
+/* Aba da Home escondida: a casinha (BotaoInicioAba) é a única representação da Home na faixa
+ * (pedido do usuário, 16/09/2026). Esconde a `.dv-tab` inteira — esconder só o conteúdo deixaria
+ * uma ficha vazia com hairline. O painel continua existindo e sem "x" (ADR-16). */
+.dockview-theme-excalisidian .dv-tab:has(.aba-inicio) {
+  display: none;
+}
+
+/* Casinha com a Home visível no grupo: mesma fusão com o conteúdo que a aba ativa acima. */
+.dockview-theme-excalisidian .botao-inicio-ativo {
+  position: relative;
+  z-index: 1;
+  margin-bottom: -1px;
+  padding-bottom: 1px;
+}
+
+/* A divisória do split: 1px em `regua`, área de arraste de 8px, `cristal` no arraste. */
 .dockview-theme-excalisidian .dv-sash-line {
   background-color: var(--color-regua);
 }

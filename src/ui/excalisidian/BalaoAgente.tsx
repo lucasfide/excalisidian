@@ -68,7 +68,7 @@ export default function BalaoAgente(): ReactNode {
       {rotulo === "convite" && (
         <span
           aria-hidden
-          className="absolute -right-1 -top-1 flex h-4 min-w-4 items-center justify-center rounded-pilula bg-musgo px-1 meta text-superficie"
+          className="absolute -right-1 -top-1 flex h-4 min-w-4 items-center justify-center rounded-pilula bg-cristal px-1 meta text-superficie"
         >
           !
         </span>
@@ -76,7 +76,7 @@ export default function BalaoAgente(): ReactNode {
       {rotulo === "sugestões" && (
         <span
           aria-hidden
-          className="absolute -right-1 -top-1 flex h-4 min-w-4 items-center justify-center rounded-pilula bg-musgo px-1 [font-size:9px] [line-height:1] font-medium text-superficie"
+          className="absolute -right-1 -top-1 flex h-4 min-w-4 items-center justify-center rounded-pilula bg-cristal px-1 [font-size:9px] [line-height:1] font-medium text-superficie"
         >
           {sugestoesAtivas.length}
         </span>
@@ -86,7 +86,7 @@ export default function BalaoAgente(): ReactNode {
           aria-hidden
           className={cn(
             "absolute right-1 top-1 h-2 w-2 rounded-pilula",
-            status === "pensando" ? "bg-ocre" : "bg-musgo",
+            status === "pensando" ? "bg-ocre" : "bg-cristal",
           )}
         />
       )}

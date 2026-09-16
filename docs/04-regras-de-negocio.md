@@ -100,6 +100,126 @@ dentro de uma lista, onde cada item é seu próprio bloco.
 - **A linha 1 nunca tem alça de mover** — é o título da nota e fica no lugar. Vale pra qualquer
   bloco na linha 1, seja o H1 do título ou um parágrafo (nota antiga sem título).
 
+### 3.3 Tabelas
+
+Contrato completo — modelo de dados, funções puras e contratos de código — em
+`docs/14-tabelas.md` (fonte de tudo abaixo). Aqui ficam as regras de comportamento e os textos
+de interface.
+
+**Criar.**
+
+- **Digitando.** Numa linha fora de tabela, com o texto no formato `| a | b |` (começa e
+  termina com `|`, pelo menos 2 células) e o cursor no fim da linha, `Enter` insere a linha
+  delimitadora e uma linha vazia, e o foco vai para a primeira célula da linha nova. Se a linha
+  de baixo já é uma delimitadora, `Enter` não faz nada de especial. `Shift+Enter` **nunca**
+  converte.
+- **Paleta de comandos e barra de formatação** inserem a mesma tabela padrão (2 colunas, 1
+  linha de corpo, mais o cabeçalho): linha do cursor vazia — a tabela ocupa essa linha; linha
+  com texto — a tabela entra depois dela, com uma linha em branco entre as duas; sempre fica
+  uma linha em branco depois da tabela. Foco na primeira célula do cabeçalho com o texto todo
+  selecionado — digitar substitui. Tudo numa transação só: um `Ctrl+Z` desfaz a inserção
+  inteira.
+- Paleta de comandos sem nota ativa, ou com a vista em somente leitura: toast "Abra uma nota
+  para inserir uma tabela." em vez de inserir.
+
+**Editar.**
+
+- Faixas "+" no hover da tabela adicionam linha ou coluna no fim, e põem o foco na primeira
+  célula nova.
+- Alças de linha e de coluna: clicar abre o menu (inserir, mover, alinhar quando é coluna,
+  excluir); arrastar reordena, `Esc` cancela.
+- A linha de cabeçalho não tem alça de linha e não pode ser movida; colunas movem com o
+  cabeçalho junto.
+- Toda ação de arraste da tabela tem equivalente no menu (mover linha/coluna também por lá) —
+  mesmo princípio de RF8.4.
+- Todas as ações do menu rodam numa transação só (um `Ctrl+Z` desfaz). Excluir tabela remove o
+  bloco inteiro e a linha em branco que sobrar, e é desfazível como qualquer outra edição —
+  deixa o cursor onde a tabela começava. Inserir linha ou coluna põe o foco na primeira célula
+  nova.
+
+**Alinhamento.** `:---` esquerda, `:---:` centro, `---:` direita, `---` sem alinhamento
+(renderiza à esquerda). O alinhamento de cada coluna é preservado em qualquer edição —
+inclusive editar uma célula, inserir, mover e excluir linha ou coluna. Célula renderiza
+alinhada conforme a coluna.
+
+#### Textos de interface
+
+| Situação | Texto |
+|---|---|
+| Paleta de comandos | "Inserir tabela" |
+| Botão na barra de formatação | "Tabela" |
+| Sem nota ativa / vista somente leitura | "Abra uma nota para inserir uma tabela." |
+| Cabeçalho padrão da tabela nova | "Coluna 1", "Coluna 2" |
+| Faixa à direita da última coluna | "Adicionar coluna" |
+| Faixa abaixo da última linha | "Adicionar linha" |
+| Alça de linha | "Arraste para mover a linha. Clique para mais opções." |
+| Alça de coluna | "Arraste para mover a coluna. Clique para mais opções." |
+| Menu — seção linha | "Inserir linha acima", "Inserir linha abaixo", "Mover linha para cima", "Mover linha para baixo", "Excluir linha" |
+| Menu — seção coluna | "Inserir coluna à esquerda", "Inserir coluna à direita", "Mover coluna para a esquerda", "Mover coluna para a direita", "Alinhar à esquerda", "Centralizar", "Alinhar à direita", "Excluir coluna" |
+| Menu — tabela inteira | "Excluir tabela" |
+
+### 3.4 Barra de formatação
+
+- **Flutuante, só com seleção.** Aparece acima do texto selecionado enquanto o editor da nota tem
+  foco e é editável. Sem seleção, não aparece. (Por um tempo ela também aparecia acima da
+  linha do cursor sem seleção; o usuário pediu para voltar em 16/09/2026.)
+- Some quando o foco sai do editor, na vista somente leitura, e quando o foco está dentro de
+  uma célula de tabela (a célula é outro campo editável — a barra apontaria para o lugar
+  errado).
+- Na barra acoplada (abaixo), que fica sempre visível, os botões também funcionam sem seleção:
+  negrito, itálico, riscado e código inserem o par de marcadores com o cursor no meio; título,
+  citação, listas e checkbox agem na linha; link insere o modelo de link.
+- **Acoplar.** Um botão fora da barra, à direita, "Acoplar embaixo", prende a barra no pé do
+  painel da nota. Acoplada, a flutuante some; a faixa fica visível com ou sem foco no editor e
+  os botões agem na última posição do cursor da nota daquele painel. "Desacoplar", no fim da
+  faixa, volta ao modo flutuante. A preferência é da máquina (`settings.json`), vale para
+  todas as notas e sincroniza entre janelas. Vista somente leitura não mostra nenhuma das duas.
+
+### 3.5 Menu da aba
+
+Clique direito numa aba abre o menu do app (`Menu`/`ItemMenu`), pedido do usuário em 16/09/2026:
+
+| Item | Comportamento |
+|---|---|
+| "Renomear" | Mesmo diálogo e mesma regra do renomear da árvore: atualiza os links que apontam para o arquivo. |
+| "Duplicar" | Salva o que está na tela (inclusive desenho) e cria a cópia na mesma pasta com o próximo nome livre (`Nome (2)`). Na nota, o H1 da cópia acompanha o nome novo. Abre a cópia numa aba. Se a nota não pôde ser salva (erro ou conflito), não duplica: "Não foi possível duplicar: salve ou resolva as alterações desta nota antes." |
+| "Dividir à direita" / "Dividir abaixo" | Divide a partir desta aba. |
+| "Fechar todas as outras abas desta janela" | Fecha as abas do quadro da aba clicada, menos ela. |
+| "Fechar todas as abas desta janela" | Fecha todas as abas do quadro da aba clicada. |
+
+- A Home nunca fecha por esses itens (doc 09 ADR-16): ela é a rede que impede o painel principal
+  de ficar em branco. Fechar em lote salva cada aba como fechar uma por uma.
+- **"Janela", nestes textos, é o quadro da divisão de tela** (o grupo de abas), não a janela do
+  sistema (pedido do usuário, 16/09/2026). Com a tela dividida em dois quadros, fechar as abas de
+  um nunca fecha as do outro.
+- Aba em branco (`Ctrl+T`) só mostra os dois itens de fechar.
+
+### 3.6 Colar imagem na nota
+
+- `Ctrl+V` com imagem na área de transferência e **sem texto junto** grava o arquivo em
+  `anexos/Imagem colada YYYYMMDD-HHmmss.<ext>` (mesmo nome e pasta do canvas, doc 02 §3) e insere
+  `![[anexos/Imagem colada ….<ext>]]` no lugar da seleção. Várias imagens: um embed por linha.
+- Com texto junto (copiar de Word, Excel ou de uma página), o colar é o de texto normal — senão
+  o parágrafo copiado viraria um print dele.
+- Se a gravação falha, nada é inserido: "Não foi possível salvar a imagem em «anexos». Verifique a
+  pasta nas preferências."
+- Na nota, `![[imagem]]` aparece como a imagem, na largura da coluna (ou na do alias,
+  `![[foto.png|400]]`). Com o cursor fora da linha, a imagem ocupa o lugar do texto; com o
+  cursor na linha (ou clicando na imagem), o texto do embed aparece e a imagem fica logo abaixo.
+- **Tamanho.** Ao passar o mouse, a imagem mostra uma alça no canto inferior direito. Arrastar
+  muda a largura (mínimo 64px, máximo a largura da coluna), mantendo a proporção; ao soltar, a
+  largura é gravada no alias (`![[foto.png|400]]`). Duplo clique na alça volta ao tamanho natural
+  (tira o alias).
+- **Lado a lado.** Embeds de imagem na mesma linha aparecem lado a lado, cada um na sua largura;
+  o que não cabe desce para a linha de baixo. Arrastar uma imagem até a lateral de outra mostra
+  um indicador vertical e, ao soltar, junta as duas na mesma linha do arquivo
+  (`![[a.png|300]] ![[b.png|300]]`). Soltar entre linhas do texto (indicador horizontal) põe a
+  imagem numa linha própria. `Esc` cancela; soltar no próprio lugar não muda nada. Clicar sem
+  arrastar leva o cursor para a linha do embed. O equivalente sem arraste é editar o texto.
+- Vista somente leitura mostra as imagens, sem alça nem arraste, e não aceita colar.
+- Arrastar arquivo de imagem para a nota e `![](caminho)` com caminho relativo do vault ainda
+  não funcionam (RF2.2).
+
 ## 4. Criação de notas por link
 
 Clicar num `[[link não resolvido]]`:
@@ -120,6 +240,22 @@ Ao digitar `[[`:
 - Não inclui anexos, exceto se o usuário digitou uma extensão de imagem.
 - A primeira opção é sempre "Criar «texto digitado»" quando não há correspondência exata.
 - `Esc` fecha sem inserir nada e mantém os `[[` digitados.
+
+## 5.1 Múltiplos vaults (janelas)
+
+Detalhamento completo em `docs/12-multiplos-vaults.md` (fonte de tudo abaixo).
+
+- Cada vault abre na sua própria janela. Abrir um vault que já está aberto **não** abre uma
+  janela nova: foca a janela existente.
+- Se a pasta de um vault (recente, ou o que a janela tentava abrir) não existe mais no disco,
+  a operação falha como "indisponível" — a janela não abre, e a UI oferece "Remover da lista".
+- "Remover da lista" só esquece o vault na lista de recentes do app. Nunca apaga pasta nem
+  arquivo, e não fecha nenhuma janela que porventura já tenha esse vault aberto.
+- Atualizar o app drena (`flush`) todas as janelas abertas antes de reiniciar — não só a janela
+  onde o usuário clicou em "Atualizar agora". Uma janela que não responder ao pedido de flush
+  dentro do tempo limite conta como falha, identificada pelo rótulo dela.
+- Preferências da máquina (tema, largura da nota, sidebar colapsada, config do agente) são
+  compartilhadas entre janelas: mudar numa janela propaga para as outras já abertas.
 
 ## 6. Canvas
 
@@ -185,7 +321,7 @@ Colar uma **URL de imagem**: no MVP, insere como texto. Baixar imagem da interne
 O Excalidraw embutido registra os próprios handlers de teclado, e alguns colidem com o app ou são destrutivos. A regra:
 
 - **`Ctrl+Delete` é bloqueado.** No Excalidraw ele limpa a cena inteira, e isso viola o princípio "nada de destruição silenciosa". Desligar o item de menu por `UIOptions.canvasActions` **não** desliga o atalho.
-- **Atalhos de aplicação passam para o app antes do canvas:** `Ctrl+S`, `Ctrl+O`, `Ctrl+P`, `Ctrl+T`, `Ctrl+W`, `Ctrl+Tab`, `Ctrl+\`.
+- **Atalhos de aplicação passam para o app antes do canvas:** `Ctrl+S`, `Ctrl+O`, `Ctrl+P`, `Ctrl+T`, `Ctrl+W`, `Ctrl+Tab`, `Ctrl+\`, `Ctrl+Shift+F`. `Ctrl+O` e `Ctrl+Shift+F` abrem a mesma busca unificada (§8) mesmo com o canvas focado — `Ctrl+Shift+F` é a adição desta entrega.
 - **Atalhos de edição ficam com o canvas:** `Ctrl+Z`, `Ctrl+Shift+Z`, `Ctrl+A`, `Ctrl+D`, `Ctrl+G`, `Ctrl+Shift+G`, `Ctrl+0`, `Ctrl++`, `Ctrl+-`, e as teclas únicas de ferramenta.
 - `Ctrl+K` no canvas anexa link ao elemento selecionado (RF5.12); no editor de texto insere link markdown (RF2.11). Os contextos são disjuntos, e a coincidência é proposital: `Ctrl+K` é o atalho nativo do Excalidraw para isso.
 
@@ -202,11 +338,53 @@ A implementação é um `keydown` em fase de captura na raiz do painel de canvas
 
 ## 8. Busca
 
+Busca por título e por conteúdo numa janela só (RF4.6, RF4.8). Contrato completo — motor,
+assinaturas de função e a lista de tarefas — em `docs/13-busca.md`; aqui ficam as regras de
+comportamento e, abaixo, os textos de interface.
+
 - Índice incremental: cada arquivo salvo ou alterado atualiza só o próprio documento no índice.
-- Busca por nome (quick switcher) é aproximada e prioriza correspondência no início.
-- Busca por conteúdo é por termo, com `"frase exata"` entre aspas e `-termo` para excluir. Sem operadores avançados no MVP.
+- **Uma busca só.** `Ctrl+O`, `Ctrl+Shift+F`, o campo "Buscar" da sidebar (e o ícone
+  equivalente na faixa recolhida) e "Buscar" na paleta de comandos abrem a mesma sobreposição.
+  A mesma tecla com a busca já aberta fecha.
+- **Acento e caixa são ignorados**, na consulta e no índice: "reuniao" acha "Reunião".
+- **Busca por título aceita palavra incompleta** (prefixo): "proj" acha "Projeto".
+- **Termos em E na busca por conteúdo**: "reunião time" só traz nota com as duas palavras.
+  Sintaxe: `"frase exata"` entre aspas, `-termo` exclui. Sem operadores avançados no MVP. A
+  mesma função de busca por conteúdo, quando chamada pelo agente de IA com texto livre,
+  continua em OU — não mudar esse comportamento (`docs/13-busca.md` §2.1).
+- **Duas seções, uma lista só** (↑/↓ atravessa as duas): "Títulos" (até 6, instantâneo, casa
+  H1/nome do arquivo/alias) e "No conteúdo" (debounce de 200 ms, até 20 arquivos, 3 trechos
+  cada — só arquivo com trecho no corpo entra aqui; quem só casa pelo título não repete).
+- **Campo vazio** mostra "Modificados recentemente": 8 notas e desenhos do vault por data de
+  modificação, sem anexos.
+- **Consulta sem título exato** oferece "Criar nota «consulta»", sempre por último. Cria na
+  raiz do vault (mesma regra dos botões da sidebar) e abre.
+- **Reabrir a busca na mesma sessão** traz a última consulta digitada, selecionada por inteiro
+  (memória de sessão, não persiste em disco).
+- **Abrir um resultado de conteúdo revela o trecho**: rola até a linha inteira e destaca
+  (fade), sem abrir o painel de busca do editor e sem mover o cursor. Nota já aberta numa aba:
+  ativa a aba e revela.
+- **Resultado de conteúdo num desenho só abre o desenho** — canvas não tem linha para revelar.
 - Textos dentro de desenhos aparecem na busca por conteúdo, identificados como desenho.
 - Resultado da busca mostra no máximo 3 trechos por arquivo.
+
+### Textos de interface
+
+Contrato com `docs/13-busca.md` §3.
+
+| Situação | Texto |
+|---|---|
+| Campo na sidebar | "Buscar" + atalho "CTRL O" |
+| Botão na faixa recolhida | "Buscar" |
+| Rótulo acessível da sobreposição | "Buscar" |
+| Placeholder | "Buscar por título ou conteúdo…" |
+| Seção | "Títulos" / "No conteúdo" / "Modificados recentemente" |
+| Carregando conteúdo | "Buscando no conteúdo…" |
+| Criar | "Criar nota «{consulta}»" |
+| Sem resultado | "Nada encontrado para «{consulta}»." (já existente, seção 10) |
+| Reindexando | "Reindexando o vault…" (já existente, seção 10) |
+| Rodapé | "↵ abrir · Ctrl ↵ abrir ao lado · Esc fechar" |
+| Paleta de comandos | "Buscar" |
 
 ## 9. Lixeira
 
@@ -279,3 +457,91 @@ atualizações" (paleta de comandos e em Configurações).
 
 Os erros de rede ("Não foi possível baixar a atualização…" e "Não foi possível verificar
 atualizações.") estão na tabela da seção 10, junto com as demais mensagens de erro do app.
+
+## 13. Múltiplos vaults — textos de interface
+
+Contrato com `docs/12-multiplos-vaults.md` §5 — nomes de comando e chaves de store saem de lá.
+
+| Situação | Texto |
+|---|---|
+| Menu: criar | "Criar vault…" |
+| Menu: abrir | "Abrir pasta como vault…" |
+| Menu: remover | "Remover da lista" |
+| Pasta sumiu | "A pasta deste vault não foi encontrada." |
+| Diálogo: título | "Criar vault" |
+| Diálogo: campo | "Nome" |
+| Diálogo: local | "Local" / botão "Escolher…" |
+| Diálogo: confirmar | "Criar vault" |
+| Erro `nome_vazio` | "Dê um nome ao vault." |
+| Erro `nome_invalido` | "O nome não pode ter / \ : * ? \" < > \| nem começar com ponto." |
+| Erro `existe` | "Já existe uma pasta com esse nome nesse local." |
+| Erro `pai_indisponivel` | "Não foi possível acessar o local escolhido." |
+| Tela sem vault: título | "Nenhum vault aberto" (mantém) |
+| Tela sem vault: lista | "Recentes" |
+
+A tela sem vault ganhou tela de boas-vindas, nome do usuário e conteúdo de exemplo no primeiro
+vault — ver seção 14, abaixo. Os textos antigos de apoio ("Crie um vault novo ou abra uma pasta
+que já tem suas notas.") e os botões "Criar vault" / "Abrir pasta" desta tela saíram, substituídos
+pelos textos da seção 14.
+
+## 14. Onboarding: nome e primeiro vault
+
+Contrato completo — telas, ordem dos blocos e contratos de código — em
+`docs/15-onboarding.md` (fonte de tudo abaixo). Aqui ficam as regras de comportamento e os
+textos de interface.
+
+**Primeiro uso vs. retorno.** A tela de boas-vindas substitui a tela `sem-vault` do `App.tsx`
+(inclusive quando uma janela nova abre sem vault). "Primeiro uso" é a lista de recentes vazia:
+mostra título "Vamos começar", subtítulo e a explicação do que é um vault. No retorno (janela
+nova sem vault, vault que sumiu), o título é "Nenhum vault aberto", a seção do vault se chama
+"Criar vault" e a explicação do vault não aparece. O resto é igual. Erro de abertura usa a
+mesma tela, com o título "Não foi possível abrir o vault" e a mensagem em `tom="erro"` no
+lugar do subtítulo, sem o campo de nome.
+
+**Nome `null` vs. `""`.** O campo "Como podemos te chamar?" só aparece quando o nome **nunca
+foi informado** (`nomeUsuario === null`) — vem preenchido com a sugestão do sistema, editável,
+e pode ficar vazio. Ele é gravado quando o usuário segue em frente ("Criar e começar", "Abrir
+pasta" ou um recente): vazio grava `""`, que significa "informado, sem nome", e o campo não
+volta a aparecer nunca mais. Quem já usa o app e nunca informou o nome não é interrompido: a
+pergunta só existe na tela de boas-vindas do primeiro vault; até informar (inclusive pelas
+Configurações), a saudação da Home sai sem nome.
+
+**"Criar e começar" faz, nesta ordem:** grava o nome (se o campo estava visível); cria a pasta
+do vault; abre o vault nesta janela; cria o conteúdo de exemplo (nota de boas-vindas e desenho
+de exemplo); abre a nota de boas-vindas numa aba (a Home continua existindo, fixa). Se a
+criação do conteúdo de exemplo falhar, o vault abre mesmo assim e um toast avisa: "O vault foi
+criado, mas não foi possível criar a nota de boas-vindas." — a falha nunca impede o vault de
+abrir.
+
+**"Abrir pasta"** grava o nome, abre o diálogo nativo e abre a pasta escolhida como vault nesta
+janela, **sem** criar conteúdo de exemplo — a pasta é do usuário, não um vault novo.
+
+**"Criar vault…" da sidebar** (`DialogoCriarVault`, fora do onboarding) não muda e não cria
+conteúdo de exemplo: conteúdo de exemplo é só do primeiro vault, pela tela de boas-vindas.
+
+**Saudação da Home.** Usa só o nome informado (`nomeUsuario`); `null` ou `""` mostram só "Boa
+tarde" (ou o equivalente do horário). A saudação nunca mais usa o usuário do sistema
+operacional.
+
+### Textos de interface
+
+| Situação | Texto |
+|---|---|
+| Título, primeiro uso | "Vamos começar" |
+| Subtítulo, primeiro uso | "Notas em Markdown e desenhos no mesmo lugar, em arquivos que são seus." |
+| Título, retorno | "Nenhum vault aberto" |
+| Título, erro | "Não foi possível abrir o vault" |
+| Campo nome: rótulo | "Como podemos te chamar?" |
+| Campo nome: ajuda | "Aparece na saudação da tela de início. Dá para mudar nas Configurações." |
+| Seção vault, primeiro uso | "Seu primeiro vault" |
+| Seção vault, retorno | "Criar vault" |
+| Explicação do vault | "Um vault é uma pasta comum do seu computador. Suas notas e desenhos ficam nela como arquivos .md." |
+| Campos | "Nome" / "Local" / "Escolher…" |
+| Nome padrão do vault | "Notas" |
+| Botão primário | "Criar e começar" |
+| Alternativa | "Já tenho uma pasta com notas" / "Abrir pasta" |
+| Recentes | "Recentes" |
+| Falha no conteúdo de exemplo | "O vault foi criado, mas não foi possível criar a nota de boas-vindas." |
+| Configurações: seção | "Seu nome" |
+| Configurações: rótulo / ajuda | "Nome" / "Aparece na saudação da tela de início." |
+| Arquivos de exemplo | "Boas-vindas", "Primeiro desenho" |

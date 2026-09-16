@@ -7,6 +7,7 @@ import type { DockviewApi, IDockviewPanel } from "dockview";
 
 import { useDocumentosStore } from "./documentosStore";
 import { confirmar } from "./dialogoStore";
+import { useRevelacaoStore } from "./revelacaoStore";
 import { flusharCanvas } from "../canvas/flushCanvas";
 import { tipoDoArquivo } from "../vault/arvore";
 
@@ -36,11 +37,31 @@ interface WorkspaceState {
   fechadosRecentes: string[];
   /** Grava o layout na hora, cancelando o debounce. Registrado pelo Workspace. */
   flushLayout: () => void;
+  /**
+   * Caminho a abrir assim que a API do dockview existir (onboarding, doc 15 §2.3): o
+   * `Workspace` só monta com `boot === "pronto"`, e a API só chega dentro de `onReady`
+   * (depois de restaurar o layout e abrir a Home). Em vez de um `setTimeout` arbitrário
+   * esperando o Workspace montar, `abrirDocumentoQuandoPronto` grava aqui se a API ainda não
+   * existe, e o próprio `onReady` consome e limpa este campo no fim da sua sequência.
+   */
+  documentoPendente: string | null;
 
   setApi(api: DockviewApi | null): void;
   setFlushLayout(fn: () => void): void;
   definirAtivo(path: string | null): void;
-  abrirDocumento(path: string): void;
+  /** Abre `path` já se a API existir; senão guarda em `documentoPendente` para o `onReady`
+   * do `Workspace` abrir assim que montar (ver comentário do campo acima). */
+  abrirDocumentoQuandoPronto(path: string): void;
+  /** Só o `Workspace.onReady` chama isto, para consumir (e limpar) o pendente. */
+  definirDocumentoPendente(path: string | null): void;
+  /**
+   * `revelar`: registra o pedido em `revelacaoStore` para o `EditorNota` do próprio
+   * `path` consumir (doc 13 §2.2/§1.5) — rola até o trecho com o fade, sem painel de busca
+   * do editor. `aoLado`: abre num grupo novo à direita do painel ativo (mesma direção de
+   * `dividirAtivo("right")`) em vez de reaproveitar/duplicar a aba ativa; se o arquivo já
+   * tem aba (em qualquer grupo), só ativa ela — nunca duplica.
+   */
+  abrirDocumento(path: string, opcoes?: { revelar?: string; aoLado?: boolean }): void;
   /**
    * Segunda aba para o mesmo `.draw.md`, mas no editor de texto (doc 04 §11.3 —
    * "Abrir como texto"). Id diferente do painel do desenho de propósito. Usado pelo modo
@@ -62,6 +83,18 @@ interface WorkspaceState {
    * `removePanel` direto: dispara o onDidRemovePanel normal do dockview, que já aciona
    * `aoRemoverPainel` (salva se sujo, descarta do documentosStore) — zero lógica duplicada. */
   fecharAbasDoCaminho(path: string): void;
+  /** Menu da aba: fecha todas as abas do quadro (grupo do dockview) onde está o painel `id` —
+   * "janela", na fala do usuário, é o quadro da divisão de tela, não a janela do sistema. Os
+   * outros quadros não são tocados. A Home fica (ADR-16) — é ela que impede o painel principal
+   * de ficar em branco. */
+  fecharTodas(id: string): void;
+  /** Menu da aba: como `fecharTodas`, mas poupa o próprio painel `id`. */
+  fecharOutras(id: string): void;
+}
+
+/** Painéis do mesmo quadro (grupo do dockview) que o painel `id`. */
+function paineisDoGrupoDe(api: DockviewApi | null, id: string): IDockviewPanel[] {
+  return api?.getPanel(id)?.group.panels ?? [];
 }
 
 /** Ids de painel que estão sendo renomeados: `aoRemoverPainel` os ignora. */
@@ -72,6 +105,7 @@ export const useWorkspaceStore = create<WorkspaceState>((set, get) => ({
   caminhoAtivo: null,
   fechadosRecentes: [],
   flushLayout: () => {},
+  documentoPendente: null,
 
   setApi(api) {
     set({ api });
@@ -85,10 +119,53 @@ export const useWorkspaceStore = create<WorkspaceState>((set, get) => ({
     set({ caminhoAtivo: path });
   },
 
-  abrirDocumento(path) {
+  abrirDocumentoQuandoPronto(path) {
+    if (get().api) {
+      get().abrirDocumento(path);
+      return;
+    }
+    set({ documentoPendente: path });
+  },
+
+  definirDocumentoPendente(path) {
+    set({ documentoPendente: path });
+  },
+
+  abrirDocumento(path, opcoes) {
     const { api } = get();
     if (!api) return;
     void useDocumentosStore.getState().abrir(path);
+
+    // Regista o pedido de revelação ANTES de mexer nos painéis. Cobre os dois casos do doc
+    // 13 §2.2: nota já montada (o `EditorNota` está inscrito no revelacaoStore e reage à
+    // mudança agora) e nota que vai montar só abaixo (o efeito de montagem lê o pendente
+    // assim que o handle do editor existir — não depende de quando o `addPanel` roda).
+    if (opcoes?.revelar) {
+      useRevelacaoStore.getState().pedir(path, opcoes.revelar);
+    }
+
+    if (opcoes?.aoLado) {
+      // Ctrl+Enter da busca (doc 13 §1.4): nunca substitui a aba em branco ativa, mesmo que
+      // ela exista — "ao lado" é sempre um grupo novo, não uma troca da aba atual.
+      const existente = api.getPanel(path);
+      if (existente) {
+        existente.api.setActive();
+        return;
+      }
+      const referencia = api.activePanel;
+      api.addPanel({
+        id: path,
+        component: componenteDe(path),
+        title: nomeCurto(path),
+        params: { path },
+        // Sem painel ativo (workspace vazio) o dockview usa a posição padrão dele — não há
+        // "ao lado de" nada ainda.
+        ...(referencia
+          ? { position: { referencePanel: referencia.id, direction: "right" as DirecaoSplit } }
+          : {}),
+      });
+      return;
+    }
 
     // Abrir um arquivo a partir de uma aba em branco (Ctrl+T) SUBSTITUI a aba, em vez de
     // abrir mais uma do lado (mesmo comportamento do Obsidian) — só quando a aba em branco
@@ -225,20 +302,37 @@ export const useWorkspaceStore = create<WorkspaceState>((set, get) => ({
     get().abrirDocumento(ultimo);
   },
 
+  fecharTodas(id) {
+    // Cópia da lista: cada `close()` tira o painel do grupo enquanto iteramos.
+    for (const p of [...paineisDoGrupoDe(get().api, id)]) {
+      if (p.id !== ID_PAINEL_INICIO) p.api.close();
+    }
+  },
+
+  fecharOutras(id) {
+    for (const p of [...paineisDoGrupoDe(get().api, id)]) {
+      if (p.id !== id && p.id !== ID_PAINEL_INICIO) p.api.close();
+    }
+  },
+
   cicloAba(direcao) {
     const { api } = get();
     if (!api) return;
-    const paineis = api.panels;
-    if (paineis.length < 2) return;
+    // A Home fica fora do ciclo (doc 09 ADR-16): a aba dela é escondida — a casinha é quem a
+    // representa —, então Ctrl+Tab parar nela pareceria pular pra lugar nenhum.
+    const paineis = api.panels.filter((p) => p.id !== ID_PAINEL_INICIO);
     const i = paineis.findIndex((p) => p === api.activePanel);
-    const prox = (i + direcao + paineis.length) % paineis.length;
+    if (paineis.length === 0 || (i >= 0 && paineis.length < 2)) return;
+    // Com a Home ativa (i = -1), vai pra primeira ou pra última aba, conforme a direção.
+    const prox = i < 0 ? (direcao > 0 ? 0 : paineis.length - 1) : (i + direcao + paineis.length) % paineis.length;
     paineis[prox].api.setActive();
   },
 
   ativarPorIndice(n) {
     const { api } = get();
     if (!api) return;
-    const paineis = api.panels;
+    // Ctrl+1 é a primeira aba VISÍVEL: a Home não tem aba (ver cicloAba).
+    const paineis = api.panels.filter((p) => p.id !== ID_PAINEL_INICIO);
     if (paineis.length === 0) return;
     // 1..8 → posição; 9 → último (convenção do Obsidian).
     const alvo = n >= 9 ? paineis[paineis.length - 1] : paineis[n - 1];

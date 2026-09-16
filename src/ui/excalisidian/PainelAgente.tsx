@@ -184,7 +184,7 @@ export default function PainelAgente() {
                     {s.caminhoNota && (
                       <button
                         type="button"
-                        className="meta mt-0.5 text-musgo underline-offset-2 hover:underline"
+                        className="meta mt-0.5 text-cristal underline-offset-2 hover:underline"
                         onClick={() =>
                           useWorkspaceStore.getState().abrirDocumento(s.caminhoNota!)
                         }
@@ -298,7 +298,7 @@ export default function PainelAgente() {
             className={cn(
               "max-h-24 min-h-9 w-full flex-1 resize-none rounded-controle border border-regua-forte",
               "bg-superficie px-2 py-1.5 text-corpo text-tinta placeholder:text-tinta-suave",
-              "transition-colors duration-[140ms] ease-caderno focus:outline-none focus-visible:outline-2 focus-visible:outline-musgo",
+              "transition-colors duration-[140ms] ease-caderno focus:outline-none focus-visible:outline-2 focus-visible:outline-cristal",
             )}
           />
           <BotaoIcone

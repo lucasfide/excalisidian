@@ -1,12 +1,17 @@
-// Aba do dockview: nome + indicador de não salvo + botão de fechar (doc 06 / doc 04 §1).
+// Aba do dockview: nome + indicador de não salvo + botão de fechar (doc 06 / doc 04 §1), e o
+// menu de clique direito (renomear, duplicar, dividir, fechar em lote).
 // O ponto ao lado do nome: `ocre` sujo, pulsando ao salvar, `bordo` no erro. A informação
 // nunca é transmitida só por cor — o ponto existe além dela (doc 06, piso de qualidade).
 
-import { X } from "lucide-react";
+import { useState } from "react";
+import { createPortal } from "react-dom";
+import { Columns2, Copy, Pencil, Rows2, SquareX, X } from "lucide-react";
 import type { IDockviewPanelHeaderProps } from "dockview";
 
 import { useDocumentosStore, type EstadoDoc } from "../estado/documentosStore";
-import { BotaoIcone } from "../ui";
+import { useWorkspaceStore } from "../estado/workspaceStore";
+import { comandoDuplicar, comandoRenomear } from "../app/comandos/criacao";
+import { BotaoIcone, ItemMenu, Menu, SeparadorMenu, type PosicaoMenu } from "../ui";
 
 function pontoDoEstado(
   estado: EstadoDoc | undefined,
@@ -32,9 +37,29 @@ export default function AbaDocumento(props: IDockviewPanelHeaderProps) {
     path ? s.docs.get(path)?.estado : undefined,
   );
   const ponto = pontoDoEstado(estado);
+  const [menu, setMenu] = useState<PosicaoMenu | null>(null);
+
+  // Cada item fecha o menu antes de agir: renomear abre um diálogo, e o menu ficaria por cima.
+  const comMenuFechado = (acao: () => void) => () => {
+    setMenu(null);
+    acao();
+  };
+  const dividir = (direcao: "right" | "below") => {
+    props.api.setActive();
+    useWorkspaceStore.getState().dividirAtivo(direcao);
+  };
 
   return (
-    <div className="flex h-full items-center gap-2 px-3 text-[13px] text-tinta-media">
+    <div
+      className="flex h-full items-center gap-2 px-3 text-[13px] text-tinta-media"
+      // Menu próprio em vez do `getTabContextMenuItems` do dockview: aquele não abria (o clique
+      // direito caía no menu nativo do WebView2, com "Back"/"Refresh"), e este usa o Menu do app.
+      onContextMenu={(e) => {
+        e.preventDefault();
+        e.stopPropagation();
+        setMenu({ x: e.clientX, y: e.clientY });
+      }}
+    >
       {ponto && (
         <span
           title={ponto.rotulo}
@@ -56,6 +81,50 @@ export default function AbaDocumento(props: IDockviewPanelHeaderProps) {
           props.api.close();
         }}
       />
+      {/* Portal: o cabeçalho de abas do dockview recorta o que transborda dele. */}
+      {menu &&
+        createPortal(
+          <Menu posicao={menu} onFechar={() => setMenu(null)}>
+            {/* Aba em branco (Ctrl+T) não tem arquivo: sem renomear, duplicar nem dividir. */}
+            {path && (
+              <>
+                <ItemMenu
+                  Icone={Pencil}
+                  rotulo="Renomear"
+                  onClick={comMenuFechado(() => void comandoRenomear(path))}
+                />
+                <ItemMenu
+                  Icone={Copy}
+                  rotulo="Duplicar"
+                  onClick={comMenuFechado(() => void comandoDuplicar(path))}
+                />
+                <SeparadorMenu />
+                <ItemMenu
+                  Icone={Columns2}
+                  rotulo="Dividir à direita"
+                  onClick={comMenuFechado(() => dividir("right"))}
+                />
+                <ItemMenu
+                  Icone={Rows2}
+                  rotulo="Dividir abaixo"
+                  onClick={comMenuFechado(() => dividir("below"))}
+                />
+                <SeparadorMenu />
+              </>
+            )}
+            <ItemMenu
+              Icone={X}
+              rotulo="Fechar todas as outras abas desta janela"
+              onClick={comMenuFechado(() => useWorkspaceStore.getState().fecharOutras(props.api.id))}
+            />
+            <ItemMenu
+              Icone={SquareX}
+              rotulo="Fechar todas as abas desta janela"
+              onClick={comMenuFechado(() => useWorkspaceStore.getState().fecharTodas(props.api.id))}
+            />
+          </Menu>,
+          document.body,
+        )}
     </div>
   );
 }

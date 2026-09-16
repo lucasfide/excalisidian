@@ -1,6 +1,6 @@
 // Botão do design system (doc 06, tabela de variantes). Quatro variantes, duas alturas.
 // Estados obrigatórios do doc: repouso, hover, foco visível, ativo, desabilitado, carregando.
-// O anel de foco vem do `:focus-visible` global de `globals.css` (2px `musgo`, offset 2px).
+// O anel de foco vem do `:focus-visible` global de `globals.css` (2px `cristal`, offset 2px).
 
 import type { ButtonHTMLAttributes, ReactNode } from "react";
 import { Loader2, type LucideIcon } from "lucide-react";
@@ -15,7 +15,7 @@ export type VarianteBotao =
 export type TamanhoBotao = "padrao" | "compacto";
 
 const VARIANTES: Record<VarianteBotao, string> = {
-  primario: "bg-musgo text-superficie hover:bg-musgo/90",
+  primario: "bg-cristal text-superficie hover:bg-cristal/90",
   secundario:
     "border border-regua-forte bg-transparent text-tinta hover:bg-lavagem",
   fantasma: "bg-transparent text-tinta-media hover:bg-lavagem hover:text-tinta",

@@ -1,14 +1,16 @@
 // Reencaminhamento de atalhos no canvas (doc 04 §6.1). Handler em fase de captura na raiz
 // do painel de desenho, com lista explícita — nunca heurística.
 //
-// Os atalhos de aplicação (Ctrl+S/O/P/T/W/Tab/\) já são interceptados pelo listener global
-// do Workspace, que roda em captura no `window` — ou seja, ANTES deste. Aqui só garantimos
-// que o Excalidraw não os processe também (stopPropagation), e bloqueamos o Ctrl+Delete,
-// que no Excalidraw limpa a cena inteira e o `UIOptions` não desliga.
+// Os atalhos de aplicação (Ctrl+S/O/P/T/W/Tab/\ e Ctrl+Shift+F) já são interceptados pelo
+// listener global do Workspace, que roda em captura no `window` — ou seja, ANTES deste.
+// Aqui só garantimos que o Excalidraw não os processe também (stopPropagation), e
+// bloqueamos o Ctrl+Delete, que no Excalidraw limpa a cena inteira e o `UIOptions` não
+// desliga. `f` entrou no conjunto com a busca unificada (doc 04 §6.1, doc 13 §2.3):
+// Ctrl+Shift+F precisa abrir a busca mesmo com o canvas focado, como o Ctrl+O.
 
 import { useEffect, type RefObject } from "react";
 
-const APLICACAO = new Set(["s", "o", "p", "t", "w", "\\"]);
+const APLICACAO = new Set(["s", "o", "p", "t", "w", "\\", "f"]);
 
 export function useAtalhosCanvas(ref: RefObject<HTMLElement | null>): void {
   useEffect(() => {

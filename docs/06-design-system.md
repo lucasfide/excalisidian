@@ -34,29 +34,31 @@ Tema claro — **Papel**:
 | `tinta` | `#1C1917` | texto principal, traço padrão do desenho |
 | `tinta-media` | `#4A443C` | texto secundário, ícones |
 | `tinta-suave` | `#655E54` | metadado, placeholder, sintaxe markdown visível |
-| `musgo` | `#3E5C46` | marca, ação primária, seleção, foco, link resolvido |
+| `cristal` | `#74419D` | marca, ação primária, seleção, foco, link resolvido |
 | `ocre` | `#A87A1C` | atenção, edição não salva, destaque de busca |
 | `ocre-tinta` | `#7A5610` | texto sobre fundo claro na cor ocre |
 | `bordo` | `#7A2E22` | erro, ação destrutiva, link não resolvido |
 
-Tema escuro — **Tinta**:
+Tema escuro — **Cristal**:
 
 | Token | Hex |
 |---|---|
-| `papel` | `#16140F` |
-| `superficie` | `#1F1C16` |
-| `lavagem` | `#272319` |
-| `regua` | `#34302A` |
-| `regua-forte` | `#6E675C` |
-| `tinta` | `#EFEAE0` |
-| `tinta-media` | `#BDB6A9` |
-| `tinta-suave` | `#9A9384` |
-| `musgo` | `#86A98B` |
+| `papel` | `#0D0C10` |
+| `superficie` | `#161519` |
+| `lavagem` | `#201E24` |
+| `regua` | `#2F2D34` |
+| `regua-forte` | `#686473` |
+| `tinta` | `#EAEAEC` |
+| `tinta-media` | `#B6B4BB` |
+| `tinta-suave` | `#928F99` |
+| `cristal` | `#AA85CB` |
 | `ocre` | `#D3A845` |
 | `ocre-tinta` | `#D3A845` |
 | `bordo` | `#C97B69` |
 
-O tema escuro não é inversão automática: o papel escurece para um marrom-tinta, nunca para cinza neutro nem preto puro, e as cores clareiam para manter contraste.
+O tema escuro não é inversão automática: o papel escurece para um quase-preto violeta, nunca para cinza neutro nem preto puro, e as cores clareiam para manter contraste.
+
+Todas as superfícies do tema escuro ficam na matiz 258°, com saturação muito baixa — entre 7% e 14% nas superfícies, 5% nas tintas. O violeta só aparece de verdade no acento (`cristal`), nos links e no foco. **Não suba essa saturação sem olhar o app inteiro aberto:** os valores desceram duas vezes (15/09/2026) porque, numa tela cheia, mesmo pouca saturação integra numa área grande e o app inteiro lê como "roxo" — a primeira tentativa tinha superfícies em 21–22% e foi reprovada em tela. Token isolado sempre parece neutro demais; o julgamento é a tela. `papel` fica em L 5,5%, a luminosidade medida no fundo da própria logo: escuro o bastante para o roxo ler como preto. A escada de luminosidade é a mesma do tema Tinta, quente, que veio antes (14/09/2026): mesma ordem, mesmas distâncias entre degraus — é ela que segura a hierarquia e o contraste. O que mudou foi a temperatura, de marrom-tinta (40°) para violeta (258°), quando a identidade passou a ser a espada de cristal. `ocre` e `bordo` seguem os mesmos do tema anterior de propósito: erro tem que parecer erro, e sobre o chão novo eles dão 8,8:1 e 6,1:1, então não precisaram de recalibragem.
 
 ---
 
@@ -82,7 +84,7 @@ Escala:
 | `pequeno` | 13 / 1.45 | Instrument Sans 400 | |
 | `meta` | 11 / 1.0 | IBM Plex Mono 500 | caixa alta, tracking 0.09em |
 | `meta-mini` | 9 / 1.0 | IBM Plex Mono 500 | caixa alta, tracking 0.06em — só para a tecla de atalho no botão de ferramenta |
-| `campo-grande` | 17 / 1.4 | Instrument Sans 400 | só no campo do quick switcher e da paleta de comandos |
+| `campo-grande` | 17 / 1.4 | Instrument Sans 400 | só no campo da busca e da paleta de comandos |
 
 ### Tipografia dentro do editor
 
@@ -98,7 +100,7 @@ O texto da nota é o conteúdo do produto e merece regra própria:
 | bloco de código | IBM Plex Mono 13px, fundo `lavagem`, hairline `regua`, raio 3px |
 | citação | borda esquerda 2px `regua`, texto `tinta-media`, itálico não |
 | sintaxe markdown visível | `tinta-suave` — o `**` aparece em cinza, o texto continua preto |
-| link resolvido | `musgo`, sem sublinhado, sublinhado no hover |
+| link resolvido | `cristal`, sem sublinhado, sublinhado no hover |
 | link não resolvido | `bordo`, sublinhado tracejado 1px |
 | destaque `==` | fundo `ocre` a 22%, sem borda |
 | task list marcada | traço de 1px em `tinta-suave` sobre o texto |
@@ -119,7 +121,7 @@ Base 4px. Escala: 4, 8, 12, 16, 24, 32, 48, 64.
 | `sombra-ficha` | `0 8px 20px -8px rgb(28 25 23 / 0.25)` |
 | `sombra-sobreposicao` | `0 24px 60px -20px rgb(28 25 23 / 0.35)` |
 
-No tema escuro as duas são redefinidas com preto puro e mais opacidade (`rgb(0 0 0 / 0.55)` e `rgb(0 0 0 / 0.70)`): uma sombra de `#1C1917` a 25% sobre um fundo `#16140F` é invisível. Além dela, toda superfície flutuante no escuro leva uma hairline `regua` — a sombra sozinha não separa o suficiente.
+No tema escuro as duas são redefinidas com preto puro e mais opacidade (`rgb(0 0 0 / 0.55)` e `rgb(0 0 0 / 0.70)`): uma sombra de `#1C1917` a 25% sobre um fundo `#0D0C10` é invisível. Além dela, toda superfície flutuante no escuro leva uma hairline `regua` — a sombra sozinha não separa o suficiente.
 
 Nenhuma outra sombra no projeto.
 
@@ -159,7 +161,7 @@ Nenhuma outra sombra no projeto.
   --color-tinta:       #1C1917;
   --color-tinta-media: #4A443C;
   --color-tinta-suave: #655E54;
-  --color-musgo:       #3E5C46;
+  --color-cristal:     #74419D;
   --color-ocre:        #A87A1C;
   --color-ocre-tinta:  #7A5610;
   --color-bordo:       #7A2E22;
@@ -179,15 +181,15 @@ Nenhuma outra sombra no projeto.
 }
 
 .dark {
-  --color-papel:       #16140F;
-  --color-superficie:  #1F1C16;
-  --color-lavagem:     #272319;
-  --color-regua:       #34302A;
-  --color-regua-forte: #6E675C;
-  --color-tinta:       #EFEAE0;
-  --color-tinta-media: #BDB6A9;
-  --color-tinta-suave: #9A9384;
-  --color-musgo:       #86A98B;
+  --color-papel:       #0D0C10;
+  --color-superficie:  #161519;
+  --color-lavagem:     #201E24;
+  --color-regua:       #2F2D34;
+  --color-regua-forte: #686473;
+  --color-tinta:       #EAEAEC;
+  --color-tinta-media: #B6B4BB;
+  --color-tinta-suave: #928F99;
+  --color-cristal:     #AA85CB;
   --color-ocre:        #D3A845;
   --color-ocre-tinta:  #D3A845;
   --color-bordo:       #C97B69;
@@ -206,7 +208,7 @@ Nenhuma outra sombra no projeto.
     overflow: hidden;
   }
   :focus-visible {
-    outline: 2px solid var(--color-musgo);
+    outline: 2px solid var(--color-cristal);
     outline-offset: 2px;
   }
 }
@@ -221,41 +223,20 @@ Nenhuma outra sombra no projeto.
 }
 ```
 
-Os tokens do canvas ficam no mesmo arquivo, para que nenhum hex do desenho viva solto no código.
-São lidos via `getComputedStyle` (por `canvas/paletaCanvas.ts`), não por classe utilitária —
-por isso vão em **`@theme static`**, não em `@theme`: o Tailwind v4 só emite no `:root` as
-variáveis de `@theme` que alguma classe realmente usa, e nenhuma usa estas. Sem `static`, no
-tema claro (onde o bloco vive dentro de `@theme`) os tokens voltam como string vazia do
-`getComputedStyle` — foi um bug real, silencioso, corrigido depois de shipado (post-it
-invisível, seletor de cor em branco, só no tema claro).
+**Tokens de canvas: removidos** (doc 09, ADR-20). Esta seção descrevia três rampas próprias
+para o desenho — `traco-*`, `fundo-*` e `postit-*`, 13 tokens × 2 temas, em `@theme static`
+para poderem ser lidos por `getComputedStyle`. Nenhum deles existe mais em `globals.css`.
 
-```css
-@theme static {
-  --color-traco-tinta:  #1C1917;  --color-traco-musgo:  #3E5C46;
-  --color-traco-ocre:   #A87A1C;  --color-traco-bordo:  #7A2E22;
-  --color-traco-suave:  #655E54;
+Foram aposentados junto com a toolbar própria: a UI nativa do Excalidraw voltou a ser usada, e
+o seletor de cor dela não é customizável pela API pública (as paletas são hardcoded nas actions
+do pacote, as constantes não são exportadas). Manter uma paleta própria só produzia cena mista
+— parte dos elementos acompanhando o tema, parte não. **Hoje o usuário escolhe cor de desenho
+entre as opções nativas do Excalidraw**; os doze tokens acima definem o resto da interface, não
+o canvas.
 
-  --color-fundo-neutro: #E5DFD4;  --color-fundo-musgo:  #CFDBD1;
-  --color-fundo-ocre:   #EDDCB4;  --color-fundo-bordo:  #E7CEC8;
-
-  --color-postit-ocre:   #EDDCB4; --color-postit-musgo:  #CFDBD1;
-  --color-postit-bordo:  #E7CEC8; --color-postit-neutro: #E5DFD4;
-}
-
-.dark {
-  --color-traco-tinta:  #EFEAE0;  --color-traco-musgo:  #86A98B;
-  --color-traco-ocre:   #D3A845;  --color-traco-bordo:  #C97B69;
-  --color-traco-suave:  #9A9384;
-
-  --color-fundo-neutro: #272319;  --color-fundo-musgo:  #2C3A2F;
-  --color-fundo-ocre:   #3D3323;  --color-fundo-bordo:  #3A2823;
-
-  --color-postit-ocre:   #4A3E28; --color-postit-musgo:  #2F4034;
-  --color-postit-bordo:  #4A2F28; --color-postit-neutro: #312C22;
-}
-```
-
-O Excalidraw recebe hex, não variáveis CSS. Um módulo `canvas/paletaCanvas.ts` lê esses tokens com `getComputedStyle` no tema ativo e monta a paleta que vai para a cena — nunca com valores literais repetidos no TypeScript.
+O que sobrou do canvas no design system é um único token: `regua`, para os pontos da grade do
+fundo pontilhado — esse sim ainda lido por `getComputedStyle` em `canvas/paletaCanvas.ts`, que
+é onde qualquer hex do desenho tem que nascer. Nunca valores literais repetidos no TypeScript.
 
 Regra de contraste que fecha o RNF8: **`ocre` nunca é cor de texto sobre fundo claro** — para texto use `ocre-tinta` (`#7A5610`, contraste 5,5:1 sobre `papel`). No tema escuro `ocre` e `ocre-tinta` são o mesmo valor de propósito, porque lá `#D3A845` já passa AA. `ocre` continua sendo usado como preenchimento, faixa e destaque.
 
@@ -274,11 +255,92 @@ direta ("achei uma merda"); decisão de produto: tirar por completo, não simpli
 `src/editor/extensoes/marginalia.ts`/`.css` foram apagados. O editor de nota volta a ser só o
 texto, centralizado na coluna de 720px (seção Layout, abaixo).
 
-**Na sidebar.** Cada nível recua 16px e o nível ativo ganha uma hairline vertical em `musgo` de 2px na altura do item — a régua de margem em miniatura. Cada nível de ancestral aberto também ganha uma linha guia de 1px em `regua` (pedido do usuário, 02/09/2026 — sem ela, ficava difícil ver que arquivo pertence a qual pasta numa árvore funda). Sem canto/corner: linha reta o comprimento inteiro do nível, sem distinguir o último filho — o mesmo gesto simples de um snippet CSS do Obsidian, não a precisão de um IDE.
+**Na sidebar.** Cada nível recua 16px e o nível ativo ganha uma hairline vertical em `cristal` de 2px na altura do item — a régua de margem em miniatura. Cada nível de ancestral aberto também ganha uma linha guia de 1px em `regua` (pedido do usuário, 02/09/2026 — sem ela, ficava difícil ver que arquivo pertence a qual pasta numa árvore funda). Sem canto/corner: linha reta o comprimento inteiro do nível, sem distinguir o último filho — o mesmo gesto simples de um snippet CSS do Obsidian, não a precisão de um IDE.
 
 **Nas abas.** A aba é uma ficha de arquivo: altura 34px, fundo `lavagem` quando inativa e `superficie` quando ativa, hairline `regua` separando cada uma, sem raio no topo. A aba ativa não tem borda inferior — ela se funde com o conteúdo. Nada de sombra.
 
-**Logotipo.** "Excalisidian" em Fraunces 600 a 16px, e abaixo dele uma régua de 2px em `musgo` com 40% da largura da palavra, alinhada à esquerda. Nada mais.
+**Seletor de vault.** Substitui o Logotipo no cabeçalho da sidebar (decisão de múltiplos
+vaults, `docs/12-multiplos-vaults.md` §4.1). `SeletorVault` ocupa o espaço flexível à esquerda
+do cabeçalho (`min-w-0 flex-1`); o botão mostra o nome do vault (`nomeDoVault(raiz)`) em uma
+linha, `overflow-hidden whitespace-nowrap`, **sem `text-ellipsis`**: quando o texto transborda
+(medido por `scrollWidth > clientWidth`, via `ResizeObserver`), o final some num fade —
+`mask-image: linear-gradient(to right, #000 calc(100% - 24px), transparent)`. A máscara usa só
+alfa, então não introduz cor nova. Os 24px saem da escala base de "Espaçamento, raio e sombra"
+(escolha do usuário em 16/09/2026, entre 16, 24 e 32). Nome curto: sem
+máscara. `title` do botão é o caminho absoluto completo do vault. Tipografia, hover e foco: os
+mesmos de item de sidebar (esta seção). O logotipo em imagem (`lettering-excalisidian.png`)
+sai do cabeçalho e fica sem uso nesta tela.
+
+O botão de colapsar (`panel-left-close`) deixa de trocar de lugar com o logotipo no hover —
+comportamento antigo, hoje incompatível com o Seletor de vault ocupando aquele espaço — e fica
+**sempre visível** no fim do grupo de ícones do cabeçalho. Motivo: o mesmo já registrado acima
+para o painel flutuante da sidebar colapsada — "o alvo trocar de lugar sob o cursor" entre a
+intenção de clicar e o clique. A prop `comMouse` de `ConteudoSidebar` deixa de ser usada para
+esse propósito.
+
+**Menu do seletor** (ancorado sob o botão, `Menu`/`ItemMenu` de `src/ui/Menu.tsx`): lista de
+recentes (nome por linha, `title` = caminho — o vault desta janela leva ícone `check` e não é
+clicável; hover num item que não é o atual mostra `BotaoIcone` `x`, "Remover da lista");
+separador; "Criar vault…" (`folder-plus`); "Abrir pasta como vault…" (`folder-open`). Textos
+completos em `docs/04-regras-de-negocio.md` §13.
+
+---
+
+## Imagem na nota
+
+Imagens embutidas (`![[imagem]]`) usam o mesmo respiro e recorte das imagens markdown do editor
+(`.cm-atomic-image`). Na mesma linha, ficam lado a lado numa fileira com vão de 8px que quebra
+quando não cabe (`embedImagem.css`).
+
+- **Alça de tamanho:** canto inferior direito, 12px, duas réguas de 2px em `cristal` formando o
+  canto, a 4px das bordas; aparece no hover (140ms, `ease-caderno`). Cursor `nwse-resize`.
+- **Arrastando:** a imagem ganha `sombra-ficha`. Indicador de soltura de 2px em `cristal` —
+  vertical ao lado da imagem alvo, horizontal entre linhas —, o mesmo do mover bloco.
+- **Largura mínima** ao redimensionar: 64px.
+
+## Tabela no editor
+
+Controles de tabela no live preview — contrato completo, inclusive o modelo de dados e os
+contratos de código, em `docs/14-tabelas.md`.
+
+**Barra de formatação flutuante.** Aparece grudada acima do texto selecionado, **só com
+seleção** (a fase em que também aparecia acima do cursor sem seleção foi revertida a pedido do
+usuário em 16/09/2026). Some quando o foco sai do editor, na vista somente
+leitura, e quando o foco está dentro de uma célula de tabela — célula é outro campo editável, a
+barra apontaria para o lugar errado. Ganha um grupo novo no fim, "Tabela", com um botão
+"Tabela" (ícone `table`) que insere a tabela padrão.
+
+**Barra de formatação acoplada** (pedido do usuário, 16/09/2026). Ao lado direito da barra
+flutuante, **fora dela**, numa `Superficie` flutuante própria de um botão só, fica "Acoplar
+embaixo" (ícone `panel-bottom`), separada da barra por 8px. Fora porque é uma ação sobre a
+barra, não sobre o texto. Acoplada, a barra deixa de flutuar e vira uma faixa ancorada no pé do
+painel da nota, centralizada: fundo `superficie`, hairline `regua` em cima, **sem sombra**
+(superfície ancorada), mesmos botões e grupos, e no fim, depois de uma hairline vertical,
+"Desacoplar" (ícone `panel-bottom-close`). Fica visível enquanto a nota está aberta, com ou
+sem foco; some na vista somente leitura. A escolha é preferência da máquina (`settings.json`)
+e vale para todas as notas e janelas.
+
+**Faixas "+".** Ao passar o mouse sobre uma tabela, duas faixas de 16px de espessura (escala de
+"Espaçamento, raio e sombra") aparecem: à direita da última coluna, na altura da tabela
+("Adicionar coluna"), e abaixo da última linha, na largura da tabela ("Adicionar linha"). Fundo
+transparente, `lavagem` no hover da faixa, ícone `plus` de 16px em `tinta-suave`. Não aparecem
+na vista somente leitura.
+
+**Alças.** `grip-vertical` (16px, `tinta-suave`) aparece à esquerda de uma linha ao passar o
+mouse sobre ela; `grip-horizontal` (mesma medida) aparece acima de uma coluna. Mesmo gesto
+visual da alça de bloco ⠿ (`AlcaBloco`, `moverBloco`). Clicar na alça abre o menu da linha ou
+da coluna, ancorado nela. Arrastar reordena: um indicador de 2px em `cristal` marca a posição
+de destino (mesmo indicador do mover bloco), e a linha ou coluna arrastada ganha
+`sombra-ficha`. Soltar move; `Esc` cancela. A linha de cabeçalho não tem alça de linha.
+
+**Menu.** Mesmo componente visual de `Menu`/`ItemMenu` (`src/ui/Menu.tsx`) usado em qualquer
+outro menu do app, com ícones — não o menu em DOM puro e visual próprio que existia antes
+(`.cm-atomic-table-menu`, removido, com sombra e raio fora dos tokens). Aberto por clique
+direito numa célula ou por clique numa alça.
+
+Como em toda superfície do app, mover linha ou coluna pela alça tem equivalente no menu (mover
+para cima/baixo/esquerda/direita) — ver "Piso de qualidade", "Toda ação de arraste tem
+equivalente".
 
 ---
 
@@ -288,7 +350,7 @@ texto, centralizado na coluna de 720px (seção Layout, abaixo).
 
 O fundo do canvas é `papel` com uma grade de **pontos de 1px em `regua`, espaçados 20px**, com opacidade 60%. É a folha pontilhada de caderno de bullet journal.
 
-No tema escuro: pontos em `regua` (`#34302A`) sobre `papel` (`#16140F`), opacidade 80%.
+No tema escuro: pontos em `regua` (`#2F2D34`) sobre `papel` (`#0D0C10`), opacidade 80%.
 
 Implementação: `background-image` com `radial-gradient` de um ponto, `background-size: 20px 20px`, aplicado no elemento abaixo do canvas do Excalidraw — o `viewBackgroundColor` da cena fica **transparente** para o fundo aparecer. A grade acompanha zoom e pan.
 
@@ -312,7 +374,7 @@ constantes não são exportadas — então restringir a paleta exigia mantê-la 
 gerando cena mista quando o usuário usava o seletor nativo por baixo.
 
 O que isso muda, em termos concretos: **o usuário escolhe cor entre as opções nativas do
-Excalidraw**, não os tokens `musgo`/`ocre`/`bordo` etc. — essas cores continuam definindo o
+Excalidraw**, não os tokens `cristal`/`ocre`/`bordo` etc. — essas cores continuam definindo o
 resto da interface, só não mais o canvas. Espessura, estilo de linha, imperfeição, cantos,
 fonte e opacidade também passam a ter as opções nativas (mais amplas que as que o app
 restringia antes). Não existe mais ferramenta de post-it — decisão do usuário; post-its já
@@ -338,10 +400,10 @@ continua nativa** (não é reskinada — decisão explícita).
 | Raio grande / pequeno | `raio-ficha` / `raio-controle` |
 | Fonte de interface | `fonte-sans` |
 | Texto e ícone | `tinta` / `tinta-media` |
-| Ferramenta/opção ativa (fundo / ícone) | `musgo` / `superficie` |
+| Ferramenta/opção ativa (fundo / ícone) | `cristal` / `superficie` |
 | Hover de botão | `lavagem` |
 | Borda de campo de texto | `regua-forte` |
-| Foco / link | `musgo` |
+| Foco / link | `cristal` |
 | Fundo do backdrop de diálogo | `color-mix(in srgb, tinta 28%, transparent)` — mesma receita de `Dialog.tsx` |
 
 Fora de escopo, deliberadamente: `RadioGroup`/`Switch`/avatar (componentes de colaboração ou de
@@ -360,7 +422,7 @@ telas que este app não expõe hoje, dado o `UIOptions` restrito) e a fonte do t
 | Traço de task list concluída | 180ms | `scaleX(0) → 1`, origem à esquerda |
 | Aba arrastada | imediato | `scale(1.02) rotate(-0.7deg)` + `sombra-ficha` |
 | Aba solta | 180ms | volta a `scale(1) rotate(0)` |
-| Zona de soltura do split | 120ms | fundo `musgo` a 12% + hairline `musgo` |
+| Zona de soltura do split | 120ms | fundo `cristal` a 12% + hairline `cristal` |
 
 A rotação no arraste é a única liberdade lúdica do sistema. Não adicione outras. Nada anima dentro do canvas de desenho — lá o movimento é do usuário.
 
@@ -378,7 +440,7 @@ Botões:
 
 | Variante | Aparência |
 |---|---|
-| primário | fundo `musgo`, texto `superficie`, `raio-controle` |
+| primário | fundo `cristal`, texto `superficie`, `raio-controle` |
 | secundário | fundo transparente, borda 1px `regua-forte`, texto `tinta` |
 | fantasma | sem borda, hover com fundo `lavagem` |
 | destrutivo | texto e borda `bordo`, fundo transparente; preenche em `bordo` no hover |
@@ -389,14 +451,18 @@ Altura padrão 36px, compacto 30px, ícone 32×32.
 
 | Componente | Responsabilidade |
 |---|---|
-| `Logotipo` | marca com a régua |
+| `Logotipo` | lettering em imagem, altura parametrizável (prop `altura`, padrão 16px — o do cabeçalho histórico; 32px na `TelaBoasVindas`); sem uso no cabeçalho da sidebar desde o Seletor de vault — ver "Elemento de assinatura" |
+| `TelaBoasVindas` | tela sem vault (primeiro uso, retorno e erro) — lettering, nome do usuário (só no primeiro uso sem nome informado) e criação do primeiro vault com sugestão pronta; ver "Tela de boas-vindas", abaixo |
+| `SeletorVault` | botão do cabeçalho da sidebar com o nome do vault e fade de transbordo; menu de recentes, criar e abrir vault (`docs/12-multiplos-vaults.md` §4) |
+| `DialogoCriarVault` | diálogo de criar vault (nome + local), mesmo padrão de `DialogoPreferencias` (`docs/12-multiplos-vaults.md` §4.3) |
 | `ArvoreArquivos` | árvore virtualizada, expandir/recolher, arrastar, menu de contexto |
 | `ItemArvore` | linha de arquivo ou pasta, com ícone por tipo e régua de nível ativo |
 | `BarraAbas` | fichas de aba, arrastar, zonas de soltura, indicador de não salvo |
 | `PainelSplit` | wrapper do dockview com as divisórias em hairline |
 | `EditorNota` | CodeMirror com live preview |
 | `AlcaBloco` | alça ⠿ que aparece ao passar o mouse sobre um bloco, arrasta pra mover |
-| `BarraFlutuanteFormatacao` | barra que aparece grudada acima do texto selecionado (negrito, itálico, riscado, código, título 1/2/3, citação, lista, lista numerada, checkbox, link) |
+| `BarraFlutuanteFormatacao` | barra que aparece grudada acima do texto selecionado (só com seleção), ou acoplada embaixo da nota; some ao perder o foco do editor, na vista somente leitura e dentro de célula de tabela (negrito, itálico, riscado, código, título 1/2/3, citação, lista, lista numerada, checkbox, link, tabela) |
+| `menuTabela` | extensão que abre o menu de tabela (`Menu`/`ItemMenu` do app) por clique direito numa célula ou clique numa alça de linha/coluna, com inserir, mover, alinhar e excluir (ver "Tabela no editor") |
 | `MargemNota` | coluna de 76px com metadados do bloco |
 | `EmbedDesenho` | bloco que renderiza o SVG do desenho dentro da nota |
 | `EmbedNota` | bloco que renderiza a transclusão de nota ou seção |
@@ -405,13 +471,13 @@ Altura padrão 36px, compacto 30px, ícone 32×32.
 | `EditorDesenho` | Excalidraw embutido com UI nativa (toolbar, painel de propriedades, menu) e fundo pontilhado do app |
 | `LinkDoElemento` | painel próprio pequeno (canto superior direito, via `renderTopRightUI`) com o campo de link e autocomplete de nota — a única UI de canvas que não é nativa |
 | `PainelBacklinks` | lista de notas que apontam para a atual, com trecho — só aparece havendo backlink, sem estado vazio |
-| `PainelBusca` | campo, resultados agrupados por arquivo, trecho com destaque |
-| `QuickSwitcher` | sobreposição de busca por nome |
+| `PainelBusca` | busca unificada por título e por conteúdo (doc 13): um campo, seções "Títulos" e "No conteúdo", trechos com destaque. Absorveu o `QuickSwitcher`, que foi apagado — a busca por nome/alias virou a seção "Títulos" desta mesma sobreposição |
+| `CampoBuscaSidebar` | linha "Buscar" abaixo do cabeçalho da sidebar, com o atalho à direita; visualmente um campo, mas é um botão que abre `PainelBusca` (doc 13 §2.4) |
 | `PaletaComandos` | sobreposição de comandos com atalho em `meta` |
 | `PainelLixeira` | diálogo modal (mesmo padrão de `DialogoPreferencias`, não uma seção fixa da sidebar — o diagrama de Layout abaixo é aspiracional nesse ponto) com a lista de itens excluídos, restaurar por item e esvaziar |
 | `EstadoVazio` | bloco com hairline superior e inferior, título, apoio e ação |
-| `TelaInicio` | aba fixa de início, nesta ordem: saudação por horário (`display-1`), o convite de `EstadoVazio` para criar nota/desenho/pasta, atalhos para as pastas de primeiro nível, e — ao clicar num atalho — os arquivos/subpastas dela, navegável (mini-explorador) |
-| `DialogoPreferencias` | configurações do app (tema, largura da nota) — ícone de engrenagem no rodapé da sidebar, ou `Ctrl+,` |
+| `TelaInicio` | aba fixa de início, nesta ordem: saudação por horário (`display-1`, com o nome do usuário quando informado — `nomeUsuario` `null` ou `""` mostra só a saudação, sem nome), o convite de `EstadoVazio` para criar nota/desenho/pasta, atalhos para as pastas de primeiro nível, e — ao clicar num atalho — os arquivos/subpastas dela, navegável (mini-explorador) |
+| `DialogoPreferencias` | configurações do app — seção "Seu nome" (`Campo` "Nome", ajuda "Aparece na saudação da tela de início.") é a primeira da lista, seguida de tema e largura da nota — ícone de engrenagem no rodapé da sidebar, ou `Ctrl+,` |
 | `ConfirmacaoDestrutiva` | diálogo com a contagem real do que será perdido |
 | `FaixaConflito` | faixa no topo do editor com as duas ações |
 | `BalaoAgente` | balão flutuante do agente de IA, canto inferior direito (doc 11 §6.1) — só existe com o agente habilitado |
@@ -431,24 +497,53 @@ Altura padrão 36px, compacto 30px, ícone 32×32.
 │               │ ┌ aba ─┬ aba ─┬ aba ─┐                       │
 │  sidebar      │ ├──────┴──────┴───────────────────────────┐  │
 │  264px        │ │                                         │  │
-│               │ │   editor  |  canvas                     │  │
+│  buscar       │ │   editor  |  canvas                     │  │
 │  árvore       │ │           |                             │  │
-│  busca        │ │                                         │  │
-│  backlinks    │ └─────────────────────────────────────────┘  │
-│  lixeira      │                                              │
+│  backlinks    │ │                                         │  │
+│  lixeira      │ └─────────────────────────────────────────┘  │
+│               │                                              │
 ├───────────────┴──────────────────────────────────────────────┤
 │ CAMINHO/DO/ARQUIVO.MD          1 240 PALAVRAS      SALVO      │  barra de status 24px
 └──────────────────────────────────────────────────────────────┘
 ```
 
 - Sidebar fixa de 264px, fundo `superficie`, redimensionável entre 200 e 400px, recolhível com `Ctrl+\` (`Ctrl+B` é negrito no editor).
-- Sidebar colapsada em 48px: a faixa de ícones fica no lugar, imóvel, e o hover abre ao lado dela um painel flutuante com a árvore e os backlinks — 216px, somando os mesmos 264px da sidebar expandida. Abre 200ms depois que o mouse entra, fecha 150ms depois que sai, leva `sombra-sobreposicao`, não tem backdrop, e fecha ao abrir um arquivo ou ao expandir. Animação: "Abertura de painel lateral".
+- Logo abaixo do cabeçalho da sidebar, separada por hairline `regua`: a linha `CampoBuscaSidebar` ("Buscar" + atalho "CTRL O"), que abre a busca unificada (`PainelBusca`, doc 13).
+- Sidebar colapsada em 48px: a faixa de ícones fica no lugar, imóvel, e o hover abre ao lado dela um painel flutuante com a árvore e os backlinks — 216px, somando os mesmos 264px da sidebar expandida. Abre 200ms depois que o mouse entra, fecha 150ms depois que sai, leva `sombra-sobreposicao`, não tem backdrop, e fecha ao abrir um arquivo ou ao expandir. Animação: "Abertura de painel lateral". Na faixa de ícones, logo depois de "Expandir sidebar", um `BotaoIcone` `search` ("Buscar") abre a mesma busca.
 - Esse painel não repete o cabeçalho nem o rodapé da sidebar. O motivo é o erro de clique: a faixa já tem os mesmos ícones na vertical, e trazê-los de novo na horizontal fazia o alvo trocar de lugar sob o cursor entre a intenção de clicar e o clique.
 - Hairline `regua` separando sidebar, conteúdo e barra de status. Sem sombra entre eles.
 - Barra de status de 24px, fundo `superficie`, tudo em `meta`, `tinta-suave`: caminho à esquerda, contagem de palavras e estado de salvamento à direita.
 - Coluna de texto da nota: centralizada no painel, padding lateral de 32px, largura conforme a preferência do usuário (tela de Configurações) — `pequena` 728px, `média` 936px (padrão), `full` sem teto de largura (só a margem de 32px de cada lado).
-- Divisória de split: 1px de `regua`, área de arraste de 8px, cursor de redimensionar, `musgo` durante o arraste.
+- Divisória de split: 1px de `regua`, área de arraste de 8px, cursor de redimensionar, `cristal` durante o arraste.
 - Largura mínima de janela: 900×600. Abaixo disso a sidebar recolhe sozinha.
+
+### Tela de boas-vindas
+
+Especificada no doc 15 (§1.1); os valores visuais normativos moram aqui. Substitui a tela
+`sem-vault` (primeiro uso, retorno e erro de abertura) — nunca há vault aberto e nenhum outro
+elemento de layout (sidebar, abas, barra de status) atrás dela.
+
+Ordem dos blocos, de cima para baixo:
+
+1. **Lettering** (`Logotipo`, prop `altura={32}` — decisão do usuário, 16/09/2026; o cabeçalho
+   histórico da sidebar usa 16px, ver "Elemento de assinatura").
+2. **Título** em `display-2`, só no primeiro uso ("Vamos começar"; no retorno é "Nenhum vault
+   aberto", e no erro "Não foi possível abrir o vault"); logo abaixo, o subtítulo em `corpo`
+   (no primeiro uso) ou a mensagem de erro em `tom="erro"` (no erro) — nunca os dois juntos.
+3. **Campo de nome**, só no primeiro uso sem nome informado: rótulo "Como podemos te chamar?",
+   `Input`, e uma linha de ajuda em `pequeno`/`tinta-suave`.
+4. **Seção do vault**, título em `titulo-3` ("Seu primeiro vault" no primeiro uso, "Criar
+   vault" no retorno); no primeiro uso, um parágrafo de explicação em `corpo` antes dos
+   campos; campos "Nome" e "Local" (`Input` + botão "Escolher…"); abaixo deles, o caminho
+   final resolvido (`local` + separador + `nome`) em `meta`, atualizado a cada tecla.
+5. **Botão primário** "Criar e começar", largura cheia da seção do vault.
+6. **Alternativa** "Já tenho uma pasta com notas" com o botão "Abrir pasta" — fantasma/link,
+   abaixo do botão primário.
+7. **Recentes**, só havendo algum: título "Recentes" em `meta` e a lista, mesmo componente de
+   item de recente do `SeletorVault`.
+
+**Largura da tela:** `max-w-md` — a mesma que a tela `sem-vault` antiga já usava. Registrado
+aqui, não um valor novo.
 
 ### Balão e painel do agente de IA
 
@@ -459,7 +554,7 @@ agente está habilitado — o produto sem agente não tem nenhum destes elemento
   (`raio-pilula`), fundo `superficie`, hairline `regua`, `sombra-ficha`, ícone `bot` 18px.
   O Toaster (sonner) sobe para não ficar atrás dele.
 - **Estados do balão**: ocioso `tinta-suave`; observando `tinta-media`; pensando com anel
-  `ocre` em pulso de 1,6s; convite/sugestões com badge `musgo`; pausado a 50% de opacidade;
+  `ocre` em pulso de 1,6s; convite/sugestões com badge `cristal`; pausado a 50% de opacidade;
   erro `bordo`.
 - **Painel**: cartão flutuante ancorado acima do balão, 360px de largura, máx. 60vh com
   scroll, fundo `superficie`, `raio-ficha`, `sombra-sobreposicao`, hairline `regua` no
@@ -498,7 +593,23 @@ agente está habilitado — o produto sem agente não tem nenhum destes elemento
 | título 1 / 2 / 3 | `heading-1` / `heading-2` / `heading-3` |
 | citação / lista / lista numerada / checkbox / link | `quote` / `list` / `list-ordered` / `square-check` / `link` |
 | mover bloco (alça) | `grip-vertical` |
+| tabela (paleta, barra de formatação) | `table` |
+| acoplar barra de formatação embaixo | `panel-bottom` |
+| desacoplar barra de formatação | `panel-bottom-close` |
+| dica de Enter no fim de um campo ("Seu nome" nas Configurações) — 12px, `tinta-suave`, seguido de "Enter" em `meta` | `corner-down-left` |
+| adicionar linha / coluna (faixa "+" da tabela) | `plus` |
+| alça de linha / coluna (tabela) | `grip-vertical` / `grip-horizontal` |
+| inserir linha acima / abaixo | `between-horizontal-start` / `between-horizontal-end` |
+| inserir coluna à esquerda / direita | `between-vertical-start` / `between-vertical-end` |
+| mover linha para cima / baixo | `arrow-up` / `arrow-down` |
+| mover coluna para a esquerda / direita | `arrow-left` / `arrow-right` |
+| alinhar coluna à esquerda / centro / direita | `align-left` / `align-center` / `align-right` |
+| excluir linha / coluna / tabela | `trash-2` |
 | agente de IA (balão) | `bot` — demais ícones do agente no doc 11 §8 |
+| vault atual no menu do seletor | `check` |
+| remover da lista de recentes | `x` |
+| criar vault | `folder-plus` |
+| abrir pasta como vault | `folder-open` |
 
 Ícones de ferramenta do canvas (seleção, formas, texto, alinhar/distribuir etc.) não aparecem
 aqui — vêm da UI nativa do Excalidraw, fora do controle do app (doc 09, ADR-20).
@@ -519,7 +630,7 @@ Sem emoji em nenhuma superfície de produção.
 
 - Contraste mínimo AA (4,5:1) para todo texto nos dois temas.
 - Contraste mínimo 3:1 para a borda de controle interativo, garantido por `regua-forte`. A `regua` comum fica em 1,2:1 sobre `papel` — ela é separador decorativo de propósito, nunca a única pista de que algo é clicável.
-- Foco visível em todo elemento interativo, com a régua de foco em `musgo`.
+- Foco visível em todo elemento interativo, com a régua de foco em `cristal`.
 - Toda ação de arraste tem equivalente por teclado ou menu (mover arquivo, mover aba, criar split).
 - Nenhuma informação transmitida só por cor: link não resolvido tem sublinhado tracejado além da cor; aba não salva tem o ponto além da cor.
 - O canvas funciona sem rede: fontes empacotadas, `window.EXCALIDRAW_ASSET_PATH` apontando para os assets locais.

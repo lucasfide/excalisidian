@@ -32,6 +32,13 @@ de continuidade. Copiar o código para cá:
   para ficar fácil separar o que é upstream do que é adaptação.
 - Só o `EditorNota.tsx` (fora deste diretório) importa daqui. O ponto de entrada é
   `./index.ts`; o CSS é `./styles/inline-preview.css`.
+- **Exceção registrada (ADR-26 do `docs/09`):** `table-widget.ts` e `table-model.ts` divergem
+  bastante do upstream (modelo com alinhamento, menu delegado por facet, controles de hover —
+  doc 14) e já não são um reskin fino. `src/editor/extensoes/menuTabela.tsx` (código do
+  projeto) importa os dois diretamente — `../atomico/table-widget` e `../atomico/table-model`
+  — em vez de passar só pelo `EditorNota.tsx`, porque é ele quem fornece o handler do
+  `tableMenuFacet` e os textos do `tableLabelsFacet` (doc 14 §2.2/§2.3). Regra de nomes/
+  comentários em inglês e marcação `// [excalisidian]` continuam valendo nesses dois arquivos.
 
 ## Suíte de testes do upstream
 

@@ -21,6 +21,7 @@ import "./excalidraw-excalisidian.css";
 import LinkDoElemento from "../ui/excalisidian/LinkDoElemento";
 
 import { useVaultStore } from "../estado/vaultStore";
+import { PASTA_ANEXOS, carimboImagemColada } from "../vault/anexos";
 import {
   parseDesenho,
   serializarDesenho,
@@ -62,12 +63,6 @@ const UI_OPTIONS = {
     toggleTheme: false,
   },
 } as const;
-
-function carimbo(): string {
-  const d = new Date();
-  const p = (n: number, l = 2) => String(n).padStart(l, "0");
-  return `${d.getFullYear()}${p(d.getMonth() + 1)}${p(d.getDate())}-${p(d.getHours())}${p(d.getMinutes())}${p(d.getSeconds())}`;
-}
 
 interface Props {
   caminho: string;
@@ -370,10 +365,10 @@ export default function EditorDesenho({
         adotandoRef.current.add(fileId);
         try {
           const caminho = await caminhoLivre(
-            `anexos/Imagem colada ${carimbo()}`,
+            `${PASTA_ANEXOS}/Imagem colada ${carimboImagemColada()}`,
             `.${ext}`,
           );
-          await adapter.criarPasta("anexos");
+          await adapter.criarPasta(PASTA_ANEXOS);
           await adapter.escreverBinario(caminho, bytes);
           embedsRef.current.set(fileId, `[[${caminho}]]`);
         } catch {

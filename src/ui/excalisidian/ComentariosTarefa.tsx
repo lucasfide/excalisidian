@@ -27,7 +27,7 @@ function TextoComLinks({ texto }: { texto: string }) {
             key={i}
             type="button"
             onClick={() => void abrirOuCriarPorLink(alvo, "")}
-            className="text-musgo underline decoration-dotted underline-offset-2 hover:decoration-solid"
+            className="text-cristal underline decoration-dotted underline-offset-2 hover:decoration-solid"
           >
             {m[1]}
           </button>
@@ -108,7 +108,7 @@ export default function ComentariosTarefa({ tarefa }: Props) {
                   }
                 }}
                 rows={2}
-                className="w-full resize-none rounded-controle border border-regua-forte bg-papel px-2 py-1 text-[13px] text-tinta focus:border-musgo focus:outline-none"
+                className="w-full resize-none rounded-controle border border-regua-forte bg-papel px-2 py-1 text-[13px] text-tinta focus:border-cristal focus:outline-none"
               />
             ) : (
               <TextoComLinks texto={c.texto} />
@@ -123,7 +123,7 @@ export default function ComentariosTarefa({ tarefa }: Props) {
         onKeyDown={enviarNovo}
         rows={2}
         placeholder="Escrever um comentário"
-        className="w-full resize-none rounded-controle border border-regua-forte bg-papel px-2 py-1 text-[13px] text-tinta placeholder:text-tinta-suave focus:border-musgo focus:outline-none"
+        className="w-full resize-none rounded-controle border border-regua-forte bg-papel px-2 py-1 text-[13px] text-tinta placeholder:text-tinta-suave focus:border-cristal focus:outline-none"
       />
     </div>
   );

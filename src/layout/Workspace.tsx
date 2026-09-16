@@ -8,7 +8,6 @@ import type {
   DockviewApi,
   DockviewReadyEvent,
   DockviewTheme,
-  GetTabContextMenuItemsParams,
 } from "dockview";
 
 type Disposable = { dispose(): void };
@@ -17,7 +16,7 @@ import "./dockview-excalisidian.css";
 import { toast } from "sonner";
 
 import { useVaultStore } from "../estado/vaultStore";
-import { useWorkspaceStore, ID_PAINEL_INICIO } from "../estado/workspaceStore";
+import { useWorkspaceStore } from "../estado/workspaceStore";
 import { useDocumentosStore } from "../estado/documentosStore";
 import { useSobreposicaoStore } from "../estado/sobreposicaoStore";
 import { carregarLayout, salvarLayout, limparLayout } from "./persistencia";
@@ -119,6 +118,17 @@ export default function Workspace() {
       if (api.panels.length === 0) {
         useWorkspaceStore.getState().abrirInicio();
       }
+
+      // Onboarding (doc 15 §2.3): "Criar e começar" pede pra abrir a nota de boas-vindas
+      // antes de a API do dockview existir (a criação do conteúdo de exemplo roda em
+      // paralelo ao boot do vault). Em vez de um setTimeout arbitrário, o pedido fica em
+      // `documentoPendente` até este ponto — depois do layout restaurado e da Home aberta,
+      // que é quando faz sentido abrir mais uma aba por cima.
+      const pendente = useWorkspaceStore.getState().documentoPendente;
+      if (pendente) {
+        useWorkspaceStore.getState().definirDocumentoPendente(null);
+        useWorkspaceStore.getState().abrirDocumento(pendente);
+      }
     },
     [raiz, setApi, setFlushLayout, definirAtivo, aoRemoverPainel],
   );
@@ -130,32 +140,6 @@ export default function Workspace() {
     },
     [],
   );
-
-  // Dividir pelo menu de contexto da aba (RF3.4). A Home é fixa (doc 09 ADR-16): sem "Fechar"
-  // nela, e "Fechar outras" nunca pode levá-la junto — por isso não usa o "closeOthers" nativo
-  // do dockview (que fecharia tudo, Home incluída), e sim uma versão própria que a poupa.
-  const menuDaAba = useCallback((params: GetTabContextMenuItemsParams) => {
-    const ws = useWorkspaceStore.getState();
-    const alvo = params.panel;
-    if (!ws.api || !alvo) return [];
-    const ehInicio = alvo.id === ID_PAINEL_INICIO;
-    const dividir = (direcao: "right" | "below") => {
-      alvo.api.setActive();
-      ws.dividirAtivo(direcao);
-    };
-    const fecharOutras = () => {
-      for (const p of ws.api!.panels) {
-        if (p !== alvo && p.id !== ID_PAINEL_INICIO) p.api.close();
-      }
-    };
-    return [
-      { label: "Dividir à direita", action: () => dividir("right") },
-      { label: "Dividir abaixo", action: () => dividir("below") },
-      "separator" as const,
-      ...(ehInicio ? [] : ["close" as const]),
-      { label: "Fechar outras", action: fecharOutras },
-    ];
-  }, []);
 
   // Atalhos de aba (RF3.1–3.4).
   useEffect(() => {
@@ -193,7 +177,9 @@ export default function Workspace() {
         if (p) void useDocumentosStore.getState().salvar(p);
       } else if (k === "o" && !e.shiftKey) {
         e.preventDefault();
-        useSobreposicaoStore.getState().abrir("switcher");
+        // Ctrl+O e Ctrl+Shift+F abrem a mesma busca unificada (doc 13 §1.1/§2.3) — o
+        // QuickSwitcher foi absorvido pela seção "Títulos" do PainelBusca.
+        useSobreposicaoStore.getState().abrir("busca");
       } else if (k === "p" && !e.shiftKey) {
         e.preventDefault();
         useSobreposicaoStore.getState().abrir("comandos");
@@ -223,7 +209,6 @@ export default function Workspace() {
       defaultTabComponent={AbaDocumento}
       tabComponents={{ inicio: AbaInicio }}
       prefixHeaderActionsComponent={BotaoInicioAba}
-      getTabContextMenuItems={menuDaAba}
       onReady={onReady}
     />
   );

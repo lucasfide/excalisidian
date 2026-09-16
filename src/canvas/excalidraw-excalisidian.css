@@ -6,11 +6,11 @@
    Excalidraw. ⚠️ Verificação manual pendente: com o filtro de inversão do tema escuro
    religado (ver comentário em EditorDesenho.tsx sobre o ADR-12 aposentado), este valor passa
    pelo mesmo `filter: invert(93%) hue-rotate(180deg)` que o `<canvas>` inteiro recebe no tema
-   escuro — então o hex efetivamente exibido não é `--color-musgo` puro. Se a cor de seleção
+   escuro — então o hex efetivamente exibido não é `--color-cristal` puro. Se a cor de seleção
    sair errada no tema escuro, é aqui que ajusta (provavelmente precisando de um segundo valor,
-   pré-calculado para "dar" musgo depois do filtro, em vez de reusar a variável direto). */
+   pré-calculado para "dar" cristal depois do filtro, em vez de reusar a variável direto). */
 .excalisidian-canvas .excalidraw {
-  --color-selection: var(--color-musgo);
+  --color-selection: var(--color-cristal);
 }
 
 /* Reskin cosmético da UI nativa (doc 09, ADR-20; doc 06, "Toolbar, painel de propriedades e
@@ -61,45 +61,45 @@
      PRIMEIRA opção também no estado selecionado do botão (`variables.module.scss`:
      `&.active { svg { color: var(--button-color, var(--color-on-primary-container)) } }`, e o
      mesmo padrão pro fill), então declará-los globalmente vaza pro selecionado e mata o
-     contraste: no tema escuro dava `tinta-media` (#BDB6A9) sobre `musgo` (#86A98B) = 1,29:1,
+     contraste: no tema escuro dava `tinta-media` (#B6B4BB) sobre `cristal` (#AA85CB) = 1,48:1,
      ilegível. Deixando os dois sem declaração, o pacote cai no fallback correto —
      `--color-on-surface` no repouso e `--color-on-primary-container` no selecionado, que é
      exatamente o par que a gente quer. */
   --color-on-surface: var(--color-tinta);
-  --icon-green-fill-color: var(--color-musgo);
+  --icon-green-fill-color: var(--color-cristal);
   --text-primary-color: var(--color-tinta);
   --text-color: var(--color-tinta-media);
   --color-disabled: var(--color-tinta-suave);
   --keybinding-color: var(--color-tinta-suave);
-  --link-color: var(--color-musgo);
+  --link-color: var(--color-cristal);
 
   /* Borda de controle (radio/switch/outros, fora do fluxo de botão) — mesma régua de contraste
      3:1 que `regua-forte` já garante pro resto do app (doc 06, piso de qualidade). */
   --color-border-outline: var(--color-regua-forte);
   --color-border-outline-variant: var(--color-regua);
 
-  /* Ferramenta/opção ativa: fundo `musgo`, ícone em `superficie` — o mesmo par que
+  /* Ferramenta/opção ativa: fundo `cristal`, ícone em `superficie` — o mesmo par que
      `ToolbarCanvas` usava antes da migração (doc 06). `--button-selected-*` não são
      declaradas pelo pacote (hooks livres pro host, confirmado no levantamento da UI nativa). */
-  --color-surface-primary-container: var(--color-musgo);
+  --color-surface-primary-container: var(--color-cristal);
   --color-on-primary-container: var(--color-superficie);
-  --button-selected-bg: var(--color-musgo);
-  --button-selected-border: var(--color-musgo);
-  --button-selected-hover-bg: var(--color-musgo);
+  --button-selected-bg: var(--color-cristal);
+  --button-selected-border: var(--color-cristal);
+  --button-selected-hover-bg: var(--color-cristal);
 
   /* Botão comum: hover em `lavagem` (mesma convenção de `BotaoIcone`/árvore de arquivos) e
-     ativo (mousedown) com um traço em `musgo`. Sem `--button-color` — ver o aviso acima. */
+     ativo (mousedown) com um traço em `cristal`. Sem `--button-color` — ver o aviso acima. */
   --button-hover-bg: var(--color-lavagem);
   --button-active-bg: var(--color-lavagem);
-  --button-active-border: var(--color-musgo);
+  --button-active-border: var(--color-cristal);
 
   /* Campos de texto (busca, hex de cor, nome de arquivo): mesma receita de `Campo.tsx`. */
   --input-bg-color: var(--color-superficie);
   --input-border-color: var(--color-regua-forte);
   --input-hover-bg-color: var(--color-lavagem);
   --input-label-color: var(--color-tinta-suave);
-  --focus-highlight-color: var(--color-musgo);
-  --select-highlight-color: var(--color-musgo);
+  --focus-highlight-color: var(--color-cristal);
+  --select-highlight-color: var(--color-cristal);
 
   /* Scrollbar interna do Excalidraw (biblioteca, sidebar) — mesma receita de `globals.css`. */
   --scrollbar-thumb: var(--color-regua);

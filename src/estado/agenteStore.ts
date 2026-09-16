@@ -11,6 +11,7 @@ import { create } from "zustand";
 import { load } from "@tauri-apps/plugin-store";
 import { invoke } from "@tauri-apps/api/core";
 import { appDataDir, join } from "@tauri-apps/api/path";
+import { emit } from "@tauri-apps/api/event";
 
 import type {
   ConfigAgente,
@@ -61,6 +62,12 @@ import { useWorkspaceStore } from "./workspaceStore";
 import { useVaultStore } from "./vaultStore";
 
 const CHAVE_CONFIG = "agente";
+// Doc 12 §6 / doc 04 §5.1: config do agente é preferência da máquina como tema e largura da
+// nota, compartilhada no settings.json entre janelas. Mesmo evento que prefsStore.ts emite —
+// quem ouve (flushEntreJanelas.ts) já chama `carregar()` das duas ao receber; aqui só falta
+// emitir depois de salvar. Literal repetido (não importado de prefsStore.ts) para não criar
+// uma dependência entre os dois stores só por causa do nome do evento.
+const EVENTO_PREFS_MUDOU = "app://prefs-mudou";
 const CONTEXTO_NOTA_CHARS = 6000;
 /** Resumos gerados por ciclo (os demais entram com trecho cru) — teto de custo local. */
 const RESUMOS_POR_CICLO = 3;
@@ -493,6 +500,7 @@ export const useAgenteStore = create<AgenteState>((set, get) => {
       const store = await load("settings.json", { autoSave: false });
       await store.set(CHAVE_CONFIG, config);
       await store.save();
+      await emit(EVENTO_PREFS_MUDOU);
       agendar();
     },
 

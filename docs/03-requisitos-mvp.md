@@ -12,7 +12,9 @@ Persona única: **o autor** — uma pessoa usando o app sozinha no próprio comp
 |---|---|---|
 | RF1.1 | Escolher uma pasta do computador como vault, por um diálogo nativo do sistema. | P0 |
 | RF1.2 | Reabrir automaticamente o último vault usado ao iniciar o app. | P0 |
-| RF1.3 | Trocar de vault sem reiniciar, listando os vaults recentes. | P1 |
+| RF1.3a | Criar um vault novo (pasta nova) ou abrir uma pasta existente como vault, sem reiniciar o app. | P1 |
+| RF1.3b | Listar os vaults recentes, com ação "Remover da lista" que só esquece o vault no app — nunca apaga pasta nem arquivo. | P1 |
+| RF1.3c | Cada vault abre na própria janela; o mesmo vault nunca fica aberto em duas janelas ao mesmo tempo — abrir um vault já aberto foca a janela dele. Detalhamento em `docs/12-multiplos-vaults.md`. | P1 |
 | RF1.4 | Indexar o vault na abertura, mostrando progresso quando levar mais de 500 ms. | P0 |
 | RF1.5 | Detectar mudanças feitas por outros programas na pasta e atualizar a árvore e o índice. | P0 |
 | RF1.6 | Ignorar no índice e na árvore: qualquer pasta que comece com ponto (inclui `.trash/`, `.excalisidian/`, `.git/`), a pasta `node_modules/` e arquivos com extensão `.excalisidian-tmp`. | P0 |
@@ -22,6 +24,7 @@ Persona única: **o autor** — uma pessoa usando o app sozinha no próprio comp
 | RF1.10 | Recusar nomes inválidos no Windows com mensagem que diz qual é o problema. | P0 |
 | RF1.11 | Duplicar um arquivo (`Nota` vira `Nota 1`). | P2 |
 | RF1.12 | Abrir a pasta do arquivo no Explorer pelo menu de contexto. | P1 |
+| RF1.13 | Ao não haver vault aberto (primeiro uso ou retorno), oferecer uma tela de boas-vindas com sugestão pronta de nome e local para o primeiro vault (um clique cria); o vault criado por ela vem com conteúdo de exemplo (uma nota e um desenho). Detalhamento em `docs/15-onboarding.md`. | P1 |
 
 ## Módulo 2 — Editor de notas
 
@@ -42,6 +45,8 @@ Persona única: **o autor** — uma pessoa usando o app sozinha no próprio comp
 | RF2.13 | Colar uma URL com texto selecionado transforma a seleção em link markdown. | P2 |
 | RF2.14 | Desfazer e refazer com histórico por documento, preservado enquanto a aba estiver aberta. | P0 |
 | RF2.15 | Continuar lista automaticamente ao apertar Enter dentro de uma lista, e sair da lista com Enter em item vazio. | P1 |
+| RF2.16 | Criar tabela por digitação markdown (`\| a \| b \|` + `Enter`), pela paleta de comandos ("Inserir tabela") e por um botão na barra de formatação; editar com faixas "+" de adicionar linha/coluna, alças de linha e coluna com menu (inserir, mover, alinhar, excluir), e alinhamento de cada coluna preservado em qualquer edição, inserção, remoção ou movimentação. Detalhamento em `docs/14-tabelas.md`. | P1 |
+| RF2.17 | Barra de formatação: flutuante só com seleção (some ao perder o foco do editor, na vista somente leitura e dentro de uma célula de tabela), ou acoplada embaixo da nota, sempre visível, por preferência do usuário. A versão que aparecia sem seleção foi revertida (16/09/2026). | P1 |
 
 ## Módulo 3 — Abas e divisão de tela
 
@@ -67,12 +72,13 @@ Persona única: **o autor** — uma pessoa usando o app sozinha no próprio comp
 | RF4.3 | Revelar automaticamente o arquivo ativo na árvore (ligável e desligável). | P1 |
 | RF4.4 | Menu de contexto na árvore: nova nota, novo desenho, nova pasta, renomear, mover para a lixeira, duplicar, revelar no Explorer, copiar caminho. | P0 |
 | RF4.5 | Arrastar arquivo para dentro de uma pasta na árvore. | P1 |
-| RF4.6 | Quick switcher com `Ctrl+O`: busca por nome e alias, `Enter` abre, `Ctrl+Enter` abre em nova aba, nome inexistente cria a nota. | P0 |
+| RF4.6 | Busca unificada, um campo só: `Ctrl+O` e `Ctrl+Shift+F` abrem a mesma sobreposição (a mesma tecla com ela aberta fecha), busca por título/nome/alias, `Enter` abre (aba existente ativa, aba em branco ativa é substituída), `Ctrl+Enter` abre ao lado (divide à direita), consulta sem título exato cria a nota na raiz do vault. **Correção sobre a versão anterior:** este requisito dizia "`Ctrl+Enter` abre em nova aba" — mas `Enter` já abre em aba (criando ou ativando conforme o caso); o que faltava era abrir *ao lado*, num split, e é isso que `Ctrl+Enter` passa a fazer. Detalhamento em `docs/13-busca.md`. | P0 |
 | RF4.7 | Paleta de comandos com `Ctrl+P`, busca aproximada, exibindo o atalho de cada comando. | P1 |
-| RF4.8 | Busca por conteúdo com `Ctrl+Shift+F`, listando arquivo, número da linha e trecho com o termo destacado. | P1 |
+| RF4.8 | Busca por conteúdo integrada à busca unificada (RF4.6): seção "No conteúdo" no mesmo campo, listando arquivo e trechos com o termo destacado. Abrir um resultado revela o trecho no editor (rola até a linha e destaca), sem mover o cursor; resultado num desenho só abre o desenho. Detalhamento em `docs/13-busca.md`. | P1 |
 | RF4.9 | Painel de backlinks do arquivo ativo, com o trecho de contexto de cada menção. | P1 |
 | RF4.10 | Recolher a sidebar com `Ctrl+\`. | P1 |
 | RF4.11 | Painel de sumário (headings do arquivo ativo) com navegação por clique. | P2 |
+| RF4.12 | Campo "Buscar" visível na sidebar, logo abaixo do cabeçalho (e ícone equivalente na faixa recolhida), abrindo a mesma busca unificada de RF4.6/RF4.8. | P1 |
 
 ## Módulo 5 — Canvas
 
@@ -131,6 +137,7 @@ Persona única: **o autor** — uma pessoa usando o app sozinha no próprio comp
 | RF8.2 | Preferências do vault (pasta de anexos, local de novas notas, formato de link, lixeira), gravadas em `.excalisidian/vault.json`. Tema e vaults recentes são da máquina e ficam em `settings.json`. | P1 |
 | RF8.3 | Tela de atalhos de teclado, listando todos os comandos. | P2 |
 | RF8.4 | Toda ação de arrastar tem equivalente por teclado ou por menu. | P1 |
+| RF8.5 | Nome do usuário: informado uma vez na tela de boas-vindas (sugestão a partir do usuário do sistema, editável, pode ficar vazio), alterável depois nas Configurações. A saudação da Home usa o nome quando informado e sai sem nome quando não — nunca mais o usuário do sistema operacional. Detalhamento em `docs/15-onboarding.md`. | P1 |
 
 ---
 

@@ -42,7 +42,7 @@ export default function GrupoBotoes<T extends string | number>({
               "rounded-controle border px-2 py-1 text-[11px]",
               "transition-colors duration-[140ms] ease-caderno",
               ativo
-                ? "border-musgo bg-musgo text-superficie"
+                ? "border-cristal bg-cristal text-superficie"
                 : "border-regua-forte text-tinta hover:bg-lavagem",
             )}
           >

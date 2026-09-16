@@ -201,7 +201,7 @@ tocamos (biblioteca, diálogos, menu de contexto).
 padrão do Excalidraw, `#6965db`, pensada para ser invertida no escuro) perderia parte do
 contraste. Verificado no bundle que o Excalidraw lê a cor de seleção de uma variável CSS do
 próprio container (`getComputedStyle(containerRef.current).getPropertyValue("--color-selection")`,
-com fallback pro hex acima) — então `--color-selection: var(--color-musgo)` no CSS acima
+com fallback pro hex acima) — então `--color-selection: var(--color-cristal)` no CSS acima
 resolve isso sem precisar recolorir nada por conta própria.
 
 **Dependência frágil, a revalidar a cada upgrade do Excalidraw** (mesma categoria de aviso já
@@ -407,12 +407,24 @@ percorrendo `api.panels` sem excluir a Home, então ela AINDA aparece nesses doi
 contrário do que este ADR sempre disse. Registrado, não corrigido — ninguém reclamou disso ainda
 e mexer em `cicloAba`/`ativarPorIndice` é escopo à parte.
 
+**Casinha como única representação (16/09/2026).** A aba sem "x" da correção acima aparecia com o
+texto "Início" logo ao lado da casinha — lia como duas Home. A `AbaInicio` passou a ser
+invisível (a `.dv-tab` inteira some por CSS, `dockview-excalisidian.css`), e a casinha assume o
+visual de aba ativa quando a Home está visível no grupo. O painel continua existindo e sem "x",
+então a invariante "nunca fica em branco" não muda. Com a aba escondida, a pendência de atalhos
+acima deixou de ser aceitável (`Ctrl+1` ativaria uma aba invisível) e foi corrigida:
+`cicloAba` e `ativarPorIndice` excluem a Home.
+
 **Nome do usuário — infraestrutura nova:** não existia em lugar nenhum (nem Rust, nem JS).
 Adicionado `src-tauri/src/sistema.rs`, um módulo (não `vault.rs` — a filosofia "três comandos,
 e não mais que isso sem uma boa razão" é do domínio de disco, não de SO) com um comando só,
 `nome_usuario`, lendo `USERNAME` (Windows) com fallback `USER` (Unix). Cortado o primeiro
 nome e capitalizado no lado JS (`src/app/sistemaOperacional.ts`) — o valor bruto do SO pode
 vir em qualquer capitalização ou com sobrenome.
+
+**Atualização (16/09/2026):** o uso automático deste nome na saudação da Home foi revisto —
+ver ADR-27. `nome_usuario` continua existindo, mas vira só a base de uma *sugestão* editável na
+tela de boas-vindas, nunca mais usado direto na saudação.
 
 ### ADR-18 · Bloco é o do Markdown, não um objeto próprio
 
@@ -687,6 +699,199 @@ para apps de terceiros, contra uma API key que é oficial e funciona em todos os
 
 **Condição de reversão:** custo de API virar objeção real de uso → fase própria de OAuth,
 começando pelo provedor que o usuário usar.
+
+### ADR-24 · Uma janela por vault
+
+**Contexto:** RF1.3 ampliado por pedido do usuário (16/09/2026) — criar vault novo, abrir
+pasta existente como vault, lista de recentes, com vários vaults abertos ao mesmo tempo.
+Plano completo em `docs/12-multiplos-vaults.md`.
+
+**Decisão:** cada vault abre na própria janela do sistema operacional, não numa troca de
+contexto dentro da mesma janela. O mesmo vault nunca fica aberto em duas janelas — abrir um
+vault já aberto foca a janela existente em vez de abrir outra.
+
+**Motivo:** cada webview do Tauri tem o próprio realm JavaScript, então os stores zustand
+globais (`vaultStore`, `documentosStore`, `workspaceStore`, `tarefasStore`, `agenteStore`)
+continuam "globais por janela" sem nenhuma refatoração de escopo — trocar de vault na mesma
+janela exigiria reescrever todos eles para aceitar múltiplas instâncias, ou desmontar e
+remontar o app inteiro a cada troca. Uma janela por vault também resolve de graça o problema
+de dois watchers e dois processos de autosave apontando pro mesmo arquivo: como o mesmo vault
+nunca abre duas vezes, não existe a hipótese de dois `documentosStore` gravando o mesmo
+caminho.
+
+**Alternativa rejeitada:** trocar de vault na mesma janela (like a tab, fecha o vault atual e
+carrega o novo no lugar). Mais simples de implementar à primeira vista — só um contexto JS
+para coordenar — mas exigiria refatorar todos os stores globais para escopo por vault (ou
+desmontar/remontar o React inteiro a cada troca), e não permite ver dois vaults ao mesmo
+tempo, algo que o usuário pediu explicitamente.
+
+**Consequência ruim:** múltiplas janelas significam múltiplos agentes de IA e múltiplos
+watchers rodando ao mesmo tempo (um por vault aberto), coordenação de flush entre janelas na
+hora de atualizar o app (`docs/12` §6), e preferências da máquina (tema, largura da nota,
+sidebar) precisando propagar de uma janela pra todas as outras em vez de viver só na memória
+de uma. Tudo isso é código novo: `docs/12` §6 (`flushEntreJanelas.ts`, evento
+`app://prefs-mudou`) existe só por causa desta decisão.
+
+**Condição de reversão:** se a coordenação entre janelas (flush, prefs, watchers por label)
+se mostrar frágil demais na prática — perda de edição na atualização do app, ou eventos
+vazando entre vaults — o caminho de volta é a troca-na-mesma-janela rejeitada acima, aceitando
+o custo de refatorar os stores para escopo por vault.
+
+**Nota sobre a condição de reversão (a) do ADR-5:** o ADR-5 lista "a superfície de Rust passar
+dos quatro comandos previstos" como gatilho para trocar de Tauri por Electron. Esta entrega
+acrescenta cinco comandos novos (`abrir_janela_vault`, `registrar_janela_vault`,
+`focar_janela`, `criar_vault`, e a mudança de assinatura de `observar_vault` para receber
+`window: tauri::Window`) — nove no total, mais que o dobro do previsto. **Isso não aciona a
+condição (a) no sentido em que ela foi escrita.** O ADR-5 fala em superfície de Rust como
+proxy para "o app está precisando fazer coisa de domínio no lado nativo que só existe em
+Node" — a condição (b) do mesmo ADR. Os cinco comandos novos são gerência de janela e de SO
+(abrir webview, focar, criar pasta), não lógica de domínio do vault: não implicam sqlite
+nativo, git embutido ou indexação pesada fora do WebView, que é o que motivaria trocar de
+shell. O número "quatro" era uma estimativa da época, não um teto de arquitetura — o motivo
+real por trás da condição (a) não se aplica aqui.
+
+### ADR-25 · Busca unificada
+
+**Contexto:** o app tinha duas sobreposições de busca escondidas — `QuickSwitcher` (`Ctrl+O`,
+nome/alias) e `PainelBusca` (`Ctrl+Shift+F`, conteúdo via MiniSearch) — nenhuma delas com
+entrada visível na interface, só atalho ou paleta de comandos. Plano completo em
+`docs/13-busca.md`.
+
+**Decisão:** as duas viram uma busca só, num campo único com as seções "Títulos" e "No
+conteúdo", navegável como uma lista. `Ctrl+O`, `Ctrl+Shift+F`, o campo "Buscar" da sidebar (e o
+ícone equivalente na faixa recolhida) e "Buscar" na paleta de comandos abrem a mesma
+sobreposição; a mesma tecla fecha. `QuickSwitcher.tsx` é apagado — a busca por nome/alias que
+ele fazia virou a seção "Títulos" de `PainelBusca`.
+
+**Motivo:** "onde está aquela nota?" é uma pergunta só, e o app respondia com duas janelas
+diferentes dependendo de como o usuário formulava a busca (nome vs. conteúdo) — decisão que o
+usuário não tem como saber de antemão. Somado a isso, nenhuma das duas tinha entrada visível
+(doc 13 §0, problema 1 e 6): só quem já sabia do atalho ou vasculhava a paleta de comandos
+encontrava a busca. Consolidar as duas resolve as duas questões de uma vez: uma pergunta, uma
+resposta, um lugar visível pra começar.
+
+**Alternativa rejeitada:** manter as duas janelas e só corrigir os problemas de cada uma em
+separado — dar entrada visível pros dois (dois campos na sidebar, ou um menu escolhendo qual
+abrir), corrigir o acento e o prefixo do `PainelBusca`, completar o `Ctrl+Enter` e a criação de
+nota do `QuickSwitcher`. Resolve os problemas 2–5 e 7–8 do doc 13 §0, mas não o 1 nem o 6: o
+usuário continuaria tendo que escolher, antes de buscar, qual das duas perguntas está fazendo.
+
+**Consequência ruim:** a seção "No conteúdo" tem debounce de 200 ms e lê disco (MiniSearch), então
+a lista visivelmente "cresce" um instante depois da seção "Títulos", que é instantânea — a lista
+não aparece pronta de uma vez. Ligar `prefix: true` e `fuzzy: 0.2` (termo de 5+ caracteres) no
+índice aumenta o risco de falso positivo por correspondência parcial, o preço de aceitar "proj"
+por "Projeto". O agente de IA (`src/agente/recuperacao.ts`) usa a mesma função de busca por
+conteúdo e passa a herdar `prefix`/`fuzzy` também — mas continua chamando com `combinar: "OR"`
+(não "AND" como a UI), porque mudar esse padrão muda o que o agente recupera e não fazia parte
+desta decisão.
+
+**Condição de reversão:** se o crescimento assíncrono da seção "No conteúdo" se mostrar confuso
+na prática (usuário clica num resultado de título achando que é o único, ou a lista pula demais
+enquanto a pessoa ainda está lendo), separar de novo em duas apresentações — um popover de
+título instantâneo e um painel de conteúdo à parte — mantendo a mesma entrada única de busca (um
+campo, um atalho) por cima das duas.
+
+### ADR-26 · Tabelas: menu e controles no padrão do app, alterando o editor vendorizado
+
+**Contexto:** plano completo em `docs/14-tabelas.md`. O editor vendorizado
+(`@atomic-editor/editor` 0.6.2, ADR-10) já reconhece tabela GFM digitada e edita célula a
+célula, mas com três problemas de produto: não existe forma de criar uma tabela sem já saber a
+sintaxe; o menu de linha/coluna é montado em DOM puro, em inglês, com visual próprio fora do
+doc 06 (`.cm-atomic-table-menu`, sombra e raio que não são tokens); e o alinhamento de coluna
+(`:---:`) é lido do arquivo e descartado no serialize — editar uma célula de uma tabela
+alinhada apagava o alinhamento no arquivo em disco.
+
+**Decisão:** tratar as três lacunas mexendo dentro do próprio vendorizado, cada alteração
+marcada com `// [excalisidian]` (regra do `LEIA-ME.md` do diretório): um modelo de tabela puro
+e imutável (`table-model.ts`) que preserva alinhamento em toda operação; o widget para de
+montar o menu sozinho e expõe um facet (`tableMenuFacet`); e uma extensão nova do projeto
+(`menuTabela.tsx`) renderiza o menu com `Menu`/`ItemMenu` do app, em português. Criação por
+digitação, paleta de comandos e barra de formatação; controles visuais (faixas "+", alças,
+arraste por eventos de ponteiro) seguindo os tokens do doc 06.
+
+**Motivo:** o menu em inglês e em DOM próprio é a superfície mais visível de "isto não parece o
+resto do app"; o alinhamento sendo apagado do arquivo fere o princípio "os arquivos são o
+produto" (RNF7, ADR-4) — o usuário perde formatação que escreveu, ou que veio de outro editor,
+sem nenhum aviso; e não existir jeito de criar uma tabela sem saber a sintaxe markdown contradiz
+o objetivo de live preview no nível do Obsidian.
+
+**Achado que motivou parte da decisão:** editar qualquer célula de uma tabela com alinhamento
+(`:---:`, `---:`) apagava o alinhamento no arquivo em disco no editor vendorizado original — o
+parser lia a linha delimitadora, mas o modelo interno e o serialize não guardavam essa
+informação, então a próxima gravação escrevia a tabela sem ela. Isso é uma violação direta do
+princípio "os arquivos são o produto" (o app reescrevia markdown que o usuário não pediu para
+mudar) e é, junto com a ausência de criação, o motivo principal para mexer no vendorizado em
+vez de só cobrir o que faltava por fora.
+
+**Consequência ruim:** mais divergência em relação ao upstream `@atomic-editor/editor` — o
+diretório já era vendorizado (ADR-10) exatamente para isolar esse risco, mas cada alteração
+marcada aumenta o custo de comparar com uma eventual versão de referência no futuro, ainda que
+o pacote não seja mais consumido do npm. Também: a barra de formatação flutuante, ao passar a
+aparecer acima do cursor mesmo sem seleção, cobre a linha de cima enquanto o usuário digita —
+trade-off aceito explicitamente pelo usuário (16/09/2026) em troca de a barra estar sempre
+alcançável, sem precisar selecionar texto primeiro.
+
+**Alternativas rejeitadas:**
+
+| Opção | Por que não |
+|---|---|
+| Menu nativo do CodeMirror/DOM, só traduzido e restilizado por CSS | Mantém a divergência de raio/sombra fora do doc 06 e não dá de graça o que `Menu`/`ItemMenu` já resolvem no resto do app — foco, teclado, fechar em clique fora. |
+| Barra de formatação fixa no topo do editor, sempre visível | Rejeitada pelo usuário: a barra ancorada na posição do cursor (ou da seleção) é o comportamento pedido, mesmo que isso signifique cobrir a linha de cima ao digitar sem seleção. |
+
+**Condição de reversão:** se `table-model.ts` e as alterações marcadas em `table-widget.ts` se
+mostrarem difíceis de manter a cada tentativa de atualizar o vendorizado, ou se a barra acima do
+cursor incomodar no uso real a ponto de o usuário pedir mudança, revisar isoladamente — a barra
+pode voltar a só aparecer com seleção sem afetar o modelo de tabela, e o modelo de tabela e o
+menu continuam valendo mesmo que a barra mude.
+
+### ADR-27 · Nome informado pelo usuário e conteúdo de exemplo no primeiro vault
+
+**Contexto:** plano completo em `docs/15-onboarding.md`. Até aqui, o nome usado na saudação da
+Home vinha direto do usuário do Windows (`USERNAME`, comando Rust `nome_usuario`), sem nenhum
+lugar para corrigir; e a tela sem vault (`EstadoVazio` "Nenhum vault aberto") não explicava o
+que é um vault nem sugeria nada — o usuário tinha que escolher pasta pelo diálogo nativo sem
+nenhuma sugestão pronta, e o vault criado ficava vazio.
+
+**Decisão:** uma tela de boas-vindas só (sem passos) substitui a tela sem vault, com marca,
+pergunta de nome (só na primeira vez, editável depois nas Configurações) e criação do primeiro
+vault com sugestão pronta (nome "Notas", local a pasta Documentos, um clique cria). O vault
+criado por essa tela vem com conteúdo de exemplo: uma nota de boas-vindas e um desenho de
+exemplo linkado a ela.
+
+**Motivo.** Três problemas, um por decisão:
+
+- **Usuário do Windows sem separador vira nome ilegível.** `LucasFidelisdeCristo` (sem espaço,
+  ponto, hífen ou underscore) virava "Lucasfidelisdecristo" na saudação, e não havia onde
+  corrigir — o único jeito de trocar era editar `USERNAME` do sistema operacional.
+- **Primeiro uso sem explicação.** A tela sem vault dizia só "Nenhum vault aberto", sem dizer o
+  que é um vault nem por que a pasta escolhida importa — alguém abrindo o app pela primeira vez
+  não tinha contexto nenhum antes de escolher uma pasta do disco.
+- **Vault vazio.** Criar o primeiro vault e cair numa Home sem nenhum arquivo não mostra nada
+  do que o app faz — nem live preview, nem wikilink, nem desenho embutido.
+
+**Alternativas rejeitadas:**
+
+| Opção | Por que não |
+|---|---|
+| Onboarding em passos (wizard) | Decisão do usuário: uma tela só, sem navegação entre passos, é mais rápido pra quem só quer começar a escrever. |
+| Perguntar o nome na Home para quem já usa o app e nunca informou | Rejeitada: interromper quem já usa o produto para pedir um dado cosmético (a saudação) fere o princípio de não interromper à toa. O campo fica nas Configurações, disponível mas não obrigatório; até lá, a saudação sai sem nome. |
+| Sem conteúdo de exemplo (vault sempre vazio) | Resolve a decisão mais simples de implementar, mas deixa o problema do vault vazio sem resposta — nenhuma pista de como usar o app pela primeira vez. |
+| Só nota de exemplo, sem desenho | Mais simples, mas a metade "desenho no mesmo lugar" do produto (a proposta central do Excalisidian) ficaria invisível no primeiro contato — a nota de boas-vindas embute o desenho de propósito, pra mostrar as duas coisas juntas. |
+
+**Consequência ruim:** arquivos são criados no vault do usuário sem ele pedir explicitamente
+cada um — "Boas-vindas.md" e "Primeiro desenho.draw.md" aparecem sozinhos ao criar o primeiro
+vault pela tela de boas-vindas. Mitigado de duas formas: (1) só acontece nesse um caminho — o
+primeiro vault criado pelo onboarding; "Criar vault…" da sidebar e "Abrir pasta" nunca criam
+conteúdo de exemplo; (2) a própria nota de boas-vindas diz que dá para apagar os dois arquivos
+à vontade (doc 15 §1.3). O comando Rust `nome_usuario` (ADR-16) fica só como fonte da
+*sugestão* de nome — nunca mais usado direto numa saudação sem o usuário ter confirmado ou
+editado o valor.
+
+**Condição de reversão:** se o conteúdo de exemplo se mostrar confuso na prática (usuário
+reporta achar que "Boas-vindas"/"Primeiro desenho" são arquivos do próprio trabalho, não uma
+demonstração), a criação automática pode ser trocada por um convite explícito ("Criar nota de
+exemplo?") sem tocar no resto do onboarding — o nome do usuário e a sugestão de vault continuam
+valendo independente disso.
 
 ### ADR-9 · O nome do produto é um problema em aberto
 

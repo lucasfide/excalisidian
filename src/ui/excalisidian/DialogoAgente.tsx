@@ -230,7 +230,7 @@ export default function DialogoAgente() {
               {provedor.paginaDeChave && (
                 <button
                   type="button"
-                  className="self-start text-pequeno text-musgo underline-offset-2 hover:underline"
+                  className="self-start text-pequeno text-cristal underline-offset-2 hover:underline"
                   onClick={() => window.open(provedor.paginaDeChave, "_blank", "noopener,noreferrer")}
                 >
                   Onde consigo uma chave?
@@ -330,7 +330,7 @@ function PassoProvedor({
             className={cn(
               "flex flex-col items-start gap-0.5 rounded-controle border px-3 py-2 text-left",
               "transition-colors duration-[140ms] ease-caderno",
-              ativo ? "border-musgo bg-lavagem" : "border-regua hover:bg-lavagem",
+              ativo ? "border-cristal bg-lavagem" : "border-regua hover:bg-lavagem",
             )}
           >
             <span className="text-[13px] font-medium text-tinta">{p.nome}</span>
@@ -410,7 +410,7 @@ function PassoModelo({
             >
               <span className="truncate text-[13px]">{m}</span>
               {sugeridos.includes(m) && (
-                <span className="meta shrink-0 text-musgo">Sugerido</span>
+                <span className="meta shrink-0 text-cristal">Sugerido</span>
               )}
             </button>
           );
@@ -443,7 +443,7 @@ function PassoModelo({
       ) : (
         <button
           type="button"
-          className="self-start text-pequeno text-musgo underline-offset-2 hover:underline"
+          className="self-start text-pequeno text-cristal underline-offset-2 hover:underline"
           onClick={() => setOutroAberto(true)}
         >
           Outro modelo…
@@ -494,7 +494,7 @@ function PassoRevisao({
             type="checkbox"
             checked={r.webSearch}
             onChange={(e) => onMudar({ webSearch: e.target.checked })}
-            className="accent-musgo"
+            className="accent-cristal"
           />
           Permitir que o agente pesquise na web
         </label>

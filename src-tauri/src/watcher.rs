@@ -4,7 +4,12 @@
 // o IPC um por um seria caro.
 //
 // O escopo de FS já foi concedido por `permitir_vault`; aqui é só observar.
+//
+// Doc 12 (múltiplos vaults): cada janela tem seu próprio vault e seu próprio watcher. Por
+// isso o estado é um mapa por label de janela, e os dois eventos saem com `emit_to(label)` —
+// nunca `emit` global, senão toda janela receberia os eventos de todos os vaults.
 
+use std::collections::HashMap;
 use std::path::Path;
 use std::sync::Mutex;
 use std::time::Duration;
@@ -12,7 +17,7 @@ use std::time::Duration;
 use notify::{EventKind, RecursiveMode};
 use notify_debouncer_full::{new_debouncer, DebounceEventResult, Debouncer, RecommendedCache};
 use serde::Serialize;
-use tauri::{AppHandle, Emitter, State};
+use tauri::{AppHandle, Emitter, State, Window};
 
 const DEBOUNCE_MS: u64 = 150;
 const EVENTO: &str = "vault://eventos";
@@ -21,9 +26,11 @@ const EVENTO_RESSINCRONIZAR: &str = "vault://ressincronizar";
 
 type WatcherInterno = Debouncer<notify::RecommendedWatcher, RecommendedCache>;
 
-/// Guarda o debouncer vivo. Re-chamar `observar_vault` troca o watcher (cobre troca de vault).
+/// Guarda o debouncer vivo de cada janela, por label. Re-chamar `observar_vault` na mesma
+/// janela troca o watcher dela (cobre troca de vault); `WindowEvent::Destroyed` (em `lib.rs`)
+/// remove a entrada quando a janela fecha.
 #[derive(Default)]
-pub struct EstadoWatcher(pub Mutex<Option<WatcherInterno>>);
+pub struct EstadoWatcher(pub Mutex<HashMap<String, WatcherInterno>>);
 
 #[derive(Serialize, Clone)]
 #[serde(rename_all = "camelCase")]
@@ -74,11 +81,13 @@ fn relativo(raiz: &Path, abs: &Path) -> Option<String> {
 pub fn observar_vault(
     app: AppHandle,
     estado: State<'_, EstadoWatcher>,
+    window: Window,
     path: String,
 ) -> Result<(), String> {
     let raiz = std::path::PathBuf::from(&path);
     let raiz_handler = raiz.clone();
     let app_handler = app.clone();
+    let label = window.label().to_string();
 
     let mut debouncer = new_debouncer(
         Duration::from_millis(DEBOUNCE_MS),
@@ -97,7 +106,7 @@ pub fn observar_vault(
                     for erro in &erros {
                         eprintln!("[watcher] erro do notify: {erro}");
                     }
-                    let _ = app_handler.emit(EVENTO_RESSINCRONIZAR, ());
+                    let _ = app_handler.emit_to(&label, EVENTO_RESSINCRONIZAR, ());
                     return;
                 }
             };
@@ -115,7 +124,7 @@ pub fn observar_vault(
                 }
             }
             if !lote.is_empty() {
-                let _ = app_handler.emit(EVENTO, lote);
+                let _ = app_handler.emit_to(&label, EVENTO, lote);
             }
         },
     )
@@ -125,7 +134,12 @@ pub fn observar_vault(
         .watch(&raiz, RecursiveMode::Recursive)
         .map_err(|e| e.to_string())?;
 
-    // Substitui o watcher anterior (o antigo é dropado aqui, parando de observar).
-    *estado.0.lock().unwrap() = Some(debouncer);
+    // Substitui o watcher anterior desta janela, se houver (o antigo é dropado aqui, parando
+    // de observar).
+    estado
+        .0
+        .lock()
+        .unwrap()
+        .insert(window.label().to_string(), debouncer);
     Ok(())
 }

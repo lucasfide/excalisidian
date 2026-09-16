@@ -8,7 +8,7 @@
 // dentro/fora de uma lista exigiria reindentar e inserir marcador; fica de fora.
 //
 // A alça fica em `position: fixed`, fora da árvore do CodeMirror: o wrapper de EditorNota.tsx
-// tem `overflow-hidden`, e o respiro de 32px da coluna (px-8, PainelDocumento.tsx) fica FORA do
+// tem `overflow-hidden`, e o respiro de 32px da coluna (pl-8, PainelDocumento.tsx) fica FORA do
 // `view.dom` — um elemento posicionado com offset negativo *dentro* do view.dom seria cortado
 // por esse overflow. `position: fixed` com coordenadas de viewport (coordsAtPos/getBoundingClientRect)
 // escapa desse corte, do mesmo jeito que um tooltip/popover.

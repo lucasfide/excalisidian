@@ -37,6 +37,9 @@ fatia, entrou por pedido direto do usuário depois de testar o app em tela):
   agrupada por prazo em seis seções calculadas, persistida em `.excalisidian/tarefas.json`.
   Pedido direto do usuário depois do MVP; o doc 10 é autocontido (modelo, formato, UI, RF10.x,
   decisões).
+- **Múltiplos vaults, uma janela por vault** (RF1.3a/b/c): criar vault, abrir pasta existente,
+  recentes e uma janela por vault. Em andamento — plano completo e normativo em
+  `docs/12-multiplos-vaults.md` (doc 09 ADR-24).
 
 ---
 

@@ -20,6 +20,20 @@ import type { SyntaxNode } from '@lezer/common';
 import { matchHighlight } from './highlight';
 import { treeGrowthEffect, treeProgressPlugin } from './tree-progress';
 import { readOnlyFacet } from './read-only';
+// [excalisidian] Model, parse and serialize now live in table-model.ts (doc 14 §2.1) so
+// alignment (`:---`, `:---:`, `---:`) round-trips instead of being parsed and dropped — see
+// that file's header comment. This widget only deals with the syntax tree, the DOM and CM6
+// transactions.
+import {
+  insertColumn,
+  insertRow,
+  moveColumn,
+  moveRow,
+  parseTableText,
+  serializeTable,
+  type ColumnAlign,
+  type TableModel,
+} from './table-model';
 
 // GFM tables as a WYSIWYG block widget.
 //
@@ -41,112 +55,41 @@ import { readOnlyFacet } from './read-only';
 // deletes the whole table as one unit — matching Obsidian's "table
 // is a unit" feel.
 //
-// Scope cuts deliberately left out of v1:
-//   - Column alignment (`:---`, `---:`, `:---:`) — parsed but dropped;
-//     all cells render left-aligned.
-//   - Rich content inside cells (markdown marks, links, etc.).
-//   - Context-menu operations (add/remove row/column, sort).
-//   - Multi-line cell content.
-// These are incremental, non-architectural adds; they can land later
-// without changing the widget's core shape.
+// [excalisidian] The row/column/alignment menu used to be a hand-rolled DOM popup built and
+// positioned by this file (`openCellMenu`, upstream). It's replaced by `tableMenuFacet`: this
+// file only detects the gesture (right-click on a cell; hover handles land in T2) and builds a
+// `TableMenuRequest` describing what was clicked plus callbacks to apply a change or delete the
+// table — `src/editor/extensoes/menuTabela.tsx` (project code, not vendored) owns the actual
+// menu UI, in the app's `Menu`/`ItemMenu` component and in Portuguese. With no handler
+// registered on the facet, right-click is a no-op (no menu at all, not even the browser's).
+//
+// [excalisidian] Hover "+" strips (grow the table) and row/column drag handles (doc 14 §1.3,
+// §2.3 — T2) live in `attachTableControls` below, built inside `.cm-atomic-table-surface`
+// (`toDOM`). They're plain DOM + pointer events, same rule as the rest of this file: no React,
+// no HTML5 drag-and-drop (fails in the WebView2 host — see `moverBloco.ts`'s header comment).
+//
+// Scope cuts deliberately left out of v1 (doc 14 tackles the rest across T3-T4):
+//   - Rich content inside cells (markdown marks, links, etc.) — already supported.
+//   - Table creation from typed markdown / palette / toolbar (T3/T4).
 
-// ---- model / parse / serialize --------------------------------------
-
-interface TableModel {
-  header: string[];
-  rows: string[][];
-}
-
-function collectCells(state: EditorState, rowNode: SyntaxNode): string[] {
-  // Split the row's raw line on unescaped `|` rather than collecting
-  // lezer `TableCell` nodes. lezer emits NO `TableCell` for an empty
-  // cell, so a node-based count silently drops blank columns — which
-  // is exactly what "Insert column left/right" creates. Counting cells
-  // from the pipe-delimited text keeps blank columns (and their
-  // positions) intact through the parse → serialize round-trip.
-  return splitRowCells(state.doc.lineAt(rowNode.from).text);
-}
-
-export function splitRowCells(line: string): string[] {
-  let s = line.trim();
-  // Strip the optional outer pipes so they don't yield phantom empty
-  // leading/trailing cells.
-  if (s.startsWith('|')) s = s.slice(1);
-  if (s.endsWith('|')) s = s.slice(0, -1);
-
-  const cells: string[] = [];
-  let buf = '';
-  for (let i = 0; i < s.length; i++) {
-    const ch = s[i];
-    // A backslash escapes the next char (e.g. `\|` is a literal pipe in
-    // a GFM cell) — keep both and don't treat the pipe as a separator.
-    if (ch === '\\' && i + 1 < s.length) {
-      buf += ch + s[i + 1];
-      i++;
-      continue;
-    }
-    if (ch === '|') {
-      cells.push(buf.trim());
-      buf = '';
-      continue;
-    }
-    buf += ch;
-  }
-  cells.push(buf.trim());
-  return cells;
-}
-
-function parseTable(state: EditorState, tableNode: SyntaxNode): TableModel | null {
-  const header: string[] = [];
-  const rows: string[][] = [];
-
-  const cursor = tableNode.cursor();
-  if (!cursor.firstChild()) return null;
-
-  do {
-    if (cursor.name === 'TableHeader') {
-      header.push(...collectCells(state, cursor.node));
-    } else if (cursor.name === 'TableRow') {
-      rows.push(collectCells(state, cursor.node));
-    }
-    // TableDelimiter (per-row `|` and whole-line `|---|---|`) is ignored.
-  } while (cursor.nextSibling());
-
-  if (header.length === 0) return null;
-  return { header, rows };
-}
-
-// Escape cell content so it can't break the row's GFM structure: an
-// unescaped `|` would split the cell into two columns, and a stray
-// newline would terminate the table. A pipe that's already escaped
-// (`\|` — e.g. round-tripping content the parser handed us) is left
-// alone so serialize is idempotent.
-function escapeCell(text: string): string {
-  return text.replace(/\r?\n/g, ' ').replace(/(?<!\\)\|/g, '\\|');
-}
-
-export function serializeTable(model: TableModel): string {
-  const columnCount = model.header.length;
-  const lines: string[] = [];
-  lines.push('| ' + model.header.map(escapeCell).join(' | ') + ' |');
-  lines.push('| ' + model.header.map(() => '---').join(' | ') + ' |');
-  for (const row of model.rows) {
-    const padded: string[] = [];
-    for (let c = 0; c < columnCount; c++) padded.push(escapeCell(row[c] ?? ''));
-    lines.push('| ' + padded.join(' | ') + ' |');
-  }
-  return lines.join('\n');
-}
+// ---- cell / DOM read helpers ----------------------------------------
 
 function readModelFromDom(wrap: HTMLElement): TableModel {
-  const header = Array.from(wrap.querySelectorAll<HTMLElement>('thead th')).map(
-    readCellSource,
-  );
+  const headerCells = Array.from(wrap.querySelectorAll<HTMLElement>('thead th'));
+  const header = headerCells.map(readCellSource);
+  // [excalisidian] Alignment's source of truth in the DOM is `data-align` on each header
+  // cell (§2.2: "por exemplo via data-align nas células/colunas") — the header row always has
+  // exactly one cell per column, so its index lines up 1:1 with `TableModel.aligns`. Body cells
+  // get the matching `text-align` inline style for rendering (see `makeCell`) but don't need
+  // their own `data-align`: they never disagree with their column's header.
+  const aligns: ColumnAlign[] = headerCells.map((th) => {
+    const raw = th.dataset.align;
+    return raw === 'left' || raw === 'center' || raw === 'right' ? raw : null;
+  });
   const rows = Array.from(wrap.querySelectorAll<HTMLElement>('tbody tr')).map(
-    (tr) =>
-      Array.from(tr.querySelectorAll<HTMLElement>('td')).map(readCellSource),
+    (tr) => Array.from(tr.querySelectorAll<HTMLElement>('td')).map(readCellSource),
   );
-  return { header, rows };
+  return { header, aligns, rows };
 }
 
 // A cell's raw markdown lives in `dataset.raw` — the source of truth
@@ -490,6 +433,19 @@ function setCaretCharOffset(container: HTMLElement, offset: number): void {
   selection.addRange(range);
 }
 
+// Select every character of `container` — used by `focusTableCell`'s
+// `selectAll` option (§1.1: inserting a table selects "Coluna 1" so
+// typing replaces it outright).
+function selectAllInSource(source: HTMLElement): void {
+  const doc = source.ownerDocument;
+  const selection = doc?.defaultView?.getSelection();
+  if (!doc || !selection) return;
+  const range = doc.createRange();
+  range.selectNodeContents(source);
+  selection.removeAllRanges();
+  selection.addRange(range);
+}
+
 const MARK_WRAP_CLASSES = [
   'cm-atomic-strong-wrap',
   'cm-atomic-em-wrap',
@@ -634,6 +590,72 @@ function findCurrentTableRange(
   return null;
 }
 
+// Find the currently-rendered widget DOM for the table starting at
+// `tableFrom`, by position — mirrors the lookup `appendRow` already
+// used. Positions, not object identity, because a structural edit
+// (row/column count change) makes CM6 rebuild the widget's DOM: the
+// old `HTMLElement` reference a caller might be holding is detached.
+function findTableWrapAt(view: EditorView, tableFrom: number): HTMLElement | null {
+  const tables = view.dom.querySelectorAll<HTMLElement>('.cm-atomic-table');
+  for (const el of tables) {
+    try {
+      if (view.posAtDOM(el) === tableFrom) return el;
+    } catch {
+      // posAtDOM can throw on detached/transitional DOM nodes — skip.
+    }
+  }
+  return null;
+}
+
+function getCellAt(wrap: HTMLElement, row: number, col: number): HTMLElement | null {
+  if (row < 0) {
+    const ths = wrap.querySelectorAll<HTMLElement>('thead th');
+    return ths[col] ?? null;
+  }
+  const trs = wrap.querySelectorAll<HTMLElement>('tbody tr');
+  const tr = trs[row];
+  if (!tr) return null;
+  const tds = tr.querySelectorAll<HTMLElement>('td');
+  return tds[col] ?? null;
+}
+
+// [excalisidian] Focus a table cell by (row, col) — row -1 is the header — after a model change
+// has been dispatched. Exported per doc 14 §2.2 for T2 (drag/hover controls) and T3 (table
+// creation) to reuse.
+//
+// Why polling with `requestAnimationFrame` instead of `view.requestMeasure`: a structural
+// change (row/column count differs) makes `TableWidget.eq` return false, so CM6 throws away the
+// old widget DOM and calls `toDOM` again — but that rebuild happens as part of the *view
+// update* CM6 runs after `dispatch`, which for a caller one tick removed from the dispatch (a
+// menu item's `onClick`, a keymap command) can still observe the pre-rebuild DOM depending on
+// exactly when CM6 flushes it. `requestMeasure` schedules work for CM6's own next measure
+// pass and doesn't hand back a "yes, definitely done" signal a plain caller can await; polling
+// on animation frames (the same pattern `appendRow` already relied on before this file existed)
+// just keeps trying until the new DOM is actually there, capped at a couple of frames so a
+// genuinely missing table (deleted, or the request was stale) gives up instead of looping.
+export function focusTableCell(
+  view: EditorView,
+  tableFrom: number,
+  row: number,
+  col: number,
+  opts?: { selectAll?: boolean },
+): void {
+  const attempt = (retriesLeft: number): void => {
+    const wrap = findTableWrapAt(view, tableFrom);
+    const cell = wrap ? getCellAt(wrap, row, col) : null;
+    const source = cell ? getCellSource(cell) : null;
+    if (source) {
+      source.focus();
+      if (opts?.selectAll) selectAllInSource(source);
+      else placeCaretAtEnd(source);
+      return;
+    }
+    if (retriesLeft <= 0) return;
+    requestAnimationFrame(() => attempt(retriesLeft - 1));
+  };
+  attempt(2);
+}
+
 // ---- DOM helpers ----------------------------------------------------
 
 function placeCaretAtEnd(el: HTMLElement): void {
@@ -666,38 +688,83 @@ class TableWidget extends WidgetType {
   // `readOnly` is part of the identity: cells are built editable or
   // inert at `toDOM` time, so a reading-mode toggle must force a fresh
   // DOM rather than reusing the stale (editable) one.
+  //
+  // [excalisidian] Content is now part of the identity, not just shape. Upstream only compared
+  // row/column counts (+ our earlier alignment-array addition) on the theory that any content
+  // change is a per-keystroke `input` edit, which mutates the live DOM directly and then
+  // dispatches — so the freshly-parsed model always matches what's already on screen, and
+  // reusing the old DOM (skip `toDOM`, caret survives) was safe.
+  //
+  // That theory breaks for a REORDER: `moveRow`/`moveColumn` (doc 14 §1.3 drag, and the
+  // pre-existing "Mover linha/coluna" menu items that share this codepath) build the next
+  // model in memory and dispatch its serialized text WITHOUT first touching the DOM. Row/column
+  // counts and aligns are unchanged, so the old structure-only `eq` returned `true` and CM6 kept
+  // the stale, pre-move DOM — the table would silently un-reorder itself back to the old order
+  // the moment any cell was next edited (`dispatchModelFromDom` reads the model FROM that stale
+  // DOM). Comparing header/row text as well fixes this. It also makes `eq` return `false` while
+  // typing (the previous widget holds the pre-keystroke text) — `updateDOM` below is what keeps
+  // the DOM, and the caret, in that case. `apply()`
+  // callers that reorder already pass an explicit `focus` target (see `menuTabela.tsx`) for
+  // exactly this reason: they expect a rebuild.
   eq(other: TableWidget): boolean {
     if (other.readOnly !== this.readOnly) return false;
     if (other.model.header.length !== this.model.header.length) return false;
     if (other.model.rows.length !== this.model.rows.length) return false;
+    for (let i = 0; i < this.model.aligns.length; i++) {
+      if (other.model.aligns[i] !== this.model.aligns[i]) return false;
+    }
+    for (let i = 0; i < this.model.header.length; i++) {
+      if (other.model.header[i] !== this.model.header[i]) return false;
+    }
+    for (let r = 0; r < this.model.rows.length; r++) {
+      const a = this.model.rows[r];
+      const b = other.model.rows[r];
+      for (let c = 0; c < a.length; c++) {
+        if (a[c] !== b[c]) return false;
+      }
+    }
     return true;
+  }
+
+  // [excalisidian] `eq` compares this widget with the PREVIOUS widget, not with the DOM on
+  // screen — so while typing (previous model "ab", new model "abc") it returns `false` too, and
+  // without this method CM6 would rebuild the table on every keystroke, dropping the caret out
+  // of the cell. CM6 calls `updateDOM` before rebuilding: when the live DOM already shows this
+  // model (the typing case — the cell's input handler mutated the DOM before dispatching), keep
+  // it. A reorder/menu action dispatches without touching the DOM, so the DOM still shows the
+  // old model, this returns `false`, and CM6 rebuilds. Compared through `serializeTable` so
+  // escaping (`|` vs `\|`) doesn't count as a difference. Controls and cell handlers read the
+  // model from the DOM at action time, so reusing the DOM leaves nothing stale.
+  updateDOM(dom: HTMLElement, _view: EditorView, from: TableWidget): boolean {
+    if (from.readOnly !== this.readOnly) return false;
+    return serializeTable(readModelFromDom(dom)) === serializeTable(this.model);
   }
 
   toDOM(view: EditorView): HTMLElement {
     const wrap = document.createElement('div');
     wrap.className = 'cm-atomic-table';
 
-    const table = document.createElement('table');
-    wrap.appendChild(table);
+    const table = buildTableElement(this.model, view);
 
-    const thead = document.createElement('thead');
-    const headerRow = document.createElement('tr');
-    for (const text of this.model.header) {
-      headerRow.appendChild(makeCell('th', text, view));
+    // [excalisidian] Read-only: just the table, no hover controls at all (doc 14 §1.3 "não
+    // aparecem na vista somente leitura") — cheaper than building them and hiding by CSS, and
+    // impossible to accidentally reveal since they never enter the DOM.
+    if (this.readOnly) {
+      wrap.appendChild(table);
+      return wrap;
     }
-    thead.appendChild(headerRow);
-    table.appendChild(thead);
 
-    const tbody = document.createElement('tbody');
-    const colCount = this.model.header.length;
-    for (const row of this.model.rows) {
-      const tr = document.createElement('tr');
-      for (let c = 0; c < colCount; c++) {
-        tr.appendChild(makeCell('td', row[c] ?? '', view));
-      }
-      tbody.appendChild(tr);
-    }
-    table.appendChild(tbody);
+    // [excalisidian] `.cm-atomic-table-surface` is the positioned ancestor for every hover
+    // control (`position: relative`) and reserves their space with PERMANENT padding — see the
+    // long comment on that class in `styles/inline-preview.css` for why the padding can never
+    // toggle with hover (CM6 heightmap desync, same failure mode as the margin-vs-padding bug
+    // this file's header already documents for the table's own vertical rhythm).
+    const surface = document.createElement('div');
+    surface.className = 'cm-atomic-table-surface';
+    surface.appendChild(table);
+    wrap.appendChild(surface);
+
+    attachTableControls(view, wrap, surface, table);
 
     return wrap;
   }
@@ -710,13 +777,46 @@ class TableWidget extends WidgetType {
   }
 }
 
+// [excalisidian] Split out of `TableWidget.toDOM` so read-only mode (no surface, no controls)
+// and edit mode (surface + controls wrapping this same table) can share it verbatim.
+function buildTableElement(model: TableModel, view: EditorView): HTMLTableElement {
+  const table = document.createElement('table');
+
+  const thead = document.createElement('thead');
+  const headerRow = document.createElement('tr');
+  for (let c = 0; c < model.header.length; c++) {
+    headerRow.appendChild(makeCell('th', model.header[c], model.aligns[c] ?? null, view));
+  }
+  thead.appendChild(headerRow);
+  table.appendChild(thead);
+
+  const tbody = document.createElement('tbody');
+  const colCount = model.header.length;
+  for (const row of model.rows) {
+    const tr = document.createElement('tr');
+    for (let c = 0; c < colCount; c++) {
+      tr.appendChild(makeCell('td', row[c] ?? '', model.aligns[c] ?? null, view));
+    }
+    tbody.appendChild(tr);
+  }
+  table.appendChild(tbody);
+
+  return table;
+}
+
 function makeCell(
   tag: 'th' | 'td',
   text: string,
+  align: ColumnAlign,
   view: EditorView,
 ): HTMLElement {
   const cell = document.createElement(tag);
   cell.dataset.raw = text;
+  // [excalisidian] Column alignment (doc 14 §1.4). `text-align` renders it for every cell in
+  // the column; `data-align` is stored only on the header cell — `readModelFromDom` reads the
+  // column's alignment back from there (see that function's comment).
+  cell.style.textAlign = align ?? 'left';
+  if (tag === 'th') cell.dataset.align = align ?? '';
 
   // The cell itself is not contenteditable — only the inner source
   // element is. This keeps the image preview strictly visual (no
@@ -878,7 +978,7 @@ function attachCellEditing(
   cell.addEventListener('contextmenu', (event) => {
     event.preventDefault();
     event.stopPropagation();
-    openCellMenu(view, cell, event.clientX, event.clientY);
+    requestTableMenu(view, cell, event.clientX, event.clientY);
   });
 
   // When the cell has an image and the source is visually hidden,
@@ -903,7 +1003,370 @@ function attachCellEditing(
   });
 }
 
-// ---- context menu -------------------------------------------------
+// ---- hover controls (doc 14 §1.3, §2.3): "+" strips, row/column drag handles -----------------
+
+// [excalisidian] Text for the "+" strips and the drag handles' `title`/`aria-label` (doc 14
+// §2.3 — the vendored code carries no Portuguese; `menuTabela.tsx` supplies the pt-BR strings
+// from doc 14 §3 via this facet). English defaults keep this file self-consistent if `tables()`
+// is ever used standalone, matching every other facet default in this module (see
+// `tableLinkClickFacet`, `readOnlyFacet`).
+export interface TableLabels {
+  addColumn: string;
+  addRow: string;
+  rowHandle: string;
+  columnHandle: string;
+}
+
+const defaultTableLabels: TableLabels = {
+  addColumn: 'Add column',
+  addRow: 'Add row',
+  rowHandle: 'Drag to move the row. Click for more options.',
+  columnHandle: 'Drag to move the column. Click for more options.',
+};
+
+export const tableLabelsFacet = Facet.define<TableLabels, TableLabels>({
+  combine: (values) => (values.length ? values[values.length - 1] : defaultTableLabels),
+});
+
+// [excalisidian] Icon markup for the "+" strips (`plus`) and drag handles (`grip-vertical`,
+// `grip-horizontal` — doc 14 §1.3). This file has no React (plain DOM, see the file's top
+// comment) so it can't render `lucide-react` components the way the rest of the app does via
+// `BotaoIcone`; pulling React plus a component tree into a vendored, framework-agnostic file to
+// paint three static icons would also be a new runtime dependency for a package that currently
+// has none. Instead this is the exact path/circle data lucide-react 1.35.0 ships for
+// `plus`/`grip-vertical`/`grip-horizontal` (`node_modules/lucide-react/dist/esm/icons/*.mjs`),
+// copied in by hand as static SVG markup. `stroke-width="1.5"` matches `BotaoIcone`'s weight
+// (lucide's own default is 2) so these read as the same icon family as the rest of the app.
+const ICON_PLUS =
+  '<svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" ' +
+  'stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">' +
+  '<path d="M5 12h14"/><path d="M12 5v14"/></svg>';
+
+const ICON_GRIP_VERTICAL =
+  '<svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" ' +
+  'stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">' +
+  '<circle cx="9" cy="12" r="1"/><circle cx="9" cy="5" r="1"/><circle cx="9" cy="19" r="1"/>' +
+  '<circle cx="15" cy="12" r="1"/><circle cx="15" cy="5" r="1"/><circle cx="15" cy="19" r="1"/></svg>';
+
+const ICON_GRIP_HORIZONTAL =
+  '<svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" ' +
+  'stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">' +
+  '<circle cx="12" cy="9" r="1"/><circle cx="19" cy="9" r="1"/><circle cx="5" cy="9" r="1"/>' +
+  '<circle cx="12" cy="15" r="1"/><circle cx="19" cy="15" r="1"/><circle cx="5" cy="15" r="1"/></svg>';
+
+// [excalisidian] Nearest boundary to `pos` among `boundaries` (index 0 = the gap before the
+// first item, index `boundaries.length - 1` = the gap after the last) — i.e. which drop "gap" a
+// pointer position resolves to. Pure and DOM-free on purpose (doc 14 §2.3 asks for exactly this
+// kind of pure function to be tested — see `table-widget.test.ts`): the geometry (screen-space
+// row/column edges) is gathered by the caller; this only picks the closest one. Same shape of
+// problem as `gapMaisProximo` in `moverBloco.ts`, kept as a separate copy because that one is a
+// private method tied to CodeMirror block geometry and this one only knows about numbers.
+export function nearestGapIndex(boundaries: readonly number[], pos: number): number {
+  let best = 0;
+  let bestDist = Infinity;
+  for (let i = 0; i < boundaries.length; i++) {
+    const dist = Math.abs(boundaries[i] - pos);
+    if (dist < bestDist) {
+      bestDist = dist;
+      best = i;
+    }
+  }
+  return best;
+}
+
+// A gap resolves to a no-op move when it's the item's current position or immediately after it
+// (dropping right back where it started) — same rule as `moverBloco.ts`'s `calcularMovimento`.
+// Exported alongside `nearestGapIndex` so the pure "where does this drop land" logic is fully
+// covered by `table-widget.test.ts` without needing a DOM.
+export function isNoopGap(origin: number, gap: number): boolean {
+  return gap === origin || gap === origin + 1;
+}
+
+// Convert a "gap" (0..N, a slot before removal) into the index `moveRow`/`moveColumn` expect (a
+// position in the array AFTER the moved item is removed) — same arithmetic as `moverBloco.ts`'s
+// `calcularMovimento`.
+export function gapToMoveTarget(origin: number, gap: number): number {
+  return gap > origin ? gap - 1 : gap;
+}
+
+const DRAG_THRESHOLD_PX = 4; // same threshold `moverBloco.ts` uses to tell a click from a drag
+// How far outside the table a pointer may stray and still count as "still over the table" (doc
+// 14 §1.3 "soltar fora cancela" — a release further than this away is "outside").
+const DROP_SLACK_PX = 24;
+
+interface HandleDragConfig {
+  /** Screen-space (clientX/clientY) boundary positions, N+1 of them for N items. */
+  boundaries: number[];
+  origin: number;
+  draggedCells: HTMLElement[];
+  /** Reads the pointer's coordinate along the drag axis from a PointerEvent. */
+  axisCoord: (event: PointerEvent) => number;
+  /** Renders (or hides, on `null`) the drop indicator at this gap. */
+  showIndicator: (gap: number | null) => void;
+  /** Applies the committed move to `targetIndex` (already converted via `gapToMoveTarget`). */
+  commit: (targetIndex: number) => void;
+  /** No-drag click (pointer never moved past the threshold): open the row/column menu. */
+  openMenu: (event: PointerEvent) => void;
+}
+
+// [excalisidian] Shared pointer lifecycle for both drag handles (doc 14 §1.3): a few px of
+// movement distinguishes "click → menu" from "drag → reorder" (`DRAG_THRESHOLD_PX`); `Esc` and
+// releasing while the pointer has strayed too far from the table (`gap === null`) both cancel
+// without dispatching anything. Pointer events only — never HTML5 drag-and-drop, which fails in
+// the WebView2 host (see `moverBloco.ts`'s header comment; this project has hit that twice).
+function runHandleDrag(startEvent: PointerEvent, cfg: HandleDragConfig): void {
+  const startCoord = cfg.axisCoord(startEvent);
+  let engaged = false;
+  let gap: number | null = null;
+
+  const min = cfg.boundaries[0] - DROP_SLACK_PX;
+  const max = cfg.boundaries[cfg.boundaries.length - 1] + DROP_SLACK_PX;
+
+  const onMove = (event: PointerEvent) => {
+    const coord = cfg.axisCoord(event);
+    if (!engaged) {
+      if (Math.abs(coord - startCoord) < DRAG_THRESHOLD_PX) return;
+      engaged = true;
+      for (const cell of cfg.draggedCells) cell.classList.add('cm-atomic-table-cell-dragging');
+    }
+    if (coord < min || coord > max) {
+      gap = null;
+      cfg.showIndicator(null);
+      return;
+    }
+    const candidate = nearestGapIndex(cfg.boundaries, coord);
+    gap = isNoopGap(cfg.origin, candidate) ? null : candidate;
+    cfg.showIndicator(gap);
+  };
+
+  const cleanup = () => {
+    window.removeEventListener('pointermove', onMove);
+    window.removeEventListener('pointerup', onUp);
+    window.removeEventListener('keydown', onKeyDown, true);
+    for (const cell of cfg.draggedCells) cell.classList.remove('cm-atomic-table-cell-dragging');
+    cfg.showIndicator(null);
+  };
+
+  const onUp = (event: PointerEvent) => {
+    const wasEngaged = engaged;
+    const finalGap = gap;
+    cleanup();
+    if (!wasEngaged) {
+      cfg.openMenu(event);
+      return;
+    }
+    if (finalGap === null) return; // dropped outside the table, or back where it started
+    cfg.commit(gapToMoveTarget(cfg.origin, finalGap));
+  };
+
+  const onKeyDown = (event: KeyboardEvent) => {
+    if (event.key !== 'Escape') return;
+    engaged = false; // so a later pointerup (listener already removed by cleanup) can't fire the menu either
+    cleanup();
+  };
+
+  window.addEventListener('pointermove', onMove);
+  window.addEventListener('pointerup', onUp);
+  window.addEventListener('keydown', onKeyDown, true);
+}
+
+// [excalisidian] Builds every hover control for one table widget instance: the "+" strips, both
+// drag handles, and the drop indicator (doc 14 §1.3/§2.3). Called once from `toDOM`, skipped
+// entirely in read-only mode. All positioning is absolute inside `surface`
+// (`.cm-atomic-table-surface`, `position: relative` with permanently-reserved padding — see
+// that class's comment in `styles/inline-preview.css`), so nothing here ever changes `wrap`'s
+// rendered box size, which is what keeps CM6's heightmap in sync (doc 14 §2.3 item 7).
+function attachTableControls(
+  view: EditorView,
+  wrap: HTMLElement,
+  surface: HTMLElement,
+  table: HTMLTableElement,
+): void {
+  const labels = view.state.facet(tableLabelsFacet);
+
+  // "+" strips: always in the DOM; `.is-hovering` on `wrap` (set from plain pointerenter/leave,
+  // no geometry math needed since the strips live inside `wrap` itself) toggles their
+  // opacity/pointer-events in CSS. Never appear/disappear by changing layout.
+  const addCol = document.createElement('div');
+  addCol.className = 'cm-atomic-table-add-col';
+  addCol.title = labels.addColumn;
+  addCol.setAttribute('role', 'button');
+  addCol.setAttribute('aria-label', labels.addColumn);
+  addCol.innerHTML = ICON_PLUS;
+  addCol.addEventListener('pointerdown', (event) => {
+    if (event.button === 0) event.preventDefault();
+  });
+  addCol.addEventListener('click', () => appendColumn(view, wrap));
+  surface.appendChild(addCol);
+
+  const addRow = document.createElement('div');
+  addRow.className = 'cm-atomic-table-add-row';
+  addRow.title = labels.addRow;
+  addRow.setAttribute('role', 'button');
+  addRow.setAttribute('aria-label', labels.addRow);
+  addRow.innerHTML = ICON_PLUS;
+  addRow.addEventListener('pointerdown', (event) => {
+    if (event.button === 0) event.preventDefault();
+  });
+  addRow.addEventListener('click', () => appendRow(view, wrap));
+  surface.appendChild(addRow);
+
+  wrap.addEventListener('pointerenter', () => wrap.classList.add('is-hovering'));
+  wrap.addEventListener('pointerleave', () => wrap.classList.remove('is-hovering'));
+
+  // Drag handles: one instance each, repositioned on every pointermove over the table instead
+  // of built per-row/per-column — doc 06 says the alça mirrors `AlcaBloco`'s single-instance
+  // gesture, and this way there's no per-row DOM to keep in sync as rows are added/removed.
+  const rowHandle = document.createElement('div');
+  rowHandle.className = 'cm-atomic-table-row-handle';
+  rowHandle.title = labels.rowHandle;
+  rowHandle.setAttribute('aria-label', labels.rowHandle);
+  rowHandle.innerHTML = ICON_GRIP_VERTICAL;
+  surface.appendChild(rowHandle);
+
+  const colHandle = document.createElement('div');
+  colHandle.className = 'cm-atomic-table-col-handle';
+  colHandle.title = labels.columnHandle;
+  colHandle.setAttribute('aria-label', labels.columnHandle);
+  colHandle.innerHTML = ICON_GRIP_HORIZONTAL;
+  surface.appendChild(colHandle);
+
+  const dropIndicator = document.createElement('div');
+  dropIndicator.className = 'cm-atomic-table-drop-indicator';
+  surface.appendChild(dropIndicator);
+
+  let hoveredRow = -1;
+  let hoveredCol = -1;
+
+  const hideRowHandle = () => {
+    hoveredRow = -1;
+    rowHandle.classList.remove('is-visible');
+  };
+  const hideColHandle = () => {
+    hoveredCol = -1;
+    colHandle.classList.remove('is-visible');
+  };
+
+  // Reads geometry fresh on every call rather than caching it: table hover is a short-lived,
+  // local interaction (unlike `moverBloco.ts`'s page-spanning block drag), so the cache
+  // invalidation machinery that needs isn't worth it here.
+  const reposition = (clientX: number, clientY: number) => {
+    const surfaceRect = surface.getBoundingClientRect();
+
+    const bodyRows = Array.from(table.querySelectorAll<HTMLTableRowElement>('tbody tr'));
+    const row = bodyRows.find((tr) => {
+      const r = tr.getBoundingClientRect();
+      return clientY >= r.top && clientY <= r.bottom;
+    });
+    if (row) {
+      hoveredRow = bodyRows.indexOf(row);
+      const r = row.getBoundingClientRect();
+      rowHandle.style.top = `${r.top - surfaceRect.top}px`;
+      rowHandle.style.height = `${r.height}px`;
+      rowHandle.classList.add('is-visible');
+    } else {
+      hideRowHandle();
+    }
+
+    const headerCells = Array.from(table.querySelectorAll<HTMLTableCellElement>('thead th'));
+    const col = headerCells.find((th) => {
+      const r = th.getBoundingClientRect();
+      return clientX >= r.left && clientX <= r.right;
+    });
+    if (col) {
+      hoveredCol = headerCells.indexOf(col);
+      const r = col.getBoundingClientRect();
+      colHandle.style.left = `${r.left - surfaceRect.left}px`;
+      colHandle.style.width = `${r.width}px`;
+      colHandle.classList.add('is-visible');
+    } else {
+      hideColHandle();
+    }
+  };
+
+  surface.addEventListener('pointermove', (event) => reposition(event.clientX, event.clientY));
+  surface.addEventListener('pointerleave', () => {
+    hideRowHandle();
+    hideColHandle();
+  });
+
+  const cellsInRow = (rowIndex: number): HTMLElement[] => {
+    const tr = table.querySelectorAll<HTMLTableRowElement>('tbody tr')[rowIndex];
+    return tr ? Array.from(tr.querySelectorAll<HTMLElement>('td')) : [];
+  };
+  // Includes the header cell on purpose: "colunas movem com o cabeçalho junto" (doc 14 §1.3) —
+  // the header is part of what's visually "the column" being dragged.
+  const cellsInColumn = (colIndex: number): HTMLElement[] =>
+    Array.from(table.querySelectorAll<HTMLElement>('tr'))
+      .map((tr) => tr.children.item(colIndex) as HTMLElement | null)
+      .filter((cell): cell is HTMLElement => cell !== null);
+
+  rowHandle.addEventListener('pointerdown', (event) => {
+    if (event.button !== 0 || hoveredRow < 0) return;
+    event.preventDefault();
+    const rowIndex = hoveredRow;
+    const bodyRows = Array.from(table.querySelectorAll<HTMLTableRowElement>('tbody tr'));
+    const boundaries = [bodyRows[0]?.getBoundingClientRect().top ?? 0];
+    for (const tr of bodyRows) boundaries.push(tr.getBoundingClientRect().bottom);
+    const surfaceRect = surface.getBoundingClientRect();
+
+    runHandleDrag(event, {
+      boundaries,
+      origin: rowIndex,
+      draggedCells: cellsInRow(rowIndex),
+      axisCoord: (e) => e.clientY,
+      showIndicator: (gap) => {
+        if (gap === null) {
+          dropIndicator.classList.remove('is-visible');
+          return;
+        }
+        dropIndicator.classList.remove('is-col');
+        dropIndicator.classList.add('is-visible', 'is-row');
+        dropIndicator.style.top = `${boundaries[gap] - surfaceRect.top}px`;
+      },
+      commit: (target) => {
+        const model = readModelFromDom(wrap);
+        dispatchModel(view, wrap, moveRow(model, rowIndex, target));
+      },
+      openMenu: (e) =>
+        dispatchTableMenu(view, wrap, 'row-handle', rowIndex, 0, e.clientX, e.clientY),
+    });
+  });
+
+  colHandle.addEventListener('pointerdown', (event) => {
+    if (event.button !== 0 || hoveredCol < 0) return;
+    event.preventDefault();
+    const colIndex = hoveredCol;
+    const headerCells = Array.from(table.querySelectorAll<HTMLTableCellElement>('thead th'));
+    const boundaries = [headerCells[0]?.getBoundingClientRect().left ?? 0];
+    for (const th of headerCells) boundaries.push(th.getBoundingClientRect().right);
+    const surfaceRect = surface.getBoundingClientRect();
+
+    runHandleDrag(event, {
+      boundaries,
+      origin: colIndex,
+      draggedCells: cellsInColumn(colIndex),
+      axisCoord: (e) => e.clientX,
+      showIndicator: (gap) => {
+        if (gap === null) {
+          dropIndicator.classList.remove('is-visible');
+          return;
+        }
+        dropIndicator.classList.remove('is-row');
+        dropIndicator.classList.add('is-visible', 'is-col');
+        dropIndicator.style.left = `${boundaries[gap] - surfaceRect.left}px`;
+      },
+      commit: (target) => {
+        const model = readModelFromDom(wrap);
+        dispatchModel(view, wrap, moveColumn(model, colIndex, target));
+      },
+      openMenu: (e) =>
+        dispatchTableMenu(view, wrap, 'column-handle', -1, colIndex, e.clientX, e.clientY),
+    });
+  });
+}
+
+// ---- menu / model mutation ------------------------------------------
 
 function cellRowIndex(cell: HTMLElement): number {
   // Rows are indexed within tbody (header isn't a "row" we can
@@ -938,138 +1401,56 @@ function dispatchModel(
   });
 }
 
-function openCellMenu(
+// [excalisidian] Right-click on a cell: locate the table, describe the click as a
+// `TableMenuRequest` (doc 14 §2.2) and hand it to whatever's registered on `tableMenuFacet`. No
+// handler registered → no-op, by design (see the file header comment): this file never falls
+// back to building its own menu again.
+// [excalisidian] Shared by the cell right-click (`requestTableMenu`, below) and both drag
+// handles' click-not-drag path (`attachTableControls`'s `openMenu` callbacks): resolves the
+// table, builds the `TableMenuRequest` (doc 14 §2.2) and hands it to whatever's registered on
+// `tableMenuFacet`. No handler registered → no-op, by design (see the file header comment).
+function dispatchTableMenu(
   view: EditorView,
-  cell: HTMLElement,
+  wrap: HTMLElement,
+  scope: TableMenuScope,
+  row: number,
+  col: number,
   x: number,
   y: number,
 ): void {
+  const handler = view.state.facet(tableMenuFacet);
+  if (!handler) return;
+  const range = findCurrentTableRange(view, wrap);
+  if (!range) return;
+  const tableFrom = range.from;
+  const model = readModelFromDom(wrap);
+
+  handler({
+    scope,
+    x,
+    y,
+    row,
+    col,
+    model,
+    apply: (next, focus) => {
+      const currentWrap = findTableWrapAt(view, tableFrom) ?? wrap;
+      dispatchModel(view, currentWrap, next);
+      if (focus) focusTableCell(view, tableFrom, focus.row, focus.col);
+    },
+    deleteTable: () => {
+      const currentWrap = findTableWrapAt(view, tableFrom) ?? wrap;
+      deleteTable(view, currentWrap);
+    },
+  });
+}
+
+function requestTableMenu(view: EditorView, cell: HTMLElement, x: number, y: number): void {
   const wrap = cell.closest<HTMLElement>('.cm-atomic-table');
   if (!wrap) return;
   const isHeader = cell.tagName === 'TH';
-  const row = cellRowIndex(cell);
+  const row = isHeader ? -1 : cellRowIndex(cell);
   const col = cellColIndex(cell);
-
-  const menu = document.createElement('div');
-  menu.className = 'cm-atomic-table-menu';
-  menu.style.left = `${x}px`;
-  menu.style.top = `${y}px`;
-
-  type MenuItem = { label: string; action: () => void } | 'separator';
-  const items: MenuItem[] = [];
-
-  if (!isHeader) {
-    items.push({
-      label: 'Insert row above',
-      action: () => {
-        const m = readModelFromDom(wrap);
-        m.rows.splice(row, 0, m.header.map(() => ''));
-        dispatchModel(view, wrap, m);
-      },
-    });
-    items.push({
-      label: 'Insert row below',
-      action: () => {
-        const m = readModelFromDom(wrap);
-        m.rows.splice(row + 1, 0, m.header.map(() => ''));
-        dispatchModel(view, wrap, m);
-      },
-    });
-    items.push({
-      label: 'Delete row',
-      action: () => {
-        const m = readModelFromDom(wrap);
-        if (row >= 0 && row < m.rows.length) m.rows.splice(row, 1);
-        dispatchModel(view, wrap, m);
-      },
-    });
-    items.push('separator');
-  }
-
-  items.push({
-    label: 'Insert column left',
-    action: () => {
-      const m = readModelFromDom(wrap);
-      m.header.splice(col, 0, '');
-      for (const r of m.rows) r.splice(col, 0, '');
-      dispatchModel(view, wrap, m);
-    },
-  });
-  items.push({
-    label: 'Insert column right',
-    action: () => {
-      const m = readModelFromDom(wrap);
-      m.header.splice(col + 1, 0, '');
-      for (const r of m.rows) r.splice(col + 1, 0, '');
-      dispatchModel(view, wrap, m);
-    },
-  });
-  items.push({
-    label: 'Delete column',
-    action: () => {
-      const m = readModelFromDom(wrap);
-      // Guard: don't leave the table with zero columns — lezer
-      // wouldn't re-parse that as a Table and the widget would
-      // vanish mid-edit. Keeping the last column as the floor.
-      if (m.header.length <= 1 || col < 0) return;
-      m.header.splice(col, 1);
-      for (const r of m.rows) r.splice(col, 1);
-      dispatchModel(view, wrap, m);
-    },
-  });
-
-  let dismissed = false;
-  const dismiss = () => {
-    if (dismissed) return;
-    dismissed = true;
-    menu.remove();
-    document.removeEventListener('mousedown', onDocDown, true);
-    document.removeEventListener('keydown', onDocKey, true);
-  };
-  const onDocDown = (event: MouseEvent) => {
-    if (event.target instanceof Node && menu.contains(event.target)) return;
-    dismiss();
-  };
-  const onDocKey = (event: KeyboardEvent) => {
-    if (event.key === 'Escape') dismiss();
-  };
-
-  for (const item of items) {
-    if (item === 'separator') {
-      const sep = document.createElement('div');
-      sep.className = 'cm-atomic-table-menu-sep';
-      menu.appendChild(sep);
-      continue;
-    }
-    const btn = document.createElement('button');
-    btn.type = 'button';
-    btn.className = 'cm-atomic-table-menu-item';
-    btn.textContent = item.label;
-    btn.addEventListener('click', () => {
-      item.action();
-      dismiss();
-    });
-    menu.appendChild(btn);
-  }
-
-  document.body.appendChild(menu);
-
-  // Clip the menu inside the viewport if it overflows.
-  const rect = menu.getBoundingClientRect();
-  if (rect.right > window.innerWidth) {
-    menu.style.left = `${Math.max(4, window.innerWidth - rect.width - 4)}px`;
-  }
-  if (rect.bottom > window.innerHeight) {
-    menu.style.top = `${Math.max(4, window.innerHeight - rect.height - 4)}px`;
-  }
-
-  // Deferred listener attach so the current contextmenu→document
-  // mousedown cycle doesn't immediately dismiss us.
-  setTimeout(() => {
-    if (dismissed) return;
-    document.addEventListener('mousedown', onDocDown, true);
-    document.addEventListener('keydown', onDocKey, true);
-  }, 0);
+  dispatchTableMenu(view, wrap, isHeader ? 'cell-header' : 'cell-body', row, col, x, y);
 }
 
 function dispatchModelFromDom(view: EditorView, cell: HTMLElement): void {
@@ -1111,8 +1492,7 @@ function moveCellFocus(view: EditorView, cell: HTMLElement, dir: 1 | -1): void {
   }
   if (next >= cells.length) {
     // Tab past the last cell — append a new empty row and focus its
-    // first cell. We dispatch through the same path as a cell edit,
-    // then grab the new first cell after the DOM reconciles.
+    // first cell.
     appendRow(view, wrap);
     return;
   }
@@ -1127,47 +1507,54 @@ function appendRow(view: EditorView, wrap: HTMLElement): void {
   const range = findCurrentTableRange(view, wrap);
   if (!range) return;
   const model = readModelFromDom(wrap);
-  model.rows.push(model.header.map(() => ''));
-  const next = serializeTable(model);
-  view.dispatch({
-    changes: { from: range.from, to: range.to, insert: next },
-  });
+  const next = insertRow(model, model.rows.length);
+  dispatchModel(view, wrap, next);
+  // See `focusTableCell`'s comment for why this polls instead of relying on a single
+  // `requestAnimationFrame`/`requestMeasure` callback.
+  focusTableCell(view, range.from, next.rows.length - 1, 0);
+}
 
-  // Adding a row changes the widget's row count, so `eq` returns
-  // false and CM6 rebuilds the widget DOM. The old `wrap` reference
-  // is now detached. Wait for the paint that attaches the new DOM,
-  // then look up the fresh widget by position and focus its new
-  // last-row cell. Double-rAF because the first rAF only guarantees
-  // CM6 has processed the dispatch; the second ensures the layout
-  // has painted so focus commands don't get lost.
-  const { from } = range;
-  requestAnimationFrame(() => {
-    requestAnimationFrame(() => {
-      if (view.state.facet(readOnlyFacet)) return;
-      const tables = Array.from(
-        view.dom.querySelectorAll<HTMLElement>('.cm-atomic-table'),
-      );
-      let target: HTMLElement | null = null;
-      for (const el of tables) {
-        try {
-          if (view.posAtDOM(el) === from) {
-            target = el;
-            break;
-          }
-        } catch {
-          // posAtDOM can throw on detached/transitional DOM nodes
-          // — skip and keep looking.
-        }
-      }
-      if (!target) return;
-      const rows = target.querySelectorAll<HTMLElement>('tbody tr');
-      const newRow = rows[rows.length - 1];
-      const firstCell = newRow?.querySelector<HTMLElement>('td');
-      const firstSource = firstCell ? getCellSource(firstCell) : null;
-      if (!firstSource) return;
-      firstSource.focus();
-      placeCaretAtEnd(firstSource);
-    });
+// [excalisidian] Mirror of `appendRow` for the "+" add-column strip (doc 14 §1.3). Focuses the
+// new column's HEADER cell — the column's cells span every row, and the header is the one
+// that's always visible regardless of how many body rows exist (including zero extra rows), so
+// it's the closest thing to "the first new cell" a column-shaped insert has.
+function appendColumn(view: EditorView, wrap: HTMLElement): void {
+  if (view.state.facet(readOnlyFacet)) return;
+  const range = findCurrentTableRange(view, wrap);
+  if (!range) return;
+  const model = readModelFromDom(wrap);
+  const next = insertColumn(model, model.header.length);
+  dispatchModel(view, wrap, next);
+  focusTableCell(view, range.from, -1, next.header.length - 1);
+}
+
+// [excalisidian] "Excluir tabela" (doc 14 §1.3/§2.2): remove the table's block AND the blank
+// line that trails it. Every table on disk carries exactly one trailing blank line — inserted
+// on creation (§1.1) so the GFM parser doesn't glue the next paragraph onto the table — so
+// leaving it behind after deleting the table would strand an orphaned blank line with no table
+// above it to justify it. Cursor lands where the table used to start, one transaction.
+function deleteTable(view: EditorView, wrap: HTMLElement): void {
+  if (view.state.facet(readOnlyFacet)) return;
+  const range = findCurrentTableRange(view, wrap);
+  if (!range) return;
+  const { doc } = view.state;
+  const startLine = doc.lineAt(range.from);
+  let endLineNumber = doc.lineAt(range.to).number;
+
+  if (endLineNumber + 1 <= doc.lines) {
+    const afterLine = doc.line(endLineNumber + 1);
+    if (afterLine.text.trim() === '') endLineNumber = afterLine.number;
+  }
+
+  const from = startLine.from;
+  // Deleting up to the START of the line after the table (rather than to that removed line's
+  // own `.to`) also consumes the newline that separated them, so nothing but the table (and its
+  // one trailing blank line, if any) disappears — no leftover blank line, no merged paragraphs.
+  const to = endLineNumber < doc.lines ? doc.line(endLineNumber + 1).from : doc.line(endLineNumber).to;
+
+  view.dispatch({
+    changes: { from, to, insert: '' },
+    selection: EditorSelection.cursor(from),
   });
 }
 
@@ -1236,12 +1623,17 @@ function buildTableWidgets(state: EditorState): DecorationSet {
   tree.iterate({
     enter: (node) => {
       if (node.name !== 'Table') return;
-      const model = parseTable(state, node.node);
-      if (!model) return;
-
-      // Block-replace needs whole-line coverage.
+      // Block-replace needs whole-line coverage; it also gives us a stable range to slice raw
+      // text from. [excalisidian] Parsing goes through `parseTableText` (table-model.ts)
+      // instead of walking `TableHeader`/`TableRow`/`TableDelimiter` child nodes by hand — the
+      // lezer node only tells us WHERE the table is; what's actually in the delimiter row
+      // (including alignment) is read from the text itself, the same parser `table-model.test.ts`
+      // exercises directly.
       const startLine = doc.lineAt(node.from);
       const endLine = doc.lineAt(node.to);
+      const model = parseTableText(doc.sliceString(startLine.from, endLine.to));
+      if (!model) return;
+
       ranges.push(
         Decoration.replace({
           widget: new TableWidget(model, readOnly),
@@ -1343,6 +1735,39 @@ export const tableLinkClickFacet = Facet.define<
   (url: string) => void
 >({
   combine: (values) => values[0] ?? defaultLinkOpener,
+});
+
+// [excalisidian] Menu facet (doc 14 §2.2). `table-widget.ts` never builds menu UI itself
+// anymore — it only detects the gesture, resolves what was clicked into row/col/model, and
+// calls whatever's registered here. `src/editor/extensoes/menuTabela.tsx` (project code) is the
+// only consumer today; it renders the app's `Menu`/`ItemMenu` in a React root on
+// `document.body`. No handler registered → right-click on a cell is a no-op (never falls back
+// to the browser's native context menu, since the `contextmenu` listener always calls
+// `preventDefault`).
+export type TableMenuScope = 'cell-body' | 'cell-header' | 'row-handle' | 'column-handle';
+
+export interface TableMenuRequest {
+  scope: TableMenuScope;
+  /** Screen coordinates to anchor the menu at. */
+  x: number;
+  y: number;
+  /** -1 in the header (`cell-header`) or from a column handle (`column-handle`). */
+  row: number;
+  col: number;
+  /** Snapshot of the table's current model, read fresh for every request. */
+  model: TableModel;
+  /** Apply `next` as the table's new content, in a single transaction; optionally focus a cell
+   * in the result (row -1 = header) once the widget's DOM catches up. */
+  apply(next: TableModel, focus?: { row: number; col: number }): void;
+  /** Remove the table block (and its trailing blank line) as one transaction. */
+  deleteTable(): void;
+}
+
+export const tableMenuFacet = Facet.define<
+  (req: TableMenuRequest) => void,
+  ((req: TableMenuRequest) => void) | null
+>({
+  combine: (values) => (values.length ? values[values.length - 1] : null),
 });
 
 export function tables(config: TablesConfig = {}): Extension {

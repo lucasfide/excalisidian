@@ -5,7 +5,7 @@ import { create } from "zustand";
 import { relaunch } from "@tauri-apps/plugin-process";
 import type { Update } from "@tauri-apps/plugin-updater";
 
-import { flusharTudoAntesDeSair } from "./flushGeral";
+import { flusharTodasAsJanelas } from "../app/flushEntreJanelas";
 import { confirmar } from "./dialogoStore";
 
 type Fase = "oculto" | "disponivel" | "baixando" | "reiniciar" | "erro";
@@ -51,9 +51,10 @@ export const useAtualizacaoStore = create<AtualizacaoState>((set, get) => ({
     // `downloadAndInstall()` encerra o app no Windows assim que o instalador começa
     // (contrato do plugin-updater) — salvar depois seria tarde. Drena canvas, documentos,
     // tarefas e layout ANTES, e só instala com tudo em dia ou com o usuário ciente da
-    // pendência (auditoria 12/09, achado 06).
-    const { falhas, bloqueados, tarefasOk } = await flusharTudoAntesDeSair();
-    if (falhas.length > 0 || bloqueados.length > 0 || !tarefasOk) {
+    // pendência (auditoria 12/09, achado 06). Com múltiplos vaults cada um na sua janela
+    // (doc 12 §6), "tudo em dia" é o app inteiro: drena esta janela e pede o mesmo às outras.
+    const { falhas, bloqueados, tarefasOk, semResposta } = await flusharTodasAsJanelas();
+    if (falhas.length > 0 || bloqueados.length > 0 || !tarefasOk || semResposta.length > 0) {
       const seguir = await confirmar({
         titulo: "Não foi possível salvar",
         descricao: "Atualizar agora descarta as alterações.",

@@ -44,7 +44,9 @@
   --color-tinta: #1c1917;
   --color-tinta-media: #4a443c;
   --color-tinta-suave: #655e54;
-  --color-musgo: #3e5c46;
+  /* Violeta do lettering da logo (amostra medida). O papel manilha continua quente: no tema
+   * claro este é o único token que a identidade cristal mudou. */
+  --color-cristal: #74419d;
   --color-ocre: #a87a1c;
   --color-ocre-tinta: #7a5610;
   --color-bordo: #7a2e22;
@@ -73,16 +75,29 @@
 }
 
 .dark {
-  /* --- Tokens de interface (tema escuro: Tinta) --- */
-  --color-papel: #16140f;
-  --color-superficie: #1f1c16;
-  --color-lavagem: #272319;
-  --color-regua: #34302a;
-  --color-regua-forte: #6e675c;
-  --color-tinta: #efeae0;
-  --color-tinta-media: #bdb6a9;
-  --color-tinta-suave: #9a9384;
-  --color-musgo: #86a98b;
+  /* --- Tokens de interface (tema escuro: Cristal) --- */
+  /* Matiz 258° em todas as superfícies, com saturação MUITO baixa: o violeta só aparece de
+   * verdade no acento (`cristal`). A escada de luminosidade é a mesma do tema Tinta que veio
+   * antes (mesma ordem, mesmas distâncias) — é ela que segura a hierarquia e o contraste; o
+   * que mudou foi a temperatura, de marrom-tinta (40°) para violeta. `papel` fica em L 5,5%,
+   * a luminosidade medida no fundo da própria logo: escuro o bastante pro roxo ler como preto.
+   *
+   * Saturação: superfícies entre 7% e 14%, tintas em 5%. Chegou-se nesses números descendo
+   * duas vezes (15/09/2026): a primeira versão tinha superfícies em 21–22% e ainda lia como
+   * "app roxo" na tela cheia — numa área grande, mesmo pouca saturação integra. Não subir
+   * esses valores sem olhar o app inteiro aberto; token isolado sempre parece neutro demais. */
+  --color-papel: #0d0c10;
+  --color-superficie: #161519;
+  --color-lavagem: #201e24;
+  --color-regua: #2f2d34;
+  --color-regua-forte: #686473;
+  --color-tinta: #eaeaec;
+  --color-tinta-media: #b6b4bb;
+  --color-tinta-suave: #928f99;
+  /* Lâmina do cristal (amostra medida na logo) — 6,5:1 sobre `papel`. */
+  --color-cristal: #aa85cb;
+  /* Âmbar e vinho seguem os mesmos do tema anterior: erro tem que parecer erro. Sobre o chão
+   * novo dão 8,8:1 e 6,1:1, então não precisaram de recalibragem. */
   --color-ocre: #d3a845;
   --color-ocre-tinta: #d3a845;
   --color-bordo: #c97b69;
@@ -101,7 +116,7 @@
     overflow: hidden;
   }
   :focus-visible {
-    outline: 2px solid var(--color-musgo);
+    outline: 2px solid var(--color-cristal);
     outline-offset: 2px;
   }
 

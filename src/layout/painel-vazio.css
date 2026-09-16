@@ -1,0 +1,45 @@
+.tela-inicio--vazio .tela-inicio__conteudo {
+  justify-content: center;
+  padding-block: 2rem 5.5rem;
+}
+
+.painel-vazio__estado {
+  width: min(100%, 32rem);
+  margin-inline: auto;
+  padding: 1.25rem;
+  border: 1px solid var(--home-borda);
+  border-radius: var(--radius-ficha);
+  background: var(--home-superficie);
+  box-shadow: 0 1rem 3rem -1.5rem var(--home-sombra);
+  backdrop-filter: blur(1rem) saturate(0.8);
+  -webkit-backdrop-filter: blur(1rem) saturate(0.8);
+  color: var(--home-luz);
+}
+
+.painel-vazio__acoes {
+  display: grid;
+  width: 100%;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 0.5rem;
+}
+
+.painel-vazio__estado > div {
+  width: 100%;
+}
+
+.painel-vazio__acoes > * {
+  width: 100%;
+  min-width: 0;
+}
+
+@container home (max-width: 32rem) {
+  .painel-vazio__acoes {
+    grid-template-columns: 1fr;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .tela-inicio--vazio .tela-inicio__imagem {
+    animation: none;
+  }
+}

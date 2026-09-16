@@ -28,7 +28,7 @@ const EXT_POR_MIME: Record<string, string> = {
   "image/bmp": "bmp",
 };
 
-function extDe(mime: string): string {
+export function extDe(mime: string): string {
   return (
     EXT_POR_MIME[mime] ??
     ((mime.split("/")[1] ?? "png").replace("+xml", "") || "png")

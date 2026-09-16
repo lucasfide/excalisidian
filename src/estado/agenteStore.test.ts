@@ -20,6 +20,11 @@ vi.mock("@tauri-apps/plugin-store", () => ({
   },
 }));
 
+const emitMock = vi.fn(async (..._args: unknown[]) => {});
+vi.mock("@tauri-apps/api/event", () => ({
+  emit: (...args: unknown[]) => emitMock(...args),
+}));
+
 vi.mock("../agente/cliente", () => ({
   completar: vi.fn(async () => ({
     texto: "resposta do modelo",
@@ -91,6 +96,7 @@ const CONFIG: ConfigAgente = {
 
 beforeEach(() => {
   stores.clear();
+  emitMock.mockClear();
   vi.mocked(completar).mockReset();
   vi.mocked(completar).mockImplementation(async () => ({
     texto: "resposta do modelo",
@@ -133,6 +139,13 @@ describe("agenteStore", () => {
     await st().carregar();
     expect(st().config?.modeloAssistente).toBe("gpt-5.6-luna");
     expect(st().status).toBe("ocioso");
+  });
+
+  // Doc 12 §6: config do agente é preferência compartilhada — outras janelas recarregam ao
+  // receber este evento (flushEntreJanelas.ts cuida da metade "recebe").
+  it("aplicarConfig avisa as outras janelas via app://prefs-mudou", async () => {
+    await st().aplicarConfig(CONFIG);
+    expect(emitMock).toHaveBeenCalledWith("app://prefs-mudou");
   });
 
   it("definirHabilitado(false) desliga sem apagar a configuração", async () => {

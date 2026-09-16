@@ -9,6 +9,8 @@
 import { useVaultStore } from "../estado/vaultStore";
 import { sanitizarNome } from "./caminhos";
 import { desenhoVazio } from "../canvas/formatoDesenho";
+import { tipoDoArquivo } from "./arvore";
+import { sincronizarH1ComTitulo } from "./tituloNota";
 
 export type ResultadoCriacao =
   | { ok: true; caminho: string }
@@ -79,5 +81,35 @@ export async function criarPasta(
   }
   await vault.adapter.criarPasta(caminho);
   await vault.recarregarArvore();
+  return { ok: true, caminho };
+}
+
+/** Separa `pasta/Nome.draw.md` em base sem extensão (`pasta/Nome`) e extensão (`.draw.md`). */
+export function separarExtensao(path: string): { base: string; ext: string } {
+  const m = path.match(/(.draw.md|.md)$/i);
+  if (!m) {
+    const i = path.lastIndexOf(".");
+    return i > path.lastIndexOf("/") ? { base: path.slice(0, i), ext: path.slice(i) } : { base: path, ext: "" };
+  }
+  return { base: path.slice(0, -m[1].length), ext: m[1] };
+}
+
+/** Duplica uma nota ou desenho na mesma pasta, com o próximo nome livre (`Nome (2)`, mesmo
+ * padrão de numeração de criar e renomear). Na nota, o H1 acompanha o nome novo — toda nota
+ * tem H1 = nome do arquivo (doc 04 §3.1); sem isto a cópia nasceria com o título da original. */
+export async function duplicarArquivo(path: string): Promise<ResultadoCriacao> {
+  const vault = useVaultStore.getState();
+  if (!vault.adapter) return { ok: false, motivo: "Nenhum vault aberto." };
+
+  const { base, ext } = separarExtensao(path);
+  const caminho = await caminhoLivre(base, ext);
+  let conteudo = await vault.adapter.lerTexto(path);
+  if (tipoDoArquivo(path) === "note") {
+    const nome = caminho.slice(caminho.lastIndexOf("/") + 1, caminho.length - ext.length);
+    conteudo = sincronizarH1ComTitulo(conteudo, nome);
+  }
+  await vault.adapter.escreverTexto(caminho, conteudo);
+  await vault.recarregarArvore();
+  await vault.reindexarArquivo(caminho);
   return { ok: true, caminho };
 }

@@ -23,7 +23,7 @@ export default function Checkbox({ checked, onChange, rotulo, className }: Props
       className={cn(
         "flex h-4 w-4 shrink-0 items-center justify-center rounded-controle border transition-colors duration-[140ms]",
         checked
-          ? "border-musgo bg-musgo text-superficie"
+          ? "border-cristal bg-cristal text-superficie"
           : "border-regua-forte text-transparent hover:border-tinta-suave",
         className,
       )}

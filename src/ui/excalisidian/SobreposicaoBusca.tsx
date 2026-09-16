@@ -1,7 +1,9 @@
-// Base compartilhada do QuickSwitcher e da PaletaComandos (doc 06, inventário): campo grande
-// (`campo-grande`, doc 06) + lista filtrada, navegável por teclado. Mesmo chrome de
-// sobreposição do Dialog (backdrop, `surgir` 160ms, Escape fecha), mas sem título/rodapé —
-// o campo É o conteúdo, e ↑/↓/Enter navegam a lista sem tirar o foco dele.
+// Base da PaletaComandos (doc 06, inventário): campo grande (`campo-grande`, doc 06) +
+// lista filtrada, navegável por teclado. Mesmo chrome de sobreposição do Dialog (backdrop,
+// `surgir` 160ms, Escape fecha), mas sem título/rodapé — o campo É o conteúdo, e ↑/↓/Enter
+// navegam a lista sem tirar o foco dele. Usada pelo QuickSwitcher até a busca unificada
+// (doc 13) absorvê-lo — o PainelBusca não reaproveita esta base porque tem seções e trechos,
+// que ela não comporta.
 
 import { useEffect, useRef, useState, type ComponentType } from "react";
 

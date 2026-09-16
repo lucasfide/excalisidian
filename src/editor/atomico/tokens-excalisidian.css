@@ -15,14 +15,17 @@
   --atomic-editor-font-mono: var(--fonte-mono);
   --atomic-editor-body-size: 15px; /* doc 06: corpo */
   --atomic-editor-body-leading: 1.55; /* doc 06: corpo */
-  /* Desligado de propósito (`none`): a largura da coluna é 100% decidida pelo wrapper de
-   * PainelDocumento.tsx (preferência pequena/média/full, doc 06 Layout). Até 30/08/2026 este
-   * token TAMBÉM clampava em 720px fixo — com "full" no wrapper alargando o painel mas o
-   * `.cm-content` (regra logo abaixo) continuando preso aos 720px por dentro, dois lugares
-   * decidindo a mesma coisa e o usuário via a nota não alargar nunca. Nunca reintroduzir um
-   * valor aqui sem também revisar PainelDocumento.tsx — só um dos dois pode ser a fonte da
-   * verdade. */
-  --atomic-editor-measure: none;
+  /* Fonte da verdade da largura da coluna (preferência pequena/média/full, doc 06 Layout):
+   * `--nota-largura-coluna`, definida por EditorNota.tsx no wrapper acima deste elemento.
+   * Até 14/09/2026 quem decidia a largura era o wrapper de PainelDocumento.tsx (mx-auto +
+   * max-width lá fora), com este token desligado (`none`) — só que aquele wrapper TAMBÉM era
+   * o contêiner de scroll (`.cm-scroller` enche o pai), então a barra de rolagem ficava presa
+   * na borda da coluna estreita e centralizada, longe da borda real do painel. Agora o
+   * wrapper de PainelDocumento.tsx é largura total (a barra de rolagem fica na borda do
+   * painel) e só o texto (`.cm-content`, regra logo abaixo) é limitado por este token. Nunca
+   * reintroduzir max-width no wrapper de PainelDocumento.tsx — só um dos dois pode ser a
+   * fonte da verdade. */
+  --atomic-editor-measure: var(--nota-largura-coluna, none);
   --atomic-editor-radius: var(--radius-ficha);
 
   /* Texto */
@@ -37,38 +40,51 @@
   --atomic-editor-border: var(--color-regua-forte); /* borda de controle: 3:1 */
 
   /* Marca / interação */
-  --atomic-editor-accent: var(--color-musgo);
+  --atomic-editor-accent: var(--color-cristal);
   --atomic-editor-accent-bright: var(--color-tinta); /* cursor */
   --atomic-editor-accent-soft: var(--color-regua); /* trilho de citação */
-  --atomic-editor-link: var(--color-musgo); /* link resolvido */
-  --atomic-editor-link-hover: var(--color-musgo);
+  --atomic-editor-link: var(--color-cristal); /* link resolvido */
+  --atomic-editor-link-hover: var(--color-cristal);
 
   /* Código */
   --atomic-editor-code-bg: var(--color-lavagem);
   --atomic-editor-code-rail: var(--color-regua);
 
   /* Seleção e busca */
-  --atomic-editor-selection-bg: color-mix(in srgb, var(--color-musgo) 22%, transparent);
+  --atomic-editor-selection-bg: color-mix(in srgb, var(--color-cristal) 22%, transparent);
   --atomic-editor-search-bg: color-mix(in srgb, var(--color-ocre) 30%, transparent);
   --atomic-editor-search-bg-active: color-mix(in srgb, var(--color-ocre) 50%, transparent);
-  --atomic-editor-initial-reveal-bg: color-mix(in srgb, var(--color-musgo) 16%, transparent);
-  --atomic-editor-initial-reveal-bg-strong: color-mix(in srgb, var(--color-musgo) 28%, transparent);
+  --atomic-editor-initial-reveal-bg: color-mix(in srgb, var(--color-cristal) 16%, transparent);
+  --atomic-editor-initial-reveal-bg-strong: color-mix(in srgb, var(--color-cristal) 28%, transparent);
 
   /* Realce de código em bloco cercado. O doc 06 não define uma paleta de sintaxe;
    * usa-se aqui as seis cores de tinta do sistema, restrição editorial de propósito. */
-  --atomic-editor-hl-keyword: var(--color-musgo);
+  --atomic-editor-hl-keyword: var(--color-cristal);
   --atomic-editor-hl-string: var(--color-ocre-tinta);
   --atomic-editor-hl-number: var(--color-bordo);
   --atomic-editor-hl-comment: var(--color-tinta-suave);
   --atomic-editor-hl-type: var(--color-ocre-tinta);
-  --atomic-editor-hl-function: var(--color-musgo);
+  --atomic-editor-hl-function: var(--color-cristal);
   --atomic-editor-hl-property: var(--color-tinta-media);
   --atomic-editor-hl-regexp: var(--color-bordo);
-  --atomic-editor-hl-escape: var(--color-musgo);
+  --atomic-editor-hl-escape: var(--color-cristal);
   --atomic-editor-hl-tag: var(--color-bordo);
   --atomic-editor-hl-variable: var(--color-tinta);
   --atomic-editor-hl-operator: var(--color-tinta-media);
   --atomic-editor-hl-invalid: var(--color-bordo);
+}
+
+/* Respiro direito de 32px (doc 06, Layout) POR DENTRO do contêiner de scroll. A barra de
+ * rolagem de um contêiner com `overflow: auto` é desenhada na borda do elemento, antes do
+ * padding — então padding aqui afasta o TEXTO da barra sem afastar a BARRA da borda do painel.
+ * Padding lateral no wrapper de PainelDocumento.tsx (que é o pai do scroller) faz o oposto:
+ * empurra a barra inteira pra dentro. Ver a nota lá.
+ *
+ * Regra separada de propósito: estas declarações NÃO podem entrar no bloco acima, que é onde
+ * moram as variáveis de tema. Painel de busca e tooltip do CodeMirror vivem FORA do
+ * `.cm-scroller`, então variável declarada aqui não alcança eles — já quebrou assim uma vez. */
+.atomic-cm-editor .cm-scroller {
+  padding-right: 32px;
 }
 
 /* Headings na fonte de display, nos tamanhos do doc 06 (titulo-1/2/3). O pacote define
@@ -105,7 +121,7 @@
   border-left-color: var(--color-regua);
 }
 
-/* Wikilinks (doc 06). Resolvido: `musgo`, sem sublinhado, sublinhado só no hover.
+/* Wikilinks (doc 06). Resolvido: `cristal`, sem sublinhado, sublinhado só no hover.
  * Não resolvido: `bordo`, sublinhado tracejado. */
 .atomic-cm-editor .cm-atomic-wiki-link {
   text-decoration: none;
