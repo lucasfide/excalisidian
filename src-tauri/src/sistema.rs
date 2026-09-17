@@ -10,7 +10,7 @@ pub fn nome_usuario() -> String {
         .unwrap_or_default()
 }
 
-/// Abre `path` no gerenciador de arquivos do sistema (Windows: `explorer.exe`).
+/// Abre `path` no gerenciador de arquivos do sistema (Windows: `explorer.exe`; macOS: Finder).
 /// Usado por "Abrir pasta do agente" (doc 11 §6.3). A pasta é criada se não existir —
 /// sem ela, o Explorer abre "Documentos" por trás, o que parece bug mas é do explorer.
 #[tauri::command]
@@ -24,8 +24,16 @@ pub fn revelar_pasta(path: String) -> Result<(), String> {
             .map_err(|e| e.to_string())?;
         Ok(())
     }
-    #[cfg(not(windows))]
+    #[cfg(target_os = "macos")]
     {
-        Err("Abrir pasta não é suportado fora do Windows.".to_string())
+        std::process::Command::new("open")
+            .arg(path)
+            .spawn()
+            .map_err(|e| e.to_string())?;
+        Ok(())
+    }
+    #[cfg(not(any(windows, target_os = "macos")))]
+    {
+        Err("Abrir pasta não é suportado neste sistema operacional.".to_string())
     }
 }

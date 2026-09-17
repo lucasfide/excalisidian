@@ -142,7 +142,7 @@ export default function PainelTarefas() {
   return (
     <aside
       id="painel-tarefas"
-      className="relative flex shrink-0 flex-col border-l border-regua bg-superficie"
+      className="relative flex shrink-0 flex-col border-l border-regua bg-superficie motion-safe:animate-[surgirLateral_280ms_var(--ease-caderno)_both]"
       style={{ width: `${largura}px` }}
     >
       {/* divisória de largura: 1px visível, 8px de área de arraste */}

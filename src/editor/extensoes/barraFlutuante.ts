@@ -33,9 +33,12 @@ const ESTADO_FOCO_INICIAL: EstadoFoco = { temFoco: false, naCelula: false };
 /** Despachado pelo `RastreadorDeFoco` sempre que o foco muda de dentro/fora da vista ou de
  * dentro/fora de uma célula de tabela — é o que faz `campoFoco` (abaixo) reagir sem depender de
  * o usuário mover a seleção. */
-const efeitoFoco = StateEffect.define<EstadoFoco>();
+export const efeitoFoco = StateEffect.define<EstadoFoco>();
 
-const campoFoco = StateField.define<EstadoFoco>({
+// `campoFoco`, `campoAcoplada` e `construirTooltip` são exportados só para o teste
+// (barraFlutuante.test.ts) montar um estado com foco já concedido sem precisar de uma
+// `EditorView` de verdade — `construirTooltip` não toca em `view`, só em `state`.
+export const campoFoco = StateField.define<EstadoFoco>({
   create: () => ESTADO_FOCO_INICIAL,
   update(estado, tr) {
     for (const efeito of tr.effects) {
@@ -93,7 +96,7 @@ class RastreadorDeFoco implements PluginValue {
  * dela num efeito, senão o tooltip só sumiria no próximo movimento do cursor. */
 const efeitoAcoplada = StateEffect.define<boolean>();
 
-const campoAcoplada = StateField.define<boolean>({
+export const campoAcoplada = StateField.define<boolean>({
   create: () => usePrefsStore.getState().barraFormatacaoAcoplada,
   update(valor, tr) {
     for (const efeito of tr.effects) {
@@ -133,7 +136,7 @@ function montarTooltip(view: EditorView) {
   };
 }
 
-function construirTooltip(state: EditorState): Tooltip | null {
+export function construirTooltip(state: EditorState): Tooltip | null {
   // A segunda vista de um split (doc 09 ADR-13) é somente-leitura: `view.dispatch` de uma
   // mudança ainda passaria (o guard de somente-leitura do CM6 bloqueia entrada por teclado/
   // mouse, não um dispatch programático como o dos botões) — então a barra nem aparece ali.
@@ -144,11 +147,20 @@ function construirTooltip(state: EditorState): Tooltip | null {
   const foco = state.field(campoFoco);
   if (!foco.temFoco || foco.naCelula) return null;
 
-  // Só com seleção (usuário, 16/09/2026). Houve uma fase em que ela também aparecia acima da
-  // linha do cursor sem seleção (doc 14 §1.2) — cobria a linha de cima enquanto se digitava e
-  // foi revertida. Quem quer a barra sempre à mão usa a barra acoplada (PainelDocumento).
+  // Doc 04 §3.4 (usuário, 16/09/2026): sem seleção, a barra só aparece se a linha do cursor
+  // estiver vazia — é a mesma linha que se está prestes a começar a escrever, então não há
+  // texto embaixo pra cobrir. Numa linha com conteúdo, sem seleção, a barra não aparece (essa
+  // regra mais ampla — barra acima do cursor em QUALQUER linha — já existiu (doc 14 §1.2) e
+  // foi revertida por cobrir a linha de cima enquanto se digitava; aqui o caso é bem mais
+  // restrito e não tem esse problema: assim que a primeira letra é digitada a linha deixa de
+  // estar vazia e a barra some no mesmo instante). Quem quer a barra sempre à mão usa a barra
+  // acoplada (PainelDocumento).
   const sel = state.selection.main;
-  if (sel.empty) return null;
+  if (sel.empty) {
+    const linha = state.doc.lineAt(sel.head);
+    if (linha.length > 0) return null;
+    return { pos: linha.from, above: true, create: montarTooltip };
+  }
 
   return { pos: sel.from, end: sel.to, above: true, create: montarTooltip };
 }

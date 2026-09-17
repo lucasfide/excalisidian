@@ -20,6 +20,7 @@ import { useWorkspaceStore } from "../estado/workspaceStore";
 import { useDocumentosStore } from "../estado/documentosStore";
 import { useSobreposicaoStore } from "../estado/sobreposicaoStore";
 import { carregarLayout, salvarLayout, limparLayout } from "./persistencia";
+import { comandoNovaNota, comandoNovoDesenho } from "../app/comandos/criacao";
 import PainelDocumento from "./PainelDocumento";
 import PainelDesenho from "./PainelDesenho";
 import PainelVazio from "./PainelVazio";
@@ -158,7 +159,16 @@ export default function Workspace() {
         return;
       } else if (k === "t" && !e.shiftKey) {
         e.preventDefault();
-        ws.novaAbaVazia();
+        // Já em cima de uma aba em branco, Ctrl+T de novo criaria uma segunda do lado —
+        // em vez disso, cria a nota nesta mesma aba (abrirDocumento já substitui a aba em
+        // branco ativa, doc 09 ADR-16 / memória "aba-em-branco-substitui").
+        if (ws.api?.activePanel?.id.startsWith("vazio:")) void comandoNovaNota();
+        else ws.novaAbaVazia();
+      } else if (k === "d" && !e.shiftKey && ws.api?.activePanel?.id.startsWith("vazio:")) {
+        // Mesma lógica do Ctrl+T acima, mas para desenho — só faz sentido na aba em branco;
+        // fora dela, Ctrl+D não é um atalho do app.
+        e.preventDefault();
+        void comandoNovoDesenho();
       } else if (k === "w") {
         e.preventDefault();
         ws.fecharAtivo();

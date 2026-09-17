@@ -15,6 +15,7 @@ const CHAVE_LARGURA_NOTA = "larguraNota";
 const CHAVE_SIDEBAR_COLAPSADA = "sidebarColapsada";
 const CHAVE_BARRA_FORMATACAO_ACOPLADA = "barraFormatacaoAcoplada";
 const CHAVE_NOME_USUARIO = "nomeUsuario";
+const CHAVE_ASCII_PEAKS_HABILITADO = "asciiPeaksHabilitado";
 // Doc 12 §6 / doc 04 §5.1: preferência da máquina mudou numa janela → avisa as outras pra
 // relerem o settings.json. Mesmo nome usado por agenteStore.ts para a config do agente
 // (literal repetido nos dois arquivos — ver comentário em flushEntreJanelas.ts sobre por que
@@ -41,6 +42,9 @@ interface PrefsState {
   // significa "informado, sem nome" (usuário apagou o campo de propósito) — as duas coisas
   // são estados diferentes, por isso não colapsam num só valor.
   nomeUsuario: string | null;
+  /** Fundo "picos em ASCII" da Home/aba em branco (doc 06, doc 09 ADR-28) — ligado por padrão;
+   * o botão "Desabilitar shaders" no rodapé da Home mexe aqui. */
+  asciiPeaksHabilitado: boolean;
   /** true assim que `carregar()` terminou — antes disso os campos acima são só o padrão local. */
   carregado: boolean;
   carregar(): Promise<void>;
@@ -49,6 +53,7 @@ interface PrefsState {
   alternarSidebar(): void;
   alternarBarraFormatacaoAcoplada(): void;
   definirNomeUsuario(nome: string): void;
+  alternarAsciiPeaksHabilitado(): void;
 }
 
 export const usePrefsStore = create<PrefsState>((set) => ({
@@ -57,19 +62,27 @@ export const usePrefsStore = create<PrefsState>((set) => ({
   sidebarColapsada: false,
   barraFormatacaoAcoplada: false,
   nomeUsuario: null,
+  asciiPeaksHabilitado: true,
   carregado: false,
 
   async carregar() {
     try {
       const store = await load("settings.json", { autoSave: false });
-      const [temaSalvo, larguraSalva, sidebarColapsadaSalva, barraAcopladaSalva, nomeSalvo] =
-        await Promise.all([
-          store.get<Tema>(CHAVE_TEMA),
-          store.get<LarguraNota>(CHAVE_LARGURA_NOTA),
-          store.get<boolean>(CHAVE_SIDEBAR_COLAPSADA),
-          store.get<boolean>(CHAVE_BARRA_FORMATACAO_ACOPLADA),
-          store.get<string>(CHAVE_NOME_USUARIO),
-        ]);
+      const [
+        temaSalvo,
+        larguraSalva,
+        sidebarColapsadaSalva,
+        barraAcopladaSalva,
+        nomeSalvo,
+        asciiPeaksSalvo,
+      ] = await Promise.all([
+        store.get<Tema>(CHAVE_TEMA),
+        store.get<LarguraNota>(CHAVE_LARGURA_NOTA),
+        store.get<boolean>(CHAVE_SIDEBAR_COLAPSADA),
+        store.get<boolean>(CHAVE_BARRA_FORMATACAO_ACOPLADA),
+        store.get<string>(CHAVE_NOME_USUARIO),
+        store.get<boolean>(CHAVE_ASCII_PEAKS_HABILITADO),
+      ]);
       if (ehTema(temaSalvo)) set({ tema: temaSalvo });
       if (ehLarguraNota(larguraSalva)) set({ larguraNota: larguraSalva });
       if (typeof sidebarColapsadaSalva === "boolean") set({ sidebarColapsada: sidebarColapsadaSalva });
@@ -79,6 +92,7 @@ export const usePrefsStore = create<PrefsState>((set) => ({
       // Qualquer coisa que não seja string (nunca gravado, ou lixo) conta como "nunca
       // informado" — só uma string salva (mesmo vazia) vira nome.
       set({ nomeUsuario: typeof nomeSalvo === "string" ? nomeSalvo : null });
+      if (typeof asciiPeaksSalvo === "boolean") set({ asciiPeaksHabilitado: asciiPeaksSalvo });
     } catch {
       // Sem preferência salva ainda (primeira execução): fica nos padrões locais.
     }
@@ -142,6 +156,17 @@ export const usePrefsStore = create<PrefsState>((set) => ({
     void (async () => {
       const store = await load("settings.json", { autoSave: false });
       await store.set(CHAVE_NOME_USUARIO, nomeUsuario);
+      await store.save();
+      await emit(EVENTO_PREFS_MUDOU);
+    })();
+  },
+
+  alternarAsciiPeaksHabilitado() {
+    const asciiPeaksHabilitado = !usePrefsStore.getState().asciiPeaksHabilitado;
+    set({ asciiPeaksHabilitado });
+    void (async () => {
+      const store = await load("settings.json", { autoSave: false });
+      await store.set(CHAVE_ASCII_PEAKS_HABILITADO, asciiPeaksHabilitado);
       await store.save();
       await emit(EVENTO_PREFS_MUDOU);
     })();

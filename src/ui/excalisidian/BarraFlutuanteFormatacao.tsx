@@ -131,23 +131,37 @@ export default function BarraFlutuanteFormatacao({ view, modo = "flutuante" }: P
   // O botão de acoplar fica FORA da barra (pedido do usuário, 16/09/2026): é uma ação sobre a
   // barra, não sobre o texto — numa superfície própria ao lado ele não se confunde com a
   // formatação.
+  //
+  // Discreta enquanto o mouse não está em cima (pedido do usuário, 16/09/2026): ela flutua
+  // sobre o próprio texto selecionado, então precisa incomodar pouco fora de uso. A PRIMEIRA
+  // tentativa foi um `opacity` no wrapper inteiro — errado: `opacity` do CSS deixa o FUNDO da
+  // ficha (`bg-superficie`) translúcido junto com o resto, e uma cor sólida a 20% de alfa por
+  // cima do texto o suja em vez de deixá-lo lido (achado do usuário, mesmo dia). A versão
+  // certa não usa opacidade nenhuma sobre uma superfície com fundo: em repouso a ficha fica
+  // sem fundo, sem borda e sem sombra (só os ícones, discretos) — nada tampando o texto —, e
+  // no hover ela ganha a ficha inteira de volta (fundo, borda, sombra, ícones no tom normal).
+  // `group`/`group-hover` porque o estado é um só: o ponteiro em cima da barra OU do botão de
+  // acoplar revela os dois juntos.
   return (
-    <div className="pointer-events-auto flex items-center gap-2">
+    <div className="group pointer-events-auto flex items-center gap-2">
       <Superficie
-        flutuante
         role="toolbar"
         aria-label="Formatação do texto"
-        className="flex items-center gap-1 p-1"
+        className="flex items-center gap-1 border-transparent bg-transparent p-1 shadow-none transition-[background-color,border-color,box-shadow] duration-[140ms] ease-caderno group-hover:border-regua group-hover:bg-superficie group-hover:shadow-sobreposicao"
       >
-        <Botoes view={view} />
+        <div className="flex items-center gap-1 opacity-40 transition-opacity duration-[140ms] ease-caderno group-hover:opacity-100">
+          <Botoes view={view} />
+        </div>
       </Superficie>
-      <Superficie flutuante className="p-1">
-        <BotaoIcone
-          Icone={PanelBottom}
-          titulo="Acoplar embaixo"
-          onMouseDown={manterFoco}
-          onClick={alternarAcoplada}
-        />
+      <Superficie className="border-transparent bg-transparent p-1 shadow-none transition-[background-color,border-color,box-shadow] duration-[140ms] ease-caderno group-hover:border-regua group-hover:bg-superficie group-hover:shadow-sobreposicao">
+        <div className="opacity-40 transition-opacity duration-[140ms] ease-caderno group-hover:opacity-100">
+          <BotaoIcone
+            Icone={PanelBottom}
+            titulo="Acoplar embaixo"
+            onMouseDown={manterFoco}
+            onClick={alternarAcoplada}
+          />
+        </div>
       </Superficie>
     </div>
   );

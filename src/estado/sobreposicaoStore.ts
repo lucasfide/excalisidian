@@ -5,7 +5,7 @@
 
 import { create } from "zustand";
 
-export type TipoSobreposicao = "comandos" | "busca";
+export type TipoSobreposicao = "comandos" | "busca" | "galeria";
 
 interface SobreposicaoState {
   aberta: TipoSobreposicao | null;

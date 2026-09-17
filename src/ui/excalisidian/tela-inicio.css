@@ -65,6 +65,25 @@
     );
 }
 
+/* Picos em ASCII (doc 06, pedido do usuário 16/09/2026): por cima da vinheta, embaixo de todo
+ * o conteúdo — negativo pra garantir isso (ver o comentário sobre ordem de pintura em
+ * AsciiPeaks.tsx/asciiPeaksShader.ts), e depois da vinheta no DOM pra pintar por cima dela
+ * dentro do mesmo grupo de z-index negativo. A matemática do shader já devolve alfa por
+ * caractere; esta opacidade é a camada de cima, a mesma técnica (opacidade fora do conteúdo,
+ * não dentro dele) da barra de formatação.
+ *
+ * TEMPORÁRIO (16/09/2026): 60% em vez de 15% (voltou de 80% — pedido do próprio usuário,
+ * ainda ajustando o visual de perto). Voltar pra 0.15 assim que ele confirmar. */
+.tela-inicio__ascii {
+  position: absolute;
+  inset: 0;
+  z-index: -1;
+  width: 100%;
+  height: 100%;
+  pointer-events: none;
+  opacity: 0.6;
+}
+
 .tela-inicio__rolagem {
   height: 100%;
   overflow-x: hidden;
@@ -350,6 +369,17 @@
 .tela-inicio__acao-fundo:disabled {
   cursor: wait;
   opacity: 0.46;
+}
+
+/* Bullet entre o grupo do papel de parede e o toggle do shader (pedido do usuário,
+ * 16/09/2026) — mesma cor/sombra dos botões vizinhos, mais apagado (0.4 em vez de 0.72) por
+ * ser só um separador, não uma ação. */
+.tela-inicio__rodape-separador {
+  color: var(--home-luz);
+  font-size: 0.75rem;
+  text-shadow: 0 1px 0.75rem var(--home-escuro);
+  opacity: 0.4;
+  user-select: none;
 }
 
 @container home (min-width: 40rem) {

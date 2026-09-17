@@ -83,7 +83,7 @@ export default function LinhaTarefa({
       data-secao={secao}
       data-indice={indice}
       className={cn(
-        "group flex items-center gap-2 rounded-controle px-1 py-1 hover:bg-lavagem",
+        "group flex items-center gap-2 rounded-controle px-1 py-1 transition-colors duration-[140ms] ease-[var(--ease-caderno)] hover:bg-lavagem motion-reduce:transition-none",
         arrastando && "opacity-40",
       )}
     >
@@ -93,7 +93,7 @@ export default function LinhaTarefa({
         title="Arrastar para reordenar"
         tabIndex={-1}
         onPointerDown={aoPegarAlca}
-        className="-ml-1 shrink-0 cursor-grab text-tinta-suave opacity-0 group-hover:opacity-100 active:cursor-grabbing"
+        className="-ml-1 shrink-0 cursor-grab text-tinta-suave opacity-0 transition-[opacity,color] duration-[140ms] ease-[var(--ease-caderno)] group-hover:opacity-100 focus-visible:opacity-100 active:cursor-grabbing motion-reduce:transition-none"
       >
         <GripVertical size={14} strokeWidth={1.5} aria-hidden />
       </button>
@@ -106,8 +106,10 @@ export default function LinhaTarefa({
         type="button"
         onClick={() => abrirModal(tarefa.id)}
         className={cn(
-          "min-w-0 flex-1 truncate text-left text-[13px]",
-          tarefa.concluida ? "text-tinta-suave line-through" : "text-tinta",
+          "min-w-0 flex-1 truncate text-left text-[13px] transition-[color,opacity,text-decoration-color] duration-[140ms] ease-[var(--ease-caderno)] motion-reduce:transition-none",
+          tarefa.concluida
+            ? "text-tinta-suave opacity-80 line-through"
+            : "text-tinta opacity-100",
         )}
       >
         {tarefa.titulo}
@@ -117,7 +119,7 @@ export default function LinhaTarefa({
         onClick={apagar}
         aria-label="Apagar tarefa"
         title="Apagar tarefa"
-        className="shrink-0 text-tinta-suave opacity-0 hover:text-bordo group-hover:opacity-100"
+        className="shrink-0 text-tinta-suave opacity-0 transition-[opacity,color] duration-[140ms] ease-[var(--ease-caderno)] group-hover:opacity-100 focus-visible:opacity-100 hover:text-bordo motion-reduce:transition-none"
       >
         <Trash2 size={14} strokeWidth={1.5} aria-hidden />
       </button>

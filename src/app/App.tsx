@@ -2,7 +2,7 @@
 // O conteúdo dos arquivos vive por aba no documentosStore; a aba ativa, no workspaceStore.
 
 import { useCallback, useEffect, useRef, useState } from "react";
-import { FilePlus, ListChecks, PanelLeft, Search, Settings, SquarePen, Trash2 } from "lucide-react";
+import { FilePlus, Images, ListChecks, PanelLeft, Search, Settings, SquarePen, Trash2 } from "lucide-react";
 import { Toaster, toast } from "sonner";
 
 import { TauriVaultAdapter } from "../vault/TauriVaultAdapter";
@@ -386,6 +386,11 @@ export default function App() {
                   Icone={Settings}
                   titulo="Configurações"
                   onClick={() => setPreferenciasAbertas(true)}
+                />
+                <BotaoIcone
+                  Icone={Images}
+                  titulo="Galeria de anexos"
+                  onClick={() => useSobreposicaoStore.getState().abrir("galeria")}
                 />
               </div>
             )}

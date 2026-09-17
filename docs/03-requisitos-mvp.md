@@ -52,7 +52,7 @@ Persona única: **o autor** — uma pessoa usando o app sozinha no próprio comp
 
 | ID | Requisito | P |
 |---|---|---|
-| RF3.1 | Abrir arquivos em abas; `Ctrl+T` abre uma aba nova em branco. | P0 |
+| RF3.1 | Abrir arquivos em abas; `Ctrl+T` abre uma aba nova em branco. Com a aba em branco já ativa, `Ctrl+T` cria uma nota (substituindo-a, como abrir qualquer arquivo) e `Ctrl+D` cria um desenho, em vez de abrir mais uma aba em branco do lado. | P0 |
 | RF3.2 | Fechar aba com `Ctrl+W`; reabrir a última fechada com `Ctrl+Shift+T`. | P0 |
 | RF3.3 | Navegar entre abas com `Ctrl+Tab`, `Ctrl+Shift+Tab` e `Ctrl+1`…`Ctrl+9`. | P1 |
 | RF3.4 | Dividir a tela em vertical e em horizontal, pelo menu de contexto da aba e por comando. | P0 |

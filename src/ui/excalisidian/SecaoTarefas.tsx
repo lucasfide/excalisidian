@@ -6,6 +6,7 @@
 
 import type { ReactNode } from "react";
 
+import { cn } from "../cn";
 import LinhaTarefa from "./LinhaTarefa";
 import NovaTarefaInline from "./NovaTarefaInline";
 import type { Secao, Tarefa } from "../../tarefas/tipos";
@@ -83,6 +84,9 @@ export default function SecaoTarefas({
 }: Props) {
   const sub = subtitulo(secao, hoje);
   const cabecalhoClicavel = secao === "concluidas";
+  const classeConteudo = cabecalhoClicavel
+    ? "grid overflow-hidden transition-[grid-template-rows,opacity] duration-[200ms] ease-[var(--ease-caderno)] motion-reduce:transition-none"
+    : "grid overflow-hidden grid-rows-[1fr] opacity-100";
 
   // Índice (0-based, na lista visível SEM a tarefa arrastada — mesma coordenada que o store
   // espera em `moverTarefa`) onde desenhar a linha indicadora. -1 = não desenhar.
@@ -109,40 +113,49 @@ export default function SecaoTarefas({
         <span className="ml-auto text-[11px] text-tinta-suave">{tarefas.length}</span>
       </button>
 
-      {!colapsada && (
-        <div className="flex flex-col gap-0.5">
-          {(() => {
-            const filhos: ReactNode[] = [];
-            let indiceStore = 0;
-            tarefas.forEach((t, i) => {
-              const ehArrastada = arrasto?.id === t.id;
-              if (!ehArrastada) {
-                if (indiceStore === indiceLinha) {
-                  filhos.push(linhaIndicadora(`soltura-${indiceStore}`));
+      <div
+        aria-hidden={colapsada}
+        className={cn(
+          classeConteudo,
+          cabecalhoClicavel &&
+            (colapsada ? "pointer-events-none grid-rows-[0fr] opacity-0" : "grid-rows-[1fr] opacity-100"),
+        )}
+      >
+        <div className="min-h-0 overflow-hidden">
+          <div className="flex flex-col gap-0.5">
+            {(() => {
+              const filhos: ReactNode[] = [];
+              let indiceStore = 0;
+              tarefas.forEach((t, i) => {
+                const ehArrastada = arrasto?.id === t.id;
+                if (!ehArrastada) {
+                  if (indiceStore === indiceLinha) {
+                    filhos.push(linhaIndicadora(`soltura-${indiceStore}`));
+                  }
+                  indiceStore += 1;
                 }
-                indiceStore += 1;
-              }
-              filhos.push(
-                <LinhaTarefa
-                  key={t.id}
-                  tarefa={t}
-                  hoje={hoje}
-                  secao={secao}
-                  indice={i}
-                  arrastando={ehArrastada}
-                  aoIniciarArrasto={aoIniciarArrasto}
-                  aoMoverPonteiro={aoMoverPonteiro}
-                  aoSoltar={aoSoltar}
-                  aoCancelarArrasto={aoCancelarArrasto}
-                />,
-              );
-            });
-            if (indiceStore === indiceLinha) filhos.push(linhaIndicadora("soltura-fim"));
-            return filhos;
-          })()}
-          {permiteNova && <NovaTarefaInline secao={secao} hoje={hoje} />}
+                filhos.push(
+                  <LinhaTarefa
+                    key={t.id}
+                    tarefa={t}
+                    hoje={hoje}
+                    secao={secao}
+                    indice={i}
+                    arrastando={ehArrastada}
+                    aoIniciarArrasto={aoIniciarArrasto}
+                    aoMoverPonteiro={aoMoverPonteiro}
+                    aoSoltar={aoSoltar}
+                    aoCancelarArrasto={aoCancelarArrasto}
+                  />,
+                );
+              });
+              if (indiceStore === indiceLinha) filhos.push(linhaIndicadora("soltura-fim"));
+              return filhos;
+            })()}
+            {permiteNova && <NovaTarefaInline secao={secao} hoje={hoje} />}
+          </div>
         </div>
-      )}
+      </div>
     </section>
   );
 }

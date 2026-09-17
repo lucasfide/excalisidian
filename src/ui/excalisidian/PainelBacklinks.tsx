@@ -2,7 +2,7 @@
 // trecho de contexto de cada menção. Sem nenhum backlink, o painel inteiro não é
 // renderizado (nada de cabeçalho ou estado vazio ocupando espaço na sidebar).
 
-import { useMemo } from "react";
+import { useEffect, useMemo, useState } from "react";
 
 import { useVaultStore } from "../../estado/vaultStore";
 import { useWorkspaceStore } from "../../estado/workspaceStore";
@@ -32,10 +32,20 @@ export default function PainelBacklinks() {
 
   const total = grupos.reduce((n, [, refs]) => n + refs.length, 0);
 
+  const [entrou, setEntrou] = useState(false);
+
+  useEffect(() => {
+    setEntrou(false);
+    const frame = requestAnimationFrame(() => setEntrou(true));
+    return () => cancelAnimationFrame(frame);
+  }, [caminhoAberto]);
+
   if (!caminhoAberto || total === 0) return null;
 
   return (
-    <div className="flex flex-col border-t border-regua">
+    <div
+      className={`motion-safe:transition-[opacity,transform] motion-safe:duration-[160ms] motion-safe:ease-caderno motion-reduce:transform-none motion-reduce:opacity-100 ${entrou ? "motion-safe:translate-y-0 motion-safe:opacity-100" : "motion-safe:translate-y-1 motion-safe:opacity-0"} flex flex-col border-t border-regua`}
+    >
       <div className="flex items-center justify-between px-3 py-2">
         <span className="meta text-tinta-suave">backlinks</span>
         <span className="meta text-tinta-suave">{total}</span>

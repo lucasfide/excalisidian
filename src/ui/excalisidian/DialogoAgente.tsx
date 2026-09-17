@@ -39,6 +39,37 @@ const OPCOES_THINKING: OpcaoGrupo<Thinking>[] = [
   { rotulo: "Alto", valor: "alto" },
 ];
 
+const ESTILOS_TRANSICOES = `
+@keyframes dialogo-agente-etapa {
+  from {
+    opacity: 0;
+    transform: translateY(4px);
+  }
+
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+@keyframes dialogo-agente-fade {
+  from {
+    opacity: 0;
+    transform: translateY(2px);
+  }
+
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+`;
+
+const CLASSE_ENTRADA_ETAPA =
+  "motion-safe:animate-[dialogo-agente-etapa_160ms_var(--ease-caderno)_both] motion-reduce:animate-none";
+const CLASSE_FADE_INTERNO =
+  "motion-safe:animate-[dialogo-agente-fade_140ms_var(--ease-caderno)_both] motion-reduce:animate-none";
+
 interface Rascunho {
   provedor: ProvedorId;
   /** Vazio = mantém a chave existente (reconfiguração). */
@@ -188,6 +219,7 @@ export default function DialogoAgente() {
         </div>
       }
     >
+      <style>{ESTILOS_TRANSICOES}</style>
       <div className="meta mb-3 flex items-center gap-1.5 text-tinta-suave">
         {ROTULOS_PASSO.map((rotulo, i) => {
           const n = i + 1;
@@ -202,9 +234,13 @@ export default function DialogoAgente() {
         })}
       </div>
 
-      {etapa === 1 && (
-        <PassoProvedor valor={r.provedor} onEscolher={(provedorId) => setR((x) => ({ ...x, provedor: provedorId }))} />
-      )}
+      <div key={etapa} className={CLASSE_ENTRADA_ETAPA}>
+        {etapa === 1 && (
+          <PassoProvedor
+            valor={r.provedor}
+            onEscolher={(provedorId) => setR((x) => ({ ...x, provedor: provedorId }))}
+          />
+        )}
 
       {etapa === 2 && (
         <div className="flex flex-col gap-3">
@@ -245,14 +281,14 @@ export default function DialogoAgente() {
           <div>
             <button
               type="button"
-              className="meta text-tinta-suave hover:text-tinta"
+              className="meta text-tinta-suave transition-colors duration-[140ms] ease-caderno hover:text-tinta motion-reduce:transition-none"
               aria-expanded={avancadoAberto}
               onClick={() => setAvancadoAberto((v) => !v)}
             >
               Avançado · Base URL
             </button>
             {avancadoAberto && (
-              <div className="mt-2">
+              <div className={`mt-2 ${CLASSE_FADE_INTERNO}`}>
                 <Campo
                   rotulo="Base URL customizada"
                   type="text"
@@ -297,14 +333,15 @@ export default function DialogoAgente() {
         />
       )}
 
-      {etapa === 5 && (
-        <PassoRevisao
-          r={r}
-          provedor={provedor}
-          chaveMascarada={chaveEfetiva ? mascararChave(chaveEfetiva) : "sem chave"}
-          onMudar={(mudanca) => setR((x) => ({ ...x, ...mudanca }))}
-        />
-      )}
+        {etapa === 5 && (
+          <PassoRevisao
+            r={r}
+            provedor={provedor}
+            chaveMascarada={chaveEfetiva ? mascararChave(chaveEfetiva) : "sem chave"}
+            onMudar={(mudanca) => setR((x) => ({ ...x, ...mudanca }))}
+          />
+        )}
+      </div>
     </Dialog>
   );
 }
@@ -376,7 +413,11 @@ function PassoModelo({
   return (
     <div className="flex flex-col gap-2">
       <p className="text-pequeno text-tinta-media">{rotulo}</p>
-      {aviso && <p className="text-pequeno text-ocre-tinta">{aviso}</p>}
+      {aviso && (
+        <p className={`text-pequeno text-ocre-tinta ${CLASSE_FADE_INTERNO}`} aria-live="polite">
+          {aviso}
+        </p>
+      )}
       <Campo
         rotulo="Filtrar modelos"
         type="text"
@@ -392,7 +433,10 @@ function PassoModelo({
           }
         }}
       />
-      <div role="listbox" className="flex max-h-56 flex-col gap-[1px] overflow-y-auto">
+      <div
+        role="listbox"
+        className={`flex max-h-56 flex-col gap-[1px] overflow-y-auto ${CLASSE_FADE_INTERNO}`}
+      >
         {lista.map((m) => {
           const ativo = m === valor;
           return (
@@ -417,7 +461,7 @@ function PassoModelo({
         })}
       </div>
       {outroAberto ? (
-        <div className="flex items-end gap-2">
+        <div className={`flex items-end gap-2 ${CLASSE_FADE_INTERNO}`}>
           <div className="flex-1">
             <Campo
               rotulo="Nome do modelo"

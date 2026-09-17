@@ -5,7 +5,7 @@
 // (doc 13) absorvê-lo — o PainelBusca não reaproveita esta base porque tem seções e trechos,
 // que ela não comporta.
 
-import { useEffect, useRef, useState, type ComponentType } from "react";
+import { useEffect, useRef, useState, type ComponentType, type ReactNode } from "react";
 
 import { cn } from "../cn";
 import Superficie from "../Superficie";
@@ -127,9 +127,9 @@ export default function SobreposicaoBusca({
         />
 
         {itens.length === 0 ? (
-          <p className="px-1 py-4 text-center text-pequeno text-tinta-suave">
+          <EntradaSuave className="px-1 py-4 text-center text-pequeno text-tinta-suave">
             {mensagemVazio}
-          </p>
+          </EntradaSuave>
         ) : (
           <div ref={listaRef} role="listbox" className="flex max-h-80 flex-col gap-[1px] overflow-y-auto">
             {itens.map((item, i) => {
@@ -166,6 +166,7 @@ function ItemLista({
   onMouseEnter: () => void;
 }) {
   const Icone = item.Icone;
+  const entrou = useEntradaSuave();
   return (
     <button
       type="button"
@@ -176,7 +177,8 @@ function ItemLista({
       onMouseEnter={onMouseEnter}
       className={cn(
         "flex w-full items-center gap-2 rounded-controle px-2 py-2 text-left text-[13px]",
-        "transition-colors duration-[140ms] ease-caderno",
+        "motion-safe:transition-[opacity,transform,background-color,color] motion-safe:duration-[140ms] motion-safe:ease-caderno motion-reduce:transition-none",
+        entrou ? "motion-safe:translate-y-0 motion-safe:opacity-100" : "motion-safe:translate-y-1 motion-safe:opacity-0",
         ativo ? "bg-lavagem text-tinta" : "text-tinta-media",
       )}
     >
@@ -190,4 +192,31 @@ function ItemLista({
       {item.atalho && <span className="meta shrink-0 text-tinta-suave">{item.atalho}</span>}
     </button>
   );
+}
+
+function EntradaSuave({ children, className }: { children: ReactNode; className: string }) {
+  const entrou = useEntradaSuave();
+
+  return (
+    <div
+      className={cn(
+        "motion-safe:transition-[opacity,transform] motion-safe:duration-[140ms] motion-safe:ease-caderno motion-reduce:transition-none",
+        entrou ? "motion-safe:translate-y-0 motion-safe:opacity-100" : "motion-safe:translate-y-1 motion-safe:opacity-0",
+        className,
+      )}
+    >
+      {children}
+    </div>
+  );
+}
+
+function useEntradaSuave(): boolean {
+  const [entrou, setEntrou] = useState(false);
+
+  useEffect(() => {
+    const frame = window.requestAnimationFrame(() => setEntrou(true));
+    return () => window.cancelAnimationFrame(frame);
+  }, []);
+
+  return entrou;
 }

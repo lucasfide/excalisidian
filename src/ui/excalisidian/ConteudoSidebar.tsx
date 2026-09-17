@@ -1,10 +1,11 @@
 // Conteúdo da sidebar ancorada expandida: header + árvore/backlinks + rodapé.
 
-import { PanelLeftClose, Settings, Trash2 } from "lucide-react";
+import { Images, PanelLeftClose, Settings, Trash2 } from "lucide-react";
 
 import { BotaoIcone } from "../index";
 import { usePrefsStore } from "../../estado/prefsStore";
 import { useVaultStore } from "../../estado/vaultStore";
+import { useSobreposicaoStore } from "../../estado/sobreposicaoStore";
 import { comandoNovaNota, comandoNovoDesenho, comandoNovaPasta } from "../../app/comandos/criacao";
 import ArvoreEBacklinks from "./ArvoreEBacklinks";
 import BarraFerramentasSidebar from "./BarraFerramentasSidebar";
@@ -24,7 +25,7 @@ export default function ConteudoSidebar({
   const alternarSidebar = usePrefsStore((s) => s.alternarSidebar);
 
   return (
-    <>
+    <div className="flex min-h-0 flex-1 flex-col motion-safe:animate-[surgirLateralEsquerda_280ms_var(--ease-caderno)_both]">
       <div className="flex items-center gap-1 border-b border-regua px-3 py-2">
         {/* SeletorVault no lugar do Logotipo (doc 12 §4.1): ocupa o espaço flexível à
             esquerda do cabeçalho. */}
@@ -58,12 +59,17 @@ export default function ConteudoSidebar({
         <div className="flex items-center gap-1">
           <BotaoIcone Icone={Trash2} titulo="Lixeira" onClick={onAbrirLixeira} />
           <BotaoIcone
+            Icone={Images}
+            titulo="Galeria de anexos"
+            onClick={() => useSobreposicaoStore.getState().abrir("galeria")}
+          />
+          <BotaoIcone
             Icone={Settings}
             titulo="Configurações"
             onClick={onAbrirPreferencias}
           />
         </div>
       </div>
-    </>
+    </div>
   );
 }

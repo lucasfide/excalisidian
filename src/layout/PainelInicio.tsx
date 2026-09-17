@@ -72,6 +72,8 @@ export default function PainelInicio() {
   // Doc 15 §1.2: saudação usa só o nome informado nas Configurações — nunca mais o usuário do
   // SO. `null` (nunca informado) e "" (informado, sem nome) colapsam no mesmo "sem nome" aqui.
   const nome = usePrefsStore((s) => s.nomeUsuario) ?? "";
+  const asciiPeaksHabilitado = usePrefsStore((s) => s.asciiPeaksHabilitado);
+  const alternarAsciiPeaks = usePrefsStore((s) => s.alternarAsciiPeaksHabilitado);
 
   // Path da pasta que o usuário clicou pra navegar, dentro da própria Home — não é a mesma
   // coisa que `pastasAbertas` da sidebar (aquilo é expandir/recolher na árvore; isto é um
@@ -83,6 +85,9 @@ export default function PainelInicio() {
     : [];
   const pastaAberta =
     arvore && caminhoAberto !== null ? encontrarNo(arvore, caminhoAberto) : null;
+  const alternarPasta = (path: string) => {
+    setCaminhoAberto((atual) => (atual === path ? null : path));
+  };
 
   return (
     <TelaInicio
@@ -91,11 +96,13 @@ export default function PainelInicio() {
       papelParedeCarregando={papelParedeCarregando}
       onEscolherPapelParede={() => void escolherPapelParede()}
       onRestaurarPapelParede={() => void restaurarPapelParede()}
+      asciiPeaksHabilitado={asciiPeaksHabilitado}
+      onAlternarAsciiPeaks={alternarAsciiPeaks}
       saudacao={saudacaoPorHorario()}
       nome={nome}
       pastas={pastas}
       pastaAberta={pastaAberta}
-      onAbrirPasta={setCaminhoAberto}
+      onAbrirPasta={alternarPasta}
       onFecharPasta={() => setCaminhoAberto(null)}
       onAbrirArquivo={(path) => useWorkspaceStore.getState().abrirDocumento(path)}
       onCriarNota={() => void comandoNovaNota()}

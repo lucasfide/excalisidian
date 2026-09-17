@@ -303,12 +303,22 @@ quando não cabe (`embedImagem.css`).
 Controles de tabela no live preview — contrato completo, inclusive o modelo de dados e os
 contratos de código, em `docs/14-tabelas.md`.
 
-**Barra de formatação flutuante.** Aparece grudada acima do texto selecionado, **só com
-seleção** (a fase em que também aparecia acima do cursor sem seleção foi revertida a pedido do
-usuário em 16/09/2026). Some quando o foco sai do editor, na vista somente
+**Barra de formatação flutuante.** Aparece grudada acima do texto selecionado. Sem seleção, só
+aparece se a linha do cursor estiver **vazia** (pedido do usuário, 16/09/2026) — numa linha com
+texto, sem seleção, ela não aparece. Some quando o foco sai do editor, na vista somente
 leitura, e quando o foco está dentro de uma célula de tabela — célula é outro campo editável, a
 barra apontaria para o lugar errado. Ganha um grupo novo no fim, "Tabela", com um botão
 "Tabela" (ícone `table`) que insere a tabela padrão.
+
+**Discrição da flutuante em repouso** (pedido do usuário, 16/09/2026): sem o mouse em cima (da
+barra ou do botão de acoplar, juntos — um só estado, via `group`/`group-hover`), a ficha fica
+sem fundo, sem borda e sem sombra, e os ícones ficam a 40% de opacidade; no hover, ganha a ficha
+inteira de volta (fundo `superficie`, borda `regua`, `sombra-sobreposicao`) e os ícones voltam a
+100%. Transição de 140ms (`ease-caderno`) nas duas trocas. **Não é um `opacity` no wrapper
+inteiro:** a primeira versão fazia isso e deixava o fundo sólido da ficha translúcido por cima
+do texto selecionado, sujando a leitura em vez de deixá-la limpa (achado do usuário no mesmo
+dia) — por isso o fundo desliga e liga por cor, e só o ícone usa opacidade. Não desabilita o
+clique. Não vale para a acoplada, que fica sempre visível de propósito.
 
 **Barra de formatação acoplada** (pedido do usuário, 16/09/2026). Ao lado direito da barra
 flutuante, **fora dela**, numa `Superficie` flutuante própria de um botão só, fica "Acoplar
@@ -477,6 +487,7 @@ Altura padrão 36px, compacto 30px, ícone 32×32.
 | `PainelLixeira` | diálogo modal (mesmo padrão de `DialogoPreferencias`, não uma seção fixa da sidebar — o diagrama de Layout abaixo é aspiracional nesse ponto) com a lista de itens excluídos, restaurar por item e esvaziar |
 | `EstadoVazio` | bloco com hairline superior e inferior, título, apoio e ação |
 | `TelaInicio` | aba fixa de início, nesta ordem: saudação por horário (`display-1`, com o nome do usuário quando informado — `nomeUsuario` `null` ou `""` mostra só a saudação, sem nome), o convite de `EstadoVazio` para criar nota/desenho/pasta, atalhos para as pastas de primeiro nível, e — ao clicar num atalho — os arquivos/subpastas dela, navegável (mini-explorador) |
+| `AsciiPeaks` | camada de fundo bem suave (15% de opacidade) por cima da vinheta do papel de parede, na Home e na aba em branco — relevo gerado por ruído, renderizado como caracteres ASCII (técnica de "ASCII art shader", código autoral em WebGL2 — não um efeito comprado, ver doc 09 ADR-28), na cor `cristal`; o mesmo brilho que já clareia os picos altos do relevo também reage à proximidade do cursor, deixando um rastro que se dispersa aos poucos; para de animar com `prefers-reduced-motion` e enquanto a tela não está visível; preferência `asciiPeaksHabilitado` (padrão ligado) — botão "Desabilitar shaders"/"Habilitar shaders" no rodapé da Home, separado do grupo de papel de parede por um bullet |
 | `DialogoPreferencias` | configurações do app — seção "Seu nome" (`Campo` "Nome", ajuda "Aparece na saudação da tela de início.") é a primeira da lista, seguida de tema e largura da nota — ícone de engrenagem no rodapé da sidebar, ou `Ctrl+,` |
 | `ConfirmacaoDestrutiva` | diálogo com a contagem real do que será perdido |
 | `FaixaConflito` | faixa no topo do editor com as duas ações |

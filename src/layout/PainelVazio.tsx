@@ -6,7 +6,9 @@ import { FilePlus, SquarePen } from "lucide-react";
 
 import { comandoNovaNota, comandoNovoDesenho } from "../app/comandos/criacao";
 import { usePapelParedeHomeStore } from "../estado/papel-parede-home-store";
+import { usePrefsStore } from "../estado/prefsStore";
 import { Botao, EstadoVazio } from "../ui";
+import AsciiPeaks from "../ui/excalisidian/AsciiPeaks";
 
 import "../ui/excalisidian/tela-inicio.css";
 import "./painel-vazio.css";
@@ -14,6 +16,9 @@ import "./painel-vazio.css";
 export default function PainelVazio() {
   const papelParedeUrl = usePapelParedeHomeStore((s) => s.papelParedeUrl);
   const carregarPapelParede = usePapelParedeHomeStore((s) => s.carregar);
+  // Preferência global (doc 09 ADR-28) — o botão "Desabilitar shaders" mora só no rodapé da
+  // Home (TelaInicio.tsx), mas desliga o efeito aqui também: é o mesmo shader nas duas telas.
+  const asciiPeaksHabilitado = usePrefsStore((s) => s.asciiPeaksHabilitado);
 
   useEffect(() => {
     void carregarPapelParede();
@@ -30,6 +35,7 @@ export default function PainelVazio() {
         />
       )}
       <div className="tela-inicio__vinheta" aria-hidden="true" />
+      {asciiPeaksHabilitado && <AsciiPeaks />}
 
       <div className="tela-inicio__rolagem">
         <div className="tela-inicio__conteudo">
@@ -39,16 +45,27 @@ export default function PainelVazio() {
             apoio="Crie uma nota ou um desenho, ou escolha um arquivo na barra lateral."
           >
             <div className="painel-vazio__acoes">
-              <Botao
-                variante="primario"
-                Icone={FilePlus}
-                onClick={() => void comandoNovaNota()}
-              >
-                Nova nota
-              </Botao>
-              <Botao Icone={SquarePen} onClick={() => void comandoNovoDesenho()}>
-                Novo desenho
-              </Botao>
+              <div className="flex flex-col items-center gap-1">
+                <Botao
+                  variante="primario"
+                  Icone={FilePlus}
+                  onClick={() => void comandoNovaNota()}
+                  className="w-full"
+                >
+                  Nova nota
+                </Botao>
+                <span className="meta text-tinta-suave">CTRL T</span>
+              </div>
+              <div className="flex flex-col items-center gap-1">
+                <Botao
+                  Icone={SquarePen}
+                  onClick={() => void comandoNovoDesenho()}
+                  className="w-full"
+                >
+                  Novo desenho
+                </Botao>
+                <span className="meta text-tinta-suave">CTRL D</span>
+              </div>
             </div>
           </EstadoVazio>
         </div>

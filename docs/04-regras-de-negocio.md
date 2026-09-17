@@ -160,9 +160,13 @@ alinhada conforme a coluna.
 
 ### 3.4 Barra de formatação
 
-- **Flutuante, só com seleção.** Aparece acima do texto selecionado enquanto o editor da nota tem
-  foco e é editável. Sem seleção, não aparece. (Por um tempo ela também aparecia acima da
-  linha do cursor sem seleção; o usuário pediu para voltar em 16/09/2026.)
+- **Flutuante.** Aparece acima do texto selecionado enquanto o editor da nota tem foco e é
+  editável. Sem seleção, só aparece se a linha do cursor estiver **vazia** — não há texto
+  embaixo pra cobrir, e assim que a primeira letra é digitada ali a barra some no mesmo
+  instante (é diferente da versão mais ampla — barra acima do cursor em qualquer linha — que
+  existiu por um tempo e foi revertida por cobrir a linha de cima enquanto se digitava; o
+  usuário pediu de volta essa versão restrita a linha vazia em 16/09/2026). Numa linha com
+  texto, sem seleção, a barra não aparece.
 - Some quando o foco sai do editor, na vista somente leitura, e quando o foco está dentro de
   uma célula de tabela (a célula é outro campo editável — a barra apontaria para o lugar
   errado).
@@ -193,6 +197,11 @@ Clique direito numa aba abre o menu do app (`Menu`/`ItemMenu`), pedido do usuár
   sistema (pedido do usuário, 16/09/2026). Com a tela dividida em dois quadros, fechar as abas de
   um nunca fecha as do outro.
 - Aba em branco (`Ctrl+T`) só mostra os dois itens de fechar.
+- **Com a aba em branco já ativa**, `Ctrl+T` de novo cria uma nota — não abre uma segunda aba em
+  branco do lado — e `Ctrl+D` cria um desenho; os dois substituem a aba em branco (mesma regra
+  de abrir qualquer arquivo com ela ativa, doc 09 ADR-16). Fora da aba em branco, `Ctrl+D`
+  continua sendo o atalho nativo do Excalidraw para duplicar elemento (§6.1) e não faz nada no
+  editor de texto — pedido do usuário, 16/09/2026.
 
 ### 3.6 Colar imagem na nota
 

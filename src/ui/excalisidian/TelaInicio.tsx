@@ -6,6 +6,7 @@ import { FilePlus, FolderPlus, SquarePen } from "lucide-react";
 
 import { Botao, IconeArquivo } from "../index";
 import { nomeExibicao, type NoArvore } from "../../vault/arvore";
+import AsciiPeaks from "./AsciiPeaks";
 
 import "./tela-inicio.css";
 
@@ -18,6 +19,8 @@ interface Props {
   papelParedeUrl: string;
   papelParedePersonalizado: boolean;
   papelParedeCarregando: boolean;
+  /** Fundo "picos em ASCII" (doc 09 ADR-28) — botão "Desabilitar shaders" no rodapé. */
+  asciiPeaksHabilitado: boolean;
   onAbrirPasta(path: string): void;
   onFecharPasta(): void;
   onAbrirArquivo(path: string): void;
@@ -26,6 +29,7 @@ interface Props {
   onCriarPasta(): void;
   onEscolherPapelParede(): void;
   onRestaurarPapelParede(): void;
+  onAlternarAsciiPeaks(): void;
 }
 
 interface Migalha {
@@ -54,6 +58,7 @@ export default function TelaInicio({
   papelParedeUrl,
   papelParedePersonalizado,
   papelParedeCarregando,
+  asciiPeaksHabilitado,
   onAbrirPasta,
   onFecharPasta,
   onAbrirArquivo,
@@ -62,6 +67,7 @@ export default function TelaInicio({
   onCriarPasta,
   onEscolherPapelParede,
   onRestaurarPapelParede,
+  onAlternarAsciiPeaks,
 }: Props) {
   return (
     <div className="tela-inicio">
@@ -74,6 +80,7 @@ export default function TelaInicio({
         />
       )}
       <div className="tela-inicio__vinheta" aria-hidden="true" />
+      {asciiPeaksHabilitado && <AsciiPeaks />}
 
       <div className="tela-inicio__rolagem">
         <div className="tela-inicio__conteudo">
@@ -218,6 +225,20 @@ export default function TelaInicio({
             Restaurar padrão
           </button>
         )}
+
+        {/* Bullet separando o grupo do papel de parede do toggle do shader (pedido do
+            usuário, 16/09/2026) — são preferências independentes, o separador deixa isso
+            visualmente claro sem precisar de mais texto. */}
+        <span className="tela-inicio__rodape-separador" aria-hidden="true">
+          •
+        </span>
+        <button
+          type="button"
+          className="tela-inicio__acao-fundo"
+          onClick={onAlternarAsciiPeaks}
+        >
+          {asciiPeaksHabilitado ? "Desabilitar shaders" : "Habilitar shaders"}
+        </button>
       </div>
     </div>
   );

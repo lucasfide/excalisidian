@@ -76,11 +76,19 @@ export const atomicEditorTheme: Extension = EditorView.theme(
     '.cm-gutters': {
       display: 'none',
     },
+    // [excalisidian] Bare on purpose: `.cm-tooltip` is the host CodeMirror creates around
+    // whatever `create(view)` returns, sized to hug that content tightly (no padding of its
+    // own here). The only consumer in this project is the floating formatting toolbar
+    // (`extensoes/barraFlutuante.ts` → `BarraFlutuanteFormatacao.tsx`), which renders its own
+    // `Superficie` card that fades its background/border in on hover (doc 06, user request
+    // 16/09/2026: dim to near-invisible until hovered). An opaque background/border HERE, on
+    // the host itself, sat directly behind that card at the exact same size and fully masked
+    // the fade — the user saw a solid box no matter where the mouse was. If a future feature
+    // reuses CodeMirror's tooltip system for something that wants a default card look, give
+    // it its own class on the tooltip's `dom` instead of restoring a blanket rule here.
     '.cm-tooltip': {
-      backgroundColor: 'var(--atomic-editor-bg-surface, #2d2d2d)',
-      color: 'var(--atomic-editor-fg, #dcddde)',
-      border: '1px solid var(--atomic-editor-border, #3d3d3d)',
-      borderRadius: '6px',
+      backgroundColor: 'transparent',
+      border: 'none',
     },
     '.cm-panels': {
       backgroundColor: 'var(--atomic-editor-bg-panel, #252525)',

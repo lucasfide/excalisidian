@@ -1027,3 +1027,181 @@ Feito em 28/08/2026, na primeira sessão de código.
 **Medição de pan/zoom com 500 elementos:** FPS mais baixo observado durante pan e zoom contínuos = **52 fps**. Faixa "aceitável" (fluido ≥ 55, aceitável ≥ 35, travando < 35). Sem engasgo perceptível na interação.
 
 **Conclusão:** o canvas monta e renderiza 500 elementos no WebView2 a ~52 fps sob pan/zoom — aceitável para o MVP, sem necessidade de plano B. Nenhuma decisão de arquitetura muda. Revalidar na Fatia 6 com cena real (imagens + post-its) e checar se traço à mão livre pesado derruba o número; se cair abaixo de ~35, aplicar o plano B do doc 05 §5 (reduzir a cena, revisar re-renders, desmontar canvas fora de vista) — não trocar de shell.
+
+### ADR-28 · Picos em ASCII no fundo da Home: shader autoral, não um efeito comprado
+
+**Contexto:** pedido do usuário (16/09/2026) inspirado no efeito pago "ASCII Peaks" do
+marketplace shaders.com, pra ficar bem suave (15% de opacidade) por cima da vinheta do papel
+de parede da Home/aba em branco. Antes de implementar, fui checar se dava pra usar o efeito de
+lá de graça.
+
+**Achado — shaders.com não serve nem de graça.** O plano free deles ("License Agreement",
+`shaders.com/license`) permite só "projetos pessoais, protótipos e avaliação", proíbe
+explicitamente exportar código ou usar em "contexto de produção", e a única exceção pra projeto
+open source vale só pra site de divulgação/documentação — nunca pro app em si. Não é questão de
+achar o item certo: o marketplace inteiro funciona assim, "Enter The Matrix" e "Ascii Peaks"
+incluídos.
+
+**Decisão:** implementar do zero, código nosso, técnica de "ASCII art shader" genérica e bem
+documentada (luminância de um relevo gerado por ruído vira caractere de um atlas — não um
+raymarch 3D como o efeito de referência provavelmente faz): `src/ui/excalisidian/
+asciiPeaksShader.ts` (driver WebGL2 puro) + `AsciiPeaks.tsx` (React, liga/desliga por tema,
+`prefers-reduced-motion` e visibilidade).
+
+**Outras fontes checadas, e por que não servem:**
+
+- **Shadertoy.** A licença padrão de lá é CC BY-NC-SA (não-comercial) — a maioria dos shaders
+  de "matrix rain"/"ascii" encontrados está nela por padrão, e não há como filtrar por licença
+  no site. Só serve se o autor específico marcou CC0 na página.
+- **Repositórios do GitHub sem `LICENSE`** (ex.: `ryok/matrix-rain-3d`, bonito mas sem arquivo
+  de licença) **— repositório público não é sinônimo de livre pra usar.** Sem licença explícita,
+  vale "todos os direitos reservados" por padrão, mesmo com o código visível.
+- **Godot Shaders com licença CC0 explícita** (ex.: o "Matrix Rain" de lá) é o único caminho de
+  "pegar pronto" que checou como realmente livre — não foi o caminho escolhido aqui porque o
+  pedido era "ascii peaks" (relevo), não "matrix rain" (chuva de caracteres), e portar GLSL de
+  outro motor ainda exige adaptar uniforms.
+
+**Cor:** o acento de marca do app (`--color-cristal`), não o ciano do exemplo pago — teria que
+vir de um token nosso de qualquer forma (regra do `CLAUDE.md`: nenhuma cor fora dos tokens), e
+cristal já é "a cor de destaque" em todo o resto da interface (link, seleção, foco).
+
+**Consequência ruim:** sem ter visto o efeito rodando de verdade (o ambiente onde isto foi
+escrito não abre o app nem um navegador com WebGL) — a fidelidade visual ao pedido ("bem suave",
+composição de "picos") pode precisar de um ou mais ajustes finos depois que o usuário vir na
+tela real. Os parâmetros (tamanho de célula, velocidade de deriva, posição do aglomerado de
+picos, opacidade) ficam isolados em constantes no topo de `asciiPeaksShader.ts` e uma única
+regra de CSS (`.tela-inicio__ascii { opacity: 0.15 }`) exatamente por causa disso.
+
+**Pendência encontrada, não deste ADR:** a funcionalidade de papel de parede da Home
+(`papel-parede-home-store.ts`, `papel-de-parede-home.ts`) em si não tem nenhum registro em
+`docs/06` nem `docs/09` — não foi documentada quando entrou. Fora do escopo deste pedido,
+registrado aqui pra não se perder.
+
+**Condição de reversão:** se a técnica de atlas-de-caractere-em-textura não ficar nítida o
+bastante em telas de alto DPI, trocar por SDF de caractere (glifo vetorial, sem pixelizar ao
+redimensionar) é o upgrade natural — mais caro de implementar, só vale se o atlas bitmap
+realmente incomodar em tela.
+
+**Atualização (16/09/2026) — achados do primeiro round de teste em tela real:**
+
+1. **Efeito parado.** O `IntersectionObserver` que pausa a animação fora de vista podia
+   receber uma primeira leitura falsa de "não está visível" — o layout do dockview às vezes
+   ainda não tinha dado altura ao painel no instante exato da primeira medição, e o efeito
+   ficava pausado no primeiro quadro pra sempre. Corrigido em `AsciiPeaks.tsx`: só passa a
+   confiar num "não está visível" depois de já ter visto um "está visível" de verdade.
+2. **Relevo "quadriculado", pouco parecido com o de referência.** O ruído original era um hash
+   2D escrito à mão — tosco de propósito, pra não pesar, mas pareceu áspero demais. Trocado
+   pelo simplex 2D de Ian McEwan/Ashima Arts (`webgl-noise`, MIT, com atribuição no comentário
+   do fragment shader) — o mesmo ruído que aparece em praticamente todo shader de terreno.
+3. **Sem o brilho do efeito de referência.** Cada célula só variava em opacidade, plana — sem
+   o "vazamento" de luz que dá o ar de LED/neon no "ASCII Peaks" original. Adicionado um halo
+   analítico (aproximação de bloom sem segunda passada de blur) que cresce com a altura do
+   relevo, e a cor passou a clarear pro branco nos pontos mais altos (o núcleo quente de um
+   brilho de verdade), não só ficar "mais opaca" na mesma cor — a identidade de cor continua
+   vindo só de `--color-cristal`.
+4. **Brilho estático demais, sem resposta a presença do usuário.** O halo só reagia à altura do
+   relevo, nunca a nada que o usuário fizesse. Reaproveitado o mesmo pipeline de halo/cor (item
+   3 acima) pra também intensificar perto do cursor — raio de cerca de 160–220px de tela, mesmo
+   brilho e clareamento pro branco que já existiam pros picos altos, só que agora também função
+   da distância até o ponteiro. Por ser resposta direta a um gesto do usuário (não animação
+   automática do relevo), essa reação ao mouse não é desligada por `prefers-reduced-motion` —
+   a animação automática continua respeitando a preferência normalmente.
+
+**Bibliotecas de shader levantadas nessa investigação** (pra não perder a pesquisa): LYGIA —
+**não é MIT**, é Prosperity License (grátis só pra uso não-comercial, precisa de licença paga
+depois de 30 dias em produção comercial) — fácil de confundir com MIT porque é a mais
+recomendada da internet, mas não serve aqui sem pagar. As de verdade livres, checadas uma a
+uma: `ashima/webgl-noise` (MIT, usado acima), `hughsk/glsl-noise` (MIT, o mesmo ruído
+empacotado), os artigos do `iquilezles.org` (trechos de código em MIT), e
+`mattdesl/glsl-ascii-filter` (MIT, função pronta de conversão luminância→ASCII, ainda não
+adotada — o núcleo atual continua sendo o atlas de caracteres em Canvas2D).
+
+**Segunda rodada de interação (16/09/2026) — do "brilho no ponto" pro "rastro".** A v1 (item
+acima) só reagia à posição ATUAL do cursor — sem memória, sem rastro. O usuário achou "muito
+simples" e pediu algo mais fluido: um rastro que deixa marca e vai sumindo aos poucos, e que
+também movimente os elementos de fundo (não só brilhe). Trocado por um histórico de pontos
+(`rastro`, até 24 vivos por vez, `MAX_PONTOS_RASTRO`/`RASTRO_MAX` — precisam bater entre JS e
+GLSL), cada um com peso caindo numa curva quadrática ao longo de 750ms (`VIDA_RASTRO_MS`) — cai
+devagar no início, rápido no fim, pra ler como "sumindo" e não um corte seco. Cada ponto do
+rastro faz duas coisas no fragment shader, na mesma passada: desloca a amostra do ruído por
+perto de onde passou (o relevo se deforma, não só brilha) e contribui pro brilho já existente
+(mesmo pipeline de núcleo/halo/cor da v1, sem camada nova). Um novo ponto só entra no histórico
+se o mouse andou pelo menos `DISTANCIA_MIN_NOVO_PONTO_PX` (10px) desde o último, pra não
+estourar o limite de 24 com pontos redundantes quando o mouse anda devagar ou fica parado.
+
+**Terceira rodada (16/09/2026) — rastro maior + deformação "revolta".** Dois achados do
+usuário no mesmo teste:
+
+1. **"O rastro tem que ser maior, e se dispersar mais devagar."** Subir só a vida (`VIDA_RASTRO_MS`
+   750→2200ms) sem subir também o limite de pontos (`MAX_PONTOS_RASTRO`/`RASTRO_MAX`, 24→48)
+   deixaria o rastro mais ESPARSO, não maior — os pontos mais antigos seriam descartados pelo
+   limite de contagem antes de terem tempo de sumir de verdade pela idade. Os dois valores
+   subiram juntos. `RAIO_MOUSE_PX` também subiu (190→240px) — "maior" também no espaço que cada
+   ponto do rastro ocupa, não só na duração.
+2. **"A interação com os elementos do fundo está meio revolta, quebrando a fluidez."** O
+   deslocamento que empurra a amostra do ruído (item "movimentar os elementos de fundo" da
+   rodada anterior) somava, sem limite, um empurrão por ponto vivo do rastro — com até
+   RASTRO_MAX pontos cada um puxando pro seu lado, a soma virava um campo caótico. Duas
+   correções, as duas precisavam estar juntas (uma sem a outra não bastava):
+   - Queda de cada empurrão mais larga/gradual (raio efetivo `* 1.6` no denominador da
+     exponencial) — antes cada ponto tinha um alcance curto e isolado, lendo como vários
+     puxões separados em vez de uma esteira contínua.
+   - Teto no comprimento do deslocamento COMBINADO (não por ponto, na soma final) — preserva a
+     direção, limita a intensidade a `uRaioMouse * 0.3`, então mais pontos vivos ao mesmo tempo
+     (o rastro maior do item 1 aumenta essa chance) não conseguem mais somar um puxão
+     desproporcional.
+
+**Botão pra desligar (16/09/2026).** Pedido do usuário: uma forma de desabilitar o shader
+inteiro. Preferência da máquina (`settings.json`, `asciiPeaksHabilitado`, padrão ligado — o
+mesmo padrão de `barraFormatacaoAcoplada`/`nomeUsuario`, sincronizada entre janelas via
+`app://prefs-mudou`), com o botão "Desabilitar shaders"/"Habilitar shaders" no rodapé da Home,
+separado do grupo de papel de parede por um bullet — são preferências independentes. Desligado
+não é "opacidade 0": `TelaInicio.tsx` e `PainelVazio.tsx` (Home e aba em branco, as duas telas
+que usam o efeito) deixam de MONTAR o componente `AsciiPeaks` de vez, então o contexto WebGL2 é
+destruído de verdade (`AsciiPeaksControle.destruir()`, já existia pro caso da tela sair de
+vista) — zero custo de GPU enquanto desligado, não só invisível.
+
+**Otimização de GPU (16/09/2026).** Pedido do usuário: o shader consome 30-50% da GPU
+integrada dele (Iris Xe) mesmo ligado o tempo todo, com o aviso explícito de não arriscar
+perder o trabalho de ajuste fino já feito nas rodadas acima. Por isso o critério pra escolher
+o que mexer foi: só levers puramente mecânicos, nenhum que troque a aparência do efeito.
+Ficaram de fora, deliberadamente, por mexerem na aparência já aprovada: número de oitavas do
+fbm (4), curva de contraste, mistura de cor, `TAMANHO_CELULA_PX`, `FATOR_REDUCAO_RESOLUCAO`.
+
+Duas mudanças, as duas dentro de `asciiPeaksShader.ts`:
+
+1. **Draw call desacoplado do loop de `requestAnimationFrame`, limitado a 30fps
+   (`INTERVALO_DESENHO_MS = 1000/30`).** O `rAF` continua rodando a cada quadro nativo (pra
+   acumular o tempo de deriva e podar o rastro por idade sem saltos), mas só chama
+   `gl.drawArrays` quando já se passou `INTERVALO_DESENHO_MS` desde o último desenho — em
+   monitor de 60/120Hz, isso já corta a maioria dos draw calls redundantes de um efeito que é
+   "bem suave" por natureza (não precisa de 60fps pra não parecer picotado). `definirAtivo`
+   zera `ultimoDesenho` ao reativar, pra desenhar de novo no primeiro quadro sem esperar o
+   throttle.
+2. **Early-exit no loop do rastro via `uRastroContagem`.** O array de rastro no shader é de
+   tamanho fixo (`RASTRO_MAX = 48`) mas normalmente tem bem menos pontos vivos — o mouse parado
+   ou o rastro curto deixa a maior parte do array vazia. Antes, o loop `for` lia
+   `uRastroPeso[i]`/`uRastroPos[i]` pra todo pixel da tela, pros 48 slots, e só pulava com
+   `continue` quando o peso era zero (ainda pagava a leitura). Agora um novo uniform inteiro
+   `uRastroContagem` (= `rastro.length` de verdade) permite `if (i >= uRastroContagem) break;`
+   como primeira linha do loop — corta a leitura por completo pros slots que nem chegam a ter
+   dado, maior ganho justamente quando o mouse está parado (rastro curto ou vazio), que é o caso
+   mais comum.
+
+Verificado sem regressão: `tsc --noEmit`, `vitest run` (578 testes, incluindo os puros de
+`asciiPeaksShader.test.ts`) e `npm run build` passaram sem mudança de comportamento — nenhuma
+função exportada mudou de assinatura. Não foi possível medir o consumo de GPU real neste
+ambiente (sem WebGL/hardware do usuário); se 30-50% não cair o suficiente, os próximos levers
+disponíveis (nessa ordem de menor pro maior risco visual) são: reduzir mais a resolução interna
+do buffer (`FATOR_REDUCAO_RESOLUCAO`), pausar o desenho quando a janela do SO perde foco, e por
+último reduzir as oitavas do fbm — esse último É um risco visual real, teria que voltar a
+combinar com o usuário antes.
+
+**Ajuste fino (16/09/2026): 24fps + rastro sumindo rápido demais.** Dois pedidos do usuário no
+mesmo teste: baixar o alvo de desenho pra 24fps (`INTERVALO_DESENHO_MS`, 30→24 — GPU continuou
+alta, e 24fps ainda é suave pra um efeito "bem suave" por natureza) e o rastro estava sumindo
+rápido demais. Pra isso, mesma lição da "Terceira rodada" documentada acima: `VIDA_RASTRO_MS`
+sozinho não bastava — subir só a vida do ponto sem subir o limite de pontos (`MAX_PONTOS_RASTRO`/
+`RASTRO_MAX`) deixaria o rastro mais esparso, não mais longo (pontos antigos descartados pelo
+limite de contagem antes de sumirem de verdade pela idade). Os dois subiram juntos de novo:
+vida 2200→3400ms, limite 48→72 pontos.

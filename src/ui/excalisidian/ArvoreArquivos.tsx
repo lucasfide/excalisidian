@@ -25,6 +25,7 @@ function achatar(raiz: NoArvore, pastasAbertas: Set<string>): LinhaVisivel[] {
   const linhas: LinhaVisivel[] = [];
   const visitar = (nos: NoArvore[], nivel: number) => {
     for (const no of nos) {
+      if (no.path === "anexos") continue;
       const aberta = pastasAbertas.has(no.path);
       linhas.push({ no, nivel, aberta });
       if (no.tipo === "folder" && aberta) visitar(no.filhos, nivel + 1);

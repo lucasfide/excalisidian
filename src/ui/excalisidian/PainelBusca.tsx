@@ -7,7 +7,7 @@
 // componente só junta os dados (títulos síncronos, conteúdo com debounce) e cuida de
 // teclado, scroll e abertura.
 
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useEffect, useMemo, useRef, useState, type ReactNode } from "react";
 import { FilePlus } from "lucide-react";
 
 import {
@@ -211,13 +211,13 @@ export default function PainelBusca() {
         />
 
         {statusIndice === "indexando" && (
-          <p className="meta px-1 text-tinta-suave">Reindexando o vault…</p>
+          <EntradaSuave className="meta px-1 text-tinta-suave">Reindexando o vault…</EntradaSuave>
         )}
 
         {semNada && temConsulta && (
-          <p className="px-1 py-4 text-center text-pequeno text-tinta-suave">
+          <EntradaSuave className="px-1 py-4 text-center text-pequeno text-tinta-suave">
             {`Nada encontrado para «${consulta}».`}
-          </p>
+          </EntradaSuave>
         )}
 
         {itens.length > 0 && (
@@ -240,14 +240,17 @@ export default function PainelBusca() {
               if (linha.tipo === "arquivo") {
                 const r = linha.resultado;
                 return (
-                  <div key={`arquivo-${r.path}`} className="flex items-center gap-2 px-2 pt-2 pb-1">
+                  <EntradaSuave
+                    key={`arquivo-${r.path}`}
+                    className="flex items-center gap-2 px-2 pt-2 pb-1"
+                  >
                     <IconeArquivo tipo={r.kind} className="shrink-0 text-tinta-suave" />
                     <span className="truncate text-[13px] font-medium text-tinta">{r.titulo}</span>
                     {r.kind === "drawing" && (
                       <span className="meta shrink-0 text-tinta-suave">desenho</span>
                     )}
                     <span className="meta ml-auto shrink-0 truncate text-tinta-suave">{r.path}</span>
-                  </div>
+                  </EntradaSuave>
                 );
               }
               // linha.tipo === "item"
@@ -300,6 +303,8 @@ function ItemBusca({
   onClick: (e: React.MouseEvent) => void;
   onMouseEnter: () => void;
 }) {
+  const entrou = useEntradaSuave();
+
   if (item.tipo === "recente" || item.tipo === "titulo") {
     return (
       <button
@@ -310,7 +315,8 @@ function ItemBusca({
         onClick={onClick}
         onMouseEnter={onMouseEnter}
         className={cn(
-          "flex w-full items-center gap-2 rounded-controle px-2 py-1.5 text-left transition-colors duration-[140ms] ease-caderno",
+          "flex w-full items-center gap-2 rounded-controle px-2 py-1.5 text-left motion-safe:transition-[opacity,transform,background-color,color] motion-safe:duration-[140ms] motion-safe:ease-caderno motion-reduce:transition-none",
+          entrou ? "motion-safe:translate-y-0 motion-safe:opacity-100" : "motion-safe:translate-y-1 motion-safe:opacity-0",
           ativo ? "bg-lavagem" : "",
         )}
       >
@@ -336,7 +342,8 @@ function ItemBusca({
         onClick={onClick}
         onMouseEnter={onMouseEnter}
         className={cn(
-          "flex w-full items-baseline gap-2 rounded-controle px-2 py-1.5 text-left transition-colors duration-[140ms] ease-caderno",
+          "flex w-full items-baseline gap-2 rounded-controle px-2 py-1.5 text-left motion-safe:transition-[opacity,transform,background-color,color] motion-safe:duration-[140ms] motion-safe:ease-caderno motion-reduce:transition-none",
+          entrou ? "motion-safe:translate-y-0 motion-safe:opacity-100" : "motion-safe:translate-y-1 motion-safe:opacity-0",
           ativo ? "bg-lavagem" : "",
         )}
       >
@@ -366,7 +373,8 @@ function ItemBusca({
       onClick={onClick}
       onMouseEnter={onMouseEnter}
       className={cn(
-        "flex w-full items-center gap-2 rounded-controle px-2 py-1.5 text-left text-pequeno transition-colors duration-[140ms] ease-caderno",
+        "flex w-full items-center gap-2 rounded-controle px-2 py-1.5 text-left text-pequeno motion-safe:transition-[opacity,transform,background-color,color] motion-safe:duration-[140ms] motion-safe:ease-caderno motion-reduce:transition-none",
+        entrou ? "motion-safe:translate-y-0 motion-safe:opacity-100" : "motion-safe:translate-y-1 motion-safe:opacity-0",
         ativo ? "bg-lavagem text-tinta" : "text-tinta-media",
       )}
     >
@@ -374,4 +382,31 @@ function ItemBusca({
       <span className="min-w-0 flex-1 truncate">{`Criar nota «${item.consulta}»`}</span>
     </button>
   );
+}
+
+function EntradaSuave({ children, className }: { children: ReactNode; className: string }) {
+  const entrou = useEntradaSuave();
+
+  return (
+    <div
+      className={cn(
+        "motion-safe:transition-[opacity,transform] motion-safe:duration-[140ms] motion-safe:ease-caderno motion-reduce:transition-none",
+        entrou ? "motion-safe:translate-y-0 motion-safe:opacity-100" : "motion-safe:translate-y-1 motion-safe:opacity-0",
+        className,
+      )}
+    >
+      {children}
+    </div>
+  );
+}
+
+function useEntradaSuave(): boolean {
+  const [entrou, setEntrou] = useState(false);
+
+  useEffect(() => {
+    const frame = window.requestAnimationFrame(() => setEntrou(true));
+    return () => window.cancelAnimationFrame(frame);
+  }, []);
+
+  return entrou;
 }

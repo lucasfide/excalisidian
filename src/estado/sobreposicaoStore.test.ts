@@ -11,6 +11,11 @@ describe("sobreposicaoStore", () => {
     expect(useSobreposicaoStore.getState().aberta).toBe("busca");
   });
 
+  it("abrir permite a sobreposição da galeria", () => {
+    useSobreposicaoStore.getState().abrir("galeria");
+    expect(useSobreposicaoStore.getState().aberta).toBe("galeria");
+  });
+
   it("abrir com o mesmo tipo já aberto fecha (mesma tecla alterna, doc 13 §1.1)", () => {
     useSobreposicaoStore.getState().abrir("busca");
     useSobreposicaoStore.getState().abrir("busca");
