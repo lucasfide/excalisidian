@@ -264,16 +264,16 @@ export default function ArvoreArquivos({
     acao();
   };
 
-  /** Geometria de TODAS as linhas (não só as desenhadas pela virtualização), na ordem da árvore. */
-  const montarGeometria = (linhasAtuais: LinhaVisivel[]): LinhaGeometria[] => {
-    // `getMeasurements` é privado; `getTotalSize` o recalcula e deixa o resultado no
-    // `measurementsCache` público, já com a contagem do render atual.
-    virt.getTotalSize();
-    const medidas = virt.measurementsCache;
+  /** Geometria de TODAS as linhas (não só as desenhadas pela virtualização), na ordem da árvore.
+   * Soma as mesmas alturas fixas que o `estimateSize` do virtualizador usa (as linhas não são
+   * medidas no DOM), sem depender das medidas internas dele. */
+  const montarGeometria = (
+    linhasAtuais: LinhaVisivel[],
+  ): { geometria: LinhaGeometria[]; alturaArvore: number } => {
     const geometria: LinhaGeometria[] = [];
-    for (let i = 0; i < linhasAtuais.length && i < medidas.length; i++) {
-      const linha = linhasAtuais[i];
-      const { start, size } = medidas[i];
+    let start = 0;
+    for (const linha of linhasAtuais) {
+      const size = linha.kind === "separador" ? ALTURA_SEPARADOR : ALTURA_LINHA;
       if (linha.kind === "separador") {
         geometria.push({
           tipo: "separador",
@@ -297,8 +297,9 @@ export default function ArvoreArquivos({
           altura: size,
         });
       }
+      start += size;
     }
-    return geometria;
+    return { geometria, alturaArvore: start };
   };
 
   /** Grava o que o indicador mostrava. A ordem-base é a mesma que desenhou a árvore, então o
@@ -357,6 +358,8 @@ export default function ArvoreArquivos({
     let alvo: AlvoSoltura = null;
     let quadro: number | null = null;
     let cursorAnterior = "";
+    // Guardado no início: o teardown precisa tirar o listener do mesmo elemento em que pôs.
+    const areaRolavel = scrollRef.current;
 
     const recalcular = () => {
       const el = scrollRef.current;
@@ -366,17 +369,19 @@ export default function ArvoreArquivos({
       // pasta que por acaso estiver na mesma altura.
       const dentro =
         !!r && ultimoX >= r.left && ultimoX < r.right && ultimoY >= r.top && ultimoY < r.bottom;
-      alvo =
-        el && r && dentro
-          ? calcularAlvo({
-              linhas: montarGeometria(atualRef.current.linhas),
-              y: ultimoY - r.top + el.scrollTop,
-              item,
-              modo: atualRef.current.modo,
-              alturaArvore: virt.getTotalSize(),
-              alturaFaixaRaiz: mostraFaixaRaiz(item) ? ALTURA_RAIZ : 0,
-            })
-          : null;
+      if (el && r && dentro) {
+        const { geometria, alturaArvore } = montarGeometria(atualRef.current.linhas);
+        alvo = calcularAlvo({
+          linhas: geometria,
+          y: ultimoY - r.top + el.scrollTop,
+          item,
+          modo: atualRef.current.modo,
+          alturaArvore,
+          alturaFaixaRaiz: mostraFaixaRaiz(item) ? ALTURA_RAIZ : 0,
+        });
+      } else {
+        alvo = null;
+      }
       setArraste({ item, rotulo, tipoNo, x: ultimoX, y: ultimoY, alvo });
     };
 
@@ -412,6 +417,13 @@ export default function ArvoreArquivos({
     };
 
     const aoMover = (ev: PointerEvent) => {
+      // Botão já solto sem o pointerup ter chegado (soltou fora da janela depois que a
+      // rolagem automática desmontou a linha e a captura se perdeu): o gesto acabou. Sem isto
+      // os listeners ficariam vivos e o pointerup do próximo clique qualquer gravaria o alvo.
+      if (ev.buttons === 0) {
+        encerrar(false);
+        return;
+      }
       ultimoX = ev.clientX;
       ultimoY = ev.clientY;
       if (!engajado) {
@@ -437,6 +449,7 @@ export default function ArvoreArquivos({
       window.removeEventListener("pointerup", aoSoltar);
       window.removeEventListener("pointercancel", aoCancelar);
       window.removeEventListener("keydown", aoTeclar, true);
+      areaRolavel?.removeEventListener("scroll", aoRolar);
       if (quadro !== null) {
         cancelAnimationFrame(quadro);
         quadro = null;
@@ -451,11 +464,19 @@ export default function ArvoreArquivos({
       setArraste(null);
       if (!engajado) return;
       document.body.style.cursor = cursorAnterior;
+      // Esc e pointercancel não produzem o clique do soltar; armar aqui comeria um clique
+      // de verdade.
+      if (!confirmar) return;
       engolirCliqueDoSoltar();
-      if (confirmar && alvo !== null) confirmarSoltura(item, alvo);
+      if (alvo !== null) confirmarSoltura(item, alvo);
     };
 
     const aoSoltar = () => encerrar(true);
+
+    // Rolar com a roda no meio do arrasto muda a linha sob o ponteiro parado.
+    const aoRolar = () => {
+      if (engajado) recalcular();
+    };
 
     // Captura de ponteiro pode ser perdida por motivos fora do controle do app: um diálogo do
     // sistema no meio do gesto, ou o compositor decidindo que aquele movimento era rolagem de
@@ -470,6 +491,7 @@ export default function ArvoreArquivos({
     window.addEventListener("pointerup", aoSoltar);
     window.addEventListener("pointercancel", aoCancelar);
     window.addEventListener("keydown", aoTeclar, true);
+    areaRolavel?.addEventListener("scroll", aoRolar, { passive: true });
   };
 
   const alvo = arraste?.alvo ?? null;
