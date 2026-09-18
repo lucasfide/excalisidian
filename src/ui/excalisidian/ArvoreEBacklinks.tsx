@@ -13,6 +13,7 @@ import {
 import { comandoMoverArquivo, comandoMoverPara } from "../../app/comandos/mover";
 import { comandoExcluir } from "../../app/comandos/exclusao";
 import ArvoreArquivos from "./ArvoreArquivos";
+import ListaPorData from "./ListaPorData";
 import PainelBacklinks from "./PainelBacklinks";
 
 interface Props {
@@ -35,7 +36,7 @@ export default function ArvoreEBacklinks({ onArquivoAberto }: Props) {
   return (
     <>
       <div className="min-h-0 flex-1">
-        {arvore && (
+        {arvore && modoOrdenacao !== "dateDesc" && modoOrdenacao !== "dateAsc" && (
           <ArvoreArquivos
             raiz={arvore}
             pastasAbertas={pastasAbertas}
@@ -57,6 +58,15 @@ export default function ArvoreEBacklinks({ onArquivoAberto }: Props) {
             onReordenarNivel={reordenarNivelCustom}
             onAdicionarSeparador={() => void adicionarSeparadorCustom()}
             onRemoverSeparador={(id) => void removerSeparadorCustom(id)}
+          />
+        )}
+        {arvore && (modoOrdenacao === "dateDesc" || modoOrdenacao === "dateAsc") && (
+          <ListaPorData
+            modo={modoOrdenacao}
+            onAbrirArquivo={(path) => {
+              abrirDocumento(path);
+              onArquivoAberto?.();
+            }}
           />
         )}
       </div>
