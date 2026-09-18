@@ -1,5 +1,6 @@
 // Árvore de arquivos da sidebar. Virtualizada, expandir/recolher, clique abre, arrastar um
-// arquivo para mover de pasta. Menu de contexto: criar aqui / renomear.
+// arquivo para mover de pasta (ou, em modo customizado, para reordenar entre irmãos). Menu de
+// contexto: criar aqui / renomear / separador.
 //
 // Arrastar é por EVENTOS DE PONTEIRO, não `draggable` nativo do HTML5: o Drag-and-Drop HTML5
 // nativo tem histórico de falhar dentro do WebView2 do Tauri (foi o que quebrou o arrastar de
@@ -8,30 +9,78 @@
 
 import { useEffect, useMemo, useRef, useState } from "react";
 import { useVirtualizer } from "@tanstack/react-virtual";
-import { FilePlus, SquarePen, FolderPlus, Pencil, Home, Move, Trash2 } from "lucide-react";
+import {
+  FilePlus,
+  SquarePen,
+  FolderPlus,
+  Pencil,
+  Home,
+  Move,
+  Trash2,
+  Rows3,
+} from "lucide-react";
 
-import { nomeExibicao, type NoArvore } from "../../vault/arvore";
+import { nomeExibicao, encontrarNo as encontrarNoLocal, type NoArvore } from "../../vault/arvore";
 import { pastaDe } from "../../vault/caminhos";
+import { ordenarArvore } from "../../vault/ordenacao";
 import { Menu, ItemMenu, SeparadorMenu, type PosicaoMenu, cn } from "../index";
 import ItemArvore from "./ItemArvore";
 
-interface LinhaVisivel {
-  no: NoArvore;
-  nivel: number;
-  aberta: boolean;
+type LinhaVisivel =
+  | { kind: "no"; no: NoArvore; nivel: number; aberta: boolean }
+  | { kind: "separador"; id: string };
+
+/** `sep-xxxxxx`: entrada sintética de separador dentro de `customOrder[""]` — nunca
+ * corresponde ao nome de um arquivo ou pasta (mesmo critério de `vault/ordenacao.ts`). */
+function ehSeparador(entrada: string): boolean {
+  return entrada.startsWith("sep-");
 }
 
-function achatar(raiz: NoArvore, pastasAbertas: Set<string>): LinhaVisivel[] {
+/**
+ * Achata a árvore nas linhas visíveis. `entradasRaiz` é o `customOrder[""]` (nomes e ids
+ * `sep-` misturados) e só serve pra saber ONDE cada separador entra entre os itens de nível
+ * 0 — a ordem dos nós em si já veio resolvida por `ordenarArvore`.
+ */
+function achatar(
+  raiz: NoArvore,
+  pastasAbertas: Set<string>,
+  entradasRaiz: string[],
+): LinhaVisivel[] {
   const linhas: LinhaVisivel[] = [];
   const visitar = (nos: NoArvore[], nivel: number) => {
     for (const no of nos) {
       if (no.path === "anexos") continue;
       const aberta = pastasAbertas.has(no.path);
-      linhas.push({ no, nivel, aberta });
+      linhas.push({ kind: "no", no, nivel, aberta });
       if (no.tipo === "folder" && aberta) visitar(no.filhos, nivel + 1);
     }
   };
-  visitar(raiz.filhos, 0);
+  if (entradasRaiz.length === 0) {
+    visitar(raiz.filhos, 0);
+    return linhas;
+  }
+  // Intercala os itens de nível 0 com os separadores, na posição relativa que
+  // `customOrder[""]` registrou. Cada entrada de nome consome o próximo nó, exista ele ou
+  // não: assim entradas obsoletas só deslocam separador, e o `while` final garante que a
+  // ordem dos nós continua sendo exatamente a de `raiz.filhos`, sem perder nenhum.
+  const filhosRaiz = raiz.filhos;
+  let cursor = 0;
+  const empurrarNivel0 = (no: NoArvore) => {
+    if (no.path === "anexos") return;
+    const aberta = pastasAbertas.has(no.path);
+    linhas.push({ kind: "no", no, nivel: 0, aberta });
+    if (no.tipo === "folder" && aberta) visitar(no.filhos, 1);
+  };
+  for (const entrada of entradasRaiz) {
+    if (ehSeparador(entrada)) {
+      linhas.push({ kind: "separador", id: entrada });
+    } else if (cursor < filhosRaiz.length) {
+      empurrarNivel0(filhosRaiz[cursor++]);
+    }
+  }
+  while (cursor < filhosRaiz.length) {
+    empurrarNivel0(filhosRaiz[cursor++]);
+  }
   return linhas;
 }
 
@@ -44,6 +93,10 @@ interface Props {
   raiz: NoArvore;
   pastasAbertas: Set<string>;
   caminhoAberto: string | null;
+  /** Modo de ordenação em vigor. A árvore chega aqui NÃO ordenada: quem combina a ordem com
+   * os separadores na hora de achatar é este componente. */
+  modo: "custom" | "alphabetical";
+  customOrder: Record<string, string[]>;
   onAlternarPasta(path: string): void;
   onAbrirArquivo(path: string): void;
   onRenomear(path: string): void;
@@ -58,9 +111,14 @@ interface Props {
    * do próprio nó (`menu.no.tipo`) — derivar de novo a partir só do path não distinguiria
    * pasta de arquivo. */
   onExcluir(path: string, tipo: NoArvore["tipo"]): void;
+  /** Grava a ordem completa de um nível (nomes e ids `sep-`), em modo customizado. */
+  onReordenarNivel(pasta: string, novaOrdem: string[]): Promise<void>;
+  onAdicionarSeparador(): void;
+  onRemoverSeparador(id: string): void;
 }
 
-type EstadoMenu = (PosicaoMenu & { no: NoArvore }) | null;
+/** `no` nulo = menu do espaço vazio da árvore ou de um separador (`separador` diz qual). */
+type EstadoMenu = (PosicaoMenu & { no: NoArvore | null; separador?: string }) | null;
 
 /** `null` = nenhum alvo válido sob o cursor; `""` = raiz. */
 type AlvoArrasto = string | null;
@@ -80,6 +138,8 @@ export default function ArvoreArquivos({
   raiz,
   pastasAbertas,
   caminhoAberto,
+  modo,
+  customOrder,
   onAlternarPasta,
   onAbrirArquivo,
   onRenomear,
@@ -89,10 +149,23 @@ export default function ArvoreArquivos({
   onMoverArquivo,
   onMoverPara,
   onExcluir,
+  onReordenarNivel,
+  onAdicionarSeparador,
+  onRemoverSeparador,
 }: Props) {
+  const raizOrdenada = useMemo(
+    () => ordenarArvore(raiz, modo, customOrder),
+    [raiz, modo, customOrder],
+  );
+  // Só a raiz tem separadores. O `useMemo` aqui é pelo `?? []`: sem ele, um vault sem ordem
+  // salva criaria um array novo a cada render e invalidaria o `useMemo` de `linhas`.
+  const entradasRaiz = useMemo(
+    () => (modo === "custom" ? (customOrder[""] ?? []) : []),
+    [modo, customOrder],
+  );
   const linhas = useMemo(
-    () => achatar(raiz, pastasAbertas),
-    [raiz, pastasAbertas],
+    () => achatar(raizOrdenada, pastasAbertas, entradasRaiz),
+    [raizOrdenada, pastasAbertas, entradasRaiz],
   );
   const [menu, setMenu] = useState<EstadoMenu>(null);
   const [arraste, setArraste] = useState<EstadoArrasto | null>(null);
@@ -106,6 +179,9 @@ export default function ArvoreArquivos({
     startY: number;
     engajado: boolean;
     alvo: AlvoArrasto;
+    /** Último Y do ponteiro: `aoSoltar` também é chamado sem evento (Esc), então a posição
+     * do drop precisa estar guardada aqui. */
+    ultimoY: number;
     elemento: HTMLElement;
     pointerId: number;
   } | null>(null);
@@ -122,7 +198,7 @@ export default function ArvoreArquivos({
   // `garantirAncestraisAbertos`, o que muda `linhas` e dispara este efeito de novo).
   useEffect(() => {
     if (!caminhoAberto) return;
-    const indice = linhas.findIndex((l) => l.no.path === caminhoAberto);
+    const indice = linhas.findIndex((l) => l.kind === "no" && l.no.path === caminhoAberto);
     if (indice !== -1) virt.scrollToIndex(indice, { align: "auto" });
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [caminhoAberto, linhas]);
@@ -143,8 +219,58 @@ export default function ArvoreArquivos({
       .getVirtualItems()
       .find((vi) => y >= vi.start && y < vi.start + vi.size);
     if (!item) return null;
-    const { no } = linhas[item.index];
+    const linha = linhas[item.index];
+    if (linha.kind !== "no") return null;
+    const { no } = linha;
     return no.tipo === "folder" ? no.path : null;
+  };
+
+  /** Em modo customizado, soltar um item sobre outro do MESMO nível reordena os dois — sem
+   * mexer em qual pasta cada um está. Devolve o índice de linha (dentro de `linhas`) sob o
+   * cursor, ou -1 se não houver nenhum. */
+  const acharIndiceLinha = (clientY: number): number => {
+    const rect = scrollRef.current?.getBoundingClientRect();
+    if (!rect) return -1;
+    const y = clientY - rect.top + (scrollRef.current?.scrollTop ?? 0);
+    const item = virt.getVirtualItems().find((vi) => y >= vi.start && y < vi.start + vi.size);
+    return item ? item.index : -1;
+  };
+
+  /** Ordem-base de um nível pra edição: o que já estava salvo em `customOrder[pasta]`
+   * (separadores inclusive — reordenar a raiz não pode apagá-los), sem as entradas de
+   * arquivos que sumiram, seguido do que ainda não tinha posição salva, na ordem em que a
+   * árvore já está mostrando. */
+  const ordemBaseDoNivel = (pasta: string, nivelNo: NoArvore): string[] => {
+    const nomesAtuais = nivelNo.filhos.map((n) => n.nome);
+    const existentes = new Set(nomesAtuais);
+    const salva = (customOrder[pasta] ?? []).filter(
+      (entrada) => ehSeparador(entrada) || existentes.has(entrada),
+    );
+    const jaNaBase = new Set(salva);
+    return [...salva, ...nomesAtuais.filter((nome) => !jaNaBase.has(nome))];
+  };
+
+  /** Calcula a nova ordem de uma pasta movendo `pathArrastado` pra logo antes de `pathAlvo`,
+   * e persiste via `onReordenarNivel`. */
+  const reordenarAposArrasto = async (
+    pasta: string,
+    pathArrastado: string,
+    pathAlvo: string,
+  ): Promise<void> => {
+    const nivelNo = pasta === "" ? raizOrdenada : encontrarNoLocal(raizOrdenada, pasta);
+    if (!nivelNo) return;
+    const nomeArrastado = pathArrastado.slice(pathArrastado.lastIndexOf("/") + 1);
+    const nomeAlvo = pathAlvo.slice(pathAlvo.lastIndexOf("/") + 1);
+    if (nomeArrastado === nomeAlvo) return;
+    const semArrastado = ordemBaseDoNivel(pasta, nivelNo).filter((e) => e !== nomeArrastado);
+    const indiceAlvo = semArrastado.indexOf(nomeAlvo);
+    if (indiceAlvo === -1) return;
+    const novaOrdem = [
+      ...semArrastado.slice(0, indiceAlvo),
+      nomeArrastado,
+      ...semArrastado.slice(indiceAlvo),
+    ];
+    await onReordenarNivel(pasta, novaOrdem);
   };
 
   const iniciarArrasto = (e: React.PointerEvent, no: NoArvore) => {
@@ -165,6 +291,7 @@ export default function ArvoreArquivos({
       startY: e.clientY,
       engajado: false,
       alvo: null,
+      ultimoY: e.clientY,
       elemento,
       pointerId: e.pointerId,
     };
@@ -180,6 +307,7 @@ export default function ArvoreArquivos({
       let alvo = acharAlvo(ev.clientY);
       if (alvo === info.origem) alvo = null; // soltar na própria pasta não faz nada
       info.alvo = alvo;
+      info.ultimoY = ev.clientY;
       setArraste({ path: info.path, nome: info.nome, x: ev.clientX, y: ev.clientY, alvo });
     };
 
@@ -200,7 +328,17 @@ export default function ArvoreArquivos({
       } catch {
         /* elemento já desmontado ou captura já perdida — esperado */
       }
-      if (info?.engajado && info.alvo !== null) {
+      if (info?.engajado && modo === "custom" && info.alvo === null) {
+        // Alvo null pode ser "sem pasta válida sob o cursor" OU "é a própria pasta de
+        // origem" (`aoMover` zera esse caso) — nos dois, ainda vale checar se caiu sobre um
+        // irmão pra reordenar. Comparar por `pastaDe` e não por `pastaDoNo`: a linha da
+        // própria pasta de origem cai aqui também, e ela não é irmã de ninguém no nível.
+        const indice = acharIndiceLinha(info.ultimoY);
+        const linhaAlvo = indice !== -1 ? linhas[indice] : undefined;
+        if (linhaAlvo?.kind === "no" && pastaDe(linhaAlvo.no.path) === info.origem) {
+          void reordenarAposArrasto(info.origem, info.path, linhaAlvo.no.path);
+        }
+      } else if (info?.engajado && info.alvo !== null) {
         onMoverArquivo(info.path, info.alvo);
       }
     };
@@ -217,13 +355,101 @@ export default function ArvoreArquivos({
     window.addEventListener("keydown", aoTeclar, true);
   };
 
+  /** Arrastar o separador pra outra posição entre os itens de nível 0. Não reaproveita
+   * `arrastoRef`: um separador não tem nó nem pasta de origem, e o único estado que este
+   * gesto precisa (o id) já está no fecho. */
+  const iniciarArrastoSeparador = (e: React.PointerEvent, id: string) => {
+    if (e.button !== 0) return;
+    e.preventDefault();
+    const elemento = e.currentTarget as HTMLElement;
+    const pointerId = e.pointerId;
+    elemento.setPointerCapture(pointerId);
+
+    const encerrar = () => {
+      window.removeEventListener("pointermove", aoMover);
+      window.removeEventListener("pointerup", aoSoltar);
+      window.removeEventListener("pointercancel", encerrar);
+      window.removeEventListener("keydown", aoTeclar, true);
+      try {
+        elemento.releasePointerCapture(pointerId);
+      } catch {
+        /* elemento já desmontado ou captura já perdida — esperado */
+      }
+    };
+
+    // Feedback visual simples: nenhum ghost/tooltip pro separador (ele já é uma linha fina,
+    // arrastar sem preview extra é suficiente) — só recalcula o índice ao soltar.
+    const aoMover = (ev: PointerEvent) => {
+      ev.preventDefault();
+    };
+
+    const aoTeclar = (ev: KeyboardEvent) => {
+      if (ev.key === "Escape") encerrar();
+    };
+
+    const aoSoltar = (ev: PointerEvent) => {
+      encerrar();
+      const indice = acharIndiceLinha(ev.clientY);
+      if (indice === -1) return;
+      const linhaAlvo = linhas[indice];
+      // Soltar sobre ele mesmo (clique sem arrastar) não mexe em nada.
+      if (linhaAlvo.kind === "separador" && linhaAlvo.id === id) return;
+      const semSeparador = ordemBaseDoNivel("", raizOrdenada).filter((e2) => e2 !== id);
+      // Item de nível 0 que contém a linha sob o cursor: solto dentro de uma pasta aberta,
+      // o separador vai pra antes da pasta inteira.
+      const alvo =
+        linhaAlvo.kind === "no" ? linhaAlvo.no.path.split("/")[0] : linhaAlvo.id;
+      let posicaoNova = semSeparador.indexOf(alvo);
+      if (posicaoNova === -1) posicaoNova = semSeparador.length;
+      const novaOrdem = [
+        ...semSeparador.slice(0, posicaoNova),
+        id,
+        ...semSeparador.slice(posicaoNova),
+      ];
+      void onReordenarNivel("", novaOrdem);
+    };
+
+    window.addEventListener("pointermove", aoMover);
+    window.addEventListener("pointerup", aoSoltar);
+    window.addEventListener("pointercancel", encerrar);
+    window.addEventListener("keydown", aoTeclar, true);
+  };
+
   return (
-    <div ref={scrollRef} className="relative h-full overflow-auto">
+    <div
+      ref={scrollRef}
+      className="relative h-full overflow-auto"
+      onContextMenu={(e) => {
+        if (modo !== "custom") return;
+        // Clique em cima de um item ou de um separador já tem seu próprio menu.
+        if (e.target !== e.currentTarget) return;
+        e.preventDefault();
+        setMenu({ x: e.clientX, y: e.clientY, no: null });
+      }}
+    >
       <div
         style={{ height: virt.getTotalSize(), position: "relative", width: "100%" }}
       >
         {virt.getVirtualItems().map((vi) => {
-          const { no, nivel, aberta } = linhas[vi.index];
+          const linha = linhas[vi.index];
+          if (linha.kind === "separador") {
+            return (
+              <div
+                key={linha.id}
+                style={{ position: "absolute", top: vi.start, height: vi.size, width: "100%" }}
+                className="flex items-center px-3"
+                onPointerDown={(e) => iniciarArrastoSeparador(e, linha.id)}
+                onContextMenu={(e) => {
+                  e.preventDefault();
+                  e.stopPropagation();
+                  setMenu({ x: e.clientX, y: e.clientY, no: null, separador: linha.id });
+                }}
+              >
+                <div className="h-px w-full bg-regua-forte" />
+              </div>
+            );
+          }
+          const { no, nivel, aberta } = linha;
           const destacado = no.path === caminhoAberto;
           return (
             <ItemArvore
@@ -277,41 +503,59 @@ export default function ArvoreArquivos({
 
       {menu && (
         <Menu posicao={menu} onFechar={fecharMenu}>
-          <ItemMenu
-            Icone={FilePlus}
-            rotulo="Nova nota aqui"
-            onClick={comMenuFechado(() => onCriarNota(pastaDoNo(menu.no)))}
-          />
-          <ItemMenu
-            Icone={SquarePen}
-            rotulo="Novo desenho aqui"
-            onClick={comMenuFechado(() => onCriarDesenho(pastaDoNo(menu.no)))}
-          />
-          <ItemMenu
-            Icone={FolderPlus}
-            rotulo="Nova pasta aqui"
-            onClick={comMenuFechado(() => onCriarPasta(pastaDoNo(menu.no)))}
-          />
-          <SeparadorMenu />
-          <ItemMenu
-            Icone={Pencil}
-            rotulo="Renomear"
-            onClick={comMenuFechado(() => onRenomear(menu.no.path))}
-          />
-          {menu.no.tipo !== "folder" && (
+          {menu.no && (
+            <>
+              <ItemMenu
+                Icone={FilePlus}
+                rotulo="Nova nota aqui"
+                onClick={comMenuFechado(() => onCriarNota(pastaDoNo(menu.no!)))}
+              />
+              <ItemMenu
+                Icone={SquarePen}
+                rotulo="Novo desenho aqui"
+                onClick={comMenuFechado(() => onCriarDesenho(pastaDoNo(menu.no!)))}
+              />
+              <ItemMenu
+                Icone={FolderPlus}
+                rotulo="Nova pasta aqui"
+                onClick={comMenuFechado(() => onCriarPasta(pastaDoNo(menu.no!)))}
+              />
+              <SeparadorMenu />
+              <ItemMenu
+                Icone={Pencil}
+                rotulo="Renomear"
+                onClick={comMenuFechado(() => onRenomear(menu.no!.path))}
+              />
+              {menu.no.tipo !== "folder" && (
+                <ItemMenu
+                  Icone={Move}
+                  rotulo="Mover para…"
+                  onClick={comMenuFechado(() => onMoverPara(menu.no!.path))}
+                />
+              )}
+              <SeparadorMenu />
+              <ItemMenu
+                Icone={Trash2}
+                rotulo="Mover para a lixeira"
+                destrutivo
+                onClick={comMenuFechado(() => onExcluir(menu.no!.path, menu.no!.tipo))}
+              />
+            </>
+          )}
+          {!menu.no && menu.separador && (
             <ItemMenu
-              Icone={Move}
-              rotulo="Mover para…"
-              onClick={comMenuFechado(() => onMoverPara(menu.no.path))}
+              Icone={Trash2}
+              rotulo="Remover separador"
+              onClick={comMenuFechado(() => onRemoverSeparador(menu.separador!))}
             />
           )}
-          <SeparadorMenu />
-          <ItemMenu
-            Icone={Trash2}
-            rotulo="Mover para a lixeira"
-            destrutivo
-            onClick={comMenuFechado(() => onExcluir(menu.no.path, menu.no.tipo))}
-          />
+          {!menu.no && !menu.separador && modo === "custom" && (
+            <ItemMenu
+              Icone={Rows3}
+              rotulo="Adicionar separador"
+              onClick={comMenuFechado(onAdicionarSeparador)}
+            />
+          )}
         </Menu>
       )}
     </div>

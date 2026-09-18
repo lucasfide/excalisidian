@@ -24,6 +24,11 @@ export default function ArvoreEBacklinks({ onArquivoAberto }: Props) {
   const arvore = useVaultStore((s) => s.arvore);
   const pastasAbertas = useVaultStore((s) => s.pastasAbertas);
   const alternarPasta = useVaultStore((s) => s.alternarPasta);
+  const modoOrdenacao = useVaultStore((s) => s.modoOrdenacao);
+  const customOrder = useVaultStore((s) => s.customOrder);
+  const reordenarNivelCustom = useVaultStore((s) => s.reordenarNivelCustom);
+  const adicionarSeparadorCustom = useVaultStore((s) => s.adicionarSeparadorCustom);
+  const removerSeparadorCustom = useVaultStore((s) => s.removerSeparadorCustom);
   const caminhoAtivo = useWorkspaceStore((s) => s.caminhoAtivo);
   const abrirDocumento = useWorkspaceStore((s) => s.abrirDocumento);
 
@@ -35,6 +40,8 @@ export default function ArvoreEBacklinks({ onArquivoAberto }: Props) {
             raiz={arvore}
             pastasAbertas={pastasAbertas}
             caminhoAberto={caminhoAtivo}
+            modo={modoOrdenacao === "custom" ? "custom" : "alphabetical"}
+            customOrder={customOrder}
             onAlternarPasta={alternarPasta}
             onAbrirArquivo={(path) => {
               abrirDocumento(path);
@@ -47,6 +54,9 @@ export default function ArvoreEBacklinks({ onArquivoAberto }: Props) {
             onMoverArquivo={(path, dir) => void comandoMoverArquivo(path, dir)}
             onMoverPara={(path) => void comandoMoverPara(path)}
             onExcluir={(path, tipo) => void comandoExcluir(path, tipo)}
+            onReordenarNivel={reordenarNivelCustom}
+            onAdicionarSeparador={() => void adicionarSeparadorCustom()}
+            onRemoverSeparador={(id) => void removerSeparadorCustom(id)}
           />
         )}
       </div>
