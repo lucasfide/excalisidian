@@ -296,6 +296,9 @@ export default function ArvoreArquivos({
       pointerId: e.pointerId,
     };
 
+    // Esc desiste do gesto: solta a captura e limpa o estado sem mover nem reordenar nada.
+    let cancelado = false;
+
     const aoMover = (ev: PointerEvent) => {
       const info = arrastoRef.current;
       if (!info) return;
@@ -328,6 +331,7 @@ export default function ArvoreArquivos({
       } catch {
         /* elemento já desmontado ou captura já perdida — esperado */
       }
+      if (cancelado) return;
       if (info?.engajado && modo === "custom" && info.alvo === null) {
         // Alvo null pode ser "sem pasta válida sob o cursor" OU "é a própria pasta de
         // origem" (`aoMover` zera esse caso) — nos dois, ainda vale checar se caiu sobre um
@@ -344,7 +348,10 @@ export default function ArvoreArquivos({
     };
 
     const aoTeclar = (ev: KeyboardEvent) => {
-      if (ev.key === "Escape") aoSoltar();
+      if (ev.key !== "Escape") return;
+      // Mesma semântica do arrasto do separador: Esc cancela, não confirma o drop.
+      cancelado = true;
+      aoSoltar();
     };
 
     window.addEventListener("pointermove", aoMover);
@@ -391,15 +398,21 @@ export default function ArvoreArquivos({
       encerrar();
       const indice = acharIndiceLinha(ev.clientY);
       if (indice === -1) return;
-      const linhaAlvo = linhas[indice];
+      // `linhas` pode ter encolhido entre o pointerdown e o pointerup (o watcher do vault
+      // remonta a árvore), então o índice do virtualizador pode não existir mais aqui.
+      const linhaAlvo: LinhaVisivel | undefined = linhas[indice];
       // Soltar sobre ele mesmo (clique sem arrastar) não mexe em nada.
-      if (linhaAlvo.kind === "separador" && linhaAlvo.id === id) return;
+      if (linhaAlvo?.kind === "separador" && linhaAlvo.id === id) return;
       const semSeparador = ordemBaseDoNivel("", raizOrdenada).filter((e2) => e2 !== id);
       // Item de nível 0 que contém a linha sob o cursor: solto dentro de uma pasta aberta,
-      // o separador vai pra antes da pasta inteira.
+      // o separador vai pra antes da pasta inteira. Sem linha sob o cursor, vai pro fim.
       const alvo =
-        linhaAlvo.kind === "no" ? linhaAlvo.no.path.split("/")[0] : linhaAlvo.id;
-      let posicaoNova = semSeparador.indexOf(alvo);
+        linhaAlvo === undefined
+          ? undefined
+          : linhaAlvo.kind === "no"
+            ? linhaAlvo.no.path.split("/")[0]
+            : linhaAlvo.id;
+      let posicaoNova = alvo === undefined ? -1 : semSeparador.indexOf(alvo);
       if (posicaoNova === -1) posicaoNova = semSeparador.length;
       const novaOrdem = [
         ...semSeparador.slice(0, posicaoNova),
@@ -520,6 +533,16 @@ export default function ArvoreArquivos({
                 rotulo="Nova pasta aqui"
                 onClick={comMenuFechado(() => onCriarPasta(pastaDoNo(menu.no!)))}
               />
+              {/* Separador só existe no nível 0 (é a raiz que tem seções), e o clique no
+                  espaço vazio abaixo da árvore não existe quando ela enche a sidebar — por
+                  isso a ação também mora aqui, junto das outras de "criar". */}
+              {modo === "custom" && !menu.no.path.includes("/") && (
+                <ItemMenu
+                  Icone={Rows3}
+                  rotulo="Adicionar separador"
+                  onClick={comMenuFechado(onAdicionarSeparador)}
+                />
+              )}
               <SeparadorMenu />
               <ItemMenu
                 Icone={Pencil}
