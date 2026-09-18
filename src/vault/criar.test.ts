@@ -7,12 +7,19 @@ const adapter = {
   escreverTexto: vi.fn(async (p: string, t: string) => void arquivos.set(p, t)),
   criarPasta: vi.fn(async () => {}),
 };
+// Espião do efeito real de registrarItemCriado (customOrder). O próprio mock, igual ao
+// vaultStore de verdade (Task 4), só chama o espião quando modoOrdenacao === "custom" — quem
+// chama (criar.ts) não precisa (e não deve) repetir esse guard.
+const registrarItemCriadoSpy = vi.fn();
 const vaultState = {
   adapter,
   recarregarArvore: vi.fn(async () => {}),
   reindexarArquivo: vi.fn(async () => {}),
   modoOrdenacao: "alphabetical" as "alphabetical" | "custom",
-  registrarItemCriado: vi.fn(async () => {}),
+  registrarItemCriado: async (pasta: string, nomeBase: string) => {
+    if (vaultState.modoOrdenacao !== "custom") return;
+    registrarItemCriadoSpy(pasta, nomeBase);
+  },
 };
 vi.mock("../estado/vaultStore", () => ({
   useVaultStore: { getState: () => vaultState },
@@ -23,7 +30,7 @@ import { duplicarArquivo, separarExtensao } from "./criar";
 beforeEach(() => {
   arquivos.clear();
   vaultState.modoOrdenacao = "alphabetical";
-  vaultState.registrarItemCriado.mockClear();
+  registrarItemCriadoSpy.mockClear();
 });
 
 describe("separarExtensao", () => {
@@ -59,7 +66,7 @@ describe("criarNota/criarPasta — registram no customOrder quando o modo é cus
   it("modo alphabetical: não chama registrarItemCriado", async () => {
     const { criarNota } = await import("./criar");
     await criarNota("Nota", "");
-    expect(vaultState.registrarItemCriado).not.toHaveBeenCalled();
+    expect(registrarItemCriadoSpy).not.toHaveBeenCalled();
   });
 
   it("modo custom: registra a pasta e o nome-base do arquivo criado", async () => {
@@ -67,7 +74,7 @@ describe("criarNota/criarPasta — registram no customOrder quando o modo é cus
     const { criarNota } = await import("./criar");
     const r = await criarNota("Nota", "Projetos");
     expect(r.ok).toBe(true);
-    expect(vaultState.registrarItemCriado).toHaveBeenCalledWith("Projetos", "Nota.md");
+    expect(registrarItemCriadoSpy).toHaveBeenCalledWith("Projetos", "Nota.md");
   });
 
   it("modo custom: pasta nova também é registrada, na raiz", async () => {
@@ -75,6 +82,6 @@ describe("criarNota/criarPasta — registram no customOrder quando o modo é cus
     const { criarPasta } = await import("./criar");
     const r = await criarPasta("Nova Pasta", "");
     expect(r.ok).toBe(true);
-    expect(vaultState.registrarItemCriado).toHaveBeenCalledWith("", "Nova Pasta");
+    expect(registrarItemCriadoSpy).toHaveBeenCalledWith("", "Nova Pasta");
   });
 });
