@@ -29,6 +29,17 @@ import { hashConteudo, deveIgnorarEvento } from "../vault/escritaAtomica";
 import { useDocumentosStore } from "./documentosStore";
 import { useTarefasStore } from "./tarefasStore";
 import type { EventoArquivo } from "../vault/VaultAdapter";
+import { type ModoOrdenacao } from "../vault/ordenacao";
+import { lerConfigVault, gravarConfigVault } from "../vault/configVault";
+import {
+  inserirNoTopo,
+  removerItem,
+  renomearItem,
+  moverItem,
+  adicionarSeparador,
+  removerSeparador,
+  reordenarNivel,
+} from "../vault/customOrder";
 
 // Acima deste número de eventos num lote (ex.: git checkout), reindexa tudo em vez de
 // arquivo por arquivo.
@@ -51,6 +62,8 @@ interface VaultState {
   entradas: EntradaArquivo[];
   arvore: NoArvore | null;
   pastasAbertas: Set<string>;
+  modoOrdenacao: ModoOrdenacao;
+  customOrder: Record<string, string[]>;
 
   indice: Map<string, FileMeta>;
   resolucao: IndiceResolucao;
@@ -72,6 +85,15 @@ interface VaultState {
    * quando a aba ativa muda, pra o arquivo aparecer destacado na árvore mesmo se estava
    * dentro de uma pasta fechada (sem isto, `destacado` nunca tinha uma linha pra destacar). */
   garantirAncestraisAbertos(path: string): void;
+
+  definirModoOrdenacao(modo: ModoOrdenacao): Promise<void>;
+  reordenarNivelCustom(pasta: string, novaOrdem: string[]): Promise<void>;
+  adicionarSeparadorCustom(): Promise<void>;
+  removerSeparadorCustom(id: string): Promise<void>;
+  registrarItemCriado(pasta: string, nomeBase: string): Promise<void>;
+  registrarItemMovido(pastaOrigem: string, pastaDestino: string, nomeBase: string): Promise<void>;
+  registrarItemRenomeado(pasta: string, nomeAntigo: string, nomeNovo: string): Promise<void>;
+  registrarItemRemovido(pasta: string, nomeBase: string): Promise<void>;
 }
 
 let cancelarWatcher: () => void = () => {};
@@ -89,6 +111,8 @@ export const useVaultStore = create<VaultState>((set, get) => ({
   entradas: [],
   arvore: null,
   pastasAbertas: new Set(),
+  modoOrdenacao: "alphabetical",
+  customOrder: {},
 
   indice: new Map(),
   resolucao: RESOLUCAO_VAZIA,
@@ -107,6 +131,11 @@ export const useVaultStore = create<VaultState>((set, get) => ({
       resolucao: RESOLUCAO_VAZIA,
       links: LINKS_VAZIO,
       statusIndice: "vazio",
+    });
+    const config = await lerConfigVault();
+    set({
+      modoOrdenacao: config.sortMode ?? "alphabetical",
+      customOrder: config.customOrder ?? {},
     });
     // Índice de busca por conteúdo: carrega o persistido deste vault (ou começa vazio);
     // a sincronização do que mudou acontece dentro do reindexar (RF4.8).
@@ -290,5 +319,56 @@ export const useVaultStore = create<VaultState>((set, get) => ({
       }
     }
     if (mudou) set({ pastasAbertas: abertas });
+  },
+
+  async definirModoOrdenacao(modo) {
+    set({ modoOrdenacao: modo });
+    await gravarConfigVault({ sortMode: modo });
+  },
+
+  async reordenarNivelCustom(pasta, novaOrdem) {
+    const novo = reordenarNivel(get().customOrder, pasta, novaOrdem);
+    set({ customOrder: novo });
+    await gravarConfigVault({ customOrder: novo });
+  },
+
+  async adicionarSeparadorCustom() {
+    const { customOrder } = adicionarSeparador(get().customOrder);
+    set({ customOrder });
+    await gravarConfigVault({ customOrder });
+  },
+
+  async removerSeparadorCustom(id) {
+    const novo = removerSeparador(get().customOrder, id);
+    set({ customOrder: novo });
+    await gravarConfigVault({ customOrder: novo });
+  },
+
+  async registrarItemCriado(pasta, nomeBase) {
+    if (get().modoOrdenacao !== "custom") return;
+    const novo = inserirNoTopo(get().customOrder, pasta, nomeBase);
+    set({ customOrder: novo });
+    await gravarConfigVault({ customOrder: novo });
+  },
+
+  async registrarItemMovido(pastaOrigem, pastaDestino, nomeBase) {
+    if (get().modoOrdenacao !== "custom") return;
+    const novo = moverItem(get().customOrder, pastaOrigem, pastaDestino, nomeBase);
+    set({ customOrder: novo });
+    await gravarConfigVault({ customOrder: novo });
+  },
+
+  async registrarItemRenomeado(pasta, nomeAntigo, nomeNovo) {
+    if (get().modoOrdenacao !== "custom") return;
+    const novo = renomearItem(get().customOrder, pasta, nomeAntigo, nomeNovo);
+    set({ customOrder: novo });
+    await gravarConfigVault({ customOrder: novo });
+  },
+
+  async registrarItemRemovido(pasta, nomeBase) {
+    if (get().modoOrdenacao !== "custom") return;
+    const novo = removerItem(get().customOrder, pasta, nomeBase);
+    set({ customOrder: novo });
+    await gravarConfigVault({ customOrder: novo });
   },
 }));
