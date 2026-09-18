@@ -161,6 +161,7 @@ interface EstadoArrasto {
 }
 
 const ALTURA_LINHA = 26;
+const ALTURA_SEPARADOR = 16;
 const ALTURA_RAIZ = 32;
 
 export default function ArvoreArquivos({
@@ -220,7 +221,8 @@ export default function ArvoreArquivos({
   const virt = useVirtualizer({
     count: linhas.length,
     getScrollElement: () => scrollRef.current,
-    estimateSize: () => ALTURA_LINHA,
+    estimateSize: (i) => linhas[i]?.kind === "separador" ? ALTURA_SEPARADOR : ALTURA_LINHA,
+    getItemKey: (i) => { const l = linhas[i]; return l ? (l.kind === "separador" ? l.id : l.no.path) : i; },
     overscan: 12,
   });
 
@@ -498,7 +500,8 @@ export default function ArvoreArquivos({
               <div
                 key={linha.id}
                 style={{ position: "absolute", top: vi.start, height: vi.size, width: "100%" }}
-                className="flex items-center px-3"
+                className="flex items-center px-2 group cursor-grab"
+                role="separator"
                 onPointerDown={(e) => iniciarArrastoSeparador(e, linha.id)}
                 onContextMenu={(e) => {
                   e.preventDefault();
@@ -506,7 +509,7 @@ export default function ArvoreArquivos({
                   setMenu({ x: e.clientX, y: e.clientY, no: null, separador: linha.id });
                 }}
               >
-                <div className="h-px w-full bg-regua-forte" />
+                <div className="h-px w-full bg-regua transition-colors duration-[140ms] ease-caderno group-hover:bg-regua-forte" />
               </div>
             );
           }
