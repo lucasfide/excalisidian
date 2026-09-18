@@ -206,3 +206,10 @@
     box-shadow: 0 0 0 5px color-mix(in srgb, var(--color-ocre) 0%, transparent);
   }
 }
+
+/* Arrasto na árvore de arquivos: `grabbing` no documento inteiro enquanto o gesto está
+ * engajado, inclusive sobre elementos com cursor próprio (separador, texto do editor). */
+.arrastando-arvore,
+.arrastando-arvore * {
+  cursor: grabbing !important;
+}

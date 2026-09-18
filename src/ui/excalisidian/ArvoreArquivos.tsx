@@ -357,7 +357,6 @@ export default function ArvoreArquivos({
     let encerrado = false;
     let alvo: AlvoSoltura = null;
     let quadro: number | null = null;
-    let cursorAnterior = "";
     // Guardado no início: o teardown precisa tirar o listener do mesmo elemento em que pôs.
     const areaRolavel = scrollRef.current;
 
@@ -412,7 +411,7 @@ export default function ArvoreArquivos({
       el.scrollTop = antes + velocidade;
       // Topo ou fim: para aqui; o próximo pointermove religa se ainda houver pra onde rolar.
       if (el.scrollTop === antes) return;
-      recalcular();
+      // O alvo é recalculado pelo `aoRolar`: `scroll` também dispara pra `scrollTop` via código.
       quadro = requestAnimationFrame(rolarQuadro);
     };
 
@@ -430,8 +429,9 @@ export default function ArvoreArquivos({
         const dist = Math.hypot(ultimoX - inicioX, ultimoY - inicioY);
         if (dist < DISTANCIA_PARA_ENGAJAR) return;
         engajado = true;
-        cursorAnterior = document.body.style.cursor;
-        document.body.style.cursor = "grabbing";
+        // Classe no <html> e não `body.style.cursor`: elementos com cursor próprio (separador,
+        // texto do editor) ganhariam do body (ver globals.css).
+        document.documentElement.classList.add("arrastando-arvore");
       }
       recalcular();
       if (quadro === null && velocidadeRolagem() !== 0) {
@@ -464,7 +464,7 @@ export default function ArvoreArquivos({
       }
       setArraste(null);
       if (!engajado) return;
-      document.body.style.cursor = cursorAnterior;
+      document.documentElement.classList.remove("arrastando-arvore");
       // Esc e pointercancel não produzem o clique do soltar; armar aqui comeria um clique
       // de verdade.
       if (!confirmar) return;
@@ -485,7 +485,14 @@ export default function ArvoreArquivos({
     const aoCancelar = () => encerrar(false);
 
     const aoTeclar = (ev: KeyboardEvent) => {
-      if (ev.key === "Escape") encerrar(false);
+      if (ev.key !== "Escape") return;
+      // Engajado, o Esc é do arrasto: não pode também fechar diálogo, menu ou mexer no desenho.
+      // Antes de engajar ninguém viu gesto nenhum, então o Esc segue pros outros.
+      if (engajado) {
+        ev.preventDefault();
+        ev.stopPropagation();
+      }
+      encerrar(false);
     };
 
     // Um novo pointerdown com o gesto aberto prova que o soltar anterior se perdeu (fora da
@@ -588,7 +595,11 @@ export default function ArvoreArquivos({
           <div
             aria-hidden
             className="pointer-events-none absolute h-0.5 bg-cristal"
-            style={{ top: alvo.y - 1, left: 8 + alvo.nivel * 16, right: 8 }}
+            style={{
+              top: Math.min(Math.max(alvo.y - 1, 0), virt.getTotalSize() - 2),
+              left: 8 + alvo.nivel * 16,
+              right: 8,
+            }}
           />
         )}
       </div>
