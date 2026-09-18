@@ -9,6 +9,7 @@ import { useSobreposicaoStore } from "../../estado/sobreposicaoStore";
 import { comandoNovaNota, comandoNovoDesenho, comandoNovaPasta } from "../../app/comandos/criacao";
 import ArvoreEBacklinks from "./ArvoreEBacklinks";
 import BarraFerramentasSidebar from "./BarraFerramentasSidebar";
+import BotaoOrdenacao from "./BotaoOrdenacao";
 import CampoBuscaSidebar from "./CampoBuscaSidebar";
 import SeletorVault from "./SeletorVault";
 
@@ -46,9 +47,14 @@ export default function ConteudoSidebar({
         />
       </div>
 
-      {/* Entrada visível da busca unificada (doc 13 §1.1): abaixo do cabeçalho, antes da
-          árvore de arquivos. */}
-      <CampoBuscaSidebar />
+      {/* Entrada visível da busca unificada (doc 13 §1.1) + botão de ordenar, na mesma
+          linha, abaixo do cabeçalho e antes da árvore de arquivos. */}
+      <div className="flex items-center gap-2 border-b border-regua px-3 py-2">
+        <div className="flex-1">
+          <CampoBuscaSidebar />
+        </div>
+        <BotaoOrdenacao />
+      </div>
 
       <ArvoreEBacklinks />
 
