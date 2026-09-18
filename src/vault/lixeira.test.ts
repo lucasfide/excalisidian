@@ -79,6 +79,8 @@ const { disco, pastas, entradasFake, vaultState, painelFechado, painelChamadas }
       },
       recarregarArvore: async () => {},
       reindexar: async () => {},
+      modoOrdenacao: "alphabetical" as "alphabetical" | "custom",
+      registrarItemRemovido: async (_pasta: string, _nome: string): Promise<void> => {},
     };
     return { disco, pastas, entradasFake, vaultState, painelFechado, painelChamadas };
   },
@@ -118,6 +120,7 @@ beforeEach(() => {
   entradasFake.length = 0;
   painelFechado.length = 0;
   painelChamadas.length = 0;
+  vaultState.modoOrdenacao = "alphabetical";
 });
 
 describe("excluir", () => {
@@ -162,6 +165,18 @@ describe("excluir", () => {
     expect(r.ok).toBe(true);
     expect(disco.get(".trash/Nota (2).md")).toBe("# Nota\n");
     expect(disco.get(".trash/Nota.md")).toBe("outra coisa"); // intocado
+  });
+
+  it("modo custom: excluir registra a remoção do customOrder", async () => {
+    const chamadas: [string, string][] = [];
+    vaultState.modoOrdenacao = "custom";
+    vaultState.registrarItemRemovido = async (pasta, nome) => {
+      chamadas.push([pasta, nome]);
+    };
+    disco.set("Nota.md", "# Nota\n");
+    const r = await excluir("Nota.md");
+    expect(r.ok).toBe(true);
+    expect(chamadas).toEqual([["", "Nota.md"]]);
   });
 });
 

@@ -267,6 +267,16 @@ export async function aplicarMovimentacao(
     }
   }
 
+  const dirAntigo = pastaDe(pathAntigo);
+  const dirNovo = pastaDe(pathNovo);
+  const nomeAntigoBase = baseNome(pathAntigo);
+  const nomeNovoBase = baseNome(pathNovo);
+  if (dirAntigo !== dirNovo) {
+    await vault.registrarItemMovido(dirAntigo, dirNovo, nomeNovoBase);
+  } else if (nomeAntigoBase !== nomeNovoBase) {
+    await vault.registrarItemRenomeado(dirAntigo, nomeAntigoBase, nomeNovoBase);
+  }
+
   // A aba aberta segue o arquivo.
   useWorkspaceStore.getState().renomearDocumento(pathAntigo, pathNovo);
   await vault.recarregarArvore();

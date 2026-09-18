@@ -29,6 +29,17 @@ const { disco, vaultState } = vi.hoisted(() => {
     resolver: (_alvo: string, _origem: string): string | null => null,
     recarregarArvore: async () => {},
     reindexar: async () => {},
+    modoOrdenacao: "alphabetical" as "alphabetical" | "custom",
+    registrarItemMovido: async (
+      _origem: string,
+      _destino: string,
+      _nome: string,
+    ): Promise<void> => {},
+    registrarItemRenomeado: async (
+      _pasta: string,
+      _antigo: string,
+      _novo: string,
+    ): Promise<void> => {},
   };
   return { disco, vaultState };
 });
@@ -121,6 +132,7 @@ describe("renomearArquivo — atualiza links dentro de .draw.md sem tocar a cena
     disco.clear();
     vaultState.links.backlinks.clear();
     vaultState.resolver = () => null;
+    vaultState.modoOrdenacao = "alphabetical";
   });
 
   it("reescreve o texto do elemento e o element.link, preservando a geometria", async () => {
@@ -229,5 +241,16 @@ describe("renomearArquivo — atualiza links dentro de .draw.md sem tocar a cena
     // backlinks aponta Diagrama.draw.md como origem de Zeta.md, mas o vault.resolver não
     // resolve nenhum wikilink para Zeta.md dentro dele (cena vazia) — nada deve mudar.
     expect(disco.get("Diagrama.draw.md")).toBe(original);
+  });
+
+  it("modo custom, renomear na mesma pasta: registra a troca de nome", async () => {
+    const chamadas: [string, string, string][] = [];
+    vaultState.modoOrdenacao = "custom";
+    vaultState.registrarItemRenomeado = async (pasta, antigo, novo) => {
+      chamadas.push([pasta, antigo, novo]);
+    };
+    disco.set("Nota.md", "# Nota\n");
+    await renomearArquivo("Nota.md", "Renomeada");
+    expect(chamadas).toEqual([["", "Nota.md", "Renomeada.md"]]);
   });
 });

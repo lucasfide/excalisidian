@@ -5,11 +5,14 @@ const adapter = {
   existe: vi.fn(async (p: string) => arquivos.has(p)),
   lerTexto: vi.fn(async (p: string) => arquivos.get(p) ?? ""),
   escreverTexto: vi.fn(async (p: string, t: string) => void arquivos.set(p, t)),
+  criarPasta: vi.fn(async () => {}),
 };
 const vaultState = {
   adapter,
   recarregarArvore: vi.fn(async () => {}),
   reindexarArquivo: vi.fn(async () => {}),
+  modoOrdenacao: "alphabetical" as "alphabetical" | "custom",
+  registrarItemCriado: vi.fn(async () => {}),
 };
 vi.mock("../estado/vaultStore", () => ({
   useVaultStore: { getState: () => vaultState },
@@ -19,6 +22,8 @@ import { duplicarArquivo, separarExtensao } from "./criar";
 
 beforeEach(() => {
   arquivos.clear();
+  vaultState.modoOrdenacao = "alphabetical";
+  vaultState.registrarItemCriado.mockClear();
 });
 
 describe("separarExtensao", () => {
@@ -47,5 +52,29 @@ describe("duplicarArquivo", () => {
 
     expect(r).toEqual({ ok: true, caminho: "Fluxo (2).draw.md" });
     expect(arquivos.get("Fluxo (2).draw.md")).toBe("conteudo do desenho");
+  });
+});
+
+describe("criarNota/criarPasta — registram no customOrder quando o modo é custom", () => {
+  it("modo alphabetical: não chama registrarItemCriado", async () => {
+    const { criarNota } = await import("./criar");
+    await criarNota("Nota", "");
+    expect(vaultState.registrarItemCriado).not.toHaveBeenCalled();
+  });
+
+  it("modo custom: registra a pasta e o nome-base do arquivo criado", async () => {
+    vaultState.modoOrdenacao = "custom";
+    const { criarNota } = await import("./criar");
+    const r = await criarNota("Nota", "Projetos");
+    expect(r.ok).toBe(true);
+    expect(vaultState.registrarItemCriado).toHaveBeenCalledWith("Projetos", "Nota.md");
+  });
+
+  it("modo custom: pasta nova também é registrada, na raiz", async () => {
+    vaultState.modoOrdenacao = "custom";
+    const { criarPasta } = await import("./criar");
+    const r = await criarPasta("Nova Pasta", "");
+    expect(r.ok).toBe(true);
+    expect(vaultState.registrarItemCriado).toHaveBeenCalledWith("", "Nova Pasta");
   });
 });

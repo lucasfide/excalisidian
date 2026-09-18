@@ -28,6 +28,17 @@ const { disco, vaultState } = vi.hoisted(() => {
     resolver: (_alvo: string, _origem: string): string | null => null,
     recarregarArvore: async () => {},
     reindexar: async () => {},
+    modoOrdenacao: "alphabetical" as "alphabetical" | "custom",
+    registrarItemMovido: async (
+      _origem: string,
+      _destino: string,
+      _nome: string,
+    ): Promise<void> => {},
+    registrarItemRenomeado: async (
+      _pasta: string,
+      _antigo: string,
+      _novo: string,
+    ): Promise<void> => {},
   };
   return { disco, vaultState };
 });
@@ -55,6 +66,7 @@ beforeEach(() => {
   disco.clear();
   vaultState.links.backlinks.clear();
   vaultState.resolver = () => null;
+  vaultState.modoOrdenacao = "alphabetical";
 });
 
 describe("moverArquivo — arrastar na árvore (RF4.x)", () => {
@@ -116,5 +128,16 @@ describe("moverArquivo — arrastar na árvore (RF4.x)", () => {
     expect(r.pathNovo).toBe("Nota.md");
     expect(disco.has("Projetos/Nota.md")).toBe(false);
     expect(disco.get("Nota.md")).toBe("# Nota\n");
+  });
+
+  it("modo custom: registra a movimentação no customOrder", async () => {
+    const chamadas: [string, string, string][] = [];
+    vaultState.modoOrdenacao = "custom";
+    vaultState.registrarItemMovido = async (origem, destino, nome) => {
+      chamadas.push([origem, destino, nome]);
+    };
+    disco.set("Nota.md", "# Nota\n");
+    await moverArquivo("Nota.md", "Projetos");
+    expect(chamadas).toEqual([["", "Projetos", "Nota.md"]]);
   });
 });

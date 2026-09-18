@@ -51,6 +51,9 @@ async function criarArquivo(
   await vault.adapter.escreverTexto(caminho, conteudo(nome));
   await vault.recarregarArvore();
   await vault.reindexarArquivo(caminho);
+  if (vault.modoOrdenacao === "custom") {
+    await vault.registrarItemCriado(dir, caminho.slice(caminho.lastIndexOf("/") + 1));
+  }
   return { ok: true, caminho };
 }
 
@@ -81,6 +84,9 @@ export async function criarPasta(
   }
   await vault.adapter.criarPasta(caminho);
   await vault.recarregarArvore();
+  if (vault.modoOrdenacao === "custom") {
+    await vault.registrarItemCriado(dir, nome);
+  }
   return { ok: true, caminho };
 }
 

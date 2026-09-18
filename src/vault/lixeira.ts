@@ -97,6 +97,7 @@ export async function excluir(path: string): Promise<ResultadoExclusao> {
   await vault.adapter.criarPasta(PASTA_LIXEIRA);
   const trashPath = await caminhoLivre(`${PASTA_LIXEIRA}/${base}`, ext);
   await vault.adapter.mover(path, trashPath);
+  await vault.registrarItemRemovido(pastaDe(path), nome);
 
   const itens = await lerIndice();
   itens.push({
