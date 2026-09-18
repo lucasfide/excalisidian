@@ -8,6 +8,7 @@
 // herdar o mesmo bug.
 
 import { useEffect, useMemo, useRef, useState } from "react";
+import { createPortal } from "react-dom";
 import { useVirtualizer } from "@tanstack/react-virtual";
 import {
   FilePlus,
@@ -554,14 +555,19 @@ export default function ArvoreArquivos({
         </div>
       )}
 
-      {arraste && (
-        <div
-          className="pointer-events-none fixed z-50 rounded-controle border border-regua-forte bg-superficie px-2 py-1 text-[12px] text-tinta shadow-[var(--shadow-sobreposicao)]"
-          style={{ left: arraste.x + 12, top: arraste.y + 12 }}
-        >
-          {arraste.nome}
-        </div>
-      )}
+      {/* Portal: a animação de entrada da sidebar deixa um `transform` aplicado, e aí `fixed`
+          passa a ser relativo a ela — a coordenada de tela sai deslocada. (O Menu já faz
+          portal sozinho.) */}
+      {arraste &&
+        createPortal(
+          <div
+            className="pointer-events-none fixed z-50 rounded-controle border border-regua-forte bg-superficie px-2 py-1 text-[12px] text-tinta shadow-[var(--shadow-sobreposicao)]"
+            style={{ left: arraste.x + 12, top: arraste.y + 12 }}
+          >
+            {arraste.nome}
+          </div>,
+          document.body,
+        )}
 
       {menu && (
         <Menu posicao={menu} onFechar={fecharMenu}>

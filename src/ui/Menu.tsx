@@ -2,8 +2,9 @@
 // posicionada por coordenada de tela, fechando em clique fora, Esc ou perda de foco da janela.
 // Ícone de 16px em linha de menu, traço 1.5 (doc 06, seção Ícones).
 
-import { useEffect, useRef, type ReactNode } from "react";
-import type { LucideIcon } from "lucide-react";
+import { useEffect, useLayoutEffect, useRef, useState, type ReactNode } from "react";
+import { createPortal } from "react-dom";
+import { Check, type LucideIcon } from "lucide-react";
 
 import { cn } from "./cn";
 import Superficie from "./Superficie";
@@ -42,16 +43,34 @@ export function Menu({ posicao, onFechar, children }: PropsMenu) {
     };
   }, [onFechar]);
 
-  return (
+  // Aberto perto da borda da janela, o menu vazaria pra fora: mede depois de montar e puxa
+  // pra dentro. Antes do primeiro paint, então não pisca na posição errada.
+  const [ajuste, setAjuste] = useState<PosicaoMenu>(posicao);
+  useLayoutEffect(() => {
+    const el = ref.current;
+    if (!el) return;
+    const { width, height } = el.getBoundingClientRect();
+    const margem = 8;
+    setAjuste({
+      x: Math.max(margem, Math.min(posicao.x, window.innerWidth - width - margem)),
+      y: Math.max(margem, Math.min(posicao.y, window.innerHeight - height - margem)),
+    });
+  }, [posicao.x, posicao.y]);
+
+  // Portal: `posicao` é coordenada de tela, e `fixed` só é relativo à tela se nenhum
+  // ancestral tiver `transform` (a animação de entrada da sidebar deixa um aplicado) — dentro
+  // dele o menu sairia deslocado e recortado na borda.
+  return createPortal(
     <Superficie
       ref={ref}
       flutuante
       role="menu"
       className="fixed z-50 min-w-[180px] py-1"
-      style={{ left: posicao.x, top: posicao.y }}
+      style={{ left: ajuste.x, top: ajuste.y }}
     >
       {children}
-    </Superficie>
+    </Superficie>,
+    document.body,
   );
 }
 
@@ -61,6 +80,9 @@ interface PropsItem {
   onClick: () => void;
   destrutivo?: boolean;
   desabilitado?: boolean;
+  /** Item de escolha única: sempre reserva o espaço do check, pra os rótulos do grupo
+   * alinharem marcados ou não. Ignora `Icone`. */
+  marcado?: boolean;
 }
 
 export function ItemMenu({
@@ -69,10 +91,15 @@ export function ItemMenu({
   onClick,
   destrutivo = false,
   desabilitado = false,
+  marcado,
 }: PropsItem) {
+  if (marcado !== undefined) {
+    Icone = undefined;
+  }
   return (
     <button
-      role="menuitem"
+      role={marcado === undefined ? "menuitem" : "menuitemradio"}
+      aria-checked={marcado}
       disabled={desabilitado}
       onClick={onClick}
       className={cn(
@@ -84,6 +111,11 @@ export function ItemMenu({
           : "text-tinta hover:bg-lavagem",
       )}
     >
+      {marcado !== undefined && (
+        <span className="inline-flex w-4 shrink-0 justify-center" aria-hidden>
+          {marcado && <Check size={16} strokeWidth={1.5} className="text-tinta-media" />}
+        </span>
+      )}
       {Icone && (
         <Icone
           size={16}

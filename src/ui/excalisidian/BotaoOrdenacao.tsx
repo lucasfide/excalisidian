@@ -3,7 +3,7 @@
 // de um ícone por modo pra comunicar o estado atual.
 
 import { useState } from "react";
-import { ArrowUpDown, Check } from "lucide-react";
+import { ArrowUpDown } from "lucide-react";
 
 import { BotaoIcone, Menu, ItemMenu, type PosicaoMenu } from "../index";
 import { useVaultStore } from "../../estado/vaultStore";
@@ -34,7 +34,7 @@ export default function BotaoOrdenacao() {
           {ORDEM_MODOS.map((modo) => (
             <ItemMenu
               key={modo}
-              Icone={modo === modoOrdenacao ? Check : undefined}
+              marcado={modo === modoOrdenacao}
               rotulo={ROTULO_MODO[modo]}
               onClick={() => selecionar(modo)}
             />
