@@ -37,7 +37,32 @@ function ehSeparador(entrada: string): boolean {
 }
 
 /**
- * Achata a árvore nas linhas visíveis. `entradasRaiz` é o `customOrder[""]` (nomes e ids
+ * Ordem completa de um nível, nomes e ids `sep-` misturados, pronta tanto pra desenhar quanto
+ * pra gravar: o que `customOrder[pasta]` guardava, jogando fora as entradas de arquivos que
+ * não existem mais, seguido dos nós que ainda não tinham posição salva — na mesma ordem em que
+ * `ordenarNivel` (vault/ordenacao.ts) os coloca, que é o fim do nível.
+ *
+ * Filtrar as entradas mortas é o que mantém separador no lugar: uma entrada de arquivo que
+ * sumiu (exclusão fora do modo customizado, `git pull`, edição por fora) empurraria todo
+ * separador abaixo dela uma posição pra cima na hora de intercalar.
+ */
+function ordemBaseDoNivel(salva: string[] | undefined, nivelNo: NoArvore): string[] {
+  const nomesAtuais = nivelNo.filhos.map((n) => n.nome);
+  const existentes = new Set(nomesAtuais);
+  const validas = (salva ?? []).filter((e) => ehSeparador(e) || existentes.has(e));
+  const jaNaBase = new Set(validas);
+  const faltantes = nomesAtuais.filter((nome) => !jaNaBase.has(nome));
+  if (faltantes.length === 0) return validas;
+  // Os faltantes entram depois do último NOME, não depois do último separador: separador de
+  // rodapé (o caso do recém-adicionado, que `adicionarSeparador` põe no fim da lista) tem que
+  // continuar sendo rodapé.
+  let corte = validas.length;
+  while (corte > 0 && ehSeparador(validas[corte - 1])) corte--;
+  return [...validas.slice(0, corte), ...faltantes, ...validas.slice(corte)];
+}
+
+/**
+ * Achata a árvore nas linhas visíveis. `entradasRaiz` é a ordem-base da raiz (nomes e ids
  * `sep-` misturados) e só serve pra saber ONDE cada separador entra entre os itens de nível
  * 0 — a ordem dos nós em si já veio resolvida por `ordenarArvore`.
  */
@@ -59,10 +84,11 @@ function achatar(
     visitar(raiz.filhos, 0);
     return linhas;
   }
-  // Intercala os itens de nível 0 com os separadores, na posição relativa que
-  // `customOrder[""]` registrou. Cada entrada de nome consome o próximo nó, exista ele ou
-  // não: assim entradas obsoletas só deslocam separador, e o `while` final garante que a
-  // ordem dos nós continua sendo exatamente a de `raiz.filhos`, sem perder nenhum.
+  // Intercala os itens de nível 0 com os separadores, na posição que a ordem-base registrou.
+  // Cada entrada de nome consome o próximo nó: como `entradasRaiz` já veio de
+  // `ordemBaseDoNivel` (só nomes que existem, na mesma sequência que `ordenarArvore` aplicou
+  // em `raiz.filhos`), entrada e nó casam um a um. O `while` final é a rede de segurança —
+  // com ou sem casamento, nenhum nó fica de fora e a ordem deles continua a de `raiz.filhos`.
   const filhosRaiz = raiz.filhos;
   let cursor = 0;
   const empurrarNivel0 = (no: NoArvore) => {
@@ -129,6 +155,8 @@ interface EstadoArrasto {
   x: number;
   y: number;
   alvo: AlvoArrasto;
+  /** Pasta arrastada: não mostra a faixa "raiz do vault", que pra ela é alvo inválido. */
+  ehPasta: boolean;
 }
 
 const ALTURA_LINHA = 26;
@@ -157,11 +185,11 @@ export default function ArvoreArquivos({
     () => ordenarArvore(raiz, modo, customOrder),
     [raiz, modo, customOrder],
   );
-  // Só a raiz tem separadores. O `useMemo` aqui é pelo `?? []`: sem ele, um vault sem ordem
-  // salva criaria um array novo a cada render e invalidaria o `useMemo` de `linhas`.
+  // Só a raiz tem separadores. A ordem-base (e não o `customOrder[""]` cru) é o que desenha e
+  // o que grava: as duas pontas precisam concordar sobre onde cada separador cai.
   const entradasRaiz = useMemo(
-    () => (modo === "custom" ? (customOrder[""] ?? []) : []),
-    [modo, customOrder],
+    () => (modo === "custom" ? ordemBaseDoNivel(customOrder[""], raizOrdenada) : []),
+    [modo, customOrder, raizOrdenada],
   );
   const linhas = useMemo(
     () => achatar(raizOrdenada, pastasAbertas, entradasRaiz),
@@ -175,6 +203,8 @@ export default function ArvoreArquivos({
     path: string;
     nome: string;
     origem: string;
+    /** Pasta arrastada: só reordena entre irmãs, nunca vira `onMoverArquivo`. */
+    ehPasta: boolean;
     startX: number;
     startY: number;
     engajado: boolean;
@@ -219,8 +249,10 @@ export default function ArvoreArquivos({
       .getVirtualItems()
       .find((vi) => y >= vi.start && y < vi.start + vi.size);
     if (!item) return null;
-    const linha = linhas[item.index];
-    if (linha.kind !== "no") return null;
+    // `linhas` pode ter encolhido desde o pointerdown (o watcher do vault remonta a árvore),
+    // e aí o índice do virtualizador não existe mais aqui.
+    const linha: LinhaVisivel | undefined = linhas[item.index];
+    if (!linha || linha.kind !== "no") return null;
     const { no } = linha;
     return no.tipo === "folder" ? no.path : null;
   };
@@ -236,22 +268,9 @@ export default function ArvoreArquivos({
     return item ? item.index : -1;
   };
 
-  /** Ordem-base de um nível pra edição: o que já estava salvo em `customOrder[pasta]`
-   * (separadores inclusive — reordenar a raiz não pode apagá-los), sem as entradas de
-   * arquivos que sumiram, seguido do que ainda não tinha posição salva, na ordem em que a
-   * árvore já está mostrando. */
-  const ordemBaseDoNivel = (pasta: string, nivelNo: NoArvore): string[] => {
-    const nomesAtuais = nivelNo.filhos.map((n) => n.nome);
-    const existentes = new Set(nomesAtuais);
-    const salva = (customOrder[pasta] ?? []).filter(
-      (entrada) => ehSeparador(entrada) || existentes.has(entrada),
-    );
-    const jaNaBase = new Set(salva);
-    return [...salva, ...nomesAtuais.filter((nome) => !jaNaBase.has(nome))];
-  };
-
   /** Calcula a nova ordem de uma pasta movendo `pathArrastado` pra logo antes de `pathAlvo`,
-   * e persiste via `onReordenarNivel`. */
+   * e persiste via `onReordenarNivel`. A ordem-base é a mesma que desenhou a árvore, então o
+   * que é gravado é exatamente o que estava na tela (separadores inclusive). */
   const reordenarAposArrasto = async (
     pasta: string,
     pathArrastado: string,
@@ -262,7 +281,8 @@ export default function ArvoreArquivos({
     const nomeArrastado = pathArrastado.slice(pathArrastado.lastIndexOf("/") + 1);
     const nomeAlvo = pathAlvo.slice(pathAlvo.lastIndexOf("/") + 1);
     if (nomeArrastado === nomeAlvo) return;
-    const semArrastado = ordemBaseDoNivel(pasta, nivelNo).filter((e) => e !== nomeArrastado);
+    const base = pasta === "" ? entradasRaiz : ordemBaseDoNivel(customOrder[pasta], nivelNo);
+    const semArrastado = base.filter((e) => e !== nomeArrastado);
     const indiceAlvo = semArrastado.indexOf(nomeAlvo);
     if (indiceAlvo === -1) return;
     const novaOrdem = [
@@ -274,7 +294,12 @@ export default function ArvoreArquivos({
   };
 
   const iniciarArrasto = (e: React.PointerEvent, no: NoArvore) => {
-    if (no.tipo === "folder" || e.button !== 0) return;
+    if (e.button !== 0) return;
+    // Pasta arrasta só em modo customizado, e só pra reordenar entre irmãs: mudar uma pasta
+    // inteira de lugar no disco está fora do escopo (ver o cabeçalho de vault/mover.ts), e é
+    // `ehPasta` que mantém o branch de `onMoverArquivo` inalcançável pra ela lá no drop.
+    const ehPasta = no.tipo === "folder";
+    if (ehPasta && modo !== "custom") return;
     e.preventDefault();
     const origem = pastaDe(no.path);
     const elemento = e.currentTarget as HTMLElement;
@@ -287,6 +312,7 @@ export default function ArvoreArquivos({
       path: no.path,
       nome: nomeExibicao(no),
       origem,
+      ehPasta,
       startX: e.clientX,
       startY: e.clientY,
       engajado: false,
@@ -307,17 +333,27 @@ export default function ArvoreArquivos({
         if (dist < 4) return;
         info.engajado = true;
       }
-      let alvo = acharAlvo(ev.clientY);
+      // Pasta arrastada nunca tem pasta-destino: o único drop que vale pra ela é o reorder
+      // entre irmãs, que roda justamente quando `alvo` é null. Sem isso, soltar uma pasta
+      // sobre outra não faria nada (e nenhuma pasta se destaca como alvo durante o gesto).
+      let alvo = info.ehPasta ? null : acharAlvo(ev.clientY);
       if (alvo === info.origem) alvo = null; // soltar na própria pasta não faz nada
       info.alvo = alvo;
       info.ultimoY = ev.clientY;
-      setArraste({ path: info.path, nome: info.nome, x: ev.clientX, y: ev.clientY, alvo });
+      setArraste({
+        path: info.path,
+        nome: info.nome,
+        x: ev.clientX,
+        y: ev.clientY,
+        alvo,
+        ehPasta: info.ehPasta,
+      });
     };
 
     const aoSoltar = () => {
       window.removeEventListener("pointermove", aoMover);
       window.removeEventListener("pointerup", aoSoltar);
-      window.removeEventListener("pointercancel", aoSoltar);
+      window.removeEventListener("pointercancel", aoCancelar);
       window.removeEventListener("keydown", aoTeclar, true);
       const info = arrastoRef.current;
       arrastoRef.current = null;
@@ -342,7 +378,10 @@ export default function ArvoreArquivos({
         if (linhaAlvo?.kind === "no" && pastaDe(linhaAlvo.no.path) === info.origem) {
           void reordenarAposArrasto(info.origem, info.path, linhaAlvo.no.path);
         }
-      } else if (info?.engajado && info.alvo !== null) {
+      } else if (info?.engajado && !info.ehPasta && info.alvo !== null) {
+        // `!info.ehPasta` é redundante com o `alvo` forçado a null em `aoMover` — é de
+        // propósito: mover pasta no disco está fora do escopo e não pode depender de um só
+        // ponto de controle.
         onMoverArquivo(info.path, info.alvo);
       }
     };
@@ -354,11 +393,19 @@ export default function ArvoreArquivos({
       aoSoltar();
     };
 
+    // Captura de ponteiro pode ser perdida por motivos fora do controle do app: um diálogo do
+    // sistema no meio do gesto, ou o compositor decidindo que aquele movimento era rolagem de
+    // toque/trackpad. Nos dois casos o gesto foi abortado, não confirmado — comitar aqui
+    // gravaria uma reordenação que o usuário nunca pediu (o reorder dispara justamente com
+    // `alvo` null, que é o estado normal de uma rolagem).
+    const aoCancelar = () => {
+      cancelado = true;
+      aoSoltar();
+    };
+
     window.addEventListener("pointermove", aoMover);
     window.addEventListener("pointerup", aoSoltar);
-    // Captura de ponteiro pode ser perdida por motivos fora do controle do app (ex. um
-    // diálogo do sistema abrindo no meio do gesto); sem tratar isso o estado fica preso.
-    window.addEventListener("pointercancel", aoSoltar);
+    window.addEventListener("pointercancel", aoCancelar);
     window.addEventListener("keydown", aoTeclar, true);
   };
 
@@ -403,7 +450,7 @@ export default function ArvoreArquivos({
       const linhaAlvo: LinhaVisivel | undefined = linhas[indice];
       // Soltar sobre ele mesmo (clique sem arrastar) não mexe em nada.
       if (linhaAlvo?.kind === "separador" && linhaAlvo.id === id) return;
-      const semSeparador = ordemBaseDoNivel("", raizOrdenada).filter((e2) => e2 !== id);
+      const semSeparador = entradasRaiz.filter((e2) => e2 !== id);
       // Item de nível 0 que contém a linha sob o cursor: solto dentro de uma pasta aberta,
       // o separador vai pra antes da pasta inteira. Sem linha sob o cursor, vai pro fim.
       const alvo =
@@ -491,8 +538,10 @@ export default function ArvoreArquivos({
       </div>
 
       {/* Alvo explícito para "voltar pra raiz" — sem depender de acertar um vazio ambíguo.
-          Só existe durante um arrasto: fora disso é só espaço ocupado à toa. */}
-      {arraste && (
+          Só existe durante um arrasto de arquivo: fora disso é só espaço ocupado à toa, e
+          pasta não muda de lugar no disco, então pra ela a faixa seria um alvo que não faz
+          nada. */}
+      {arraste && !arraste.ehPasta && (
         <div
           style={{ height: ALTURA_RAIZ }}
           className={cn(
