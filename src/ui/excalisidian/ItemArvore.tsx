@@ -16,6 +16,8 @@ interface Props {
   destacado: boolean;
   /** Pasta sob o cursor durante um arrastar (destino do drop). */
   alvoDeArrasto?: boolean;
+  /** A própria linha sendo arrastada (gesto engajado). */
+  arrastado?: boolean;
   style: CSSProperties;
   onClick: () => void;
   onContextMenu: (e: React.MouseEvent) => void;
@@ -28,6 +30,7 @@ export default function ItemArvore({
   aberta,
   destacado,
   alvoDeArrasto = false,
+  arrastado = false,
   style,
   onClick,
   onContextMenu,
@@ -45,6 +48,7 @@ export default function ItemArvore({
         destacado ? "bg-lavagem text-tinta" : "text-tinta-media hover:bg-lavagem",
         alvoDeArrasto &&
           "bg-[color-mix(in_srgb,var(--color-cristal)_12%,transparent)] outline outline-1 outline-cristal -outline-offset-1",
+        arrastado && "opacity-40",
       )}
       style={{
         ...style,

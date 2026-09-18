@@ -21,11 +21,23 @@ import {
   Rows3,
 } from "lucide-react";
 
-import { nomeExibicao, encontrarNo as encontrarNoLocal, type NoArvore } from "../../vault/arvore";
+import {
+  nomeExibicao,
+  encontrarNo as encontrarNoLocal,
+  type NoArvore,
+  type TipoNo,
+} from "../../vault/arvore";
 import { pastaDe } from "../../vault/caminhos";
 import { ordenarArvore } from "../../vault/ordenacao";
-import { Menu, ItemMenu, SeparadorMenu, type PosicaoMenu, cn } from "../index";
+import { Menu, ItemMenu, SeparadorMenu, IconeArquivo, type PosicaoMenu, cn } from "../index";
 import ItemArvore from "./ItemArvore";
+import {
+  calcularAlvo,
+  calcularNovaOrdem,
+  type AlvoSoltura,
+  type ItemArrastado,
+  type LinhaGeometria,
+} from "./alvoSoltura";
 
 type LinhaVisivel =
   | { kind: "no"; no: NoArvore; nivel: number; aberta: boolean }
@@ -147,22 +159,44 @@ interface Props {
 /** `no` nulo = menu do espaço vazio da árvore ou de um separador (`separador` diz qual). */
 type EstadoMenu = (PosicaoMenu & { no: NoArvore | null; separador?: string }) | null;
 
-/** `null` = nenhum alvo válido sob o cursor; `""` = raiz. */
-type AlvoArrasto = string | null;
-
+/** O que a árvore desenha durante um gesto engajado. */
 interface EstadoArrasto {
-  path: string;
-  nome: string;
+  item: ItemArrastado;
+  rotulo: string;
+  /** Ícone da etiqueta; null = separador. */
+  tipoNo: TipoNo | null;
+  /** Posição do ponteiro na tela, pra etiqueta. */
   x: number;
   y: number;
-  alvo: AlvoArrasto;
-  /** Pasta arrastada: não mostra a faixa "raiz do vault", que pra ela é alvo inválido. */
-  ehPasta: boolean;
+  alvo: AlvoSoltura;
 }
 
 const ALTURA_LINHA = 26;
 const ALTURA_SEPARADOR = 16;
 const ALTURA_RAIZ = 32;
+/** Distância da borda da área rolável em que o arrasto começa a rolar a árvore. */
+const ZONA_ROLAGEM = 24;
+const ROLAGEM_MAXIMA_POR_QUADRO = 8;
+const DISTANCIA_PARA_ENGAJAR = 4;
+
+/** A faixa "raiz do vault" só existe pra arrasto de arquivo: pasta não muda de lugar no disco
+ * e separador não sai da raiz, então pra eles ela seria um alvo que não faz nada. */
+function mostraFaixaRaiz(item: ItemArrastado): boolean {
+  return item.tipo === "no" && !item.ehPasta;
+}
+
+/** Com a captura de ponteiro, o `click` que vem logo depois do pointerup vai pra linha que foi
+ * arrastada: sem engolir esse clique, soltar um arquivo o abriria e soltar uma pasta a
+ * abriria/fecharia. Se o clique não vier (soltou fora da janela), o listener sai no próximo
+ * tick e não come um clique de verdade. */
+function engolirCliqueDoSoltar() {
+  const engolir = (ev: MouseEvent) => {
+    ev.stopPropagation();
+    ev.preventDefault();
+  };
+  window.addEventListener("click", engolir, { capture: true, once: true });
+  setTimeout(() => window.removeEventListener("click", engolir, true), 0);
+}
 
 export default function ArvoreArquivos({
   raiz,
@@ -201,22 +235,10 @@ export default function ArvoreArquivos({
   const [arraste, setArraste] = useState<EstadoArrasto | null>(null);
 
   const scrollRef = useRef<HTMLDivElement | null>(null);
-  const arrastoRef = useRef<{
-    path: string;
-    nome: string;
-    origem: string;
-    /** Pasta arrastada: só reordena entre irmãs, nunca vira `onMoverArquivo`. */
-    ehPasta: boolean;
-    startX: number;
-    startY: number;
-    engajado: boolean;
-    alvo: AlvoArrasto;
-    /** Último Y do ponteiro: `aoSoltar` também é chamado sem evento (Esc), então a posição
-     * do drop precisa estar guardada aqui. */
-    ultimoY: number;
-    elemento: HTMLElement;
-    pointerId: number;
-  } | null>(null);
+  // Os handlers do gesto são fechos criados no pointerdown, mas o watcher do vault pode remontar
+  // a árvore no meio do arrasto: eles leem sempre o render mais recente por aqui.
+  const atualRef = useRef({ linhas, entradasRaiz, customOrder, raizOrdenada, modo });
+  atualRef.current = { linhas, entradasRaiz, customOrder, raizOrdenada, modo };
 
   const virt = useVirtualizer({
     count: linhas.length,
@@ -242,168 +264,206 @@ export default function ArvoreArquivos({
     acao();
   };
 
-  const acharAlvo = (clientY: number): AlvoArrasto => {
-    const rect = scrollRef.current?.getBoundingClientRect();
-    if (!rect) return null;
-    const y = clientY - rect.top + (scrollRef.current?.scrollTop ?? 0);
-    const totalArvore = virt.getTotalSize();
-    if (y >= totalArvore && y < totalArvore + ALTURA_RAIZ) return "";
-    const item = virt
-      .getVirtualItems()
-      .find((vi) => y >= vi.start && y < vi.start + vi.size);
-    if (!item) return null;
-    // `linhas` pode ter encolhido desde o pointerdown (o watcher do vault remonta a árvore),
-    // e aí o índice do virtualizador não existe mais aqui.
-    const linha: LinhaVisivel | undefined = linhas[item.index];
-    if (!linha || linha.kind !== "no") return null;
-    const { no } = linha;
-    return no.tipo === "folder" ? no.path : null;
+  /** Geometria de TODAS as linhas (não só as desenhadas pela virtualização), na ordem da árvore. */
+  const montarGeometria = (linhasAtuais: LinhaVisivel[]): LinhaGeometria[] => {
+    // `getMeasurements` é privado; `getTotalSize` o recalcula e deixa o resultado no
+    // `measurementsCache` público, já com a contagem do render atual.
+    virt.getTotalSize();
+    const medidas = virt.measurementsCache;
+    const geometria: LinhaGeometria[] = [];
+    for (let i = 0; i < linhasAtuais.length && i < medidas.length; i++) {
+      const linha = linhasAtuais[i];
+      const { start, size } = medidas[i];
+      if (linha.kind === "separador") {
+        geometria.push({
+          tipo: "separador",
+          chave: linha.id,
+          path: linha.id,
+          pasta: "",
+          ehPasta: false,
+          nivel: 0,
+          inicio: start,
+          altura: size,
+        });
+      } else {
+        geometria.push({
+          tipo: "no",
+          chave: linha.no.nome,
+          path: linha.no.path,
+          pasta: pastaDe(linha.no.path),
+          ehPasta: linha.no.tipo === "folder",
+          nivel: linha.nivel,
+          inicio: start,
+          altura: size,
+        });
+      }
+    }
+    return geometria;
   };
 
-  /** Em modo customizado, soltar um item sobre outro do MESMO nível reordena os dois — sem
-   * mexer em qual pasta cada um está. Devolve o índice de linha (dentro de `linhas`) sob o
-   * cursor, ou -1 se não houver nenhum. */
-  const acharIndiceLinha = (clientY: number): number => {
-    const rect = scrollRef.current?.getBoundingClientRect();
-    if (!rect) return -1;
-    const y = clientY - rect.top + (scrollRef.current?.scrollTop ?? 0);
-    const item = virt.getVirtualItems().find((vi) => y >= vi.start && y < vi.start + vi.size);
-    return item ? item.index : -1;
-  };
-
-  /** Calcula a nova ordem de uma pasta movendo `pathArrastado` pra logo antes de `pathAlvo`,
-   * e persiste via `onReordenarNivel`. A ordem-base é a mesma que desenhou a árvore, então o
+  /** Grava o que o indicador mostrava. A ordem-base é a mesma que desenhou a árvore, então o
    * que é gravado é exatamente o que estava na tela (separadores inclusive). */
-  const reordenarAposArrasto = async (
-    pasta: string,
-    pathArrastado: string,
-    pathAlvo: string,
-  ): Promise<void> => {
-    const nivelNo = pasta === "" ? raizOrdenada : encontrarNoLocal(raizOrdenada, pasta);
-    if (!nivelNo) return;
-    const nomeArrastado = pathArrastado.slice(pathArrastado.lastIndexOf("/") + 1);
-    const nomeAlvo = pathAlvo.slice(pathAlvo.lastIndexOf("/") + 1);
-    if (nomeArrastado === nomeAlvo) return;
-    const base = pasta === "" ? entradasRaiz : ordemBaseDoNivel(customOrder[pasta], nivelNo);
-    const semArrastado = base.filter((e) => e !== nomeArrastado);
-    const indiceAlvo = semArrastado.indexOf(nomeAlvo);
-    if (indiceAlvo === -1) return;
-    const novaOrdem = [
-      ...semArrastado.slice(0, indiceAlvo),
-      nomeArrastado,
-      ...semArrastado.slice(indiceAlvo),
-    ];
-    await onReordenarNivel(pasta, novaOrdem);
+  const confirmarSoltura = (item: ItemArrastado, alvo: NonNullable<AlvoSoltura>) => {
+    const { entradasRaiz, customOrder, raizOrdenada, modo } = atualRef.current;
+    if (alvo.tipo === "reordenar") {
+      if (modo !== "custom") return;
+      if (item.tipo === "no" && item.pasta !== alvo.pasta) return;
+      let base: string[];
+      if (alvo.pasta === "") {
+        base = entradasRaiz;
+      } else {
+        const nivelNo = encontrarNoLocal(raizOrdenada, alvo.pasta);
+        if (!nivelNo) return;
+        base = ordemBaseDoNivel(customOrder[alvo.pasta], nivelNo);
+      }
+      const novaOrdem = calcularNovaOrdem(base, item.chave, alvo.antesDe);
+      if (novaOrdem !== null) void onReordenarNivel(alvo.pasta, novaOrdem);
+      return;
+    }
+    // `calcularAlvo` já nunca devolve "mover" pra pasta ou separador. Checar de novo é de
+    // propósito: mover pasta no disco está fora do escopo (vault/mover.ts) e não pode depender
+    // de um só ponto de controle.
+    if (item.tipo === "no" && !item.ehPasta) onMoverArquivo(item.path, alvo.pasta);
   };
 
-  const iniciarArrasto = (e: React.PointerEvent, no: NoArvore) => {
+  /** Um só gesto pra arquivo, pasta e separador. `rotulo`/`tipoNo` são só a etiqueta que segue o
+   * cursor (`tipoNo` null = separador). */
+  const iniciarArrasto = (
+    e: React.PointerEvent,
+    item: ItemArrastado,
+    rotulo: string,
+    tipoNo: TipoNo | null,
+  ) => {
     if (e.button !== 0) return;
     // Pasta arrasta só em modo customizado, e só pra reordenar entre irmãs: mudar uma pasta
-    // inteira de lugar no disco está fora do escopo (ver o cabeçalho de vault/mover.ts), e é
-    // `ehPasta` que mantém o branch de `onMoverArquivo` inalcançável pra ela lá no drop.
-    const ehPasta = no.tipo === "folder";
-    if (ehPasta && modo !== "custom") return;
+    // inteira de lugar no disco está fora do escopo (ver o cabeçalho de vault/mover.ts). Sem o
+    // preventDefault, o clique continua abrindo/fechando a pasta.
+    if (item.tipo === "no" && item.ehPasta && modo !== "custom") return;
     e.preventDefault();
-    const origem = pastaDe(no.path);
     const elemento = e.currentTarget as HTMLElement;
+    const pointerId = e.pointerId;
     // Sem captura explícita, a entrega de pointermove/pointerup pra este gesto não é
     // garantida assim que o cursor sai dos limites do elemento original (é pra isso que
     // a API de Pointer Events tem esse método — o dockview em Workspace.tsx faz o mesmo).
-    elemento.setPointerCapture(e.pointerId);
+    elemento.setPointerCapture(pointerId);
 
-    arrastoRef.current = {
-      path: no.path,
-      nome: nomeExibicao(no),
-      origem,
-      ehPasta,
-      startX: e.clientX,
-      startY: e.clientY,
-      engajado: false,
-      alvo: null,
-      ultimoY: e.clientY,
-      elemento,
-      pointerId: e.pointerId,
+    const inicioX = e.clientX;
+    const inicioY = e.clientY;
+    // Última posição do ponteiro: a rolagem automática recalcula o alvo sem evento nenhum.
+    let ultimoX = inicioX;
+    let ultimoY = inicioY;
+    let engajado = false;
+    let encerrado = false;
+    let alvo: AlvoSoltura = null;
+    let quadro: number | null = null;
+    let cursorAnterior = "";
+
+    const recalcular = () => {
+      const el = scrollRef.current;
+      const r = el?.getBoundingClientRect();
+      // Fora da área rolável não há alvo: acima ou abaixo dela o `y` cairia em linhas que
+      // estão fora da vista, e ao lado (sobre o editor) soltar não pode mover o arquivo pra
+      // pasta que por acaso estiver na mesma altura.
+      const dentro =
+        !!r && ultimoX >= r.left && ultimoX < r.right && ultimoY >= r.top && ultimoY < r.bottom;
+      alvo =
+        el && r && dentro
+          ? calcularAlvo({
+              linhas: montarGeometria(atualRef.current.linhas),
+              y: ultimoY - r.top + el.scrollTop,
+              item,
+              modo: atualRef.current.modo,
+              alturaArvore: virt.getTotalSize(),
+              alturaFaixaRaiz: mostraFaixaRaiz(item) ? ALTURA_RAIZ : 0,
+            })
+          : null;
+      setArraste({ item, rotulo, tipoNo, x: ultimoX, y: ultimoY, alvo });
     };
 
-    // Esc desiste do gesto: solta a captura e limpa o estado sem mover nem reordenar nada.
-    let cancelado = false;
+    /** Negativa rola pra cima. Proporcional à proximidade da borda; ponteiro já fora da área
+     * (acima ou abaixo) rola na velocidade máxima. */
+    const velocidadeRolagem = (): number => {
+      const r = scrollRef.current?.getBoundingClientRect();
+      if (!r || ultimoX < r.left || ultimoX >= r.right) return 0;
+      const proximidade = (distancia: number) =>
+        Math.min(1, (ZONA_ROLAGEM - distancia) / ZONA_ROLAGEM);
+      const deCima = ultimoY - r.top;
+      const deBaixo = r.bottom - ultimoY;
+      if (deCima < ZONA_ROLAGEM) {
+        return -Math.ceil(ROLAGEM_MAXIMA_POR_QUADRO * proximidade(deCima));
+      }
+      if (deBaixo < ZONA_ROLAGEM) {
+        return Math.ceil(ROLAGEM_MAXIMA_POR_QUADRO * proximidade(deBaixo));
+      }
+      return 0;
+    };
+
+    const rolarQuadro = () => {
+      quadro = null;
+      const el = scrollRef.current;
+      const velocidade = velocidadeRolagem();
+      if (encerrado || !el || velocidade === 0) return;
+      const antes = el.scrollTop;
+      el.scrollTop = antes + velocidade;
+      // Topo ou fim: para aqui; o próximo pointermove religa se ainda houver pra onde rolar.
+      if (el.scrollTop === antes) return;
+      recalcular();
+      quadro = requestAnimationFrame(rolarQuadro);
+    };
 
     const aoMover = (ev: PointerEvent) => {
-      const info = arrastoRef.current;
-      if (!info) return;
-      if (!info.engajado) {
-        const dist = Math.hypot(ev.clientX - info.startX, ev.clientY - info.startY);
-        if (dist < 4) return;
-        info.engajado = true;
+      ultimoX = ev.clientX;
+      ultimoY = ev.clientY;
+      if (!engajado) {
+        const dist = Math.hypot(ultimoX - inicioX, ultimoY - inicioY);
+        if (dist < DISTANCIA_PARA_ENGAJAR) return;
+        engajado = true;
+        cursorAnterior = document.body.style.cursor;
+        document.body.style.cursor = "grabbing";
       }
-      // Pasta arrastada nunca tem pasta-destino: o único drop que vale pra ela é o reorder
-      // entre irmãs, que roda justamente quando `alvo` é null. Sem isso, soltar uma pasta
-      // sobre outra não faria nada (e nenhuma pasta se destaca como alvo durante o gesto).
-      let alvo = info.ehPasta ? null : acharAlvo(ev.clientY);
-      if (alvo === info.origem) alvo = null; // soltar na própria pasta não faz nada
-      info.alvo = alvo;
-      info.ultimoY = ev.clientY;
-      setArraste({
-        path: info.path,
-        nome: info.nome,
-        x: ev.clientX,
-        y: ev.clientY,
-        alvo,
-        ehPasta: info.ehPasta,
-      });
+      recalcular();
+      if (quadro === null && velocidadeRolagem() !== 0) {
+        quadro = requestAnimationFrame(rolarQuadro);
+      }
     };
 
-    const aoSoltar = () => {
+    // O único fim do gesto, chamado de toda saída (soltar, Esc, pointercancel). Os dois gestos
+    // que existiam antes divergiram duas vezes justamente aqui.
+    const encerrar = (confirmar: boolean) => {
+      // pointerup e pointercancel podem disparar os dois pro mesmo gesto.
+      if (encerrado) return;
+      encerrado = true;
       window.removeEventListener("pointermove", aoMover);
       window.removeEventListener("pointerup", aoSoltar);
       window.removeEventListener("pointercancel", aoCancelar);
       window.removeEventListener("keydown", aoTeclar, true);
-      const info = arrastoRef.current;
-      arrastoRef.current = null;
-      setArraste(null);
-      // `info` pode já ser null aqui se pointerup e pointercancel dispararem os dois pro
-      // mesmo gesto (a 2ª chamada não tem o que liberar). Quando não é null, o elemento
-      // pode ter saído da virtualização entre o início do arrasto e agora — liberar a
-      // captura de um nó desmontado lança, e isso é esperado, não um erro real.
+      if (quadro !== null) {
+        cancelAnimationFrame(quadro);
+        quadro = null;
+      }
+      // O elemento pode ter saído da virtualização no meio do gesto (a rolagem automática faz
+      // isso) — liberar a captura de um nó desmontado lança, e isso é esperado.
       try {
-        info?.elemento.releasePointerCapture(info.pointerId);
+        elemento.releasePointerCapture(pointerId);
       } catch {
         /* elemento já desmontado ou captura já perdida — esperado */
       }
-      if (cancelado) return;
-      if (info?.engajado && modo === "custom" && info.alvo === null) {
-        // Alvo null pode ser "sem pasta válida sob o cursor" OU "é a própria pasta de
-        // origem" (`aoMover` zera esse caso) — nos dois, ainda vale checar se caiu sobre um
-        // irmão pra reordenar. Comparar por `pastaDe` e não por `pastaDoNo`: a linha da
-        // própria pasta de origem cai aqui também, e ela não é irmã de ninguém no nível.
-        const indice = acharIndiceLinha(info.ultimoY);
-        const linhaAlvo = indice !== -1 ? linhas[indice] : undefined;
-        if (linhaAlvo?.kind === "no" && pastaDe(linhaAlvo.no.path) === info.origem) {
-          void reordenarAposArrasto(info.origem, info.path, linhaAlvo.no.path);
-        }
-      } else if (info?.engajado && !info.ehPasta && info.alvo !== null) {
-        // `!info.ehPasta` é redundante com o `alvo` forçado a null em `aoMover` — é de
-        // propósito: mover pasta no disco está fora do escopo e não pode depender de um só
-        // ponto de controle.
-        onMoverArquivo(info.path, info.alvo);
-      }
+      setArraste(null);
+      if (!engajado) return;
+      document.body.style.cursor = cursorAnterior;
+      engolirCliqueDoSoltar();
+      if (confirmar && alvo !== null) confirmarSoltura(item, alvo);
     };
 
-    const aoTeclar = (ev: KeyboardEvent) => {
-      if (ev.key !== "Escape") return;
-      // Mesma semântica do arrasto do separador: Esc cancela, não confirma o drop.
-      cancelado = true;
-      aoSoltar();
-    };
+    const aoSoltar = () => encerrar(true);
 
     // Captura de ponteiro pode ser perdida por motivos fora do controle do app: um diálogo do
     // sistema no meio do gesto, ou o compositor decidindo que aquele movimento era rolagem de
-    // toque/trackpad. Nos dois casos o gesto foi abortado, não confirmado — comitar aqui
-    // gravaria uma reordenação que o usuário nunca pediu (o reorder dispara justamente com
-    // `alvo` null, que é o estado normal de uma rolagem).
-    const aoCancelar = () => {
-      cancelado = true;
-      aoSoltar();
+    // toque/trackpad. Nos dois casos o gesto foi abortado, não confirmado.
+    const aoCancelar = () => encerrar(false);
+
+    const aoTeclar = (ev: KeyboardEvent) => {
+      if (ev.key === "Escape") encerrar(false);
     };
 
     window.addEventListener("pointermove", aoMover);
@@ -412,71 +472,7 @@ export default function ArvoreArquivos({
     window.addEventListener("keydown", aoTeclar, true);
   };
 
-  /** Arrastar o separador pra outra posição entre os itens de nível 0. Não reaproveita
-   * `arrastoRef`: um separador não tem nó nem pasta de origem, e o único estado que este
-   * gesto precisa (o id) já está no fecho. */
-  const iniciarArrastoSeparador = (e: React.PointerEvent, id: string) => {
-    if (e.button !== 0) return;
-    e.preventDefault();
-    const elemento = e.currentTarget as HTMLElement;
-    const pointerId = e.pointerId;
-    elemento.setPointerCapture(pointerId);
-
-    const encerrar = () => {
-      window.removeEventListener("pointermove", aoMover);
-      window.removeEventListener("pointerup", aoSoltar);
-      window.removeEventListener("pointercancel", encerrar);
-      window.removeEventListener("keydown", aoTeclar, true);
-      try {
-        elemento.releasePointerCapture(pointerId);
-      } catch {
-        /* elemento já desmontado ou captura já perdida — esperado */
-      }
-    };
-
-    // Feedback visual simples: nenhum ghost/tooltip pro separador (ele já é uma linha fina,
-    // arrastar sem preview extra é suficiente) — só recalcula o índice ao soltar.
-    const aoMover = (ev: PointerEvent) => {
-      ev.preventDefault();
-    };
-
-    const aoTeclar = (ev: KeyboardEvent) => {
-      if (ev.key === "Escape") encerrar();
-    };
-
-    const aoSoltar = (ev: PointerEvent) => {
-      encerrar();
-      const indice = acharIndiceLinha(ev.clientY);
-      if (indice === -1) return;
-      // `linhas` pode ter encolhido entre o pointerdown e o pointerup (o watcher do vault
-      // remonta a árvore), então o índice do virtualizador pode não existir mais aqui.
-      const linhaAlvo: LinhaVisivel | undefined = linhas[indice];
-      // Soltar sobre ele mesmo (clique sem arrastar) não mexe em nada.
-      if (linhaAlvo?.kind === "separador" && linhaAlvo.id === id) return;
-      const semSeparador = entradasRaiz.filter((e2) => e2 !== id);
-      // Item de nível 0 que contém a linha sob o cursor: solto dentro de uma pasta aberta,
-      // o separador vai pra antes da pasta inteira. Sem linha sob o cursor, vai pro fim.
-      const alvo =
-        linhaAlvo === undefined
-          ? undefined
-          : linhaAlvo.kind === "no"
-            ? linhaAlvo.no.path.split("/")[0]
-            : linhaAlvo.id;
-      let posicaoNova = alvo === undefined ? -1 : semSeparador.indexOf(alvo);
-      if (posicaoNova === -1) posicaoNova = semSeparador.length;
-      const novaOrdem = [
-        ...semSeparador.slice(0, posicaoNova),
-        id,
-        ...semSeparador.slice(posicaoNova),
-      ];
-      void onReordenarNivel("", novaOrdem);
-    };
-
-    window.addEventListener("pointermove", aoMover);
-    window.addEventListener("pointerup", aoSoltar);
-    window.addEventListener("pointercancel", encerrar);
-    window.addEventListener("keydown", aoTeclar, true);
-  };
+  const alvo = arraste?.alvo ?? null;
 
   return (
     <div
@@ -496,13 +492,17 @@ export default function ArvoreArquivos({
         {virt.getVirtualItems().map((vi) => {
           const linha = linhas[vi.index];
           if (linha.kind === "separador") {
+            const arrastado =
+              arraste?.item.tipo === "separador" && arraste.item.chave === linha.id;
             return (
               <div
                 key={linha.id}
                 style={{ position: "absolute", top: vi.start, height: vi.size, width: "100%" }}
-                className="flex items-center px-2 group cursor-grab"
+                className={cn("flex items-center px-2 group cursor-grab", arrastado && "opacity-40")}
                 role="separator"
-                onPointerDown={(e) => iniciarArrastoSeparador(e, linha.id)}
+                onPointerDown={(e) =>
+                  iniciarArrasto(e, { tipo: "separador", chave: linha.id }, "Separador", null)
+                }
                 onContextMenu={(e) => {
                   e.preventDefault();
                   e.stopPropagation();
@@ -522,9 +522,23 @@ export default function ArvoreArquivos({
               nivel={nivel}
               aberta={aberta}
               destacado={destacado}
-              alvoDeArrasto={arraste?.alvo === no.path}
+              alvoDeArrasto={alvo?.tipo === "mover" && alvo.pasta === no.path}
+              arrastado={arraste?.item.tipo === "no" && arraste.item.path === no.path}
               style={{ top: vi.start, height: vi.size }}
-              onPointerDown={(e) => iniciarArrasto(e, no)}
+              onPointerDown={(e) =>
+                iniciarArrasto(
+                  e,
+                  {
+                    tipo: "no",
+                    chave: no.nome,
+                    path: no.path,
+                    pasta: pastaDe(no.path),
+                    ehPasta: no.tipo === "folder",
+                  },
+                  nomeExibicao(no),
+                  no.tipo,
+                )
+              }
               onClick={() => {
                 if (no.tipo === "folder") {
                   onAlternarPasta(no.path);
@@ -539,18 +553,26 @@ export default function ArvoreArquivos({
             />
           );
         })}
+        {/* Depois das linhas no DOM, pra ficar por cima delas. */}
+        {alvo?.tipo === "reordenar" && (
+          <div
+            aria-hidden
+            className="pointer-events-none absolute h-0.5 bg-cristal"
+            style={{ top: alvo.y - 1, left: 8 + alvo.nivel * 16, right: 8 }}
+          />
+        )}
       </div>
 
       {/* Alvo explícito para "voltar pra raiz" — sem depender de acertar um vazio ambíguo.
-          Só existe durante um arrasto de arquivo: fora disso é só espaço ocupado à toa, e
-          pasta não muda de lugar no disco, então pra ela a faixa seria um alvo que não faz
-          nada. */}
-      {arraste && !arraste.ehPasta && (
+          Só existe durante um arrasto de arquivo (ver `mostraFaixaRaiz`). */}
+      {arraste && mostraFaixaRaiz(arraste.item) && (
         <div
           style={{ height: ALTURA_RAIZ }}
           className={cn(
             "flex items-center gap-2 border-t border-regua px-3 text-[12px] text-tinta-suave",
-            arraste.alvo === "" && "bg-[color-mix(in_srgb,var(--color-cristal)_12%,transparent)]",
+            alvo?.tipo === "mover" &&
+              alvo.pasta === "" &&
+              "bg-[color-mix(in_srgb,var(--color-cristal)_12%,transparent)]",
           )}
         >
           <Home size={14} strokeWidth={1.5} />
@@ -564,10 +586,15 @@ export default function ArvoreArquivos({
       {arraste &&
         createPortal(
           <div
-            className="pointer-events-none fixed z-50 rounded-controle border border-regua-forte bg-superficie px-2 py-1 text-[12px] text-tinta shadow-[var(--shadow-sobreposicao)]"
+            className="pointer-events-none fixed z-50 flex items-center gap-2 rounded-controle border border-regua bg-superficie px-2 py-1 text-[12px] text-tinta shadow-ficha"
             style={{ left: arraste.x + 12, top: arraste.y + 12 }}
           >
-            {arraste.nome}
+            {arraste.tipoNo === null ? (
+              <Rows3 size={16} strokeWidth={1.5} aria-hidden className="shrink-0" />
+            ) : (
+              <IconeArquivo tipo={arraste.tipoNo} className="shrink-0" />
+            )}
+            {arraste.rotulo}
           </div>,
           document.body,
         )}
