@@ -51,7 +51,8 @@ export interface ContextoSoltura {
 }
 
 /** Ordem nova de um nível: tira `arrastado` de `base` e reinsere antes de `antesDe` (null = no
- * fim). Devolve null se `antesDe` não está em `base` ou se a ordem não muda. Não muta `base`. */
+ * fim). Devolve null se `antesDe` não está em `base`, se `antesDe === arrastado` (some de
+ * `base` junto com `arrastado`, logo nunca é achado) ou se a ordem não muda. Não muta `base`. */
 export function calcularNovaOrdem(
   base: string[],
   arrastado: string,
@@ -189,9 +190,11 @@ function calcularAlvoSeparador(
 ): AlvoSoltura {
   const linhas = ctx.linhas;
   // A linha sob o cursor pertence ao bloco de uma entrada da raiz: sobe até achar o
-  // ancestral de nível 0 (a própria linha, se já for nível 0).
+  // ancestral de nível 0 (a própria linha, se já for nível 0). `indiceDono > 0` é a rede de
+  // segurança: entrada malformada (nível > 0 sem ancestral nível 0 antes dela) para no início
+  // do array em vez de ler `linhas[-1]`.
   let indiceDono = indiceL;
-  while (linhas[indiceDono].nivel !== 0) indiceDono--;
+  while (indiceDono > 0 && linhas[indiceDono].nivel !== 0) indiceDono--;
   const dono = linhas[indiceDono];
   const fimIdx = indiceFimDoBloco(linhas, indiceDono);
   const fimY = fimIdx < linhas.length ? linhas[fimIdx].inicio : ctx.alturaArvore;

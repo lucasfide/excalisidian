@@ -400,22 +400,24 @@ describe("calcularAlvo — 'qualquer outra': nenhum alvo", () => {
 
 describe("calcularAlvo — 'depois de' pasta aberta pula todos os descendentes", () => {
   it("depois de Projetos (aberta, com 2 filhos) cai antes de Zebra.md, não entre os filhos", () => {
+    // Amelia.md é um arquivo real da raiz, posicionado antes de Projetos (irmã dela).
     const linhas = montarLinhas([
+      no("Amelia.md"),
       no("Projetos", true),
       no("Projetos/A.md"),
       no("Projetos/B.md"),
       no("Zebra.md"),
     ]);
-    const alturaArvore = 26 + 26 + 26 + 26; // 104
+    const alturaArvore = 26 * 5; // 130
     const alvo = calcularAlvo({
       linhas,
-      y: 22, // base de Projetos [0-26], 25% de baixo (item arquivo, irmã pasta)
-      item: itemArquivo("Novo.md"),
+      y: 26 + 24, // base de Projetos [26-52], 25% de baixo (item arquivo, irmã pasta)
+      item: itemArquivo("Amelia.md"),
       modo: "custom",
       alturaArvore,
       alturaFaixaRaiz: 32,
     });
-    expect(alvo).toEqual({ tipo: "reordenar", pasta: "", antesDe: "Zebra.md", y: 78, nivel: 0 });
+    expect(alvo).toEqual({ tipo: "reordenar", pasta: "", antesDe: "Zebra.md", y: 104, nivel: 0 });
   });
 });
 
@@ -474,17 +476,16 @@ describe("calcularAlvo — abaixo da última linha, faixa 'raiz do vault'", () =
 });
 
 describe("calcularAlvo — abaixo da última linha, fora da faixa", () => {
-  it("custom, item na raiz (pasta, sem faixa): reordenar no fim da raiz", () => {
+  it("custom, item na raiz (pasta, sem faixa) já é a última: sem efeito", () => {
     const linhas = montarLinhas([no("A.md"), no("PastaZ", true)]);
     const alvo = calcularAlvo({
       linhas,
       y: 52 + 5, // abaixo da árvore [52], alturaFaixaRaiz 0 (arrasto de pasta não desenha faixa)
-      item: itemPasta("PastaZ") /* já é a última? não, é — mudemos pra A.md abaixo */,
+      item: itemPasta("PastaZ"), // já é a última linha da raiz: soltar no fim é sem efeito.
       modo: "custom",
       alturaArvore: 52,
       alturaFaixaRaiz: 0,
     });
-    // PastaZ já é a última linha da raiz: soltar no fim é sem efeito.
     expect(alvo).toBeNull();
   });
 
@@ -568,11 +569,12 @@ describe("calcularAlvo — separador sobre linha filha de pasta aberta da raiz u
       no("Zebra.md"),
     ]);
     const alturaArvore = 26 * 4;
-    // Bloco de Projetos vai de 0 até 78 (início de Zebra.md). Hover em y=13 (dentro de
-    // Projetos/A.md, [26-52]) cai no primeiro terço do bloco (13/78 < 0.5): antes de Projetos.
+    // Bloco de Projetos vai de 0 até 78 (início de Zebra.md). Hover em y=30, dentro de
+    // Projetos/A.md [26-52] (uma descendente, não a própria linha de Projetos), cai na
+    // metade de cima do bloco (30/78 < 0.5): antes de Projetos.
     const alvo = calcularAlvo({
       linhas,
-      y: 13,
+      y: 30,
       item: itemSeparador("sep-novo"),
       modo: "custom",
       alturaArvore,
@@ -589,7 +591,7 @@ describe("calcularAlvo — separador sobre linha filha de pasta aberta da raiz u
       no("Zebra.md"),
     ]);
     const alturaArvore = 26 * 4;
-    // Bloco de Projetos: [0, 78). Metade é y=39. Escolhe y=45 (dentro de Projetos/B.md
+    // Bloco de Projetos: [0, 78). Metade é y=39. Escolhe y=60 (dentro de Projetos/B.md
     // [52-78)) pra garantir metade de baixo mesmo com folga de arredondamento.
     const alvo = calcularAlvo({
       linhas,
@@ -600,6 +602,95 @@ describe("calcularAlvo — separador sobre linha filha de pasta aberta da raiz u
       alturaFaixaRaiz: 0,
     });
     expect(alvo).toEqual({ tipo: "reordenar", pasta: "", antesDe: "Zebra.md", y: 78, nivel: 0 });
+  });
+});
+
+describe("calcularAlvo — reordenar abaixo da raiz (dentro de uma pasta)", () => {
+  it("dois irmãos dentro de Projetos/ reordenam com pasta e nível corretos", () => {
+    const linhas = montarLinhas([
+      no("Projetos", true),
+      no("Projetos/A.md"),
+      no("Projetos/B.md"),
+      no("Projetos/C.md"),
+    ]);
+    const alvo = calcularAlvo({
+      linhas,
+      y: 26 + 3, // topo de Projetos/A.md [26-52]
+      item: itemArquivo("Projetos/C.md"),
+      modo: "custom",
+      alturaArvore: 26 * 4,
+      alturaFaixaRaiz: 0,
+    });
+    expect(alvo).toEqual({ tipo: "reordenar", pasta: "Projetos", antesDe: "A.md", y: 26, nivel: 1 });
+  });
+
+  it("depois do último filho de Projetos/, com uma linha mais rasa em seguida: antesDe null, y da próxima linha rasa", () => {
+    const linhas = montarLinhas([
+      no("Projetos", true),
+      no("Projetos/A.md"),
+      no("Projetos/B.md"),
+      no("Outro.md"), // nível 0, vem logo depois do bloco de Projetos
+    ]);
+    const alvo = calcularAlvo({
+      linhas,
+      y: 52 + 20, // metade de baixo de Projetos/B.md [52-78], o último filho
+      item: itemArquivo("Projetos/A.md"),
+      modo: "custom",
+      alturaArvore: 26 * 4,
+      alturaFaixaRaiz: 0,
+    });
+    expect(alvo).toEqual({ tipo: "reordenar", pasta: "Projetos", antesDe: null, y: 78, nivel: 1 });
+  });
+
+  it("depois do último filho de Projetos/, sem nenhuma linha depois: antesDe null, y = alturaArvore", () => {
+    const linhas = montarLinhas([no("Projetos", true), no("Projetos/A.md"), no("Projetos/B.md")]);
+    const alturaArvore = 26 * 3; // 78
+    const alvo = calcularAlvo({
+      linhas,
+      y: 52 + 20, // metade de baixo de Projetos/B.md, o último filho e a última linha da árvore
+      item: itemArquivo("Projetos/A.md"),
+      modo: "custom",
+      alturaArvore,
+      alturaFaixaRaiz: 0,
+    });
+    expect(alvo).toEqual({ tipo: "reordenar", pasta: "Projetos", antesDe: null, y: alturaArvore, nivel: 1 });
+  });
+});
+
+describe("calcularAlvo — abaixo da última linha, past a faixa raiz (item fora da raiz): nenhum alvo", () => {
+  it("arquivo fora da raiz, solto além da faixa 'raiz do vault': nenhum alvo", () => {
+    const linhas = montarLinhas([no("Projetos", true), no("Projetos/A.md")]);
+    const alturaArvore = 52;
+    const alturaFaixaRaiz = 32;
+    const alvo = calcularAlvo({
+      linhas,
+      y: alturaArvore + alturaFaixaRaiz + 8, // além da faixa, não só abaixo da árvore
+      item: itemArquivo("Projetos/A.md"),
+      modo: "custom",
+      alturaArvore,
+      alturaFaixaRaiz,
+    });
+    expect(alvo).toBeNull();
+  });
+});
+
+describe("calcularAlvo — arquivo sobre linha de outro arquivo não-irmã: 'qualquer outra', nenhum alvo", () => {
+  it("hover sobre arquivo de outra pasta: nenhum alvo", () => {
+    const linhas = montarLinhas([
+      no("Projetos", true),
+      no("Projetos/A.md"),
+      no("Outra", true),
+      no("Outra/B.md"),
+    ]);
+    const alvo = calcularAlvo({
+      linhas,
+      y: 78 + 10, // dentro de Outra/B.md [78-104], arquivo não-irmã de Projetos/A.md
+      item: itemArquivo("Projetos/A.md"),
+      modo: "custom",
+      alturaArvore: 26 * 4,
+      alturaFaixaRaiz: 0,
+    });
+    expect(alvo).toBeNull();
   });
 });
 
