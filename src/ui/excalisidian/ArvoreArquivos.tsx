@@ -449,6 +449,7 @@ export default function ArvoreArquivos({
       window.removeEventListener("pointerup", aoSoltar);
       window.removeEventListener("pointercancel", aoCancelar);
       window.removeEventListener("keydown", aoTeclar, true);
+      window.removeEventListener("pointerdown", aoApertarDeNovo, true);
       areaRolavel?.removeEventListener("scroll", aoRolar);
       if (quadro !== null) {
         cancelAnimationFrame(quadro);
@@ -487,10 +488,17 @@ export default function ArvoreArquivos({
       if (ev.key === "Escape") encerrar(false);
     };
 
+    // Um novo pointerdown com o gesto aberto prova que o soltar anterior se perdeu (fora da
+    // janela, sem pointermove na volta): cancela antes que o pointerup desse clique grave o alvo.
+    // Não vê o pointerdown que abriu o gesto: é adicionado durante o dispatch dele, na fase de
+    // bolha da raiz do React, quando a captura em `window` já passou.
+    const aoApertarDeNovo = () => encerrar(false);
+
     window.addEventListener("pointermove", aoMover);
     window.addEventListener("pointerup", aoSoltar);
     window.addEventListener("pointercancel", aoCancelar);
     window.addEventListener("keydown", aoTeclar, true);
+    window.addEventListener("pointerdown", aoApertarDeNovo, true);
     areaRolavel?.addEventListener("scroll", aoRolar, { passive: true });
   };
 
