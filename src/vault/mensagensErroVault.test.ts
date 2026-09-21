@@ -15,6 +15,11 @@ describe("chaveDoErroVault", () => {
     expect(chaveDoErroVault("meteoro")).toBe("vault.erro.paiIndisponivel");
   });
 
+  it("código igual a membro do protótipo não escapa como função crua", () => {
+    expect(chaveDoErroVault("constructor")).toBe("vault.erro.paiIndisponivel");
+    expect(chaveDoErroVault("toString")).toBe("vault.erro.paiIndisponivel");
+  });
+
   it("toda chave devolvida existe no catálogo", () => {
     for (const codigo of ["nome_vazio", "nome_invalido", "existe", "pai_indisponivel", "?"]) {
       expect(PT_BR[chaveDoErroVault(codigo)]).toBeTruthy();

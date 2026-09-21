@@ -4,12 +4,15 @@
 
 import type { ChaveTexto } from "../i18n/catalogo";
 
-const POR_CODIGO: Record<string, ChaveTexto> = {
-  nome_vazio: "vault.erro.nomeVazio",
-  nome_invalido: "vault.erro.nomeInvalido",
-  existe: "vault.erro.existe",
-  pai_indisponivel: "vault.erro.paiIndisponivel",
-};
+// Object.create(null): `codigo` vem do `Error.message` do Rust — string arbitrária. Um
+// objeto literal comum devolveria `Object.prototype.constructor` ou `.toString` pra
+// "constructor"/"toString", o `??` não dispararia, e uma FUNÇÃO chegaria até a tela. Sem
+// protótipo, o índice só acha o que foi definido aqui embaixo.
+const POR_CODIGO: Record<string, ChaveTexto> = Object.create(null);
+POR_CODIGO.nome_vazio = "vault.erro.nomeVazio";
+POR_CODIGO.nome_invalido = "vault.erro.nomeInvalido";
+POR_CODIGO.existe = "vault.erro.existe";
+POR_CODIGO.pai_indisponivel = "vault.erro.paiIndisponivel";
 
 /** Código desconhecido cai em "não foi possível acessar o local": é verdade em qualquer
  * falha inesperada de criação, e é melhor que mostrar o código cru na tela. */
