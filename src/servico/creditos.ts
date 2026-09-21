@@ -19,7 +19,7 @@ export function restantes(s: SaldoCreditos): number {
 
 export function fracaoUsada(s: SaldoCreditos): number {
   if (s.total <= 0) return 1;
-  return Math.min(1, s.usados / s.total);
+  return Math.max(0, Math.min(1, s.usados / s.total));
 }
 
 export function nivelDeAviso(s: SaldoCreditos): "ok" | "acabando" | "esgotado" {

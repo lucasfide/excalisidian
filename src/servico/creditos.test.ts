@@ -37,6 +37,11 @@ describe("fracaoUsada", () => {
   it("total zero conta como tudo usado, não como divisão por zero", () => {
     expect(fracaoUsada(saldo(0, 0))).toBe(1);
   });
+
+  it("nunca é negativa, mesmo se o servidor mandar usados negativo", () => {
+    expect(fracaoUsada(saldo(-50, 2000))).toBe(0);
+    expect(fracaoUsada(saldo(-3000, 2000))).toBe(0);
+  });
 });
 
 describe("nivelDeAviso", () => {
