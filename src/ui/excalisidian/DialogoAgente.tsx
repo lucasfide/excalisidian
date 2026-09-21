@@ -580,7 +580,7 @@ function PassoRevisao({
     <div className="flex flex-col gap-3">
       <dl className="flex flex-col gap-1 rounded-controle border border-regua px-3 py-2 text-[13px]">
         <Linha rotulo="Provedor" valor={provedor.nome} />
-        <Linha rotulo="Chave" valor={chaveMascarada} />
+        {!provedor.exigeConta && <Linha rotulo="Chave" valor={chaveMascarada} />}
         <Linha rotulo="Leitura inicial" valor={r.modeloGateiro} />
         <Linha rotulo="Acompanhamento" valor={r.modeloAssistente} />
       </dl>
@@ -609,15 +609,17 @@ function PassoRevisao({
         </label>
       )}
 
-      <Campo
-        rotulo="Limite diário de gasto em US$ (opcional)"
-        type="text"
-        inputMode="decimal"
-        autoComplete="off"
-        placeholder="vazio = sem limite"
-        value={r.teto}
-        onChange={(e) => onMudar({ teto: e.target.value })}
-      />
+      {!provedor.exigeConta && (
+        <Campo
+          rotulo="Limite diário de gasto em US$ (opcional)"
+          type="text"
+          inputMode="decimal"
+          autoComplete="off"
+          placeholder="vazio = sem limite"
+          value={r.teto}
+          onChange={(e) => onMudar({ teto: e.target.value })}
+        />
+      )}
     </div>
   );
 }
