@@ -13,6 +13,9 @@ import { useAgenteStore } from "../../estado/agenteStore";
 import { confirmar } from "../../estado/dialogoStore";
 import { provedorDe } from "../../agente/provedores";
 import { verificarAtualizacao } from "../../app/atualizacao";
+import { IDIOMAS } from "../../i18n/idioma";
+import { useTexto } from "../../i18n/useTexto";
+import DialogoGlossario from "./DialogoGlossario";
 
 interface Props {
   onFechar(): void;
@@ -32,14 +35,22 @@ const OPCOES_LARGURA: OpcaoGrupo<LarguraNota>[] = [
 
 export default function DialogoPreferencias({ onFechar }: Props) {
   const tema = usePrefsStore((s) => s.tema);
+  const idioma = usePrefsStore((s) => s.idioma);
   const larguraNota = usePrefsStore((s) => s.larguraNota);
   const nomeUsuario = usePrefsStore((s) => s.nomeUsuario);
   const definirTema = usePrefsStore((s) => s.definirTema);
+  const definirIdioma = usePrefsStore((s) => s.definirIdioma);
   const definirLarguraNota = usePrefsStore((s) => s.definirLarguraNota);
   const definirNomeUsuario = usePrefsStore((s) => s.definirNomeUsuario);
+  const t = useTexto();
+  const opcoesIdioma: OpcaoGrupo<typeof idioma>[] = IDIOMAS.map((id) => ({
+    rotulo: t(id === "pt-BR" ? "prefs.idioma.ptBR" : "prefs.idioma.en"),
+    valor: id,
+  }));
   const [versao, setVersao] = useState<string | null>(null);
   const [testando, setTestando] = useState(false);
   const [resultadoTeste, setResultadoTeste] = useState<string | null>(null);
+  const [glossarioAberto, setGlossarioAberto] = useState(false);
 
   // Estado local do campo (não grava a cada tecla — só no blur/Enter, doc 15 §1.2). Sincroniza
   // quando `nomeUsuario` muda por fora (outra janela emitiu `app://prefs-mudou`, this store
@@ -70,80 +81,112 @@ export default function DialogoPreferencias({ onFechar }: Props) {
   }, []);
 
   return (
-    <Dialog titulo="Configurações" onFechar={onFechar} className="max-w-sm">
-      <div className="flex flex-col gap-4">
-        <Secao titulo="Seu nome">
-          <div className="flex flex-col gap-1.5">
-            <Campo
-              rotulo="Nome"
-              value={nome}
-              onChange={(e) => setNome(e.target.value)}
-              onFocus={() => setNomeFocado(true)}
-              onBlur={() => {
-                setNomeFocado(false);
-                gravarNomeSeMudou();
-              }}
-              onKeyDown={(e) => {
-                if (e.key === "Enter") gravarNomeSeMudou();
-              }}
-              // Sem isto nada dizia como salvar depois de mudar o nome (usuário, 16/09/2026).
-              // Sair do campo também salva; a dica mostra o gesto explícito.
-              sufixo={
-                <>
-                  <CornerDownLeft size={12} strokeWidth={1.5} />
-                  <span className="meta">Enter</span>
-                </>
-              }
+    <>
+      <Dialog titulo="Configurações" onFechar={onFechar} className="max-w-sm">
+        <div className="flex flex-col gap-4">
+          <Secao titulo="Seu nome">
+            <div className="flex flex-col gap-1.5">
+              <Campo
+                rotulo="Nome"
+                value={nome}
+                onChange={(e) => setNome(e.target.value)}
+                onFocus={() => setNomeFocado(true)}
+                onBlur={() => {
+                  setNomeFocado(false);
+                  gravarNomeSeMudou();
+                }}
+                onKeyDown={(e) => {
+                  if (e.key === "Enter") gravarNomeSeMudou();
+                }}
+                // Sem isto nada dizia como salvar depois de mudar o nome (usuário, 16/09/2026).
+                // Sair do campo também salva; a dica mostra o gesto explícito.
+                sufixo={
+                  <>
+                    <CornerDownLeft size={12} strokeWidth={1.5} />
+                    <span className="meta">Enter</span>
+                  </>
+                }
+              />
+              <p className="text-pequeno text-tinta-media">
+                Aparece na saudação da tela de início.
+              </p>
+            </div>
+          </Secao>
+          <Secao titulo="Tema">
+            <GrupoBotoes
+              rotuloGrupo="Tema"
+              opcoes={OPCOES_TEMA}
+              valor={tema}
+              onEscolher={definirTema}
             />
-            <p className="text-pequeno text-tinta-media">
-              Aparece na saudação da tela de início.
-            </p>
-          </div>
-        </Secao>
-        <Secao titulo="Tema">
-          <GrupoBotoes
-            rotuloGrupo="Tema"
-            opcoes={OPCOES_TEMA}
-            valor={tema}
-            onEscolher={definirTema}
-          />
-        </Secao>
-        <Secao titulo="Largura da nota">
-          <GrupoBotoes
-            rotuloGrupo="Largura da nota"
-            opcoes={OPCOES_LARGURA}
-            valor={larguraNota}
-            onEscolher={definirLarguraNota}
-          />
-        </Secao>
-        <Secao titulo="Agente de IA">
-          <SecaoAgente
-            testando={testando}
-            resultadoTeste={resultadoTeste}
-            onTestar={async () => {
-              setTestando(true);
-              setResultadoTeste(null);
-              const erro = await useAgenteStore.getState().testarConexao();
-              setResultadoTeste(erro ?? "Conexão funcionando.");
-              setTestando(false);
-            }}
-          />
-        </Secao>
-        <Secao titulo="Atualizações">
-          <div className="flex items-center justify-between gap-2">
-            <span className="text-pequeno text-tinta-media">
-              {versao ? `Versão ${versao}` : ""}
-            </span>
-            <Botao
-              tamanho="compacto"
-              onClick={() => void verificarAtualizacao({ silencioso: false })}
-            >
-              Verificar atualizações
-            </Botao>
-          </div>
-        </Secao>
-      </div>
-    </Dialog>
+          </Secao>
+          <Secao titulo={t("prefs.idioma.rotulo")}>
+            <div className="flex flex-col gap-1.5">
+              <GrupoBotoes
+                rotuloGrupo={t("prefs.idioma.rotulo")}
+                opcoes={opcoesIdioma}
+                valor={idioma}
+                onEscolher={definirIdioma}
+              />
+              <p className="text-pequeno text-tinta-media">{t("prefs.idioma.descricao")}</p>
+            </div>
+          </Secao>
+          <Secao titulo="Largura da nota">
+            <GrupoBotoes
+              rotuloGrupo="Largura da nota"
+              opcoes={OPCOES_LARGURA}
+              valor={larguraNota}
+              onEscolher={definirLarguraNota}
+            />
+          </Secao>
+          <Secao titulo="Atalhos e símbolos">
+            <div className="flex flex-col gap-2">
+              <p className="text-pequeno text-tinta-media">
+                Tudo o que dá pra fazer pelo teclado e os símbolos que formatam o texto.
+              </p>
+              <Botao
+                tamanho="compacto"
+                className="self-start"
+                onClick={() => setGlossarioAberto(true)}
+              >
+                Abrir glossário
+              </Botao>
+            </div>
+          </Secao>
+          <Secao titulo="Agente de IA">
+            <SecaoAgente
+              testando={testando}
+              resultadoTeste={resultadoTeste}
+              onTestar={async () => {
+                setTestando(true);
+                setResultadoTeste(null);
+                const erro = await useAgenteStore.getState().testarConexao();
+                setResultadoTeste(erro ?? "Conexão funcionando.");
+                setTestando(false);
+              }}
+            />
+          </Secao>
+          <Secao titulo="Atualizações">
+            <div className="flex items-center justify-between gap-2">
+              <span className="text-pequeno text-tinta-media">
+                {versao ? `Versão ${versao}` : ""}
+              </span>
+              <Botao
+                tamanho="compacto"
+                onClick={() => void verificarAtualizacao({ silencioso: false })}
+              >
+                Verificar atualizações
+              </Botao>
+            </div>
+          </Secao>
+        </div>
+      </Dialog>
+      {/* Irmão do Dialog das Configurações, não filho: dentro da caixa dele, o `fixed` do
+       * glossário ficaria preso ao `transform` da caixa enquanto a animação `surgir` roda.
+       * Montado depois, fica por cima e no topo da pilha de `Dialog.tsx` — Esc fecha só ele e o
+       * foco volta ao botão "Abrir glossário". */}
+      {glossarioAberto && <DialogoGlossario onFechar={() => setGlossarioAberto(false)} />}
+    </>
   );
 }
 
