@@ -1,5 +1,10 @@
 import { describe, it, expect, beforeEach, vi } from "vitest";
 
+const emitMock = vi.fn(async (..._args: unknown[]) => {});
+vi.mock("@tauri-apps/api/event", () => ({
+  emit: (...args: unknown[]) => emitMock(...args),
+}));
+
 import { useContaStore } from "./contaStore";
 import { ServicoContaFake } from "../conta/ServicoContaFake";
 import type { ServicoConta } from "../conta/ServicoConta";
@@ -73,8 +78,21 @@ describe("contaStore", () => {
   beforeEach(() => {
     for (const k of Object.keys(guardados)) delete guardados[k];
     definirTokenDaSessao(null);
+    emitMock.mockClear();
     useContaStore.setState({ sessao: null, carregado: false, ocupado: false, erro: null });
     useContaStore.getState().definirServico(comConta());
+  });
+
+  it("entrar emite o evento de sincronização entre janelas depois de gravar o token", async () => {
+    await useContaStore.getState().entrar("ana@exemplo.com", "segredo123");
+    expect(emitMock).toHaveBeenCalledWith("app://prefs-mudou");
+  });
+
+  it("sair emite o evento de sincronização entre janelas depois de apagar o token", async () => {
+    await useContaStore.getState().entrar("ana@exemplo.com", "segredo123");
+    emitMock.mockClear();
+    await useContaStore.getState().sair();
+    expect(emitMock).toHaveBeenCalledWith("app://prefs-mudou");
   });
 
   it("começa sem sessão", () => {

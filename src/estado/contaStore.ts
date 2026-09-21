@@ -7,6 +7,7 @@
 
 import { create } from "zustand";
 import { load } from "@tauri-apps/plugin-store";
+import { emit } from "@tauri-apps/api/event";
 
 import type { ServicoConta } from "../conta/ServicoConta";
 import { ServicoContaHttp } from "../conta/ServicoContaHttp";
@@ -14,6 +15,12 @@ import { FalhaConta, type ErroConta, type PlanoAssinatura, type Sessao } from ".
 import { definirTokenDaSessao } from "../servico/sessao";
 
 const CHAVE_TOKEN = "tokenConta";
+// Doc 12 §6 / doc 04 §5.1: mesmo evento que prefsStore.ts e agenteStore.ts emitem depois de
+// gravar uma mudança compartilhada no settings.json (literal repetido nos três arquivos — ver
+// comentário em flushEntreJanelas.ts sobre por que não virou uma constante importada). Só as
+// ações que o usuário decide (entrar/criar/sair) emitem; `carregar()` é a metade "recebe" do
+// contrato, igual ao `carregar()` dos outros dois stores, e nunca emite de volta.
+const EVENTO_PREFS_MUDOU = "app://prefs-mudou";
 
 async function abrirStore() {
   return load("settings.json", { autoSave: false });
@@ -115,6 +122,7 @@ export const useContaStore = create<ContaState>((set, get) => {
         definirTokenDaSessao(sessao.token);
         await gravarToken(sessao.token);
         set({ sessao, ocupado: false });
+        await emit(EVENTO_PREFS_MUDOU);
         return true;
       } catch (e) {
         // Falha ao entrar preserva a sessão anterior (se havia uma): só `erro` muda. Sem
@@ -134,6 +142,7 @@ export const useContaStore = create<ContaState>((set, get) => {
         definirTokenDaSessao(sessao.token);
         await gravarToken(sessao.token);
         set({ sessao, ocupado: false });
+        await emit(EVENTO_PREFS_MUDOU);
         return true;
       } catch (e) {
         set({ ocupado: false, erro: codigoDe(e) });
@@ -147,6 +156,7 @@ export const useContaStore = create<ContaState>((set, get) => {
       set({ sessao: null, erro: null });
       definirTokenDaSessao(null);
       await gravarToken(null);
+      await emit(EVENTO_PREFS_MUDOU);
       if (token) await get().servico.sair(token);
     },
   };

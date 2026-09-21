@@ -21,12 +21,14 @@ import { getAllWebviewWindows, getCurrentWebviewWindow } from "@tauri-apps/api/w
 import { flusharTudoAntesDeSair, type ResultadoFlushGeral } from "../estado/flushGeral";
 import { usePrefsStore } from "../estado/prefsStore";
 import { useAgenteStore } from "../estado/agenteStore";
+import { useContaStore } from "../estado/contaStore";
 
 const EVENTO_FLUSH_PEDIDO = "app://flush-pedido";
 const EVENTO_FLUSH_RESPOSTA = "app://flush-resposta";
-// Mesmo nome usado por prefsStore.ts e agenteStore.ts ao gravar uma mudança compartilhada —
-// mantido como literal nos três arquivos (T4 não cria um módulo de constantes novo) em vez de
-// um import cruzado que criaria um ciclo entre flushEntreJanelas e agenteStore.
+// Mesmo nome usado por prefsStore.ts, agenteStore.ts e contaStore.ts ao gravar uma mudança
+// compartilhada — mantido como literal nos quatro arquivos (T4 não cria um módulo de
+// constantes novo) em vez de um import cruzado que criaria um ciclo entre flushEntreJanelas e
+// os stores.
 const EVENTO_PREFS_MUDOU = "app://prefs-mudou";
 
 /** Timeout de doc 12 §6: janela que não responde nesse prazo conta como falha. */
@@ -154,13 +156,14 @@ export function instalarOuvintesEntreJanelas(): () => void {
     else limpezas.push(unlisten);
   });
 
-  // Preferências da máquina (tema, largura da nota, sidebar colapsada e config do agente) são
-  // compartilhadas no settings.json (doc 04 §5.1): quem mudou já gravou em disco antes de
-  // emitir, então aqui é só reler. Nunca re-emite a partir daqui — é a metade "recebe" do
-  // contrato, re-emitir criaria um laço entre as janelas.
+  // Preferências da máquina (tema, largura da nota, sidebar colapsada, config do agente e o
+  // token da conta) são compartilhadas no settings.json (doc 04 §5.1): quem mudou já gravou em
+  // disco antes de emitir, então aqui é só reler. Nunca re-emite a partir daqui — é a metade
+  // "recebe" do contrato, re-emitir criaria um laço entre as janelas.
   void listen(EVENTO_PREFS_MUDOU, () => {
     void usePrefsStore.getState().carregar();
     void useAgenteStore.getState().carregar();
+    void useContaStore.getState().carregar();
   }).then((unlisten) => {
     if (cancelado) unlisten();
     else limpezas.push(unlisten);

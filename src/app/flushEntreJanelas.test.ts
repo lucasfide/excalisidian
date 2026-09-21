@@ -48,6 +48,11 @@ vi.mock("../estado/agenteStore", () => ({
   useAgenteStore: { getState: () => ({ carregar: carregarAgenteMock }) },
 }));
 
+const carregarContaMock = vi.fn(async () => {});
+vi.mock("../estado/contaStore", () => ({
+  useContaStore: { getState: () => ({ carregar: carregarContaMock }) },
+}));
+
 import {
   flusharTodasAsJanelas,
   instalarOuvintesEntreJanelas,
@@ -63,6 +68,7 @@ beforeEach(() => {
   flushMock.mockImplementation(async () => ({ falhas: [], bloqueados: [], tarefasOk: true }));
   carregarPrefsMock.mockClear();
   carregarAgenteMock.mockClear();
+  carregarContaMock.mockClear();
 });
 
 describe("agregarResultadoFlush (agregação pura)", () => {
@@ -163,7 +169,7 @@ describe("instalarOuvintesEntreJanelas", () => {
     expect(flushMock).not.toHaveBeenCalled();
   });
 
-  it("recarrega prefsStore e a config do agente ao receber app://prefs-mudou", async () => {
+  it("recarrega prefsStore, a config do agente e a conta ao receber app://prefs-mudou", async () => {
     instalarOuvintesEntreJanelas();
     await Promise.resolve();
 
@@ -171,6 +177,7 @@ describe("instalarOuvintesEntreJanelas", () => {
 
     expect(carregarPrefsMock).toHaveBeenCalledTimes(1);
     expect(carregarAgenteMock).toHaveBeenCalledTimes(1);
+    expect(carregarContaMock).toHaveBeenCalledTimes(1);
   });
 
   it("a função de limpeza remove os dois ouvintes", async () => {
