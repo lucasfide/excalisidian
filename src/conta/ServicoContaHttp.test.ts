@@ -24,7 +24,7 @@ describe("ServicoContaHttp", () => {
 
     expect(s.token).toBe("tok-1");
     expect(s.plano).toBe("premium");
-    const [url, init] = falso.mock.calls[0] as [string, RequestInit];
+    const [url, init] = falso.mock.calls[0] as unknown as [string, RequestInit];
     expect(url).toBe(`${BASE}/sessoes`);
     expect(init.method).toBe("POST");
     expect(JSON.parse(init.body as string)).toEqual({
@@ -61,7 +61,7 @@ describe("ServicoContaHttp", () => {
     const falso = vi.fn(async () => resposta(200, sessaoValida));
     const servico = new ServicoContaHttp(BASE, falso as unknown as typeof fetch);
     await servico.renovar("tok-velho");
-    const [, init] = falso.mock.calls[0] as [string, RequestInit];
+    const [, init] = falso.mock.calls[0] as unknown as [string, RequestInit];
     expect((init.headers as Record<string, string>).Authorization).toBe("Bearer tok-velho");
   });
 
