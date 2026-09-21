@@ -10,6 +10,7 @@ import { toast } from "sonner";
 import { Botao, Campo, Dialog, GrupoBotoes, cn, type OpcaoGrupo } from "../index";
 import { usePrefsStore, type Tema, type LarguraNota } from "../../estado/prefsStore";
 import { useAgenteStore } from "../../estado/agenteStore";
+import { useContaStore } from "../../estado/contaStore";
 import { confirmar } from "../../estado/dialogoStore";
 import { provedorDe } from "../../agente/provedores";
 import { verificarAtualizacao } from "../../app/atualizacao";
@@ -163,6 +164,9 @@ export default function DialogoPreferencias({ onFechar }: Props) {
               </Botao>
             </div>
           </Secao>
+          <Secao titulo={t("conta.titulo")}>
+            <SecaoConta />
+          </Secao>
           <Secao titulo="Agente de IA">
             <SecaoAgente
               testando={testando}
@@ -205,6 +209,81 @@ function Secao({ titulo, children }: { titulo: string; children: ReactNode }) {
     <div>
       <div className="meta mb-1.5 text-tinta-suave">{titulo}</div>
       {children}
+    </div>
+  );
+}
+
+// Conta é opcional (docs 04/09): sem sessão, a seção é só descrição + formulário de
+// entrar/criar. Com sessão, vira status + sair. Nada disto aparece fora das preferências.
+function SecaoConta() {
+  const sessao = useContaStore((s) => s.sessao);
+  const ocupado = useContaStore((s) => s.ocupado);
+  const erro = useContaStore((s) => s.erro);
+  const t = useTexto();
+  const [email, setEmail] = useState("");
+  // Nunca preenchida de volta: o store não guarda senha, e um erro limpa o campo em vez de
+  // repopular com o que falhou.
+  const [senha, setSenha] = useState("");
+
+  if (sessao) {
+    return (
+      <div className="flex flex-col gap-2">
+        <p className="text-pequeno text-tinta-media">
+          {t("conta.conectadoComo", { email: sessao.email })}
+        </p>
+        <p className="meta text-tinta-suave">
+          {t(sessao.plano === "premium" ? "conta.plano.premium" : "conta.plano.gratis")}
+        </p>
+        <Botao
+          tamanho="compacto"
+          className="self-start"
+          disabled={ocupado}
+          onClick={() => void useContaStore.getState().sair()}
+        >
+          {t("conta.sair")}
+        </Botao>
+      </div>
+    );
+  }
+
+  async function tentar(acao: "entrar" | "criar") {
+    const ok = await useContaStore.getState()[acao](email, senha);
+    if (!ok) setSenha("");
+  }
+
+  return (
+    <div className="flex flex-col gap-2">
+      <p className="text-pequeno text-tinta-media [text-wrap:pretty]">
+        {t("conta.descricaoDeslogado")}
+      </p>
+      <Campo
+        rotulo={t("conta.email")}
+        type="email"
+        autoComplete="email"
+        value={email}
+        onChange={(e) => setEmail(e.target.value)}
+      />
+      <Campo
+        rotulo={t("conta.senha")}
+        type="password"
+        autoComplete="current-password"
+        value={senha}
+        onChange={(e) => setSenha(e.target.value)}
+      />
+      {erro && <p className="text-pequeno text-bordo">{t(`conta.erro.${erro}`)}</p>}
+      <div className="flex flex-wrap gap-2">
+        <Botao
+          variante="primario"
+          tamanho="compacto"
+          disabled={ocupado}
+          onClick={() => void tentar("entrar")}
+        >
+          {t("conta.entrar")}
+        </Botao>
+        <Botao tamanho="compacto" disabled={ocupado} onClick={() => void tentar("criar")}>
+          {t("conta.criar")}
+        </Botao>
+      </div>
     </div>
   );
 }

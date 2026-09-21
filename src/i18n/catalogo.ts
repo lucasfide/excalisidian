@@ -19,11 +19,13 @@ import { criarTradutorDe } from "./tradutor";
 import { PT_BR_VAULT, EN_VAULT } from "./catalogo/vault";
 import { PT_BR_PREFS, EN_PREFS } from "./catalogo/prefs";
 import { PT_BR_AGENTE, EN_AGENTE } from "./catalogo/agente";
+import { PT_BR_CONTA, EN_CONTA } from "./catalogo/conta";
 
 export const PT_BR = {
   ...PT_BR_VAULT,
   ...PT_BR_PREFS,
   ...PT_BR_AGENTE,
+  ...PT_BR_CONTA,
 } as const;
 
 export type ChaveTexto = keyof typeof PT_BR;
@@ -32,6 +34,7 @@ export const EN: Partial<Record<ChaveTexto, string>> = {
   ...EN_VAULT,
   ...EN_PREFS,
   ...EN_AGENTE,
+  ...EN_CONTA,
 };
 
 export const CATALOGOS: Record<Idioma, Record<string, string>> = {
