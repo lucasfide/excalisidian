@@ -14,6 +14,7 @@ import { FalhaAgente } from "./tipos";
 import type { ProvedorInfo } from "./provedores";
 import { mapearThinking, modeloComThinking } from "./provedores";
 import { tokenDaSessaoAtual } from "../servico/sessao";
+import { traduzirAgora } from "../i18n/traduzirAgora";
 
 const TIMEOUT_CONEXAO_MS = 20_000;
 
@@ -256,24 +257,24 @@ export function textoDoErro(
   const detalhe = falha instanceof Error ? falha.message : null;
   switch (codigo) {
     case "chave":
-      return "A chave da API foi recusada pelo provedor. Confira a chave nas configurações.";
+      return traduzirAgora("agente.erro.chave");
     case "sessao":
-      return "Entre na sua conta do Excalisidian para usar a IA incluída no plano.";
+      return traduzirAgora("agente.erro.sessao");
     case "cota":
-      return "O provedor limitou as chamadas agora. Tente de novo em instantes.";
+      return traduzirAgora("agente.erro.cota");
     case "modelo":
-      return `O provedor não conhece o modelo «${fmt.modelo ?? "?"}». Confira o nome nas configurações.`;
+      return traduzirAgora("agente.erro.modelo", { modelo: fmt.modelo ?? "?" });
     case "escopo":
-      return "A base URL configurada está fora das permissões do app. Verifique o campo avançado nas configurações.";
+      return traduzirAgora("agente.erro.escopo");
     case "resposta":
-      return "O provedor devolveu uma resposta que não pude entender. Tente outro modelo.";
+      return traduzirAgora("agente.erro.resposta");
     case "rede":
     case "provedor":
       if (detalhe && /network|offline|econnrefused|failed/i.test(detalhe)) {
-        return "Sem conexão com o provedor. Verifique a rede e tente de novo.";
+        return traduzirAgora("agente.erro.rede");
       }
-      return "Não foi possível falar com o provedor. Verifique a conexão.";
+      return traduzirAgora("agente.erro.provedor");
     default:
-      return "Não foi possível falar com o provedor. Verifique a conexão.";
+      return traduzirAgora("agente.erro.provedor");
   }
 }

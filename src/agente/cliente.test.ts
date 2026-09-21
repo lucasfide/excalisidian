@@ -190,6 +190,7 @@ describe("cliente — listarModelos", () => {
 describe("cliente — textoDoErro", () => {
   it("cada código chega em português do Brasil, sem stack trace", () => {
     expect(textoDoErro(new FalhaAgente("chave"))).toContain("chave da API");
+    expect(textoDoErro(new FalhaAgente("sessao"))).toContain("conta do Excalisidian");
     expect(textoDoErro(new FalhaAgente("cota"))).toContain("limitou");
     expect(textoDoErro(new FalhaAgente("modelo"))).toContain("modelo");
     expect(textoDoErro(new FalhaAgente("escopo"))).toContain("base URL");
