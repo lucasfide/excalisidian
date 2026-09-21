@@ -5,7 +5,13 @@
 // verificados contra o billing (doc 09, incerteza 26), e inventar preço é pior que não ter.
 // Enquanto um modelo não tiver preço verificado aqui, o medidor mostra só tokens (§3.1).
 
+import { BASE_URL_SERVICO } from "../servico/base";
 import type { Dialeto, ProvedorId, Thinking } from "./tipos";
+
+/** Identificadores LÓGICOS, não nomes de modelo do fornecedor. O servidor decide qual
+ * modelo real atende cada um — é o que permite trocar de fornecedor sem atualizar o app. */
+export const MODELO_LEITURA = "leitura-rapida";
+export const MODELO_ACOMPANHAMENTO = "acompanhamento";
 
 export interface ProvedorInfo {
   id: ProvedorId;
@@ -15,6 +21,10 @@ export interface ProvedorInfo {
   dialecto: Dialeto;
   baseUrlPadrao: string;
   precisaChave: boolean;
+  /** Autentica por sessão da conta, não por chave digitada. Só o provedor próprio. */
+  exigeConta: boolean;
+  /** Catálogo fixo de modelos; vazio significa listar por HTTP como o doc 11 §3 manda. */
+  modelosFixos: string[];
   /** Tool nativo de web search (doc 11 §5.4) — ligado só quando confirmado no dialeto. */
   suportaWebSearch: boolean;
   /** Página onde o usuário cria a chave ("Onde consigo uma chave?"). */
@@ -28,12 +38,29 @@ export interface ProvedorInfo {
 
 export const PROVEDORES: readonly ProvedorInfo[] = [
   {
+    id: "excalisidian",
+    nome: "IA do Excalisidian",
+    descricao: "Incluída no plano premium. Sem chave, sem conta em outro serviço.",
+    dialecto: "openai",
+    baseUrlPadrao: BASE_URL_SERVICO,
+    precisaChave: false,
+    exigeConta: true,
+    modelosFixos: [MODELO_LEITURA, MODELO_ACOMPANHAMENTO],
+    suportaWebSearch: false,
+    paginaDeChave: "",
+    sugeridosGateiro: [MODELO_LEITURA],
+    sugeridosAssistente: [MODELO_ACOMPANHAMENTO],
+    precos: {},
+  },
+  {
     id: "openai",
     nome: "OpenAI",
     descricao: "GPT e família o. Exige chave de api.openai.com.",
     dialecto: "openai",
     baseUrlPadrao: "https://api.openai.com/v1",
     precisaChave: true,
+    exigeConta: false,
+    modelosFixos: [],
     // Web search da OpenAI exige a Responses API, não o Chat Completions que o
     // dialeto usa — não verificado (doc 09, incerteza 24). Desligado até lá.
     suportaWebSearch: false,
@@ -49,6 +76,8 @@ export const PROVEDORES: readonly ProvedorInfo[] = [
     dialecto: "anthropic",
     baseUrlPadrao: "https://api.anthropic.com",
     precisaChave: true,
+    exigeConta: false,
+    modelosFixos: [],
     // O tool existe no provedor, mas o dialeto ainda não o implementa — escondido até a
     // fase de web search (doc 11 §5.4, P2). `interpretarCiclo` descarta `achadoWeb`.
     suportaWebSearch: false,
@@ -64,6 +93,8 @@ export const PROVEDORES: readonly ProvedorInfo[] = [
     dialecto: "gemini",
     baseUrlPadrao: "https://generativelanguage.googleapis.com",
     precisaChave: true,
+    exigeConta: false,
+    modelosFixos: [],
     // idem Anthropic: tool existe no provedor, falta implementar no dialeto (P2).
     suportaWebSearch: false,
     paginaDeChave: "https://aistudio.google.com/apikey",
@@ -78,6 +109,8 @@ export const PROVEDORES: readonly ProvedorInfo[] = [
     dialecto: "openai",
     baseUrlPadrao: "https://openrouter.ai/api/v1",
     precisaChave: true,
+    exigeConta: false,
+    modelosFixos: [],
     // Passthrough de tools não é garantido para todos os modelos (doc 09, incerteza 25).
     suportaWebSearch: false,
     paginaDeChave: "https://openrouter.ai/settings/keys",
@@ -92,6 +125,8 @@ export const PROVEDORES: readonly ProvedorInfo[] = [
     dialecto: "openai",
     baseUrlPadrao: "https://dashscope.aliyuncs.com/compatible-mode/v1",
     precisaChave: true,
+    exigeConta: false,
+    modelosFixos: [],
     suportaWebSearch: false,
     paginaDeChave: "https://bailian.console.aliyun.com/?apiKey=1",
     sugeridosGateiro: [],
@@ -105,6 +140,8 @@ export const PROVEDORES: readonly ProvedorInfo[] = [
     dialecto: "openai",
     baseUrlPadrao: "http://localhost:11434/v1",
     precisaChave: false,
+    exigeConta: false,
+    modelosFixos: [],
     suportaWebSearch: false,
     paginaDeChave: "",
     sugeridosGateiro: [],

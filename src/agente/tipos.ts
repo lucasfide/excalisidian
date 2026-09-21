@@ -8,7 +8,8 @@ export type ProvedorId =
   | "gemini"
   | "openrouter"
   | "alibaba"
-  | "ollama";
+  | "ollama"
+  | "excalisidian";
 
 /** Profundidade de raciocínio (doc 11 §2.1). Só tem efeito onde o dialeto suporta
  * (`reasoning_effort` da OpenAI e compatíveis). `padrao` não envia o parâmetro. */

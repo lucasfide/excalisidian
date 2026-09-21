@@ -9,15 +9,55 @@ import {
   mapearThinking,
   validarBaseUrl,
   mascararChave,
+  MODELO_LEITURA,
+  MODELO_ACOMPANHAMENTO,
 } from "./provedores";
 import type { ProvedorId } from "./tipos";
 
 describe("provedores", () => {
-  it("o catálogo tem os seis provedores da decisão", () => {
+  it("o catálogo tem os seis provedores originais mais o do Excalisidian", () => {
     const ids = PROVEDORES.map((p) => p.id);
     expect(new Set(ids)).toEqual(
-      new Set<ProvedorId>(["openai", "anthropic", "gemini", "openrouter", "alibaba", "ollama"]),
+      new Set<ProvedorId>([
+        "openai",
+        "anthropic",
+        "gemini",
+        "openrouter",
+        "alibaba",
+        "ollama",
+        "excalisidian",
+      ]),
     );
+  });
+
+  it("só o provedor do Excalisidian exige conta", () => {
+    const comConta = PROVEDORES.filter((p) => p.exigeConta).map((p) => p.id);
+    expect(comConta).toEqual(["excalisidian"]);
+  });
+
+  it("o provedor do Excalisidian não pede chave digitada", () => {
+    expect(provedorDe("excalisidian").precisaChave).toBe(false);
+  });
+
+  it("o provedor do Excalisidian fala o dialeto da OpenAI, sem código de transporte novo", () => {
+    expect(provedorDe("excalisidian").dialecto).toBe("openai");
+  });
+
+  it("o provedor do Excalisidian traz os dois modelos lógicos e não lista por HTTP", () => {
+    expect(provedorDe("excalisidian").modelosFixos).toEqual([
+      MODELO_LEITURA,
+      MODELO_ACOMPANHAMENTO,
+    ]);
+  });
+
+  it("nenhum outro provedor tem modelos fixos", () => {
+    const comFixos = PROVEDORES.filter((p) => p.modelosFixos.length > 0).map((p) => p.id);
+    expect(comFixos).toEqual(["excalisidian"]);
+  });
+
+  it("a descrição do provedor não cita o fornecedor do modelo", () => {
+    const texto = `${provedorDe("excalisidian").nome} ${provedorDe("excalisidian").descricao}`;
+    expect(texto.toLowerCase()).not.toMatch(/deepseek|openai|anthropic|gemini/);
   });
 
   it("provedorDe de id desconhecido lança", () => {

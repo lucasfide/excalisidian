@@ -27,6 +27,7 @@
     {
       "identifier": "http:default",
       "allow": [
+        { "url": "https://api.excalisidian.app/*" },
         { "url": "https://api.anthropic.com/*" },
         { "url": "https://api.openai.com/*" },
         { "url": "https://generativelanguage.googleapis.com/*" },
