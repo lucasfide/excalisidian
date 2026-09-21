@@ -544,8 +544,12 @@ export const useAgenteStore = create<AgenteState>((set, get) => {
     async testarConexao(config) {
       const cfg = config ?? get().config;
       if (!cfg) return "Configure o provedor primeiro.";
+      const provedor = provedorDe(cfg.provedor);
+      // Catálogo fixo (provedor próprio): a lista de modelos já é conhecida e o serviço
+      // não expõe GET /models (doc 11 §3). Não há como testar a conexão sem bater numa
+      // rota inexistente, então não bate — e não inventa uma falha que não houve.
+      if (provedor.modelosFixos.length > 0) return null;
       try {
-        const provedor = provedorDe(cfg.provedor);
         await listarModelos({
           provedor,
           chave: cfg.chaves[cfg.provedor] ?? "",
