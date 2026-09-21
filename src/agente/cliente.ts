@@ -183,7 +183,7 @@ async function completarGemini(p: PedidoComplecao): Promise<RespostaComplecao> {
       parts: [{ text: m.texto }],
     })),
   };
-  const url = `${p.baseUrl}/v1beta/models/${encodeURIComponent(p.modelo)}:generateContent?key=${encodeURIComponent(p.chave ?? "")}`;
+  const url = `${p.baseUrl}/v1beta/models/${encodeURIComponent(p.modelo)}:generateContent?key=${encodeURIComponent(credencial(p) ?? "")}`;
   const { status, corpo: res } = await lancar(url, {
     method: "POST",
     headers: cabecalhosBase(p),
@@ -235,7 +235,7 @@ export async function listarModelos(ctx: ContextoLista): Promise<string[]> {
       return ids.map((x) => x.id).filter((x): x is string => !!x);
     }
     case "gemini": {
-      const url = `${ctx.baseUrl}/v1beta/models?key=${encodeURIComponent(ctx.chave ?? "")}`;
+      const url = `${ctx.baseUrl}/v1beta/models?key=${encodeURIComponent(credencial(ctx) ?? "")}`;
       const { status, corpo } = await lancar(url, { method: "GET" });
       if (status < 200 || status >= 300) throw erroDeStatus(status, corpo);
       const nomes = (corpo as { models?: { name?: string }[] })?.models ?? [];

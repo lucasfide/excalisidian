@@ -245,4 +245,17 @@ describe("autenticação por sessão", () => {
     });
     expect(cabecalhos.Authorization).toBe("Bearer sk-minha");
   });
+
+  it("gemini com exigeConta (hipotético) sem sessão: listarModelos falha com 'sessao', sem chamada de rede", async () => {
+    const provedorGeminiExigeConta = { ...provedorDe("gemini"), exigeConta: true };
+    await expect(
+      listarModelos({
+        provedor: provedorGeminiExigeConta,
+        baseUrl: provedorDe("gemini").baseUrlPadrao,
+        modelo: "um-modelo",
+        thinking: "padrao",
+      }),
+    ).rejects.toEqual(expect.objectContaining({ codigo: "sessao" }));
+    expect(fetchMock).not.toHaveBeenCalled();
+  });
 });
