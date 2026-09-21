@@ -225,6 +225,17 @@ function SecaoConta() {
   // repopular com o que falhou.
   const [senha, setSenha] = useState("");
 
+  // Limpa os dois campos sempre que uma sessão passa a existir — não só no clique que a
+  // criou, mas qualquer caminho futuro que resulte em sessão. Sem isto, "Sair" reexibe o
+  // formulário com a senha ainda no estado local (o componente não desmonta ao trocar de
+  // ramo, e o `useState` sobrevive à troca): máquina compartilhada, credencial exposta.
+  useEffect(() => {
+    if (sessao) {
+      setEmail("");
+      setSenha("");
+    }
+  }, [sessao]);
+
   if (sessao) {
     return (
       <div className="flex flex-col gap-2">
@@ -251,6 +262,13 @@ function SecaoConta() {
     if (!ok) setSenha("");
   }
 
+  // "credenciais" pertence ao campo senha, "emailEmUso" ao campo e-mail — usam o prop
+  // `erro` do Campo, que liga mensagem e borda ao input por `aria-describedby`. Os demais
+  // (rede, servidor, expirada) não pertencem a um campo específico: ficam no parágrafo.
+  const erroEmail = erro === "emailEmUso" ? t(`conta.erro.${erro}`) : undefined;
+  const erroSenha = erro === "credenciais" ? t(`conta.erro.${erro}`) : undefined;
+  const erroGeral = erro && erro !== "emailEmUso" && erro !== "credenciais" ? erro : null;
+
   return (
     <div className="flex flex-col gap-2">
       <p className="text-pequeno text-tinta-media [text-wrap:pretty]">
@@ -262,6 +280,7 @@ function SecaoConta() {
         autoComplete="email"
         value={email}
         onChange={(e) => setEmail(e.target.value)}
+        erro={erroEmail}
       />
       <Campo
         rotulo={t("conta.senha")}
@@ -269,8 +288,9 @@ function SecaoConta() {
         autoComplete="current-password"
         value={senha}
         onChange={(e) => setSenha(e.target.value)}
+        erro={erroSenha}
       />
-      {erro && <p className="text-pequeno text-bordo">{t(`conta.erro.${erro}`)}</p>}
+      {erroGeral && <p className="text-pequeno text-bordo">{t(`conta.erro.${erroGeral}`)}</p>}
       <div className="flex flex-wrap gap-2">
         <Botao
           variante="primario"
