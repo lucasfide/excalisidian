@@ -21,17 +21,20 @@ describe("catálogo", () => {
     expect(divergentes).toEqual([]);
   });
 
+  // Lista, não espalhamento num objeto: `{ ...PT_BR, ...EN }` colapsaria as duas entradas de
+  // cada chave numa só (a de EN, por vir depois), então um emoji ou texto vazio em PT_BR —
+  // o que o público brasileiro vê — passaria despercebido por essas duas checagens.
+  const TODOS = [...Object.entries(PT_BR), ...Object.entries(EN)];
+
   it("nenhum texto vem vazio ou só com espaço", () => {
-    const vazios = Object.entries({ ...PT_BR, ...EN })
-      .filter(([, texto]) => !String(texto).trim())
-      .map(([chave]) => chave);
+    const vazios = TODOS.filter(([, texto]) => !String(texto).trim()).map(([chave]) => chave);
     expect(vazios).toEqual([]);
   });
 
   it("nenhum texto de interface tem emoji", () => {
-    const comEmoji = Object.entries({ ...PT_BR, ...EN })
-      .filter(([, texto]) => /\p{Extended_Pictographic}/u.test(String(texto)))
-      .map(([chave]) => chave);
+    const comEmoji = TODOS.filter(([, texto]) =>
+      /\p{Extended_Pictographic}/u.test(String(texto)),
+    ).map(([chave]) => chave);
     expect(comEmoji).toEqual([]);
   });
 
