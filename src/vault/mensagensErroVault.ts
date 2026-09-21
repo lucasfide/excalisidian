@@ -1,10 +1,18 @@
-// Mensagens de erro de `criarVault` (doc 12 §2 / doc 04 §13), pelo código que o Rust devolve
-// em `Error.message`. Compartilhado por `DialogoCriarVault` (sidebar) e `TelaBoasVindas`
-// (onboarding, doc 15 §1.1) — mesmo texto, um lugar só.
+// Erros de `criarVault` (doc 12 §2 / doc 04 §13), pelo código que o Rust devolve em
+// `Error.message`. Desde a fundação de i18n este módulo devolve CHAVE, não texto: quem tem
+// o tradutor é o componente. Compartilhado por `DialogoCriarVault` e `TelaBoasVindas`.
 
-export const MENSAGENS_ERRO_VAULT: Record<string, string> = {
-  nome_vazio: "Dê um nome ao vault.",
-  nome_invalido: 'O nome não pode ter / \\ : * ? " < > | nem começar com ponto.',
-  existe: "Já existe uma pasta com esse nome nesse local.",
-  pai_indisponivel: "Não foi possível acessar o local escolhido.",
+import type { ChaveTexto } from "../i18n/catalogo";
+
+const POR_CODIGO: Record<string, ChaveTexto> = {
+  nome_vazio: "vault.erro.nomeVazio",
+  nome_invalido: "vault.erro.nomeInvalido",
+  existe: "vault.erro.existe",
+  pai_indisponivel: "vault.erro.paiIndisponivel",
 };
+
+/** Código desconhecido cai em "não foi possível acessar o local": é verdade em qualquer
+ * falha inesperada de criação, e é melhor que mostrar o código cru na tela. */
+export function chaveDoErroVault(codigo: string): ChaveTexto {
+  return POR_CODIGO[codigo] ?? "vault.erro.paiIndisponivel";
+}

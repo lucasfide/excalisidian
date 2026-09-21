@@ -6,7 +6,8 @@ import { useState } from "react";
 
 import { Botao, Campo, Dialog } from "../index";
 import { criarVault, escolherPasta } from "../../vault/janelas";
-import { MENSAGENS_ERRO_VAULT } from "../../vault/mensagensErroVault";
+import { chaveDoErroVault } from "../../vault/mensagensErroVault";
+import { useTexto } from "../../i18n/useTexto";
 
 interface Props {
   /** Pasta pai padrão: pasta pai do vault atual (sidebar) ou vazia (tela sem vault). */
@@ -16,6 +17,7 @@ interface Props {
 }
 
 export default function DialogoCriarVault({ localPadrao, onFechar, onCriado }: Props) {
+  const t = useTexto();
   const [nome, setNome] = useState("");
   const [local, setLocal] = useState(localPadrao);
   const [erroNome, setErroNome] = useState<string | null>(null);
@@ -34,7 +36,7 @@ export default function DialogoCriarVault({ localPadrao, onFechar, onCriado }: P
       onCriado(caminho);
     } catch (e) {
       const codigo = e instanceof Error ? e.message : String(e);
-      setErroNome(MENSAGENS_ERRO_VAULT[codigo] ?? codigo);
+      setErroNome(t(chaveDoErroVault(codigo)));
     } finally {
       setCriando(false);
     }

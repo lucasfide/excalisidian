@@ -14,7 +14,8 @@ import { usePrefsStore } from "../../estado/prefsStore";
 import { sugerirNomeUsuario } from "../../app/sistemaOperacional";
 import { criarVault, escolherPasta } from "../../vault/janelas";
 import { nomeDoVault, type VaultRecente } from "../../vault/vaultsRecentes";
-import { MENSAGENS_ERRO_VAULT } from "../../vault/mensagensErroVault";
+import { chaveDoErroVault } from "../../vault/mensagensErroVault";
+import { useTexto } from "../../i18n/useTexto";
 
 const NOME_VAULT_PADRAO = "Notas";
 
@@ -39,6 +40,7 @@ export default function TelaBoasVindas({
   onAbrirPasta,
   onAbrirRecente,
 }: Props) {
+  const t = useTexto();
   const nomeUsuario = usePrefsStore((s) => s.nomeUsuario);
   const carregado = usePrefsStore((s) => s.carregado);
   const definirNomeUsuario = usePrefsStore((s) => s.definirNomeUsuario);
@@ -106,7 +108,7 @@ export default function TelaBoasVindas({
       await onAbrirVault(caminho, { conteudoInicial: true });
     } catch (e) {
       const codigo = e instanceof Error ? e.message : String(e);
-      setErroNomeVault(MENSAGENS_ERRO_VAULT[codigo] ?? codigo);
+      setErroNomeVault(t(chaveDoErroVault(codigo)));
     } finally {
       setCriando(false);
     }
