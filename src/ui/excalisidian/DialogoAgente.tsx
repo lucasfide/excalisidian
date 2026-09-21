@@ -24,14 +24,6 @@ import { useTexto } from "../../i18n/useTexto";
 import { tokenDaSessaoAtual } from "../../servico/sessao";
 import { CONTA_DISPONIVEL } from "../../servico/base";
 
-const ROTULOS_PASSO = [
-  "Provedor",
-  "Chave da API",
-  "Leitura inicial",
-  "Acompanhamento",
-  "Revisão",
-] as const;
-
 // "Mínimo" fora da lista: a família gpt-5.6 recusa reasoning_effort "minimal" (verificado
 // na API em 13/09 — aceita none/low/medium/high/xhigh). O valor continua no tipo e no
 // mapeamento por compatibilidade com modelos que o aceitam; não é mais oferecido na UI.
@@ -123,8 +115,20 @@ export default function DialogoAgente() {
   // "excalisidian"). Sem sessão ativa, o passo de conta bloqueia o avanço.
   const semSessao = provedor.exigeConta && !tokenDaSessaoAtual();
   const rotulosPasso = provedor.exigeConta
-    ? [ROTULOS_PASSO[0], t("agente.passo.conta"), ...ROTULOS_PASSO.slice(2)]
-    : ROTULOS_PASSO;
+    ? [
+        t("agente.passo.provedor"),
+        t("agente.passo.conta"),
+        t("agente.passo.leituraInicial"),
+        t("agente.passo.acompanhamento"),
+        t("agente.passo.revisao"),
+      ]
+    : [
+        t("agente.passo.provedor"),
+        t("agente.passo.chave"),
+        t("agente.passo.leituraInicial"),
+        t("agente.passo.acompanhamento"),
+        t("agente.passo.revisao"),
+      ];
 
   const irParaChave = () => {
     setErroChave(null);

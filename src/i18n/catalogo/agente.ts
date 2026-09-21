@@ -16,6 +16,11 @@ export const PT_BR_AGENTE = {
   "agente.creditos.restantes": "{restantes} créditos restantes",
   "agente.creditos.acabando": "Seus créditos estão acabando.",
   "agente.creditos.esgotado": "Seus créditos deste mês acabaram. A cota renova em {data}.",
+  "agente.passo.provedor": "Provedor",
+  "agente.passo.chave": "Chave da API",
+  "agente.passo.leituraInicial": "Leitura inicial",
+  "agente.passo.acompanhamento": "Acompanhamento",
+  "agente.passo.revisao": "Revisão",
   "agente.passo.conta": "Conta",
   "agente.passo.contaExplicacao":
     "A IA do Excalisidian usa a sua conta. Não é preciso chave de API.",
@@ -37,6 +42,11 @@ export const EN_AGENTE: Partial<Record<keyof typeof PT_BR_AGENTE, string>> = {
   "agente.creditos.restantes": "{restantes} credits left",
   "agente.creditos.acabando": "You are running low on credits.",
   "agente.creditos.esgotado": "You are out of credits for this month. Your quota renews on {data}.",
+  "agente.passo.provedor": "Provider",
+  "agente.passo.chave": "API key",
+  "agente.passo.leituraInicial": "Initial read",
+  "agente.passo.acompanhamento": "Follow-up",
+  "agente.passo.revisao": "Review",
   "agente.passo.conta": "Account",
   "agente.passo.contaExplicacao": "Excalisidian AI uses your account. No API key needed.",
 };
