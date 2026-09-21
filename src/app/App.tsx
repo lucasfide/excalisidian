@@ -16,6 +16,7 @@ import {
 import { useVaultStore } from "../estado/vaultStore";
 import { useWorkspaceStore } from "../estado/workspaceStore";
 import { usePrefsStore, type Tema } from "../estado/prefsStore";
+import { useContaStore } from "../estado/contaStore";
 import { useTarefasStore } from "../estado/tarefasStore";
 import { useAgenteStore } from "../estado/agenteStore";
 import { useSobreposicaoStore } from "../estado/sobreposicaoStore";
@@ -111,6 +112,12 @@ export default function App() {
 
   useEffect(() => {
     void usePrefsStore.getState().carregar();
+  }, []);
+
+  // Conta é opcional: `carregar()` só renova um token salvo (se houver) e nunca bloqueia
+  // a abertura do app nem aparece na tela — ver contaStore.ts.
+  useEffect(() => {
+    void useContaStore.getState().carregar();
   }, []);
 
   // Config do agente de IA: carregada junto com as preferências. Sem configuração ou
