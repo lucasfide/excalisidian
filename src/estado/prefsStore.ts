@@ -6,11 +6,13 @@
 import { create } from "zustand";
 import { load } from "@tauri-apps/plugin-store";
 import { emit } from "@tauri-apps/api/event";
+import { type Idioma, ehIdioma, idiomaDoSistema } from "../i18n/idioma";
 
 export type Tema = "sistema" | "claro" | "escuro";
 export type LarguraNota = "pequena" | "media" | "full";
 
 const CHAVE_TEMA = "tema";
+const CHAVE_IDIOMA = "idioma";
 const CHAVE_LARGURA_NOTA = "larguraNota";
 const CHAVE_SIDEBAR_COLAPSADA = "sidebarColapsada";
 const CHAVE_BARRA_FORMATACAO_ACOPLADA = "barraFormatacaoAcoplada";
@@ -34,6 +36,8 @@ function ehLarguraNota(v: unknown): v is LarguraNota {
 
 interface PrefsState {
   tema: Tema;
+  /** Idioma da interface. Sem nada salvo, o primeiro `carregar()` adota o do sistema. */
+  idioma: Idioma;
   larguraNota: LarguraNota;
   sidebarColapsada: boolean;
   /** Barra de formatação presa embaixo da nota em vez de flutuar acima do cursor. */
@@ -49,6 +53,7 @@ interface PrefsState {
   carregado: boolean;
   carregar(): Promise<void>;
   definirTema(tema: Tema): void;
+  definirIdioma(idioma: Idioma): void;
   definirLarguraNota(largura: LarguraNota): void;
   alternarSidebar(): void;
   alternarBarraFormatacaoAcoplada(): void;
@@ -58,6 +63,7 @@ interface PrefsState {
 
 export const usePrefsStore = create<PrefsState>((set) => ({
   tema: "sistema",
+  idioma: "pt-BR",
   larguraNota: "media",
   sidebarColapsada: false,
   barraFormatacaoAcoplada: false,
@@ -70,6 +76,7 @@ export const usePrefsStore = create<PrefsState>((set) => ({
       const store = await load("settings.json", { autoSave: false });
       const [
         temaSalvo,
+        idiomaSalvo,
         larguraSalva,
         sidebarColapsadaSalva,
         barraAcopladaSalva,
@@ -77,6 +84,7 @@ export const usePrefsStore = create<PrefsState>((set) => ({
         asciiPeaksSalvo,
       ] = await Promise.all([
         store.get<Tema>(CHAVE_TEMA),
+        store.get<Idioma>(CHAVE_IDIOMA),
         store.get<LarguraNota>(CHAVE_LARGURA_NOTA),
         store.get<boolean>(CHAVE_SIDEBAR_COLAPSADA),
         store.get<boolean>(CHAVE_BARRA_FORMATACAO_ACOPLADA),
@@ -84,6 +92,17 @@ export const usePrefsStore = create<PrefsState>((set) => ({
         store.get<boolean>(CHAVE_ASCII_PEAKS_HABILITADO),
       ]);
       if (ehTema(temaSalvo)) set({ tema: temaSalvo });
+      if (ehIdioma(idiomaSalvo)) {
+        set({ idioma: idiomaSalvo });
+      } else if (idiomaSalvo === undefined) {
+        // Usuário novo (nada salvo ainda): adota o idioma do sistema e grava, para não
+        // redetectar depois. Valor salvo inválido (não undefined) não cai aqui — segue o
+        // mesmo padrão de tema/larguraNota, ignora e mantém o que já está em memória.
+        const detectado = idiomaDoSistema(navigator.languages);
+        set({ idioma: detectado });
+        await store.set(CHAVE_IDIOMA, detectado);
+        await store.save();
+      }
       if (ehLarguraNota(larguraSalva)) set({ larguraNota: larguraSalva });
       if (typeof sidebarColapsadaSalva === "boolean") set({ sidebarColapsada: sidebarColapsadaSalva });
       if (typeof barraAcopladaSalva === "boolean") {
@@ -104,6 +123,16 @@ export const usePrefsStore = create<PrefsState>((set) => ({
     void (async () => {
       const store = await load("settings.json", { autoSave: false });
       await store.set(CHAVE_TEMA, tema);
+      await store.save();
+      await emit(EVENTO_PREFS_MUDOU);
+    })();
+  },
+
+  definirIdioma(idioma) {
+    set({ idioma });
+    void (async () => {
+      const store = await load("settings.json", { autoSave: false });
+      await store.set(CHAVE_IDIOMA, idioma);
       await store.save();
       await emit(EVENTO_PREFS_MUDOU);
     })();

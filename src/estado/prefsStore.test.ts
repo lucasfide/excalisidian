@@ -29,6 +29,7 @@ beforeEach(() => {
     larguraNota: "media",
     sidebarColapsada: false,
     nomeUsuario: null,
+    idioma: "pt-BR",
     carregado: false,
   });
 });
@@ -139,6 +140,30 @@ describe("prefsStore", () => {
       usePrefsStore.setState({ nomeUsuario: null, carregado: false });
       await usePrefsStore.getState().carregar();
       expect(usePrefsStore.getState().nomeUsuario).toBe("");
+    });
+  });
+
+  describe("idioma", () => {
+    it("idioma começa em pt-BR antes de carregar", () => {
+      expect(usePrefsStore.getState().idioma).toBe("pt-BR");
+    });
+
+    it("carregar usa o idioma salvo quando existe", async () => {
+      armazenado.set("idioma", "en");
+      await usePrefsStore.getState().carregar();
+      expect(usePrefsStore.getState().idioma).toBe("en");
+    });
+
+    it("carregar ignora idioma salvo inválido", async () => {
+      armazenado.set("idioma", "klingon");
+      await usePrefsStore.getState().carregar();
+      expect(usePrefsStore.getState().idioma).toBe("pt-BR");
+    });
+
+    it("definirIdioma troca no estado e persiste", async () => {
+      usePrefsStore.getState().definirIdioma("en");
+      expect(usePrefsStore.getState().idioma).toBe("en");
+      await vi.waitFor(() => expect(armazenado.get("idioma")).toBe("en"));
     });
   });
 });
