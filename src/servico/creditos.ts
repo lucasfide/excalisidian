@@ -3,6 +3,8 @@
 // contagem que vale é a do servidor (decisão do estudo de viabilidade — o medidor local do
 // doc 11 §5.6 continua servindo só o modo com chave própria, onde quem paga é o usuário).
 
+import { tagDeLocale, type Idioma } from "../i18n/idioma";
+
 export interface SaldoCreditos {
   usados: number;
   total: number;
@@ -27,7 +29,8 @@ export function nivelDeAviso(s: SaldoCreditos): "ok" | "acabando" | "esgotado" {
   return fracaoUsada(s) >= LIMIAR_ACABANDO ? "acabando" : "ok";
 }
 
-/** Sempre para baixo: arredondar para cima prometeria crédito que o servidor não tem. */
-export function formatarCreditos(n: number): string {
-  return new Intl.NumberFormat("pt-BR").format(Math.floor(n));
+/** Sempre para baixo: arredondar para cima prometeria crédito que o servidor não tem.
+ * `idioma` decide o separador (pt-BR padrão, para não quebrar chamador existente). */
+export function formatarCreditos(n: number, idioma: Idioma = "pt-BR"): string {
+  return new Intl.NumberFormat(tagDeLocale(idioma)).format(Math.floor(n));
 }

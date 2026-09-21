@@ -19,3 +19,15 @@ export function idiomaDoSistema(tags: readonly string[] = []): Idioma {
   }
   return "en";
 }
+
+const TAGS_LOCALE: Record<Idioma, string> = {
+  "pt-BR": "pt-BR",
+  en: "en-US",
+};
+
+/** Tag de locale do `Intl` para o idioma do produto — usada por qualquer formatador de
+ * número ou data que precise respeitar o idioma corrente (números e datas não são
+ * traduzidos pelo catálogo). */
+export function tagDeLocale(idioma: Idioma): string {
+  return TAGS_LOCALE[idioma];
+}

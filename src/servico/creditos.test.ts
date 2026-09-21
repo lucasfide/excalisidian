@@ -73,4 +73,8 @@ describe("formatarCreditos", () => {
   it("arredonda para baixo, para nunca prometer crédito que não existe", () => {
     expect(formatarCreditos(1699.9)).toBe("1.699");
   });
+
+  it("em inglês usa vírgula como separador de milhar", () => {
+    expect(formatarCreditos(1700, "en")).toBe("1,700");
+  });
 });

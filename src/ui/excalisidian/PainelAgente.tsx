@@ -29,12 +29,9 @@ import { formatarUso } from "../../agente/orcamento";
 import { provedorDe } from "../../agente/provedores";
 import { formatarCreditos, nivelDeAviso, restantes, type SaldoCreditos } from "../../servico/creditos";
 import { useTexto } from "../../i18n/useTexto";
+import { tagDeLocale, type Idioma } from "../../i18n/idioma";
+import { usePrefsStore } from "../../estado/prefsStore";
 import type { TipoSugestao } from "../../agente/assistente";
-
-const FORMATADOR_DATA_CREDITOS = new Intl.DateTimeFormat("pt-BR", {
-  day: "2-digit",
-  month: "2-digit",
-});
 
 const ICONES_TIPO: Record<TipoSugestao, typeof HelpCircle> = {
   pergunta: HelpCircle,
@@ -46,6 +43,7 @@ const ICONES_TIPO: Record<TipoSugestao, typeof HelpCircle> = {
 
 export default function PainelAgente() {
   const t = useTexto();
+  const idioma = usePrefsStore((s) => s.idioma);
   const habilitado = useAgenteStore((s) => s.config?.habilitado ?? false);
   const provedorId = useAgenteStore((s) => s.config?.provedor);
   const aberto = useAgenteStore((s) => s.painelAberto);
@@ -328,7 +326,7 @@ export default function PainelAgente() {
         </div>
         <div className="mt-1 flex items-baseline justify-between gap-2 px-1">
           {usaCreditos && saldo ? (
-            <MedidorCreditos saldo={saldo} t={t} />
+            <MedidorCreditos saldo={saldo} t={t} idioma={idioma} />
           ) : usaCreditos ? null : (
             <span className="meta text-tinta-suave">{textoMedidor}</span>
           )}
@@ -355,11 +353,17 @@ export default function PainelAgente() {
 function MedidorCreditos({
   saldo,
   t,
+  idioma,
 }: {
   saldo: SaldoCreditos;
   t: ReturnType<typeof useTexto>;
+  idioma: Idioma;
 }) {
   const nivel = nivelDeAviso(saldo);
+  const formatadorData = useMemo(
+    () => new Intl.DateTimeFormat(tagDeLocale(idioma), { day: "2-digit", month: "2-digit" }),
+    [idioma],
+  );
   return (
     <span className="meta flex items-baseline gap-2">
       <span
@@ -371,7 +375,9 @@ function MedidorCreditos({
               : "text-tinta-suave",
         )}
       >
-        {t("agente.creditos.restantes", { restantes: formatarCreditos(restantes(saldo)) })}
+        {t("agente.creditos.restantes", {
+          restantes: formatarCreditos(restantes(saldo), idioma),
+        })}
       </span>
       {nivel === "acabando" && (
         <span className="text-ocre-tinta">{t("agente.creditos.acabando")}</span>
@@ -379,7 +385,7 @@ function MedidorCreditos({
       {nivel === "esgotado" && (
         <span className="text-bordo">
           {t("agente.creditos.esgotado", {
-            data: FORMATADOR_DATA_CREDITOS.format(saldo.renovaEm),
+            data: formatadorData.format(saldo.renovaEm),
           })}
         </span>
       )}
