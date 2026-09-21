@@ -10,7 +10,7 @@
 // em rótulo de botão. O teste deste módulo cobre as invariantes, não a redação.
 
 import type { Idioma } from "./idioma";
-import { criarTradutorDe, type Tradutor } from "./tradutor";
+import { criarTradutorDe } from "./tradutor";
 
 export const PT_BR = {
   // Criação de vault — doc 12 §2 / doc 04 §13.
@@ -47,7 +47,15 @@ export const CATALOGOS: Record<Idioma, Record<string, string>> = {
   en: EN as Record<string, string>,
 };
 
+/** Tradutor do app: chaveado por `ChaveTexto`, não por `string` solta — `t("chave.errada")`
+ * (com typo) não compila. `tradutor.ts` continua genérico com `string` de propósito, porque é
+ * isso que permite testar `criarTradutorDe` com um catálogo inventado. */
+export type TradutorDoApp = (
+  chave: ChaveTexto,
+  params?: Record<string, string | number>,
+) => string;
+
 /** O tradutor do app, já amarrado no catálogo real. */
-export function criarTradutor(idioma: Idioma): Tradutor {
+export function criarTradutor(idioma: Idioma): TradutorDoApp {
   return criarTradutorDe(CATALOGOS, idioma);
 }

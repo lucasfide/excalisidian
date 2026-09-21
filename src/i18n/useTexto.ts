@@ -4,10 +4,9 @@
 import { useMemo } from "react";
 
 import { usePrefsStore } from "../estado/prefsStore";
-import { criarTradutor } from "./catalogo";
-import type { Tradutor } from "./tradutor";
+import { criarTradutor, type TradutorDoApp } from "./catalogo";
 
-export function useTexto(): Tradutor {
+export function useTexto(): TradutorDoApp {
   const idioma = usePrefsStore((s) => s.idioma);
   return useMemo(() => criarTradutor(idioma), [idioma]);
 }
