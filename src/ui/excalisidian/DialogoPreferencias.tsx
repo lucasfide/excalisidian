@@ -120,6 +120,8 @@ export default function DialogoPreferencias({ onFechar }: Props) {
               onEscolher={definirTema}
             />
           </Secao>
+          {/* Segue a forma do bloco "Seu nome", não a do bloco "Tema" acima: tem linha de
+           * descrição, e "Seu nome" é o único outro bloco do arquivo com esse formato. */}
           <Secao titulo={t("prefs.idioma.rotulo")}>
             <div className="flex flex-col gap-1.5">
               <GrupoBotoes
