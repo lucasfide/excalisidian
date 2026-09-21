@@ -98,6 +98,12 @@ function rascunhoDe(config: ConfigAgente | null): Rascunho {
   };
 }
 
+function omitirChave<T extends Record<string, string>>(mapa: T, chave: string): T {
+  if (!(chave in mapa)) return mapa;
+  const { [chave]: _omitida, ...resto } = mapa;
+  return resto as T;
+}
+
 export default function DialogoAgente() {
   const t = useTexto();
   const config = useAgenteStore((s) => s.config);
@@ -195,9 +201,14 @@ export default function DialogoAgente() {
         ...(config?.chaves ?? {}),
         ...(r.chave.trim() ? { [r.provedor]: r.chave.trim() } : {}),
       },
-      baseUrls: r.baseUrl.trim()
-        ? { ...(config?.baseUrls ?? {}), [r.provedor]: r.baseUrl.trim() }
-        : (config?.baseUrls ?? {}),
+      // Provedor por conta sempre usa BASE_URL_SERVICO (doc 11): nunca persiste base URL
+      // customizada para ele, nem mantém uma entrada antiga (evita apontar o Authorization
+      // da sessão do usuário para outro host).
+      baseUrls: provedor.exigeConta
+        ? omitirChave(config?.baseUrls ?? {}, r.provedor)
+        : r.baseUrl.trim()
+          ? { ...(config?.baseUrls ?? {}), [r.provedor]: r.baseUrl.trim() }
+          : (config?.baseUrls ?? {}),
       modeloGateiro: r.modeloGateiro,
       modeloAssistente: r.modeloAssistente,
       thinking: r.thinking,
@@ -315,30 +326,32 @@ export default function DialogoAgente() {
               {provedor.nome} roda na sua máquina — não precisa de chave.
             </p>
           )}
-          <div>
-            <button
-              type="button"
-              className="meta text-tinta-suave transition-colors duration-[140ms] ease-caderno hover:text-tinta motion-reduce:transition-none"
-              aria-expanded={avancadoAberto}
-              onClick={() => setAvancadoAberto((v) => !v)}
-            >
-              Avançado · Base URL
-            </button>
-            {avancadoAberto && (
-              <div className={`mt-2 ${CLASSE_FADE_INTERNO}`}>
-                <Campo
-                  rotulo="Base URL customizada"
-                  type="text"
-                  autoComplete="off"
-                  spellCheck={false}
-                  placeholder={provedor.baseUrlPadrao}
-                  value={r.baseUrl}
-                  erro={erroBase}
-                  onChange={(e) => setR((x) => ({ ...x, baseUrl: e.target.value }))}
-                />
-              </div>
-            )}
-          </div>
+          {!provedor.exigeConta && (
+            <div>
+              <button
+                type="button"
+                className="meta text-tinta-suave transition-colors duration-[140ms] ease-caderno hover:text-tinta motion-reduce:transition-none"
+                aria-expanded={avancadoAberto}
+                onClick={() => setAvancadoAberto((v) => !v)}
+              >
+                Avançado · Base URL
+              </button>
+              {avancadoAberto && (
+                <div className={`mt-2 ${CLASSE_FADE_INTERNO}`}>
+                  <Campo
+                    rotulo="Base URL customizada"
+                    type="text"
+                    autoComplete="off"
+                    spellCheck={false}
+                    placeholder={provedor.baseUrlPadrao}
+                    value={r.baseUrl}
+                    erro={erroBase}
+                    onChange={(e) => setR((x) => ({ ...x, baseUrl: e.target.value }))}
+                  />
+                </div>
+              )}
+            </div>
+          )}
         </div>
       )}
 
