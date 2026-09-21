@@ -92,17 +92,6 @@ export const usePrefsStore = create<PrefsState>((set) => ({
         store.get<boolean>(CHAVE_ASCII_PEAKS_HABILITADO),
       ]);
       if (ehTema(temaSalvo)) set({ tema: temaSalvo });
-      if (ehIdioma(idiomaSalvo)) {
-        set({ idioma: idiomaSalvo });
-      } else if (idiomaSalvo === undefined) {
-        // Usuário novo (nada salvo ainda): adota o idioma do sistema e grava, para não
-        // redetectar depois. Valor salvo inválido (não undefined) não cai aqui — segue o
-        // mesmo padrão de tema/larguraNota, ignora e mantém o que já está em memória.
-        const detectado = idiomaDoSistema(navigator.languages);
-        set({ idioma: detectado });
-        await store.set(CHAVE_IDIOMA, detectado);
-        await store.save();
-      }
       if (ehLarguraNota(larguraSalva)) set({ larguraNota: larguraSalva });
       if (typeof sidebarColapsadaSalva === "boolean") set({ sidebarColapsada: sidebarColapsadaSalva });
       if (typeof barraAcopladaSalva === "boolean") {
@@ -112,6 +101,22 @@ export const usePrefsStore = create<PrefsState>((set) => ({
       // informado" — só uma string salva (mesmo vazia) vira nome.
       set({ nomeUsuario: typeof nomeSalvo === "string" ? nomeSalvo : null });
       if (typeof asciiPeaksSalvo === "boolean") set({ asciiPeaksHabilitado: asciiPeaksSalvo });
+      // Bloco de idioma por último e depois dos outros `set`: qualquer throw aqui (inclusive
+      // do `store.set`/`store.save` abaixo) não pode abortar as preferências acima — em
+      // especial `nomeUsuario`, que voltando a `null` faz o onboarding perguntar o nome de
+      // novo (ver `catch` mudo logo abaixo).
+      if (ehIdioma(idiomaSalvo)) {
+        set({ idioma: idiomaSalvo });
+      } else if (idiomaSalvo === undefined) {
+        // Usuário novo (nada salvo ainda): adota o idioma do sistema e grava, para não
+        // redetectar depois. Valor salvo inválido (não undefined) não cai aqui — segue o
+        // mesmo padrão de tema/larguraNota, ignora e mantém o que já está em memória.
+        const tags = typeof navigator !== "undefined" ? (navigator.languages ?? []) : [];
+        const detectado = idiomaDoSistema(tags);
+        set({ idioma: detectado });
+        await store.set(CHAVE_IDIOMA, detectado);
+        await store.save();
+      }
     } catch {
       // Sem preferência salva ainda (primeira execução): fica nos padrões locais.
     }
