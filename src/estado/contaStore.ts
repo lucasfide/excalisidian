@@ -88,12 +88,21 @@ export const useContaStore = create<ContaState>((set, get) => {
         definirTokenDaSessao(sessao.token);
         await gravarToken(sessao.token);
         set({ sessao, carregado: true });
-      } catch {
+      } catch (e) {
         if (geracao !== minhaGeracao) return;
-        // Token morto na abertura NÃO é erro de tela: o usuário não pediu nada. Limpa e
-        // segue — o app inteiro funciona sem conta.
-        definirTokenDaSessao(null);
-        await gravarToken(null);
+        // Só o servidor dizendo "essa sessão não vale mais" pode apagar o disco. `rede` (não
+        // deu pra falar com o servidor — app offline, rotina num local-first) e `servidor`
+        // (erro inesperado, ou o token rotativo já foi consumido por OUTRA janela — `renovar`
+        // é de uso único e todas as janelas leem o mesmo token do settings.json compartilhado)
+        // não são prova de que a sessão morreu. Apagar nesses casos desloga em silêncio quem
+        // só abriu o app sem internet, ou builda uma corrida entre janelas onde a mais lenta
+        // apaga o token que a mais rápida acabou de renovar.
+        if (codigoDe(e) === "expirada") {
+          definirTokenDaSessao(null);
+          await gravarToken(null);
+        }
+        // Silêncio mantido nos dois casos: o usuário não pediu nada, só abriu o app. `sessao`
+        // fica null nesta execução (indefinida até a próxima tentativa), sem tocar em `erro`.
         set({ sessao: null, carregado: true });
       }
     },

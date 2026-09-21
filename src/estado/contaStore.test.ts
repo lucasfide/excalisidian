@@ -131,13 +131,52 @@ describe("contaStore", () => {
     expect(tokenDaSessaoAtual()).toBe(useContaStore.getState().sessao?.token);
   });
 
-  it("carregar com token morto limpa o disco em silêncio, sem erro na tela", async () => {
+  it("carregar com token morto (expirada) limpa o disco em silêncio, sem erro na tela", async () => {
     guardados.tokenConta = "tok-que-nao-existe";
-    await useContaStore.getState().carregar();
+    const servico = new ServicoContaControlavel(comConta());
+    useContaStore.getState().definirServico(servico);
+
+    const carregando = useContaStore.getState().carregar();
+    await servico.chamada;
+    servico.rejeitarCom(new FalhaConta("expirada"));
+    await carregando;
+
     expect(useContaStore.getState().sessao).toBeNull();
     expect(useContaStore.getState().erro).toBeNull();
     expect(guardados.tokenConta).toBeUndefined();
     expect(tokenDaSessaoAtual()).toBeNull();
+  });
+
+  it("carregar sem internet (falha de rede) mantém o token no disco, sem deslogar em silêncio", async () => {
+    guardados.tokenConta = "tok-offline";
+    const servico = new ServicoContaControlavel(comConta());
+    useContaStore.getState().definirServico(servico);
+
+    const carregando = useContaStore.getState().carregar();
+    await servico.chamada;
+    servico.rejeitarCom(new FalhaConta("rede"));
+    await carregando;
+
+    expect(useContaStore.getState().sessao).toBeNull();
+    expect(useContaStore.getState().carregado).toBe(true);
+    expect(useContaStore.getState().erro).toBeNull();
+    // O token PERMANECE no disco: não é prova de que a sessão expirou, é só falta de rede.
+    expect(guardados.tokenConta).toBe("tok-offline");
+  });
+
+  it("carregar com erro de servidor (ex.: token rotativo já consumido por outra janela) mantém o token no disco", async () => {
+    guardados.tokenConta = "tok-consumido-por-outra-janela";
+    const servico = new ServicoContaControlavel(comConta());
+    useContaStore.getState().definirServico(servico);
+
+    const carregando = useContaStore.getState().carregar();
+    await servico.chamada;
+    servico.rejeitarCom(new FalhaConta("servidor"));
+    await carregando;
+
+    expect(useContaStore.getState().sessao).toBeNull();
+    expect(useContaStore.getState().carregado).toBe(true);
+    expect(guardados.tokenConta).toBe("tok-consumido-por-outra-janela");
   });
 
   it("entrar bem-sucedido vence um carregar() em andamento cujo renovar resolve depois", async () => {
