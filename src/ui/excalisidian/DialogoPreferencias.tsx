@@ -13,7 +13,8 @@ import { useAgenteStore } from "../../estado/agenteStore";
 import { confirmar } from "../../estado/dialogoStore";
 import { provedorDe } from "../../agente/provedores";
 import { verificarAtualizacao } from "../../app/atualizacao";
-import { IDIOMAS } from "../../i18n/idioma";
+import { IDIOMAS, type Idioma } from "../../i18n/idioma";
+import type { ChaveTexto } from "../../i18n/catalogo";
 import { useTexto } from "../../i18n/useTexto";
 import DialogoGlossario from "./DialogoGlossario";
 
@@ -26,6 +27,13 @@ const OPCOES_TEMA: OpcaoGrupo<Tema>[] = [
   { rotulo: "Claro", valor: "claro" },
   { rotulo: "Escuro", valor: "escuro" },
 ];
+
+// Record em vez de ternário: um terceiro idioma em `Idioma` (idioma.ts) quebra a compilação
+// aqui até alguém escolher a chave certa, em vez de cair num rótulo errado em silêncio.
+const ROTULO_POR_IDIOMA: Record<Idioma, ChaveTexto> = {
+  "pt-BR": "prefs.idioma.ptBR",
+  en: "prefs.idioma.en",
+};
 
 const OPCOES_LARGURA: OpcaoGrupo<LarguraNota>[] = [
   { rotulo: "Pequena", valor: "pequena" },
@@ -43,8 +51,8 @@ export default function DialogoPreferencias({ onFechar }: Props) {
   const definirLarguraNota = usePrefsStore((s) => s.definirLarguraNota);
   const definirNomeUsuario = usePrefsStore((s) => s.definirNomeUsuario);
   const t = useTexto();
-  const opcoesIdioma: OpcaoGrupo<typeof idioma>[] = IDIOMAS.map((id) => ({
-    rotulo: t(id === "pt-BR" ? "prefs.idioma.ptBR" : "prefs.idioma.en"),
+  const opcoesIdioma: OpcaoGrupo<Idioma>[] = IDIOMAS.map((id) => ({
+    rotulo: t(ROTULO_POR_IDIOMA[id]),
     valor: id,
   }));
   const [versao, setVersao] = useState<string | null>(null);
