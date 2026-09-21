@@ -26,7 +26,10 @@ export default function ConteudoSidebar({
   const alternarSidebar = usePrefsStore((s) => s.alternarSidebar);
 
   return (
-    <div className="flex min-h-0 flex-1 flex-col motion-safe:animate-[surgirLateralEsquerda_280ms_var(--ease-caderno)_both]">
+    // Sem `both`: o quadro final da animação é igual ao estado padrão do elemento, e
+    // `both` deixaria o `transform` residual (mesmo `translateX(0)`) para sempre, o que
+    // vira bloco de contenção para `position: fixed` de descendentes (ex.: Dialog).
+    <div className="flex min-h-0 flex-1 flex-col motion-safe:animate-[surgirLateralEsquerda_280ms_var(--ease-caderno)]">
       <div className="flex items-center gap-1 border-b border-regua px-3 py-2">
         {/* SeletorVault no lugar do Logotipo (doc 12 §4.1): ocupa o espaço flexível à
             esquerda do cabeçalho. */}

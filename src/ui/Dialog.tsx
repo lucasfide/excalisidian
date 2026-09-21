@@ -4,8 +4,15 @@
 // Comportamento: foco vai para o primeiro campo ao abrir e fica preso enquanto aberto, Esc e
 // clique fora fecham, o foco volta para quem abriu. Entrada em 160ms com `--ease-caderno`
 // (doc 06, tabela de movimento), respeitando `prefers-reduced-motion`.
+//
+// Renderiza por portal em document.body: qualquer ancestral com `transform` (mesmo
+// `translateX(0)` residual de uma animação com `both`, como a da sidebar) vira bloco de
+// contenção para descendentes `position: fixed`, e o `fixed inset-0` abaixo passaria a
+// cobrir só esse ancestral em vez da janela inteira. O portal imuniza o Dialog contra
+// isso hoje e contra qualquer ancestral parecido no futuro.
 
 import { useEffect, useRef, type ReactNode } from "react";
+import { createPortal } from "react-dom";
 
 import { cn } from "./cn";
 import Superficie from "./Superficie";
@@ -86,7 +93,7 @@ export default function Dialog({
     // de fechar é lido via ref — mudar a identidade dele no pai não deve re-empilhar.
   }, []);
 
-  return (
+  return createPortal(
     <div
       className="fixed inset-0 z-[100] flex items-center justify-center bg-[color-mix(in_srgb,var(--color-tinta)_28%,transparent)] p-8"
       onMouseDown={(e) => {
@@ -116,6 +123,7 @@ export default function Dialog({
         {children && <div className="mt-4">{children}</div>}
         {acoes && <div className="mt-5 flex justify-end gap-2">{acoes}</div>}
       </Superficie>
-    </div>
+    </div>,
+    document.body,
   );
 }
