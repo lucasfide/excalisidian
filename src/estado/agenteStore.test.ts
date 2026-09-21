@@ -193,6 +193,18 @@ describe("agenteStore", () => {
     expect(st().conversas["Nota.md"][0]).toEqual({ papel: "usuario", texto: "oi" });
   });
 
+  it("carregar rejeita config com provedor fora do catálogo e cai no padrão", async () => {
+    await st().aplicarConfig(CONFIG);
+    const store = stores.get("settings.json")!;
+    await store.set("agente", { ...CONFIG, provedor: "desconhecido" });
+    useAgenteStore.setState({ config: null, carregado: false });
+
+    await st().carregar();
+
+    expect(st().config).toBeNull();
+    expect(st().carregado).toBe(true);
+  });
+
   it("testarConexao: null quando o provedor responde, mensagem quando falha", async () => {
     await st().aplicarConfig(CONFIG);
     expect(await st().testarConexao()).toBeNull();

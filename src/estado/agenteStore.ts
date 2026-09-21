@@ -20,7 +20,7 @@ import type {
   UsoSimples,
 } from "../agente/tipos";
 import { FalhaAgente } from "../agente/tipos";
-import { baseUrlEfetiva, provedorDe } from "../agente/provedores";
+import { baseUrlEfetiva, provedorDe, PROVEDORES } from "../agente/provedores";
 import { completar, listarModelos, textoDoErro } from "../agente/cliente";
 import { somarUso, usoVazio } from "../agente/orcamento";
 import {
@@ -80,6 +80,9 @@ function ehConfigAgente(v: unknown): v is ConfigAgente {
   return (
     typeof c.habilitado === "boolean" &&
     typeof c.provedor === "string" &&
+    // id fora do catálogo (downgrade de versão, edição à mão) precisa cair no padrão
+    // aqui, não derrubar o render de quem confia que `provedor` é sempre conhecido.
+    PROVEDORES.some((p) => p.id === c.provedor) &&
     typeof c.modeloGateiro === "string" &&
     typeof c.modeloAssistente === "string"
   );
