@@ -2,8 +2,9 @@
 //
 // PT_BR é a FONTE DA VERDADE e define o tipo ChaveTexto — uma chave só existe se estiver
 // aqui. EN é `Partial` para não travar a edição: uma tradução faltando cai no português
-// (tradutor.ts), que é garantia de execução — nunca mostra chave crua na tela — mas a
-// tradução em si é cobrada por teste antes do commit.
+// (tradutor.ts), que é garantia de execução — nunca mostra chave crua na tela. A regra do
+// projeto é cobrar a tradução em si por teste antes do commit, mas essa trava de
+// completude ainda não existe neste módulo — entra na tarefa 7 deste plano.
 //
 // Regras de redação valem para os dois idiomas: sentence case, sem emoji, sem ponto final
 // em rótulo de botão. O teste deste módulo cobre as invariantes, não a redação.
