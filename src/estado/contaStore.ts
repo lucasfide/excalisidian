@@ -45,78 +45,100 @@ interface ContaState {
   sair(): Promise<void>;
 }
 
-export const useContaStore = create<ContaState>((set, get) => ({
-  sessao: null,
-  carregado: false,
-  ocupado: false,
-  erro: null,
-  servico: new ServicoContaHttp(),
+export const useContaStore = create<ContaState>((set, get) => {
+  // Contador monotônico. `carregar()` não bloqueia a abertura e pode levar o tempo de uma
+  // ida à rede (o `renovar`); nesse meio-tempo o usuário pode ter decidido algo mais recente
+  // (entrar, criar ou sair) que já mudou a sessão. Cada uma dessas decisões incrementa;
+  // `carregar()` guarda o valor de quando começou e, antes de aplicar o que descobriu,
+  // confere se ele ainda é o mesmo — se não for, alguém mais recente já decidiu e o
+  // resultado do `carregar()` é descartado em silêncio, sem tocar em estado, disco ou
+  // porta-token. Sem isso: (a) um `entrar` bem-sucedido podia ser sobrescrito pelo `renovar`
+  // do token velho quando ele finalmente resolvesse, e (b) pior, um `renovar` que falhasse
+  // (token velho morto) deslogava em silêncio quem tinha acabado de entrar.
+  let geracao = 0;
 
-  definirServico(servico) {
-    set({ servico });
-  },
+  return {
+    sessao: null,
+    carregado: false,
+    ocupado: false,
+    erro: null,
+    servico: new ServicoContaHttp(),
 
-  plano() {
-    return get().sessao?.plano ?? "gratis";
-  },
+    definirServico(servico) {
+      set({ servico });
+    },
 
-  async carregar() {
-    const store = await abrirStore();
-    const token = await store.get<string>(CHAVE_TOKEN);
-    if (!token) {
-      definirTokenDaSessao(null);
-      set({ carregado: true });
-      return;
-    }
-    try {
-      const sessao = await get().servico.renovar(token);
-      definirTokenDaSessao(sessao.token);
-      await gravarToken(sessao.token);
-      set({ sessao, carregado: true });
-    } catch {
-      // Token morto na abertura NÃO é erro de tela: o usuário não pediu nada. Limpa e
-      // segue — o app inteiro funciona sem conta.
+    plano() {
+      return get().sessao?.plano ?? "gratis";
+    },
+
+    async carregar() {
+      const minhaGeracao = geracao;
+      const store = await abrirStore();
+      const token = await store.get<string>(CHAVE_TOKEN);
+      if (!token) {
+        if (geracao !== minhaGeracao) return;
+        definirTokenDaSessao(null);
+        set({ carregado: true });
+        return;
+      }
+      try {
+        const sessao = await get().servico.renovar(token);
+        if (geracao !== minhaGeracao) return;
+        definirTokenDaSessao(sessao.token);
+        await gravarToken(sessao.token);
+        set({ sessao, carregado: true });
+      } catch {
+        if (geracao !== minhaGeracao) return;
+        // Token morto na abertura NÃO é erro de tela: o usuário não pediu nada. Limpa e
+        // segue — o app inteiro funciona sem conta.
+        definirTokenDaSessao(null);
+        await gravarToken(null);
+        set({ sessao: null, carregado: true });
+      }
+    },
+
+    async entrar(email, senha) {
+      set({ ocupado: true, erro: null });
+      try {
+        const sessao = await get().servico.entrar(email, senha);
+        geracao++;
+        definirTokenDaSessao(sessao.token);
+        await gravarToken(sessao.token);
+        set({ sessao, ocupado: false });
+        return true;
+      } catch (e) {
+        // Falha ao entrar preserva a sessão anterior (se havia uma): só `erro` muda. Sem
+        // isso, alguém já logado que errasse a senha tentando trocar de conta perdia a
+        // sessão válida que tinha, e o `sair` nunca seria chamado no servidor pra aquele
+        // token, que ficava pendurado.
+        set({ ocupado: false, erro: codigoDe(e) });
+        return false;
+      }
+    },
+
+    async criar(email, senha) {
+      set({ ocupado: true, erro: null });
+      try {
+        const sessao = await get().servico.criar(email, senha);
+        geracao++;
+        definirTokenDaSessao(sessao.token);
+        await gravarToken(sessao.token);
+        set({ sessao, ocupado: false });
+        return true;
+      } catch (e) {
+        set({ ocupado: false, erro: codigoDe(e) });
+        return false;
+      }
+    },
+
+    async sair() {
+      geracao++;
+      const token = get().sessao?.token;
+      set({ sessao: null, erro: null });
       definirTokenDaSessao(null);
       await gravarToken(null);
-      set({ sessao: null, carregado: true });
-    }
-  },
-
-  async entrar(email, senha) {
-    set({ ocupado: true, erro: null });
-    try {
-      const sessao = await get().servico.entrar(email, senha);
-      definirTokenDaSessao(sessao.token);
-      await gravarToken(sessao.token);
-      set({ sessao, ocupado: false });
-      return true;
-    } catch (e) {
-      definirTokenDaSessao(null);
-      set({ sessao: null, ocupado: false, erro: codigoDe(e) });
-      return false;
-    }
-  },
-
-  async criar(email, senha) {
-    set({ ocupado: true, erro: null });
-    try {
-      const sessao = await get().servico.criar(email, senha);
-      definirTokenDaSessao(sessao.token);
-      await gravarToken(sessao.token);
-      set({ sessao, ocupado: false });
-      return true;
-    } catch (e) {
-      definirTokenDaSessao(null);
-      set({ sessao: null, ocupado: false, erro: codigoDe(e) });
-      return false;
-    }
-  },
-
-  async sair() {
-    const token = get().sessao?.token;
-    set({ sessao: null, erro: null });
-    definirTokenDaSessao(null);
-    await gravarToken(null);
-    if (token) await get().servico.sair(token);
-  },
-}));
+      if (token) await get().servico.sair(token);
+    },
+  };
+});

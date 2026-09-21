@@ -2,7 +2,54 @@ import { describe, it, expect, beforeEach, vi } from "vitest";
 
 import { useContaStore } from "./contaStore";
 import { ServicoContaFake } from "../conta/ServicoContaFake";
+import type { ServicoConta } from "../conta/ServicoConta";
+import { FalhaConta, type Sessao } from "../conta/tipos";
 import { tokenDaSessaoAtual, definirTokenDaSessao } from "../servico/sessao";
+
+/** Dublê cujo `renovar` só resolve quando o teste mandar — para controlar a ordem entre um
+ * `carregar()` em andamento e um `entrar()`/`criar()` que termina antes dele. Os outros
+ * métodos delegam para um `ServicoConta` de verdade (o fake em memória). */
+class ServicoContaControlavel implements ServicoConta {
+  private resolverRenovar!: (s: Sessao) => void;
+  private rejeitarRenovar!: (e: unknown) => void;
+  private resolverChamada!: () => void;
+  /** Resolve assim que `renovar` é chamado, antes de resolver/rejeitar — dá ao teste um
+   * ponto de sincronização sem usar temporizador. */
+  chamada = new Promise<void>((r) => {
+    this.resolverChamada = r;
+  });
+
+  constructor(private readonly base: ServicoConta) {}
+
+  renovar(_token: string): Promise<Sessao> {
+    const p = new Promise<Sessao>((resolve, reject) => {
+      this.resolverRenovar = resolve;
+      this.rejeitarRenovar = reject;
+    });
+    this.resolverChamada();
+    return p;
+  }
+
+  resolverComo(sessao: Sessao): void {
+    this.resolverRenovar(sessao);
+  }
+
+  rejeitarCom(erro: unknown): void {
+    this.rejeitarRenovar(erro);
+  }
+
+  entrar(email: string, senha: string): Promise<Sessao> {
+    return this.base.entrar(email, senha);
+  }
+
+  criar(email: string, senha: string): Promise<Sessao> {
+    return this.base.criar(email, senha);
+  }
+
+  sair(token: string): Promise<void> {
+    return this.base.sair(token);
+  }
+}
 
 const guardados: Record<string, unknown> = {};
 
@@ -91,5 +138,63 @@ describe("contaStore", () => {
     expect(useContaStore.getState().erro).toBeNull();
     expect(guardados.tokenConta).toBeUndefined();
     expect(tokenDaSessaoAtual()).toBeNull();
+  });
+
+  it("entrar bem-sucedido vence um carregar() em andamento cujo renovar resolve depois", async () => {
+    guardados.tokenConta = "tok-velho";
+    const servico = new ServicoContaControlavel(comConta());
+    useContaStore.getState().definirServico(servico);
+
+    const carregando = useContaStore.getState().carregar();
+    await servico.chamada; // renovar foi chamado, ainda pendente
+
+    const ok = await useContaStore.getState().entrar("ana@exemplo.com", "segredo123");
+    expect(ok).toBe(true);
+    const tokenDoEntrar = useContaStore.getState().sessao?.token;
+
+    // O renovar do carregar() finalmente resolve, com uma sessão diferente da do entrar.
+    servico.resolverComo({
+      token: "tok-velho-renovado",
+      email: "outra@exemplo.com",
+      plano: "gratis",
+      expiraEm: Date.now() + 1000,
+    });
+    await carregando;
+
+    expect(useContaStore.getState().sessao?.token).toBe(tokenDoEntrar);
+    expect(guardados.tokenConta).toBe(tokenDoEntrar);
+    expect(tokenDaSessaoAtual()).toBe(tokenDoEntrar);
+  });
+
+  it("entrar bem-sucedido sobrevive a um carregar() cujo renovar falha depois (token morto)", async () => {
+    guardados.tokenConta = "tok-morto";
+    const servico = new ServicoContaControlavel(comConta());
+    useContaStore.getState().definirServico(servico);
+
+    const carregando = useContaStore.getState().carregar();
+    await servico.chamada;
+
+    const ok = await useContaStore.getState().entrar("ana@exemplo.com", "segredo123");
+    expect(ok).toBe(true);
+    const tokenDoEntrar = useContaStore.getState().sessao?.token;
+
+    servico.rejeitarCom(new FalhaConta("expirada"));
+    await carregando;
+
+    expect(useContaStore.getState().sessao?.token).toBe(tokenDoEntrar);
+    expect(guardados.tokenConta).toBe(tokenDoEntrar);
+    expect(tokenDaSessaoAtual()).toBe(tokenDoEntrar);
+  });
+
+  it("entrar que falha com sessão ativa preserva a sessão anterior", async () => {
+    await useContaStore.getState().entrar("ana@exemplo.com", "segredo123");
+    const sessaoAnterior = useContaStore.getState().sessao;
+
+    const ok = await useContaStore.getState().entrar("ana@exemplo.com", "errada");
+
+    expect(ok).toBe(false);
+    expect(useContaStore.getState().erro).toBe("credenciais");
+    expect(useContaStore.getState().sessao).toEqual(sessaoAnterior);
+    expect(tokenDaSessaoAtual()).toBe(sessaoAnterior?.token);
   });
 });
