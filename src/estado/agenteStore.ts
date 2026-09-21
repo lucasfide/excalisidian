@@ -19,6 +19,7 @@ import type {
   StatusAgente,
   UsoSimples,
 } from "../agente/tipos";
+import { FalhaAgente } from "../agente/tipos";
 import { baseUrlEfetiva, provedorDe } from "../agente/provedores";
 import { completar, listarModelos, textoDoErro } from "../agente/cliente";
 import { somarUso, usoVazio } from "../agente/orcamento";
@@ -307,9 +308,14 @@ export const useAgenteStore = create<AgenteState>((set, get) => {
         set((st) => ({ analises: { ...st.analises, [path]: "erro" } }));
         delete tentativasGateiro[path];
       }
-    } catch {
-      // gateiro silencioso: erro de rede não vira faixa, mas fica na linha de status do
-      // painel e não bloqueia a próxima tentativa.
+    } catch (e) {
+      // sessão ausente/expirada: sobe para erroAtual, como os outros caminhos do store
+      // já fazem, em vez de virar só "análise falhou" — o usuário precisa entrar na conta.
+      if (e instanceof FalhaAgente && e.codigo === "sessao") {
+        set({ status: "erro", erroAtual: textoDoErro(e) });
+      }
+      // gateiro silencioso: demais erros não viram faixa, mas ficam na linha de status do
+      // painel e não bloqueiam a próxima tentativa.
       set((st) => ({ analises: { ...st.analises, [path]: "erro" } }));
       delete tentativasGateiro[path];
     } finally {
