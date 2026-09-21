@@ -217,8 +217,10 @@ describe("agenteStore", () => {
     expect(await st().testarConexao()).toBe("erro simulado");
   });
 
-  it("testar conexão do provedor próprio falha sem sessão, em vez de dizer que funciona", async () => {
+  it("testar conexão do provedor próprio falha sem sessão com o texto traduzido, não o código cru", async () => {
     definirTokenDaSessao(null);
+    const { textoDoErro } = await import("../agente/cliente");
+    vi.mocked(textoDoErro).mockClear();
     const erro = await useAgenteStore.getState().testarConexao({
       ...CONFIG,
       provedor: "excalisidian",
@@ -226,7 +228,12 @@ describe("agenteStore", () => {
       baseUrls: { excalisidian: BASE_URL_SERVICO },
       modeloGateiro: MODELO_LEITURA,
     });
-    expect(erro).not.toBeNull();
+    // textoDoErro (mockado no topo do arquivo) é o mesmo mecanismo dos outros ramos de
+    // testarConexao — precisa ser chamado com o erro de sessão, e o retorno tem que ser o
+    // texto traduzido que ele devolve, nunca o código cru "sessao".
+    expect(textoDoErro).toHaveBeenCalledWith(expect.objectContaining({ codigo: "sessao" }));
+    expect(erro).toBe("erro simulado");
+    expect(erro).not.toBe("sessao");
   });
 
   it("testar conexão do provedor próprio não chama listarModelos", async () => {

@@ -557,10 +557,11 @@ export const useAgenteStore = create<AgenteState>((set, get) => {
       const provedor = provedorDe(cfg.provedor);
       // Provedor por conta: não há GET /models a bater (doc 11 §3) — o que existe para
       // testar é a sessão. Devolver "funcionando" sem checar nada seria um sucesso
-      // maquiado; aqui falha com o código de erro de sessão quando não há sessão, e não
-      // bate no endpoint de listagem que o serviço não expõe quando há.
+      // maquiado; aqui falha com a mensagem traduzida de erro de sessão quando não há
+      // sessão (mesmo mecanismo dos outros ramos — textoDoErro), e não bate no endpoint
+      // de listagem que o serviço não expõe quando há.
       if (provedor.exigeConta) {
-        return tokenDaSessaoAtual() ? null : "sessao";
+        return tokenDaSessaoAtual() ? null : textoDoErro(new FalhaAgente("sessao"));
       }
       try {
         await listarModelos({
