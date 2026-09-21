@@ -1,13 +1,15 @@
 // Doc 11 §12, item 2: os três dialetas montam o request certo e mapeiam status para os
 // códigos normalizados. O fetch do plugin-http é simulado; nenhuma chamada de rede real.
-import { describe, it, expect, beforeEach, vi } from "vitest";
+import { describe, it, expect, beforeEach, afterEach, vi } from "vitest";
 
 const { fetchMock } = vi.hoisted(() => ({ fetchMock: vi.fn() }));
 vi.mock("@tauri-apps/plugin-http", () => ({ fetch: fetchMock }));
 
-import { completar, listarModelos, textoDoErro } from "./cliente";
-import { provedorDe } from "./provedores";
+import { cabecalhosBase, completar, listarModelos, textoDoErro } from "./cliente";
+import { provedorDe, MODELO_LEITURA } from "./provedores";
 import { FalhaAgente } from "./tipos";
+import { definirTokenDaSessao } from "../servico/sessao";
+import { BASE_URL_SERVICO } from "../servico/base";
 
 function respostaHTTP(status: number, corpo: unknown) {
   return { status, json: async () => corpo };
@@ -192,5 +194,55 @@ describe("cliente — textoDoErro", () => {
     expect(textoDoErro(new FalhaAgente("modelo"))).toContain("modelo");
     expect(textoDoErro(new FalhaAgente("escopo"))).toContain("base URL");
     expect(textoDoErro(new Error("genérica"))).toContain("Não foi possível falar com o provedor.");
+  });
+});
+
+describe("autenticação por sessão", () => {
+  afterEach(() => definirTokenDaSessao(null));
+
+  it("provedor que exige conta usa o token da sessão como Bearer", () => {
+    definirTokenDaSessao("tok-abc");
+    const cabecalhos = cabecalhosBase({
+      provedor: provedorDe("excalisidian"),
+      baseUrl: BASE_URL_SERVICO,
+      modelo: MODELO_LEITURA,
+      thinking: "padrao",
+    });
+    expect(cabecalhos.Authorization).toBe("Bearer tok-abc");
+  });
+
+  it("provedor que exige conta ignora chave digitada, se alguém puser uma", () => {
+    definirTokenDaSessao("tok-abc");
+    const cabecalhos = cabecalhosBase({
+      provedor: provedorDe("excalisidian"),
+      chave: "sk-nao-deveria-ser-usada",
+      baseUrl: BASE_URL_SERVICO,
+      modelo: MODELO_LEITURA,
+      thinking: "padrao",
+    });
+    expect(cabecalhos.Authorization).toBe("Bearer tok-abc");
+  });
+
+  it("sem sessão, falha com código próprio em vez de chamar sem autenticação", () => {
+    expect(() =>
+      cabecalhosBase({
+        provedor: provedorDe("excalisidian"),
+        baseUrl: BASE_URL_SERVICO,
+        modelo: MODELO_LEITURA,
+        thinking: "padrao",
+      }),
+    ).toThrow(expect.objectContaining({ codigo: "sessao" }));
+  });
+
+  it("provedor de chave própria continua usando a chave digitada", () => {
+    definirTokenDaSessao("tok-abc");
+    const cabecalhos = cabecalhosBase({
+      provedor: provedorDe("openai"),
+      chave: "sk-minha",
+      baseUrl: "https://api.openai.com/v1",
+      modelo: "gpt-5.4-mini",
+      thinking: "padrao",
+    });
+    expect(cabecalhos.Authorization).toBe("Bearer sk-minha");
   });
 });

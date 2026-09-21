@@ -146,7 +146,9 @@ export default function DialogoAgente() {
     } catch (e) {
       // Chave recusada: fica no passo. Rede/listagem: segue com a lista estática do
       // catálogo (doc 11 §6.3).
-      if (e instanceof FalhaAgente && e.codigo === "chave") {
+      // "sessao" tratado igual a "chave" por enquanto — mensagem própria é a Task 5
+      // deste mesmo plano (SDD 2026-09-21-02-provedor-excalisidian).
+      if (e instanceof FalhaAgente && (e.codigo === "chave" || e.codigo === "sessao")) {
         setErroChave(textoDoErro(e));
       } else {
         setModelos(null);

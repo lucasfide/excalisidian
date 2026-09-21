@@ -44,6 +44,7 @@ export interface UsoSimples {
 /** Erros de provedor normalizados; as mensagens do §7 do doc 11 moram na UI. */
 export type ErroAgente =
   | "chave" // 401/403
+  | "sessao" // provedor exige conta e não há sessão ativa
   | "cota" // 429
   | "modelo" // 404
   | "rede" // exceção de conexão

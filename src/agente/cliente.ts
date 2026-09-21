@@ -13,6 +13,7 @@ import type {
 import { FalhaAgente } from "./tipos";
 import type { ProvedorInfo } from "./provedores";
 import { mapearThinking, modeloComThinking } from "./provedores";
+import { tokenDaSessaoAtual } from "../servico/sessao";
 
 const TIMEOUT_CONEXAO_MS = 20_000;
 
@@ -24,14 +25,25 @@ export interface ContextoChamada {
   thinking: ConfigAgente["thinking"];
 }
 
-function cabecalhosBase(ctx: ContextoChamada): Record<string, string> {
+/** A credencial da chamada: chave digitada, ou token da sessão quando o provedor é o
+ * nosso. Falta de sessão para aqui — chamar sem autenticação daria 401 e a interface
+ * diria "chave recusada", que é a mensagem errada. */
+function credencial(ctx: ContextoChamada): string | undefined {
+  if (!ctx.provedor.exigeConta) return ctx.chave;
+  const token = tokenDaSessaoAtual();
+  if (!token) throw new FalhaAgente("sessao", "sem sessão ativa");
+  return token;
+}
+
+export function cabecalhosBase(ctx: ContextoChamada): Record<string, string> {
   const cabecalhos: Record<string, string> = { "content-type": "application/json" };
+  const chave = credencial(ctx);
   switch (ctx.provedor.dialecto) {
     case "openai":
-      if (ctx.chave) cabecalhos.Authorization = `Bearer ${ctx.chave}`;
+      if (chave) cabecalhos.Authorization = `Bearer ${chave}`;
       break;
     case "anthropic":
-      cabecalhos["x-api-key"] = ctx.chave ?? "";
+      cabecalhos["x-api-key"] = chave ?? "";
       cabecalhos["anthropic-version"] = "2023-06-01";
       break;
     case "gemini":
@@ -244,6 +256,9 @@ export function textoDoErro(
   const detalhe = falha instanceof Error ? falha.message : null;
   switch (codigo) {
     case "chave":
+    // TODO(task 5 deste plano): mensagem própria para "sessao" ("entre na sua conta"),
+    // em vez de reaproveitar a de chave recusada.
+    case "sessao":
       return "A chave da API foi recusada pelo provedor. Confira a chave nas configurações.";
     case "cota":
       return "O provedor limitou as chamadas agora. Tente de novo em instantes.";
