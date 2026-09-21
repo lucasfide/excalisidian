@@ -364,12 +364,18 @@ function MedidorCreditos({
     <span className="meta flex items-baseline gap-2">
       <span
         className={cn(
-          nivel === "esgotado" ? "text-bordo" : nivel === "acabando" ? "text-ocre" : "text-tinta-suave",
+          nivel === "esgotado"
+            ? "text-bordo"
+            : nivel === "acabando"
+              ? "text-ocre-tinta"
+              : "text-tinta-suave",
         )}
       >
         {t("agente.creditos.restantes", { restantes: formatarCreditos(restantes(saldo)) })}
       </span>
-      {nivel === "acabando" && <span className="text-ocre">{t("agente.creditos.acabando")}</span>}
+      {nivel === "acabando" && (
+        <span className="text-ocre-tinta">{t("agente.creditos.acabando")}</span>
+      )}
       {nivel === "esgotado" && (
         <span className="text-bordo">
           {t("agente.creditos.esgotado", {
