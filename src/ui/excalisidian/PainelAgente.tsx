@@ -26,7 +26,15 @@ import BotaoIcone from "../../ui/BotaoIcone";
 import { useAgenteStore } from "../../estado/agenteStore";
 import { useWorkspaceStore } from "../../estado/workspaceStore";
 import { formatarUso } from "../../agente/orcamento";
+import { provedorDe } from "../../agente/provedores";
+import { formatarCreditos, nivelDeAviso, restantes, type SaldoCreditos } from "../../servico/creditos";
+import { useTexto } from "../../i18n/useTexto";
 import type { TipoSugestao } from "../../agente/assistente";
+
+const FORMATADOR_DATA_CREDITOS = new Intl.DateTimeFormat("pt-BR", {
+  day: "2-digit",
+  month: "2-digit",
+});
 
 const ICONES_TIPO: Record<TipoSugestao, typeof HelpCircle> = {
   pergunta: HelpCircle,
@@ -37,7 +45,9 @@ const ICONES_TIPO: Record<TipoSugestao, typeof HelpCircle> = {
 };
 
 export default function PainelAgente() {
+  const t = useTexto();
   const habilitado = useAgenteStore((s) => s.config?.habilitado ?? false);
+  const provedorId = useAgenteStore((s) => s.config?.provedor);
   const aberto = useAgenteStore((s) => s.painelAberto);
   const conversas = useAgenteStore((s) => s.conversas);
   const status = useAgenteStore((s) => s.status);
@@ -93,6 +103,13 @@ export default function PainelAgente() {
   }, [conversa.length, status]);
 
   const textoMedidor = useMemo(() => formatarUso(uso, null), [uso]);
+
+  // Provedor próprio: o medidor de tokens (doc 11 §5.6) cede lugar a créditos — quem paga é
+  // o plano, não o usuário direto (src/servico/creditos.ts). O saldo vem do servidor; o
+  // endpoint ainda não existe, então fica `null` até lá e o medidor de créditos não aparece
+  // — nunca um número inventado no lugar.
+  const usaCreditos = provedorId ? provedorDe(provedorId).exigeConta : false;
+  const saldo: SaldoCreditos | null = null;
 
   if (!habilitado || !aberto) return null;
 
@@ -310,7 +327,11 @@ export default function PainelAgente() {
           />
         </div>
         <div className="mt-1 flex items-baseline justify-between gap-2 px-1">
-          <span className="meta text-tinta-suave">{textoMedidor}</span>
+          {usaCreditos && saldo ? (
+            <MedidorCreditos saldo={saldo} t={t} />
+          ) : usaCreditos ? null : (
+            <span className="meta text-tinta-suave">{textoMedidor}</span>
+          )}
           {/* A decisão do gateiro nunca some sem dizer nada (doc 11 §5.1, revisado
               13/09): "não vale" e "falhou" aparecem aqui. */}
           {caminhoAtivo && analises[caminhoAtivo] === "nao-vale" && (
@@ -326,5 +347,36 @@ export default function PainelAgente() {
         </div>
       </footer>
     </div>
+  );
+}
+
+/** Medidor de créditos do provedor próprio (doc 11 §5.6, revisado): substitui o medidor de
+ * tokens quando a conta do usuário é quem paga, não uma chave própria. */
+function MedidorCreditos({
+  saldo,
+  t,
+}: {
+  saldo: SaldoCreditos;
+  t: ReturnType<typeof useTexto>;
+}) {
+  const nivel = nivelDeAviso(saldo);
+  return (
+    <span className="meta flex items-baseline gap-2">
+      <span
+        className={cn(
+          nivel === "esgotado" ? "text-bordo" : nivel === "acabando" ? "text-ocre" : "text-tinta-suave",
+        )}
+      >
+        {t("agente.creditos.restantes", { restantes: formatarCreditos(restantes(saldo)) })}
+      </span>
+      {nivel === "acabando" && <span className="text-ocre">{t("agente.creditos.acabando")}</span>}
+      {nivel === "esgotado" && (
+        <span className="text-bordo">
+          {t("agente.creditos.esgotado", {
+            data: FORMATADOR_DATA_CREDITOS.format(saldo.renovaEm),
+          })}
+        </span>
+      )}
+    </span>
   );
 }

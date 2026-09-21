@@ -20,6 +20,8 @@ import {
   validarBaseUrl,
 } from "../../agente/provedores";
 import type { ConfigAgente, ProvedorId, Thinking } from "../../agente/tipos";
+import { useTexto } from "../../i18n/useTexto";
+import { tokenDaSessaoAtual } from "../../servico/sessao";
 
 const ROTULOS_PASSO = [
   "Provedor",
@@ -96,6 +98,7 @@ function rascunhoDe(config: ConfigAgente | null): Rascunho {
 }
 
 export default function DialogoAgente() {
+  const t = useTexto();
   const config = useAgenteStore((s) => s.config);
   const [etapa, setEtapa] = useState(config ? 2 : 1);
   const [r, setR] = useState<Rascunho>(() => rascunhoDe(config));
@@ -109,6 +112,12 @@ export default function DialogoAgente() {
   const provedor = provedorDe(r.provedor);
   const chaveEfetiva = r.chave.trim() || config?.chaves?.[r.provedor] || "";
   const erroBase = validarBaseUrl(r.baseUrl);
+  // Provedor próprio: sem chave, autentica pela sessão da conta (doc 11, provedor
+  // "excalisidian"). Sem sessão ativa, o passo de conta bloqueia o avanço.
+  const semSessao = provedor.exigeConta && !tokenDaSessaoAtual();
+  const rotulosPasso = provedor.exigeConta
+    ? [ROTULOS_PASSO[0], t("agente.passo.conta"), ...ROTULOS_PASSO.slice(2)]
+    : ROTULOS_PASSO;
 
   const irParaChave = () => {
     setErroChave(null);
@@ -119,12 +128,26 @@ export default function DialogoAgente() {
 
   const validarChaveEBuscarModelos = async () => {
     setErroChave(null);
-    if (erroBase) {
-      setErroChave(erroBase);
-      return;
+    if (provedor.exigeConta) {
+      if (semSessao) {
+        setErroChave(t("agente.erro.sessao"));
+        return;
+      }
+    } else {
+      if (erroBase) {
+        setErroChave(erroBase);
+        return;
+      }
+      if (provedor.precisaChave && !chaveEfetiva) {
+        setErroChave("Cole a chave da API para continuar.");
+        return;
+      }
     }
-    if (provedor.precisaChave && !chaveEfetiva) {
-      setErroChave("Cole a chave da API para continuar.");
+    // Catálogo fixo (provedor próprio): a lista já é conhecida, nada para buscar por HTTP.
+    if (provedor.modelosFixos.length > 0) {
+      setModelos(provedor.modelosFixos);
+      setAvisoLista(null);
+      setEtapa(3);
       return;
     }
     setCarregando(true);
@@ -144,11 +167,11 @@ export default function DialogoAgente() {
       );
       setEtapa(3);
     } catch (e) {
-      // Chave recusada: fica no passo. Rede/listagem: segue com a lista estática do
-      // catálogo (doc 11 §6.3).
-      // "sessao" tratado igual a "chave" por enquanto — mensagem própria é a Task 5
-      // deste mesmo plano (SDD 2026-09-21-02-provedor-excalisidian).
-      if (e instanceof FalhaAgente && (e.codigo === "chave" || e.codigo === "sessao")) {
+      // Chave recusada ou sessão ausente: fica no passo, com a mensagem própria de cada
+      // erro. Rede/listagem: segue com a lista estática do catálogo (doc 11 §6.3).
+      if (e instanceof FalhaAgente && e.codigo === "sessao") {
+        setErroChave(t("agente.erro.sessao"));
+      } else if (e instanceof FalhaAgente && e.codigo === "chave") {
         setErroChave(textoDoErro(e));
       } else {
         setModelos(null);
@@ -203,7 +226,7 @@ export default function DialogoAgente() {
           {(etapa === 1 || etapa === 2) && (
             <Botao
               variante="primario"
-              disabled={etapa === 2 && carregando}
+              disabled={etapa === 2 && (carregando || semSessao)}
               carregando={etapa === 2 && carregando}
               onClick={() => {
                 if (etapa === 1) irParaChave();
@@ -223,7 +246,7 @@ export default function DialogoAgente() {
     >
       <style>{ESTILOS_TRANSICOES}</style>
       <div className="meta mb-3 flex items-center gap-1.5 text-tinta-suave">
-        {ROTULOS_PASSO.map((rotulo, i) => {
+        {rotulosPasso.map((rotulo, i) => {
           const n = i + 1;
           return (
             <span key={rotulo} aria-hidden className="flex items-center gap-1.5">
@@ -246,7 +269,18 @@ export default function DialogoAgente() {
 
       {etapa === 2 && (
         <div className="flex flex-col gap-3">
-          {provedor.precisaChave ? (
+          {provedor.exigeConta ? (
+            <>
+              <p className="text-pequeno text-tinta-media">
+                {t("agente.passo.contaExplicacao")}
+              </p>
+              {semSessao && (
+                <p className="text-pequeno text-bordo" role="alert">
+                  {t("agente.erro.sessao")}
+                </p>
+              )}
+            </>
+          ) : provedor.precisaChave ? (
             <>
               <Campo
                 rotulo="Chave da API"
@@ -314,6 +348,7 @@ export default function DialogoAgente() {
           aviso={avisoLista}
           sugeridos={provedor.sugeridosGateiro}
           valor={r.modeloGateiro}
+          permiteOutro={provedor.modelosFixos.length === 0}
           onEscolher={(m) => {
             setR((x) => ({ ...x, modeloGateiro: m }));
             setEtapa(4);
@@ -328,6 +363,7 @@ export default function DialogoAgente() {
           aviso={avisoLista}
           sugeridos={provedor.sugeridosAssistente}
           valor={r.modeloAssistente}
+          permiteOutro={provedor.modelosFixos.length === 0}
           onEscolher={(m) => {
             setR((x) => ({ ...x, modeloAssistente: m }));
             setEtapa(5);
@@ -387,6 +423,7 @@ function PassoModelo({
   aviso,
   sugeridos,
   valor,
+  permiteOutro = true,
   onEscolher,
 }: {
   rotulo: string;
@@ -394,6 +431,9 @@ function PassoModelo({
   aviso: string | null;
   sugeridos: string[];
   valor: string;
+  /** false no catálogo fixo (provedor próprio): não dá para digitar um modelo que o
+   * serviço não conhece. */
+  permiteOutro?: boolean;
   onEscolher(modelo: string): void;
 }) {
   const [filtro, setFiltro] = useState("");
@@ -462,39 +502,40 @@ function PassoModelo({
           );
         })}
       </div>
-      {outroAberto ? (
-        <div className={`flex items-end gap-2 ${CLASSE_FADE_INTERNO}`}>
-          <div className="flex-1">
-            <Campo
-              rotulo="Nome do modelo"
-              type="text"
-              autoComplete="off"
-              spellCheck={false}
-              placeholder="ex.: gpt-5.6-luna"
-              value={outroTexto}
-              onChange={(e) => setOutroTexto(e.target.value)}
-              onKeyDown={(e) => {
-                if (e.key === "Enter" && outroTexto.trim()) onEscolher(outroTexto.trim());
-              }}
-            />
+      {permiteOutro &&
+        (outroAberto ? (
+          <div className={`flex items-end gap-2 ${CLASSE_FADE_INTERNO}`}>
+            <div className="flex-1">
+              <Campo
+                rotulo="Nome do modelo"
+                type="text"
+                autoComplete="off"
+                spellCheck={false}
+                placeholder="ex.: gpt-5.6-luna"
+                value={outroTexto}
+                onChange={(e) => setOutroTexto(e.target.value)}
+                onKeyDown={(e) => {
+                  if (e.key === "Enter" && outroTexto.trim()) onEscolher(outroTexto.trim());
+                }}
+              />
+            </div>
+            <Botao
+              variante="primario"
+              disabled={!outroTexto.trim()}
+              onClick={() => outroTexto.trim() && onEscolher(outroTexto.trim())}
+            >
+              OK
+            </Botao>
           </div>
-          <Botao
-            variante="primario"
-            disabled={!outroTexto.trim()}
-            onClick={() => outroTexto.trim() && onEscolher(outroTexto.trim())}
+        ) : (
+          <button
+            type="button"
+            className="self-start text-pequeno text-cristal underline-offset-2 hover:underline"
+            onClick={() => setOutroAberto(true)}
           >
-            OK
-          </Botao>
-        </div>
-      ) : (
-        <button
-          type="button"
-          className="self-start text-pequeno text-cristal underline-offset-2 hover:underline"
-          onClick={() => setOutroAberto(true)}
-        >
-          Outro modelo…
-        </button>
-      )}
+            Outro modelo…
+          </button>
+        ))}
     </div>
   );
 }

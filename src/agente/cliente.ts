@@ -256,10 +256,9 @@ export function textoDoErro(
   const detalhe = falha instanceof Error ? falha.message : null;
   switch (codigo) {
     case "chave":
-    // TODO(task 5 deste plano): mensagem própria para "sessao" ("entre na sua conta"),
-    // em vez de reaproveitar a de chave recusada.
-    case "sessao":
       return "A chave da API foi recusada pelo provedor. Confira a chave nas configurações.";
+    case "sessao":
+      return "Entre na sua conta do Excalisidian para usar a IA incluída no plano.";
     case "cota":
       return "O provedor limitou as chamadas agora. Tente de novo em instantes.";
     case "modelo":
