@@ -165,5 +165,16 @@ describe("prefsStore", () => {
       expect(usePrefsStore.getState().idioma).toBe("en");
       await vi.waitFor(() => expect(armazenado.get("idioma")).toBe("en"));
     });
+
+    it("sem nada salvo, detecta o idioma do sistema e grava pra não redetectar depois", async () => {
+      vi.stubGlobal("navigator", { languages: ["fr-FR"] });
+      try {
+        await usePrefsStore.getState().carregar();
+        expect(usePrefsStore.getState().idioma).toBe("en");
+        expect(armazenado.get("idioma")).toBe("en");
+      } finally {
+        vi.unstubAllGlobals();
+      }
+    });
   });
 });
