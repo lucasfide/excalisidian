@@ -21,7 +21,7 @@ import {
 } from "../../agente/provedores";
 import type { ConfigAgente, ProvedorId, Thinking } from "../../agente/tipos";
 import { useTexto } from "../../i18n/useTexto";
-import { tokenDaSessaoAtual } from "../../servico/sessao";
+import { useContaStore } from "../../estado/contaStore";
 import { CONTA_DISPONIVEL } from "../../servico/base";
 
 // "Mínimo" fora da lista: a família gpt-5.6 recusa reasoning_effort "minimal" (verificado
@@ -112,8 +112,12 @@ export default function DialogoAgente() {
   const chaveEfetiva = r.chave.trim() || config?.chaves?.[r.provedor] || "";
   const erroBase = validarBaseUrl(r.baseUrl);
   // Provedor próprio: sem chave, autentica pela sessão da conta (doc 11, provedor
-  // "excalisidian"). Sem sessão ativa, o passo de conta bloqueia o avanço.
-  const semSessao = provedor.exigeConta && !tokenDaSessaoAtual();
+  // "excalisidian"). Sem sessão ativa, o passo de conta bloqueia o avanço. Lido do store
+  // (reativo) em vez do porta-token de sessao.ts, que não notifica o React quando muda —
+  // entrar na conta com o assistente aberto precisa refletir na hora, sem esperar outro
+  // re-render.
+  const sessao = useContaStore((s) => s.sessao);
+  const semSessao = provedor.exigeConta && sessao === null;
   const rotulosPasso = provedor.exigeConta
     ? [
         t("agente.passo.provedor"),
@@ -409,9 +413,9 @@ function PassoProvedor({
   valor: ProvedorId;
   onEscolher(id: ProvedorId): void;
 }) {
-  // A tela de conta ainda não existe (ver CONTA_DISPONIVEL em servico/base.ts): esconde
-  // do assistente qualquer provedor que só autentica por sessão de conta. O provedor
-  // continua no catálogo, só não aparece aqui.
+  // CONTA_DISPONIVEL (servico/base.ts) é o interruptor geral: com a tela de conta pronta
+  // ele é `true` e todo provedor aparece; um `false` de emergência voltaria a esconder
+  // qualquer provedor que só autentica por sessão de conta, sem tirá-lo do catálogo.
   const provedoresVisiveis = PROVEDORES.filter((p) => CONTA_DISPONIVEL || !p.exigeConta);
   return (
     <div role="radiogroup" aria-label="Provedor" className="flex flex-col gap-1.5">

@@ -77,8 +77,11 @@ vi.mock("./vaultStore", () => ({
 }));
 
 import { useAgenteStore } from "./agenteStore";
-import { completar } from "../agente/cliente";
+import { completar, listarModelos } from "../agente/cliente";
 import type { ConfigAgente } from "../agente/tipos";
+import { BASE_URL_SERVICO } from "../servico/base";
+import { MODELO_LEITURA } from "../agente/provedores";
+import { definirTokenDaSessao } from "../servico/sessao";
 
 const st = () => useAgenteStore.getState();
 
@@ -212,6 +215,31 @@ describe("agenteStore", () => {
     const { listarModelos } = await import("../agente/cliente");
     vi.mocked(listarModelos).mockRejectedValueOnce(new Error("sem rede"));
     expect(await st().testarConexao()).toBe("erro simulado");
+  });
+
+  it("testar conexão do provedor próprio falha sem sessão, em vez de dizer que funciona", async () => {
+    definirTokenDaSessao(null);
+    const erro = await useAgenteStore.getState().testarConexao({
+      ...CONFIG,
+      provedor: "excalisidian",
+      chaves: {},
+      baseUrls: { excalisidian: BASE_URL_SERVICO },
+      modeloGateiro: MODELO_LEITURA,
+    });
+    expect(erro).not.toBeNull();
+  });
+
+  it("testar conexão do provedor próprio não chama listarModelos", async () => {
+    definirTokenDaSessao("tok-valido");
+    vi.mocked(listarModelos).mockClear();
+    await useAgenteStore.getState().testarConexao({
+      ...CONFIG,
+      provedor: "excalisidian",
+      chaves: {},
+      baseUrls: { excalisidian: BASE_URL_SERVICO },
+      modeloGateiro: MODELO_LEITURA,
+    });
+    expect(listarModelos).not.toHaveBeenCalled();
   });
 });
 

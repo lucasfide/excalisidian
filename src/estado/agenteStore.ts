@@ -22,6 +22,7 @@ import type {
 import { FalhaAgente } from "../agente/tipos";
 import { baseUrlEfetiva, provedorDe, PROVEDORES } from "../agente/provedores";
 import { completar, listarModelos, textoDoErro } from "../agente/cliente";
+import { tokenDaSessaoAtual } from "../servico/sessao";
 import { somarUso, usoVazio } from "../agente/orcamento";
 import {
   SYSTEM_GATEIRO,
@@ -554,10 +555,13 @@ export const useAgenteStore = create<AgenteState>((set, get) => {
       const cfg = config ?? get().config;
       if (!cfg) return "Configure o provedor primeiro.";
       const provedor = provedorDe(cfg.provedor);
-      // Catálogo fixo (provedor próprio): a lista de modelos já é conhecida e o serviço
-      // não expõe GET /models (doc 11 §3). Não há como testar a conexão sem bater numa
-      // rota inexistente, então não bate — e não inventa uma falha que não houve.
-      if (provedor.modelosFixos.length > 0) return null;
+      // Provedor por conta: não há GET /models a bater (doc 11 §3) — o que existe para
+      // testar é a sessão. Devolver "funcionando" sem checar nada seria um sucesso
+      // maquiado; aqui falha com o código de erro de sessão quando não há sessão, e não
+      // bate no endpoint de listagem que o serviço não expõe quando há.
+      if (provedor.exigeConta) {
+        return tokenDaSessaoAtual() ? null : "sessao";
+      }
       try {
         await listarModelos({
           provedor,
