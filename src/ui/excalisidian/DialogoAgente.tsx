@@ -22,6 +22,7 @@ import {
 import type { ConfigAgente, ProvedorId, Thinking } from "../../agente/tipos";
 import { useTexto } from "../../i18n/useTexto";
 import { tokenDaSessaoAtual } from "../../servico/sessao";
+import { CONTA_DISPONIVEL } from "../../servico/base";
 
 const ROTULOS_PASSO = [
   "Provedor",
@@ -391,9 +392,13 @@ function PassoProvedor({
   valor: ProvedorId;
   onEscolher(id: ProvedorId): void;
 }) {
+  // A tela de conta ainda não existe (ver CONTA_DISPONIVEL em servico/base.ts): esconde
+  // do assistente qualquer provedor que só autentica por sessão de conta. O provedor
+  // continua no catálogo, só não aparece aqui.
+  const provedoresVisiveis = PROVEDORES.filter((p) => CONTA_DISPONIVEL || !p.exigeConta);
   return (
     <div role="radiogroup" aria-label="Provedor" className="flex flex-col gap-1.5">
-      {PROVEDORES.map((p) => {
+      {provedoresVisiveis.map((p) => {
         const ativo = p.id === valor;
         return (
           <button
