@@ -33,7 +33,7 @@ export const EN_AGENTE: Partial<Record<keyof typeof PT_BR_AGENTE, string>> = {
   "agente.erro.sessao": "Sign in to your Excalisidian account to use the AI included in your plan.",
   "agente.erro.cota": "The provider is rate-limiting calls right now. Try again in a moment.",
   "agente.erro.modelo":
-    "The provider does not recognize the model «{modelo}». Check the name in settings.",
+    "The provider does not recognize the model \"{modelo}\". Check the name in settings.",
   "agente.erro.escopo":
     "The configured base URL is outside the app's allowed scope. Check the advanced field in settings.",
   "agente.erro.resposta": "The provider returned a response I could not understand. Try another model.",
