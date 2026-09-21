@@ -14,9 +14,14 @@ interface ContaGuardada {
 
 const normalizar = (email: string) => email.trim().toLowerCase();
 
+interface SessaoGuardada {
+  email: string;
+  expiraEm: number;
+}
+
 export class ServicoContaFake implements ServicoConta {
   private contas: Map<string, ContaGuardada>;
-  private sessoes = new Map<string, string>(); // token → email
+  private sessoes = new Map<string, SessaoGuardada>(); // token → email + validade
   private proximo = 1;
 
   constructor(contas: Record<string, ContaGuardada> = {}) {
@@ -29,8 +34,16 @@ export class ServicoContaFake implements ServicoConta {
     const conta = this.contas.get(email);
     if (!conta) throw new FalhaConta("credenciais");
     const token = `tok-fake-${this.proximo++}`;
-    this.sessoes.set(token, email);
-    return { token, email, plano: conta.plano, expiraEm: Date.now() + DURACAO_SESSAO_MS };
+    const expiraEm = Date.now() + DURACAO_SESSAO_MS;
+    this.sessoes.set(token, { email, expiraEm });
+    return { token, email, plano: conta.plano, expiraEm };
+  }
+
+  /** Só para teste: força uma sessão já vencida, para exercitar o caminho que o servidor
+   * real vai ter — token existe mas o prazo passou. Não faz parte de `ServicoConta`. */
+  expirarAgoraParaTeste(token: string): void {
+    const sessao = this.sessoes.get(token);
+    if (sessao) sessao.expiraEm = Date.now() - 1;
   }
 
   async entrar(email: string, senha: string): Promise<Sessao> {
@@ -50,10 +63,12 @@ export class ServicoContaFake implements ServicoConta {
   }
 
   async renovar(token: string): Promise<Sessao> {
-    const email = this.sessoes.get(token);
-    if (!email) throw new FalhaConta("expirada");
+    const sessao = this.sessoes.get(token);
     this.sessoes.delete(token);
-    return this.abrirSessao(email);
+    // Token desconhecido e token vencido dão o mesmo código: o servidor real também não
+    // consegue (nem deve) distinguir "nunca existiu" de "existiu mas passou do prazo".
+    if (!sessao || Date.now() > sessao.expiraEm) throw new FalhaConta("expirada");
+    return this.abrirSessao(sessao.email);
   }
 
   async sair(token: string): Promise<void> {

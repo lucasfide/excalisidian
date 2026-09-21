@@ -67,6 +67,15 @@ describe("ServicoContaFake", () => {
     );
   });
 
+  it("renovar token com prazo vencido falha como sessão expirada", async () => {
+    const servico = fake();
+    const s = await servico.entrar("ana@exemplo.com", "segredo123");
+    servico.expirarAgoraParaTeste(s.token);
+    await expect(servico.renovar(s.token)).rejects.toThrow(
+      expect.objectContaining({ codigo: "expirada" }),
+    );
+  });
+
   it("sair com token já inválido não explode", async () => {
     await expect(fake().sair("tok-invalido")).resolves.toBeUndefined();
   });

@@ -38,6 +38,9 @@ export class ServicoContaHttp implements ServicoConta {
   ): Promise<Sessao> {
     let res: Response;
     try {
+      // O cast é seguro: a implementação padrão é sempre o fetch do Tauri (que aceita
+      // `connectTimeout`, ausente do RequestInit padrão do DOM); o `fetchImpl` injetado
+      // nos testes é um dublê que ignora esse campo.
       res = await this.fetchImpl(`${this.baseUrl}${caminho}`, {
         ...init,
         connectTimeout: TIMEOUT_MS,
@@ -45,7 +48,7 @@ export class ServicoContaHttp implements ServicoConta {
     } catch (e) {
       throw new FalhaConta("rede", e instanceof Error ? e.message : String(e));
     }
-    if (res.status === 401 || res.status === 403) throw new FalhaConta(seNaoAutorizado);
+    if (res.status === 401) throw new FalhaConta(seNaoAutorizado);
     if (res.status === 409) throw new FalhaConta("emailEmUso");
     if (res.status < 200 || res.status >= 300) throw new FalhaConta("servidor");
 
@@ -98,6 +101,7 @@ export class ServicoContaHttp implements ServicoConta {
    * Deixar o usuário preso numa sessão porque o logout falhou seria pior. */
   async sair(token: string): Promise<void> {
     try {
+      // Mesmo cast seguro de `pedir`: fetch real do Tauri em produção, dublê em teste.
       await this.fetchImpl(`${this.baseUrl}/sessoes`, {
         method: "DELETE",
         headers: { Authorization: `Bearer ${token}` },

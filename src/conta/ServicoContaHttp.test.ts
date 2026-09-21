@@ -83,6 +83,14 @@ describe("ServicoContaHttp", () => {
     );
   });
 
+  it("403 vira servidor, não credenciais — autenticado mas sem permissão é outro problema", async () => {
+    const falso = vi.fn(async () => resposta(403, {}));
+    const servico = new ServicoContaHttp(BASE, falso as unknown as typeof fetch);
+    await expect(servico.entrar("a@b.c", "x")).rejects.toThrow(
+      expect.objectContaining({ codigo: "servidor" }),
+    );
+  });
+
   it("corpo sem token vira servidor, não sessão quebrada", async () => {
     const falso = vi.fn(async () => resposta(200, { email: "a@b.c" }));
     const servico = new ServicoContaHttp(BASE, falso as unknown as typeof fetch);
