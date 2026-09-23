@@ -226,6 +226,35 @@ describe("contaStore", () => {
     expect(guardados.tokenConta).toBe("tok-consumido-por-outra-janela");
   });
 
+  it("sair durante um carregar() em andamento: o carregar que termina depois não restaura nada", async () => {
+    guardados.tokenConta = "tok-velho";
+    const servico = new ServicoContaControlavel(comConta());
+    useContaStore.getState().definirServico(servico);
+
+    const carregando = useContaStore.getState().carregar();
+    await servico.chamada; // renovar foi chamado, ainda pendente
+
+    await useContaStore.getState().sair();
+    expect(useContaStore.getState().sessao).toBeNull();
+    expect(guardados.tokenConta).toBeUndefined();
+    expect(tokenDaSessaoAtual()).toBeNull();
+
+    // O renovar do carregar() finalmente resolve, com uma sessão diferente da que o sair
+    // apagou. Como o sair venceu (geração mais recente), o carregar não pode restaurar
+    // sessão, regravar o token no disco nem religar o porta-token.
+    servico.resolverComo({
+      token: "tok-velho-renovado",
+      email: "outra@exemplo.com",
+      plano: "gratis",
+      expiraEm: Date.now() + 1000,
+    });
+    await carregando;
+
+    expect(useContaStore.getState().sessao).toBeNull();
+    expect(guardados.tokenConta).toBeUndefined();
+    expect(tokenDaSessaoAtual()).toBeNull();
+  });
+
   it("entrar bem-sucedido vence um carregar() em andamento cujo renovar resolve depois", async () => {
     guardados.tokenConta = "tok-velho";
     const servico = new ServicoContaControlavel(comConta());
