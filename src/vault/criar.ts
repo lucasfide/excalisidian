@@ -11,6 +11,7 @@ import { sanitizarNome } from "./caminhos";
 import { desenhoVazio } from "../canvas/formatoDesenho";
 import { tipoDoArquivo } from "./arvore";
 import { sincronizarH1ComTitulo } from "./tituloNota";
+import type { VaultAdapter } from "./VaultAdapter";
 
 export type ResultadoCriacao =
   | { ok: true; caminho: string }
@@ -22,9 +23,17 @@ function juntar(dir: string, nome: string): string {
 
 /** Primeiro caminho livre: `Nome.md`, `Nome (2).md`, `Nome (3).md`… Também usada por
  * renomear.ts/mover.ts (doc 04): renomear ou mover para um nome já ocupado nunca falha mais,
- * resolve com o mesmo padrão de numeração de quando se cria um arquivo novo. */
-export async function caminhoLivre(base: string, ext: string): Promise<string> {
-  const adapter = useVaultStore.getState().adapter!;
+ * resolve com o mesmo padrão de numeração de quando se cria um arquivo novo.
+ *
+ * `adaptador` é opcional — por padrão usa o do vaultStore global, igual sempre foi. Existe
+ * pra quem não tem (ou não quer) o store global no meio, como conflitosStore.resolver, que
+ * recebe o adaptador (real ou de teste) por parâmetro. */
+export async function caminhoLivre(
+  base: string,
+  ext: string,
+  adaptador: VaultAdapter = useVaultStore.getState().adapter!,
+): Promise<string> {
+  const adapter = adaptador;
   let candidato = `${base}${ext}`;
   let n = 2;
   while (await adapter.existe(candidato)) {
