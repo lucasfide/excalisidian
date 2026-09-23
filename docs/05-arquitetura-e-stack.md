@@ -187,7 +187,8 @@ interface VaultAdapter {
 
 O plano original era de "quatro pontos de contato com o Rust, e não mais que isso sem uma
 boa razão" — múltiplos vaults (doc 12) já levou isso a nove, e hoje, com a Home e o
-updater, são dezesseis comandos registrados em `lib.rs`:
+updater, são treze comandos registrados em `lib.rs`, e o plano do token no cofre (ADR-34)
+acrescenta mais três, marcados como planejados abaixo:
 
 | Comando | Assinatura | Por quê |
 |---|---|---|

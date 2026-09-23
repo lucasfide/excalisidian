@@ -1498,8 +1498,10 @@ que as chaves de API já estão hoje. Existe um plano escrito para essa migraç�
    técnico interno, sem nenhum texto novo na tela.
 3. **Quem já tem o token salvo em texto puro é migrado sem perceber.** Na primeira vez que o
    app lê o token depois desta mudança: se ele ainda estiver no `settings.json`, o app grava
-   esse token no cofre (quando o cofre ainda não tem um) e apaga o `settings.json` de
-   qualquer forma — mesmo que gravar no cofre não funcione. Nesse caso a sessão daquela
+   esse token no cofre (quando o cofre ainda não tem um), e em qualquer caso apaga do
+   `settings.json` só a linha do token (a chave `tokenConta`) — mesmo que gravar no cofre não
+   funcione. O resto do arquivo, com as outras preferências do app, fica intacto. Nesse caso a
+   sessão daquela
    abertura ainda funciona, e só a próxima abertura pede login de novo.
 4. **O nome usado para guardar o token no cofre do Windows vem de um único lugar**, o
    identificador do app já configurado no projeto — assim ele acompanha automaticamente uma
