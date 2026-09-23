@@ -26,3 +26,10 @@ walkdir = "2"
 notify = "8"
 notify-debouncer-full = "0.6"
 tauri-plugin-http = "2.6.0"
+# Cofre de credenciais do sistema para o token da conta (ADR-34). O crate genérico não traz
+# loja nenhuma: a loja nativa do Windows entra só em `[target.'cfg(windows)'.dependencies]`
+# abaixo, porque o app só empacota instalador para Windows (docs/05).
+keyring-core = "1"
+
+[target.'cfg(windows)'.dependencies]
+windows-native-keyring-store = "1"

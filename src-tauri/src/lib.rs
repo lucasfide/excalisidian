@@ -1,3 +1,4 @@
+mod cofre;
 mod janelas;
 mod papel_parede;
 mod sistema;
@@ -43,6 +44,9 @@ pub fn run() {
             papel_parede::remover_papel_parede_home,
             sistema::nome_usuario,
             sistema::revelar_pasta,
+            cofre::ler_token_conta,
+            cofre::gravar_token_conta,
+            cofre::apagar_token_conta,
         ])
         // Uma janela fechada não deve deixar rastro: nem no registro de "qual janela tem
         // qual vault" (doc 12 §2) nem watcher rodando sozinho em background observando uma
