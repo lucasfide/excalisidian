@@ -16,10 +16,10 @@ Uma pessoa (você) que:
 
 - pensa em diagramas tanto quanto em listas;
 - quer os arquivos no próprio disco, em texto, versionáveis no Git;
-- não quer plugin, marketplace, sincronização paga, nem conta;
+- não quer plugin nem marketplace;
 - usa Windows como máquina principal.
 
-Não é um produto multiusuário, não tem colaboração em tempo real, não tem servidor. Se um dia tiver, será depois — e a arquitetura não deve impedir, mas também não deve pagar o preço antecipado.
+O núcleo do Excalisidian funciona inteiro sem conta e sem internet — e continua funcionando assim mesmo para quem nunca cria conta. Sincronização entre computadores e uma IA própria existem como serviços pagos **opcionais**: quem não quiser não precisa notar que existem (ver ADR-31, em `docs/09-decisoes-e-incertezas.md`). Não é um produto multiusuário, não tem colaboração em tempo real. Isso continua valendo mesmo com os serviços online.
 
 ## Princípios
 
@@ -69,7 +69,7 @@ Escrito aqui para não virar discussão depois:
 
 - Não tem graph view.
 - Não tem plugins nem API de extensão.
-- Não tem sincronização, conta, nuvem ou colaboração.
+- Não tem colaboração em tempo real. Sincronização entre computadores e conta são serviços pagos opcionais, não parte do núcleo (ver ADR-31) — o produto não depende deles nem obriga ninguém a usá-los.
 - Não tem mobile.
 - Não tem tags, daily notes, templates, dataview.
 - Não tem quadro kanban (colunas horizontais que o usuário cria e configura). O painel de tarefas (`10-tarefas.md`) é uma lista **vertical** estreita, agrupada em seções fixas por prazo — decidido depois deste documento por pedido direto do usuário.
