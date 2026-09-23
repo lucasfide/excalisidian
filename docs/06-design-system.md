@@ -86,6 +86,8 @@ Escala:
 | `meta-mini` | 9 / 1.0 | IBM Plex Mono 500 | caixa alta, tracking 0.06em — só para a tecla de atalho no botão de ferramenta |
 | `campo-grande` | 17 / 1.4 | Instrument Sans 400 | só no campo da busca e da paleta de comandos |
 
+Só `corpo` e `pequeno` existem como token de verdade (`--text-corpo`/`--text-pequeno` em `@theme`, classes `text-corpo`/`text-pequeno`). Os demais degraus (`display-1`, `display-2`, `titulo-1/2/3`, `meta-mini`, `campo-grande`) não têm token — cada uso reproduz o par tamanho/altura-de-linha desta tabela com valor arbitrário do Tailwind (`text-[24px] leading-[1.2]` etc., ex. `AmostraSimbolo.tsx`, `Campo.tsx`). `meta` tem a `@utility meta` própria em `globals.css`. Isto é o estado real do código, não uma licença para inventar outro número: qualquer novo uso desses degraus repete exatamente o par desta tabela.
+
 ### Tipografia dentro do editor
 
 O texto da nota é o conteúdo do produto e merece regra própria:
@@ -124,6 +126,8 @@ Base 4px. Escala: 4, 8, 12, 16, 24, 32, 48, 64.
 No tema escuro as duas são redefinidas com preto puro e mais opacidade (`rgb(0 0 0 / 0.55)` e `rgb(0 0 0 / 0.70)`): uma sombra de `#1C1917` a 25% sobre um fundo `#0D0C10` é invisível. Além dela, toda superfície flutuante no escuro leva uma hairline `regua` — a sombra sozinha não separa o suficiente.
 
 Nenhuma outra sombra no projeto.
+
+**Scrollbar.** Fina (10px), sem seta, trilho transparente, polegar em `regua` (`regua-forte` no hover), cantos em `raio-pilula` — declarada uma vez em `globals.css` (Firefox via `scrollbar-width`/`scrollbar-color`, Chromium/WebView2 via `::-webkit-scrollbar*`) e válida em todo o app, sem CSS por componente.
 
 ---
 
@@ -176,6 +180,13 @@ Nenhuma outra sombra no projeto.
   --font-display: var(--fonte-display);
   --font-sans:    var(--fonte-sans);
   --font-mono:    var(--fonte-mono);
+
+  /* Únicos dois degraus da escala tipográfica com token de verdade — ver nota abaixo da
+     tabela de escala. */
+  --text-corpo:            15px;
+  --text-corpo--line-height:   1.55;
+  --text-pequeno:          13px;
+  --text-pequeno--line-height: 1.45;
 
   --ease-caderno: cubic-bezier(0.2, 0.7, 0.3, 1);
 }
@@ -257,7 +268,7 @@ texto, centralizado na coluna de 720px (seção Layout, abaixo).
 
 **Na sidebar.** Cada nível recua 16px e o nível ativo ganha uma hairline vertical em `cristal` de 2px na altura do item — a régua de margem em miniatura. Cada nível de ancestral aberto também ganha uma linha guia de 1px em `regua` (pedido do usuário, 02/09/2026 — sem ela, ficava difícil ver que arquivo pertence a qual pasta numa árvore funda). Sem canto/corner: linha reta o comprimento inteiro do nível, sem distinguir o último filho — o mesmo gesto simples de um snippet CSS do Obsidian, não a precisão de um IDE.
 
-**Nas abas.** A aba é uma ficha de arquivo: altura 34px, fundo `lavagem` quando inativa e `superficie` quando ativa, hairline `regua` separando cada uma, sem raio no topo. A aba ativa não tem borda inferior — ela se funde com o conteúdo. Nada de sombra.
+**Nas abas.** A aba é uma ficha de arquivo: altura 34px, fundo `lavagem` quando inativa e `superficie` quando ativa, hairline `regua` separando cada uma, sem raio no topo. A aba ativa não tem borda inferior — ela se funde com o conteúdo. Nada de sombra. O botão de fechar (`X`) não reserva espaço: fica sobreposto ao fim do nome, invisível em repouso, e aparece no hover ou no foco por teclado (140ms, `ease-caderno`); enquanto ele está visível, o fim do nome esmaece por trás dele com o mesmo fade de máscara do Seletor de vault (24px, alfa só).
 
 **Seletor de vault.** Substitui o Logotipo no cabeçalho da sidebar (decisão de múltiplos
 vaults, `docs/12-multiplos-vaults.md` §4.1). `SeletorVault` ocupa o espaço flexível à esquerda
@@ -351,6 +362,8 @@ direito numa célula ou por clique numa alça.
 Como em toda superfície do app, mover linha ou coluna pela alça tem equivalente no menu (mover
 para cima/baixo/esquerda/direita) — ver "Piso de qualidade", "Toda ação de arraste tem
 equivalente".
+
+**Largura das colunas.** Arrastar a linha vertical entre duas colunas redimensiona proporcional: a coluna da esquerda ganha ou perde largura, a da direita perde ou ganha (soma zero). Zona de pega de 8px centrada na borda (escala 4/8), cursor `col-resize`. No hover e durante o arrasto: linha de 2px em `cristal` sobre a borda — mesma linguagem do indicador de soltura (§3 "Tabelas"). Clique duplo na linha volta à largura automática. Mover coluna leva a largura junto; inserir coluna dá à nova a largura média e renormaliza. Vista somente leitura mostra as larguras, sem alça.
 
 ---
 
@@ -465,7 +478,7 @@ Altura padrão 36px, compacto 30px, ícone 32×32.
 | `TelaBoasVindas` | tela sem vault (primeiro uso, retorno e erro) — lettering, nome do usuário (só no primeiro uso sem nome informado) e criação do primeiro vault com sugestão pronta; ver "Tela de boas-vindas", abaixo |
 | `SeletorVault` | botão do cabeçalho da sidebar com o nome do vault e fade de transbordo; menu de recentes, criar e abrir vault (`docs/12-multiplos-vaults.md` §4) |
 | `DialogoCriarVault` | diálogo de criar vault (nome + local), mesmo padrão de `DialogoPreferencias` (`docs/12-multiplos-vaults.md` §4.3) |
-| `ArvoreArquivos` | árvore virtualizada, expandir/recolher, arrastar, menu de contexto |
+| `ArvoreArquivos` | árvore virtualizada, expandir/recolher, arrastar, menu de contexto; durante o arrasto o documento inteiro força `cursor: grabbing` (classe `.arrastando-arvore`, `globals.css`) — inclusive sobre elementos com cursor próprio, como o separador de redimensionar e o texto do editor — para o cursor não trocar de cara ao passar por cima deles |
 | `ItemArvore` | linha de arquivo ou pasta, com ícone por tipo e régua de nível ativo |
 | `BarraAbas` | fichas de aba, arrastar, zonas de soltura, indicador de não salvo |
 | `PainelSplit` | wrapper do dockview com as divisórias em hairline |
@@ -473,7 +486,7 @@ Altura padrão 36px, compacto 30px, ícone 32×32.
 | `AlcaBloco` | alça ⠿ que aparece ao passar o mouse sobre um bloco, arrasta pra mover |
 | `BarraFlutuanteFormatacao` | barra que aparece grudada acima do texto selecionado (só com seleção), ou acoplada embaixo da nota; some ao perder o foco do editor, na vista somente leitura e dentro de célula de tabela (negrito, itálico, riscado, código, título 1/2/3, citação, lista, lista numerada, checkbox, link, tabela) |
 | `menuTabela` | extensão que abre o menu de tabela (`Menu`/`ItemMenu` do app) por clique direito numa célula ou clique numa alça de linha/coluna, com inserir, mover, alinhar e excluir (ver "Tabela no editor") |
-| `MargemNota` | coluna de 76px com metadados do bloco |
+| `caminhoDaNota` | widget de bloco do CodeMirror, acima do título: as pastas da nota separadas por " / ", em `meta`/`tinta-suave` — mesmo estilo da barra de status (`extensoes/caminhoDaNota.ts`); nota na raiz do vault não mostra a linha |
 | `EmbedDesenho` | bloco que renderiza o SVG do desenho dentro da nota |
 | `EmbedNota` | bloco que renderiza a transclusão de nota ou seção |
 | `LinkInterno` | span de link resolvido / não resolvido, com preview no `Ctrl+hover` |
@@ -488,7 +501,10 @@ Altura padrão 36px, compacto 30px, ícone 32×32.
 | `EstadoVazio` | bloco com hairline superior e inferior, título, apoio e ação |
 | `TelaInicio` | aba fixa de início, nesta ordem: saudação por horário (`display-1`, com o nome do usuário quando informado — `nomeUsuario` `null` ou `""` mostra só a saudação, sem nome), o convite de `EstadoVazio` para criar nota/desenho/pasta, atalhos para as pastas de primeiro nível, e — ao clicar num atalho — os arquivos/subpastas dela, navegável (mini-explorador) |
 | `AsciiPeaks` | camada de fundo bem suave (15% de opacidade) por cima da vinheta do papel de parede, na Home e na aba em branco — relevo gerado por ruído, renderizado como caracteres ASCII (técnica de "ASCII art shader", código autoral em WebGL2 — não um efeito comprado, ver doc 09 ADR-28), na cor `cristal`; o mesmo brilho que já clareia os picos altos do relevo também reage à proximidade do cursor, deixando um rastro que se dispersa aos poucos; para de animar com `prefers-reduced-motion` e enquanto a tela não está visível; preferência `asciiPeaksHabilitado` (padrão ligado) — botão "Desabilitar shaders"/"Habilitar shaders" no rodapé da Home, separado do grupo de papel de parede por um bullet |
-| `DialogoPreferencias` | configurações do app — seção "Seu nome" (`Campo` "Nome", ajuda "Aparece na saudação da tela de início.") é a primeira da lista, seguida de tema e largura da nota — ícone de engrenagem no rodapé da sidebar, ou `Ctrl+,` |
+| `DialogoPreferencias` | configurações do app — seção "Seu nome" (`Campo` "Nome", ajuda "Aparece na saudação da tela de início.") é a primeira da lista, seguida de tema e largura da nota e da seção "Atalhos e símbolos" (botão "Abrir glossário", que abre `DialogoGlossario` por cima) — ícone de engrenagem no rodapé da sidebar, ou `Ctrl+,` |
+| `DialogoGlossario` | atalhos de teclado e símbolos de formatação (RF8.3): dois catálogos de dados puros com testes de deriva, filtro sem acento/caixa, interface com duas abas, abre por cima de `DialogoPreferencias` (pilha de diálogos) |
+| `TeclasAtalho` | desenha cada tecla de uma combinação (ou gesto) num `<kbd>` — `meta`, hairline `regua`, `rounded-controle`, fundo `superficie`, texto `tinta-media` —, com rótulos por plataforma (Mod → Ctrl/⌘, Alt → ⌥, setas → ↑/↓/←/→); combinações alternativas separadas por "ou" em `text-pequeno` `tinta-suave` |
+| `AmostraSimbolo` | coluna "Fica assim" do glossário: desenha a sintaxe markdown com os estilos que o editor aplica (negrito, código, citação etc.); amostra `comportamento` não desenha nada (só texto) |
 | `ConfirmacaoDestrutiva` | diálogo com a contagem real do que será perdido |
 | `FaixaConflito` | faixa no topo do editor com as duas ações |
 | `BalaoAgente` | balão flutuante do agente de IA, canto inferior direito (doc 11 §6.1) — só existe com o agente habilitado |
@@ -615,6 +631,7 @@ agente está habilitado — o produto sem agente não tem nenhum destes elemento
 | mover linha para cima / baixo | `arrow-up` / `arrow-down` |
 | mover coluna para a esquerda / direita | `arrow-left` / `arrow-right` |
 | alinhar coluna à esquerda / centro / direita | `align-left` / `align-center` / `align-right` |
+| largura automática (menu da tabela) | `move-horizontal` |
 | excluir linha / coluna / tabela | `trash-2` |
 | agente de IA (balão) | `bot` — demais ícones do agente no doc 11 §8 |
 | vault atual no menu do seletor | `check` |

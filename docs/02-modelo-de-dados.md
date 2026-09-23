@@ -44,7 +44,12 @@ O layout é gravado por vault, não global: sem isso, abrir o vault B sobrescrev
 
 ### `.excalisidian/vault.json`
 
-Config que faz sentido versionar junto com o conteúdo:
+Config que faz sentido versionar junto com o conteúdo. **Hoje o arquivo só carrega
+`version`, `sortMode` e `customOrder`** (ordenação da árvore, lidos e gravados por
+`vault/configVault.ts`, que preserva sem interpretar qualquer outra chave presente). Os
+campos abaixo são o desenho ainda **não implementado** (RF8.2) — a pasta de anexo está
+hardcoded em `anexos` (`vault/anexos.ts`), o local de nota nova é sempre a raiz do vault
+pelos comandos da sidebar, e não há preferência de formato de link nem de lixeira:
 
 ```json
 {
@@ -81,6 +86,9 @@ pastaDeAnexo(nota) =
 
 A pasta é criada se não existir. Onde a especificação escreve `<attachmentFolder>/…`, leia `pastaDeAnexo(nota)/…`.
 
+**Não implementado:** essa função não existe ainda no código. O que existe hoje é
+`PASTA_ANEXOS = "anexos"` fixo em `vault/anexos.ts`, equivalente só ao caso `fixed` acima.
+
 **Este arquivo é a fonte única desses campos.** `settings.json` em `%APPDATA%` guarda só o que é da máquina: tema, tamanho da janela e a lista de vaults recentes. Nada de configuração de vault mora nos dois lugares.
 
 ---
@@ -107,6 +115,25 @@ Ver [[Projetos/Arquitetura]] e o desenho abaixo.
 Base: CommonMark + GFM (tabela, task list, riscado, autolink).
 
 Extensões próprias, todas com a mesma semântica do Obsidian:
+
+#### Largura de coluna de tabela
+
+A largura de cada coluna é opcional e fica na linha delimitadora — contando os traços de cada célula.
+
+- **Largura automática** (padrão): toda célula com no máximo 3 traços (`---`, `-`, `--`). As colunas se ajustam ao conteúdo, como sempre foi.
+- **Proporcional**: alguma célula com 4 ou mais traços. A fração de largura de cada coluna é `traços dela ÷ soma de todos os traços`, e a tabela ocupa 100% da largura da coluna de leitura. Célula delimitadora ausente (linha delimitadora com menos células que o cabeçalho) conta como 3. Os `:` de alinhamento não contam.
+
+Ao gravar com larguras proporcionais, o número de traços em cada célula é `max(4, arredondar(fração × 60))`, mantendo os marcadores de alinhamento (`:`) em volta. Nunca menos de 4 — senão seria lido como automático novamente.
+
+**Exemplo:**
+
+```markdown
+| Coluna 1 | Coluna 2    | Coluna 3   |
+| -------- | ----------- | ------     |
+|  Texto   | Mais texto  | Pequeno    |
+```
+
+Neste exemplo, Coluna 1 tem 8 traços, Coluna 2 tem 11 e Coluna 3 tem 6. A soma é 25. As frações são 8/25, 11/25 e 6/25. Ao gravar com essa proporção, o app usa 19, 26 e 14 traços (ou similares, mantendo a proporção).
 
 | Sintaxe | Significado |
 |---|---|

@@ -65,19 +65,24 @@ Inserção (paleta e barra):
 
 ### 1.2 Barra de formatação sem seleção
 
-> **Revertido em 16/09/2026** a pedido do usuário: a barra flutuante voltou a aparecer só com
-> seleção. Quem quer a barra sempre à mão usa a barra acoplada embaixo da nota (doc 04 §3.4).
+> A regra ampla original (barra acima do cursor em **qualquer** linha, com ou sem seleção)
+> foi **revertida em 16/09/2026** a pedido do usuário: cobria a linha de cima enquanto se
+> digitava. A regra que ficou é mais restrita e vive em `barraFlutuante.ts` — o texto
+> normativo do comportamento atual é o doc 04 §3.4.
 
-- Aparece acima da linha do cursor sempre que o editor da nota tem foco e é editável —
-  com ou sem seleção. Com seleção, fica acima da seleção (como hoje).
-- Some quando o foco sai do editor, na vista somente leitura, e quando o foco está dentro de
-  uma célula de tabela (a célula é outro campo editável; a barra apontaria para o lugar errado).
+- Sem seleção, a barra só aparece quando a linha do cursor está **vazia** — é a mesma linha
+  que se está prestes a começar a escrever, então não há texto embaixo pra cobrir. Assim que a
+  primeira letra é digitada a linha deixa de estar vazia e a barra some no mesmo instante. Numa
+  linha com conteúdo, sem seleção, a barra não aparece.
+- Com seleção, fica acima da seleção (como hoje), em qualquer linha, com ou sem conteúdo.
+- Some quando o foco sai do editor, na vista somente leitura, quando a barra acoplada
+  (`PainelDocumento`) está ligada, e quando o foco está dentro de uma célula de tabela (a
+  célula é outro campo editável; a barra apontaria para o lugar errado).
 - Sem seleção, os botões agem na posição do cursor: negrito/itálico/riscado/código inserem o
   par de marcadores com o cursor no meio; título, citação, listas e checkbox agem na linha; link
-  insere o modelo de link. Conferir que cada comando de `comandosMarkdown.ts` já faz isso com
-  seleção vazia e corrigir o que não fizer.
-- Não recria o tooltip a cada tecla: só quando a posição de ancoragem muda de linha (sem
-  seleção) ou a seleção muda (com seleção). Digitar na mesma linha não pode piscar a barra.
+  insere o modelo de link.
+- Não recria o tooltip a cada tecla: só quando a posição de ancoragem muda (linha do cursor,
+  mudança de foco ou de seleção). Digitar na mesma linha vazia não pode piscar a barra.
 
 ### 1.3 Na tabela
 
@@ -132,6 +137,26 @@ de visual; se precisar mudar `ItemMenu`, perguntar antes).
 Ações: todas numa transação só (um `Ctrl+Z` desfaz). Excluir tabela remove o bloco e a linha em
 branco que sobrar, deixando o cursor onde a tabela começava. Inserir linha/coluna põe o foco na
 primeira célula nova.
+
+### 1.5 Largura das colunas
+
+**Comportamento.** A linha vertical entre duas colunas é uma alça de redimensionar. Arrastar muda a largura: a coluna da esquerda ganha ou perde largura, a da direita perde ou ganha (soma zero — a tabela sempre ocupa 100% da largura da coluna de leitura, sem rolagem lateral). A borda externa direita não é alça (ali fica a faixa "+").
+
+Largura mínima por coluna: 64px.
+
+No primeiro arrasto de uma tabela que era automática (todas as colunas com no máximo 3 traços), a largura atual em tela viram proporções, gravadas na linha delimitadora. Depois disso a tabela tem "larguras" — só com larguras é que o menu oferece "Largura automática" para voltar ao padrão.
+
+Durante o arrasto, só a tela muda. Soltar grava numa transação só: `Ctrl+Z` desfaz; `Esc` cancela e volta ao que era. Clique duplo na linha volta à largura automática (se a tabela tem larguras — senão é no-op).
+
+Ao mover coluna, a largura vai junto. Excluir coluna redistribui as larguras proporcionalmente. Inserir coluna dá à nova a largura média das outras e renormaliza.
+
+Vista somente leitura mostra as larguras em uso, sem alça de redimensionar.
+
+**Visual.** Zona de pega de 8px centrada na borda (escala 4/8), cursor `col-resize`. No hover da zona e durante o arrasto: linha de 2px em `cristal` sobre a borda — mesma linguagem do indicador de soltura do mover bloco.
+
+**Título da alça:** "Arraste para ajustar a largura. Clique duas vezes para largura automática."
+
+**Equivalente no menu.** Seção coluna do menu da tabela ganha o item "Largura automática" (ícone `move-horizontal`), que só aparece quando a tabela tem larguras. Clique restaura a largura automática de todas as colunas de uma vez.
 
 ### 1.4 Alinhamento
 
@@ -266,4 +291,8 @@ teste manual.
    desabilitados nas bordas.
 8. Alinhar coluna ao centro → arquivo ganha `:---:`; editar outra célula não perde.
 9. Excluir tabela → some inteira; `Ctrl+Z` volta.
-10. Vista somente leitura (split): sem "+", sem alças, sem menu, sem barra.
+10. Linha entre colunas: hover muda cursor pra `col-resize`, linha de 2px em `cristal` aparece; arrastar redimensiona soma-zero; solta grava; `Esc` cancela; clique duplo volta automático.
+11. Primeiro arrasto de tabela automática: arquivo ganha traços; reabre e largura voltou.
+12. Menu: "Largura automática" só aparece com larguras; clique restaura automático.
+13. Mover coluna com alça: a largura vai junto.
+14. Vista somente leitura (split): sem "+", sem alças (incluindo a de largura), sem menu, sem barra.

@@ -157,7 +157,9 @@ recentes). O assistente propõe fatos na saída estruturada (§5.3); o app grava
 Uma conversa por nota na v1 (a chave é o caminho; nota nenhuma aberta = chave `""`).
 Revisto na fase 4: o plano original era uma pasta com um arquivo por conversa — um único
 arquivo com índice embutido simplifica a restauração no boot e o "limpar memória" sem
-ganho perceptível do outro formato. "Limpar memória" apaga tudo.
+ganho perceptível do outro formato. "Limpar memória" apaga tudo. Cada envio manda só as
+últimas 12 mensagens da conversa como histórico (`agenteStore.ts`); mais antigas continuam
+salvas em disco, só não voltam ao contexto da próxima chamada.
 
 ### 2.3 Escrita e leitura
 
@@ -228,6 +230,11 @@ Preços por milhão de tokens no catálogo (entrada/saída, por modelo sugerido)
 do catálogo: custo estimado fica indisponível (mostra só tokens). Preços são aproximados e
 revisáveis — o número exato é o billing do provedor. Sem telemetria: a contagem é local,
 somando `usage` das respostas.
+
+**Estado atual:** o campo `precos` do catálogo (`provedores.ts`) está vazio para os seis
+provedores — os números de 2026 não foram verificados contra o billing (doc 09, incerteza
+26), e inventar preço é pior que não ter. Até algum modelo ganhar preço verificado, o
+medidor de uso (§5.6) mostra só tokens em qualquer provedor, nunca custo estimado.
 
 ---
 
@@ -346,6 +353,10 @@ fica sem web search na v1). Desligado por padrão na configuração.
 - Visível no painel: "12,4 mil tokens · ~US$ 0,03 hoje".
 - `tetoDiarioUsd` configurado e atingido → status `pausado`, balão cinza, toast único:
   "Limite diário do agente atingido. Ele volta amanhã, ou você pode ajustar o limite."
+  **Não implementado:** o campo "Limite diário de gasto em US$ (opcional)" é gravado, e
+  `atingiuTeto`/`podeChamar` existem em `src/agente/orcamento.ts`, mas ninguém os chama —
+  o teto não é aplicado e o toast nunca aparece. Como `precos` está vazio (§3.1), o custo
+  estimado também é sempre zero.
 - Sem teto por padrão: só o medidor. Pausa manual sempre disponível (balão → "Pausar").
 
 ---
@@ -364,7 +375,7 @@ Só existe quando `habilitado`. Estados:
 | Estado | Aparência |
 |---|---|
 | `ocioso` | ícone `tinta-suave` |
-| `observando` | ícone `tinta-media` |
+| `observando` | ícone `tinta-media` — **não implementado**: o tipo e o visual existem (`BalaoAgente.tsx`), mas nada no `agenteStore.ts` emite este status hoje; uma nota com participação aceita e sem ciclo em voo fica em `ocioso` mesmo depois do aceite |
 | `pensando` | ícone + anel `ocre` pulsando (animação "pulso", 1,6s) |
 | `convite` | badge `cristal` com `!` + card de convite aberto (§6.2) |
 | `sugestões` | badge `cristal` com o número |
@@ -413,10 +424,10 @@ própria):
 | # | Passo | Conteúdo |
 |---|---|---|
 | 1 | **Provedor** | Cartões selecionáveis, um por provedor do catálogo (§3), com nome e uma linha de descrição ("Anthropic — Claude, exige chave de api.anthropic.com", "Ollama — modelos locais, sem chave nem nuvem", …). |
-| 2 | **Chave da API** | Campo password + link "Onde consigo uma chave?" (abre a página de chaves do provedor no navegador). Colar e continuar dispara a busca de modelos — que **é** o teste de conexão: chave recusada mostra o erro traduzido (§7) no ato, sem sair do passo. Provedor sem chave (Ollama): passo pulado. |
+| 2 | **Chave da API** | Campo password + link "Onde consigo uma chave?" (abre a página de chaves do provedor no navegador). Colar e continuar dispara a busca de modelos — que **é** o teste de conexão: chave recusada mostra o erro traduzido (§7) no ato, sem sair do passo. Provedor sem chave (Ollama): o passo continua aparecendo (é o mesmo passo "Chave da API" do indicador de etapas), só que sem o campo — em vez dele, o texto "{Provedor} roda na sua máquina — não precisa de chave."; "Continuar" já dispara a busca de modelos sem autenticação. |
 | 3 | **Modelo da leitura inicial** | Lista de modelos do provedor (buscada no passo 2, §3), com filtro por texto, os sugeridos para o papel no topo com selo "Sugerido", e "Outro modelo…" no fim (campo livre, para modelo que a listagem não trouxe). Rótulo em linguagem de produto: "Modelo da leitura inicial — barato e rápido, só decide se vale convidar". |
 | 4 | **Modelo do acompanhamento** | Mesma lista, selos de sugerido para o papel, rótulo: "Modelo do acompanhamento — o que lê a nota e traz as sugestões". Pode ser o mesmo do passo 3 (seleção prévia se o usuário quiser). |
-| 5 | **Revisão** | Resumo (provedor, chave mascarada `sk-…abcd`, os dois modelos), opcionais: web search (toggle, só se o provedor suporta) e limite diário de gasto (número, vazio = sem limite). Botão final: "Ativar agente". |
+| 5 | **Revisão** | Resumo (provedor, chave mascarada `sk-…abcd`, os dois modelos), opcional "Pensamento (reasoning)" — só aparece quando o modelo da leitura inicial ou do acompanhamento é `gpt-5*`/`o*` no dialeto `openai` (§2.1) —, web search (toggle, só se o provedor suporta) e limite diário de gasto (número, vazio = sem limite). Botão final: "Ativar agente". |
 
 - Navegação: "Voltar"/"Continuar" nos passos, Enter avança, Esc fecha o assistente inteiro
   (nada é gravado até o "Ativar agente" — fechar no meio não deixa configuração pela
@@ -431,16 +442,19 @@ própria):
   chave mascarada (campo vazio = manter a atual; digitar = substituir).
 
 **Depois de configurado**, a seção "Agente de IA" das Configurações mostra o resumo
-(provedor, modelos, estado do medidor de hoje) e as ações: "Reconfigurar" (reabre o
-assistente), "Testar conexão", "Pausar agente"/"Retomar agente", "Abrir pasta do agente",
-"Limpar memória" (`ConfirmacaoDestrutiva`: "Apagar resumos, fatos, participações e
-conversas do agente? As notas não são afetadas.") e o master switch "Agente de IA"
-(desligar sem apagar a configuração — volta a ligar sem reconfigurar).
+(provedor, modelos) e as ações: "Desligar agente"/"Ligar agente" (o master switch — desligar
+não apaga a configuração, volta a ligar sem reconfigurar), "Reconfigurar" (reabre o
+assistente), "Testar conexão" (só com o agente ligado), "Abrir pasta do agente" e "Limpar
+memória" (confirmação: "Apagar resumos, fatos, participações e conversas do agente? As
+notas não são afetadas."). **Não implementado:** "Pausar agente"/"Retomar agente" nesta
+seção — a pausa só existe pelo balão e pelo cabeçalho do painel (§6.1, §6.2), não nas
+Configurações.
 
 ### 6.4 Comandos e atalhos
 
-- Paleta de comandos (só aparecem com o agente habilitado, exceto "configurar"):
-  "Agente: configurar", "Agente: pausar/retomar", "Agente: abrir painel".
+- **Não implementado:** nenhum comando do agente existe na paleta hoje — nem "Agente:
+  configurar", nem "Agente: pausar/retomar", nem "Agente: abrir painel". Os pontos de
+  entrada reais são a seção "Agente de IA" das Configurações (§6.3) e o balão (§6.1).
 - Sem atalho de teclado novo na v1 (o balão é o ponto de entrada; evitar colisão com o
   mapa existente).
 
@@ -460,14 +474,14 @@ Português do Brasil, sentence case, sem emoji (doc 06, Voz da interface).
 | Estado pensando (tooltip) | "Agente — pensando" |
 | Estado pausado (tooltip) | "Agente — pausado" |
 | Medidor de uso | "{n} tokens · ~US$ {v} hoje" |
-| Teto atingido (toast) | "Limite diário do agente atingido. Ele volta amanhã, ou você pode ajustar o limite." |
+| Teto atingido (toast) | "Limite diário do agente atingido. Ele volta amanhã, ou você pode ajustar o limite." — **não implementado** (§ uso e custo) |
 | Chave inválida (401/403) | "A chave da API foi recusada pelo provedor. Confira a chave nas configurações." |
 | Cota do provedor (429) | "O provedor limitou as chamadas agora. Tente de novo em instantes." |
 | Provedor fora do ar (5xx/rede) | "Não foi possível falar com o provedor. Verifique a conexão." |
 | Modelo inexistente (404) | "O provedor não conhece o modelo «{modelo}». Confira o nome nas configurações." |
-| Resposta inválida (JSON fora do schema) | no gateiro: linha de status no rodapé do painel ("A análise desta nota falhou. O agente tenta de novo quando você escrever mais.") e a tentativa fica liberada; no assistente em ciclo: silenciosa até 3 falhas seguidas → estado `erro` com "O provedor devolveu respostas inválidas. Tente outro modelo." |
+| Resposta inválida (JSON fora do schema) | no gateiro: linha de status no rodapé do painel ("A análise desta nota falhou. O agente tenta de novo quando você escrever mais.") e a tentativa fica liberada; na conversa: "O provedor devolveu uma resposta que não pude entender. Tente outro modelo." (`textoDoErro`, `src/agente/cliente.ts`). O estado `erro` após 3 falhas seguidas com "O provedor devolveu respostas inválidas. Tente outro modelo." **não está implementado**. |
 | Gateiro decidiu não participar | "O agente leu esta nota e decidiu não participar por enquanto." |
-| Sem rede (offline) | "Sem conexão. O agente volta quando a rede voltar." |
+| Sem rede (offline) | "Sem conexão com o provedor. Verifique a rede e tente de novo." (quando o detalhe do erro indica rede; senão cai no texto de "Provedor fora do ar") |
 | Limpar memória (confirmação) | "Apagar resumos, fatos, participações e conversas do agente? As notas não são afetadas." |
 | Aviso da seção de configurações | "Opcional. Nada é enviado sem a sua configuração, e o agente só acompanha uma nota depois que você aceita o convite." |
 | Assistente — botão da seção sem config | "Configurar agente" |
@@ -525,7 +539,7 @@ Estende a tabela do doc 06 (lucide, traço 1.5):
 | RF11.11 | Pasta de memória em `%APPDATA%` por vault, com "Abrir pasta do agente" e "Limpar memória" nas configurações. | P1 |
 | RF11.12 | Web search pelo tool nativo do provedor, desligado por padrão, máx. 1 por ciclo. | P2 |
 | RF11.13 | Balão com os estados do §6.1, acima do Toaster, só visível com o agente habilitado. | P0 |
-| RF11.14 | Pausar/retomar o agente pelo balão e pela paleta de comandos. | P1 |
+| RF11.14 | Pausar/retomar o agente pelo balão. Paleta de comandos: não implementado (§6.4). | P1 |
 | RF11.15 | Falha de rede/provedor nunca bloqueia a edição nem perde conteúdo; erro visível só no balão/painel. | P0 |
 | RF11.16 | Base URL editável por provedor (gateways próprios, Ollama remoto). | P2 |
 | RF11.17 | Lista de modelos buscada do provedor (endpoint por dialeto, §3), com filtro, sugeridos no topo e fallback estático quando a listagem falha. | P0 |
@@ -603,7 +617,7 @@ Segue a estrutura do doc 05.
 | `src/agente/assistente.ts` | montagem do prompt com tetos (§5.3), parse da saída, ciclo. |
 | `src/agente/recuperacao.ts` | top-k local (§5.5) sobre `buscarConteudo` + `vaultStore.links`. |
 | `src/agente/memoria.ts` | persistência da pasta de memória via plugin-store (§2.2–2.3), dedupe/FIFO de fatos, migração de rename. |
-| `src/agente/webSearch.ts` | ativação do tool nativo por dialeto (§5.4). |
+| `src/agente/webSearch.ts` | **não implementado** — arquivo não existe ainda; a ativação do tool nativo por dialeto (§5.4) é a fase 5 (§13), ainda pendente. |
 | `src/estado/agenteStore.ts` | estado + ações (§4). |
 | `src/ui/excalisidian/BalaoAgente.tsx` | balão e estados (§6.1). |
 | `src/ui/excalisidian/PainelAgente.tsx` | painel (§6.2). |

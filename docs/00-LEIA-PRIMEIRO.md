@@ -25,6 +25,14 @@ O ponto do produto não é ter as duas coisas lado a lado. É que **desenho e no
 | `08-roadmap.md` | Ordem de construção em fatias verticais, com critério de pronto por fatia. |
 | `09-decisoes-e-incertezas.md` | ADRs curtos e — importante — a lista do que foi **verificado em fonte** e do que é **suposição minha**. |
 | `10-tarefas.md` | Normativo e autocontido. O painel de tarefas: modelo de dados, formato no disco, cálculo das seções, interface, RF10.x, decisões. Escrito depois do MVP, por pedido do usuário. |
+| `11-agente-ia.md` | Normativo e autocontido. O agente de IA opcional: provedores, gateiro, assistente, memória, orçamento, RF11.x. Escrito depois do MVP, por pedido do usuário. |
+| `12-multiplos-vaults.md` | Normativo. Criar/abrir vault, recentes, uma janela por vault. |
+| `13-busca.md` | Normativo. Busca unificada por nome e por conteúdo. |
+| `14-tabelas.md` | Normativo. Criação e edição de tabela no editor, incluindo redimensionar coluna. |
+| `15-onboarding.md` | Normativo. Tela de boas-vindas, nome do usuário e conteúdo de exemplo do primeiro vault. |
+| `REQUISITOS-STATUS.md` | Cada RF de `03-requisitos-mvp.md` com o status real no código e a evidência (arquivo). Não é normativo — é auditoria, revisitada a cada entrega grande. |
+| `relatorio-auditoria-2026-09-12.md` | Relatório de uma auditoria pontual (achados e reproduções), não normativo. |
+| `PALETAS-ATUAIS.md` | Referência rápida das paletas de cor em uso, derivada de `06-design-system.md`. |
 | `CLAUDE.md` | vai na raiz do repositório, não em `docs/`. É o que o Claude Code lê primeiro. |
 | `HANDOFF.md` | também na raiz. A Fatia 0 passo a passo, com comandos e código. É por onde a primeira sessão de código começa. |
 

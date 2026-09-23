@@ -84,16 +84,22 @@ dentro de uma lista, onde cada item é seu próprio bloco.
   que separa um bloco do próximo no Markdown (dois parágrafos sem linha em branco entre eles
   são um parágrafo só pra qualquer leitor de Markdown). Ou seja: o "bloco novo" custa dois
   Enters, não um.
-- **Shift+Enter** também quebra dentro do **mesmo** bloco: grava `\n`, mais o prefixo de
-  continuação de lista/citação quando faz sentido. Sem os dois espaços do hard break do
-  CommonMark — arquivo mais limpo, compatível com o que o Obsidian escreve.
+- **Cada linha feita com Enter é um bloco próprio pro editor** (alça de mover, clique triplo),
+  mesmo sem linha em branco entre elas — ainda que pro Markdown sejam um parágrafo só.
+- **Shift+Enter** quebra dentro do **mesmo** bloco. Em parágrafo solto grava o hard break do
+  CommonMark (dois espaços antes da quebra, `  \n`): é isso que distingue no arquivo uma linha
+  do Shift+Enter de uma do Enter, e a alça move as linhas ligadas assim juntas. Em lista e
+  citação grava `\n` mais o prefixo de continuação.
 - Isso só vale para parágrafo e heading soltos (filhos diretos do documento). Dentro de lista,
   citação, bloco de código ou tabela, Enter continua fazendo o que já fazia (continuar a lista,
   por exemplo).
 - **Mudar o Enter não reformata nota nenhuma já existente** (§11.8): o app não sai inserindo
   nem removendo linha em branco em texto que o usuário não tocou.
-- **Clique triplo** seleciona o bloco inteiro (inclusive um parágrafo de várias linhas feito com
-  Shift+Enter), nunca a linha em branco depois dele.
+- **Clique triplo** seleciona o bloco inteiro (inclusive as linhas ligadas por Shift+Enter),
+  nunca a linha em branco depois dele.
+- **Mover um bloco não mexe nas linhas em branco**: elas ficam no lugar, e o bloco sai com uma
+  quebra de linha e entra no ponto de soltura com outra. Soltar logo abaixo de um grupo de
+  linhas (antes da linha em branco) junta o bloco a esse grupo.
 - **Mover bloco** é só pela alça (⠿) que aparece ao passar o mouse — sem atalho de teclado.
   Arrasta um bloco pra antes ou depois de outro **do mesmo nível**: parágrafo/heading/citação
   soltos entre si, ou item de lista dentro da própria lista.
@@ -142,6 +148,10 @@ de interface.
 inclusive editar uma célula, inserir, mover e excluir linha ou coluna. Célula renderiza
 alinhada conforme a coluna.
 
+**Largura de coluna.** Arrastar a linha vertical entre duas colunas redimensiona a coluna da esquerda (ganha/perde largura) e a da direita (perde/ganha — soma zero). As demais não mudam. Largura mínima: 64px. No primeiro arrasto de uma tabela que era automática, a largura atual na tela vira proporção, gravada na linha delimitadora com pelo menos 4 traços por célula. Durante o arrasto só a tela muda; soltar grava numa transação só (um `Ctrl+Z` desfaz). `Esc` cancela. Clique duplo na linha volta à largura automática. Mover coluna leva a largura junto; excluir coluna redistribui; inserir coluna dá à nova a largura média. Vista somente leitura mostra as larguras, sem alça.
+
+**Equivalente no menu:** item "Largura automática" (ícone `move-horizontal`) na seção coluna, só quando a tabela tem larguras.
+
 #### Textos de interface
 
 | Situação | Texto |
@@ -154,8 +164,9 @@ alinhada conforme a coluna.
 | Faixa abaixo da última linha | "Adicionar linha" |
 | Alça de linha | "Arraste para mover a linha. Clique para mais opções." |
 | Alça de coluna | "Arraste para mover a coluna. Clique para mais opções." |
+| Alça de largura (linha entre colunas) | "Arraste para ajustar a largura. Clique duas vezes para largura automática." |
 | Menu — seção linha | "Inserir linha acima", "Inserir linha abaixo", "Mover linha para cima", "Mover linha para baixo", "Excluir linha" |
-| Menu — seção coluna | "Inserir coluna à esquerda", "Inserir coluna à direita", "Mover coluna para a esquerda", "Mover coluna para a direita", "Alinhar à esquerda", "Centralizar", "Alinhar à direita", "Excluir coluna" |
+| Menu — seção coluna | "Inserir coluna à esquerda", "Inserir coluna à direita", "Mover coluna para a esquerda", "Mover coluna para a direita", "Alinhar à esquerda", "Centralizar", "Alinhar à direita", "Largura automática", "Excluir coluna" |
 | Menu — tabela inteira | "Excluir tabela" |
 
 ### 3.4 Barra de formatação
@@ -457,6 +468,7 @@ atualizações" (paleta de comandos e em Configurações).
 | Diálogo de download — progresso | "{porcentagem}%" |
 | Diálogo pós-download sem reinício — título | "Atualização baixada" |
 | Diálogo pós-download sem reinício — descrição | "Feche e abra o Excalisidian de novo para concluir." |
+| Diálogo pós-download sem reinício — botão | "Fechar" |
 | Diálogo de erro — título | "Não foi possível atualizar" |
 | Diálogo de erro — botão | "Fechar" |
 | Comando manual sem novidade | "Você já está na versão mais recente." |
@@ -554,3 +566,104 @@ operacional.
 | Configurações: seção | "Seu nome" |
 | Configurações: rótulo / ajuda | "Nome" / "Aparece na saudação da tela de início." |
 | Arquivos de exemplo | "Boas-vindas", "Primeiro desenho" |
+
+## 15. Agente de IA
+
+Contrato completo — pipeline, provedores, estados e arquitetura — em `docs/11-agente-ia.md`
+(fonte de tudo abaixo). Aqui ficam as regras de comportamento em caso de erro e os textos de
+interface.
+
+- **Opcional e silencioso.** Sem configuração, nenhum componente do agente (balão, painel,
+  seção nas Configurações além do botão) aparece de outra forma além do próprio botão
+  "Configurar agente". Configura-se pelas Configurações (`Ctrl+,`), seção "Agente de IA" — não
+  existe atalho de teclado nem item de paleta de comandos dedicado.
+- Nada é gravado até o botão final do assistente ("Ativar agente"): fechar o assistente no
+  meio do caminho não deixa configuração pela metade.
+- **Erros de provedor nunca bloqueiam a escrita.** O balão muda para o estado de erro (ícone em
+  `bordo`) e o editor da nota segue intocado; clicar no balão mostra o texto do erro no rodapé
+  do painel.
+- **Gateiro (leitura inicial) que falhou** (rede, ou resposta que não parseou) não vira faixa
+  nem toast: fica só na linha de status do rodapé do painel, e a nota pode tentar de novo.
+  **Gateiro que decidiu não participar** desta vez também só aparece ali.
+- **Limpar memória** pede confirmação destrutiva antes de apagar resumos, fatos, participações
+  e conversas do agente — as notas do vault nunca são afetadas.
+- **Testar conexão** (Configurações) reaproveita o mesmo texto de erro do provedor; sucesso
+  mostra "Conexão funcionando.".
+
+### Textos de interface
+
+| Situação | Texto |
+|---|---|
+| Configurações: seção | "Agente de IA" |
+| Configurações: aviso sem configuração | "Opcional. Nada é enviado sem a sua configuração, e o agente só acompanha uma nota depois que você aceita o convite." |
+| Configurações: botão sem configuração | "Configurar agente" |
+| Configurações: resumo | "{Ativo/Desligado} · {provedor}" + "{modelo gateiro} · {modelo assistente}" |
+| Configurações: ações | "Ligar agente" / "Desligar agente", "Reconfigurar", "Testar conexão", "Abrir pasta do agente", "Limpar memória" |
+| Limpar memória (confirmação) | "Apagar resumos, fatos, participações e conversas do agente? As notas não são afetadas." |
+| Limpar memória (toast) | "Memória do agente apagada." |
+| Teste de conexão bem-sucedido | "Conexão funcionando." |
+| Assistente: passos | "Provedor" · "Chave da API" · "Leitura inicial" · "Acompanhamento" · "Revisão" |
+| Assistente: navegação | "Voltar" / "Continuar" / "Ativar agente" |
+| Assistente: descrição no topo | "Opcional. Nada é enviado sem a sua configuração, e o agente só acompanha uma nota depois que você aceita o convite." |
+| Assistente: provedor sem chave | "«Provedor» roda na sua máquina — não precisa de chave." |
+| Assistente: chave, link | "Onde consigo uma chave?" |
+| Assistente: campo avançado | "Avançado · Base URL" |
+| Assistente: rótulo do passo 3 | "Modelo da leitura inicial — barato e rápido, só decide se vale convidar" |
+| Assistente: rótulo do passo 4 | "Modelo do acompanhamento — o que lê a nota e traz as sugestões" |
+| Assistente: listagem de modelos falhou | "Não foi possível listar os modelos do provedor. Você pode escolher um sugerido ou digitar o nome." |
+| Assistente: campo sem chave preenchida | "Cole a chave da API para continuar." |
+| Assistente: opção fora da lista | "Outro modelo…" / selo "Sugerido" |
+| Assistente: revisão — pesquisar na web | "Permitir que o agente pesquise na web" |
+| Assistente: revisão — teto de gasto | "Limite diário de gasto em US$ (opcional)" |
+| Assistente: salvar (toast) | "Agente ativado." / "Configuração do agente salva." |
+| Balão: tooltip por estado | "Agente" (ocioso/desligado) · "Agente — acompanhando esta nota" (observando) · "Agente — pensando" · "Agente — pausado" · "Agente — erro" |
+| Painel: cabeçalho | "Agente" + pausar/retomar + fechar |
+| Painel: convite | "Esta nota parece tratar de **{tema}**. Quer que eu acompanhe?" + "Aceitar" / "Agora não" / "Recusar" |
+| Painel: sugestões — ações | "Copiar" (toast "Sugestão copiada." / "Não foi possível copiar.") e "Dispensar" |
+| Painel: memória expansível | "O que o agente aprendeu ({n})" + "Apagar fato" por item |
+| Painel: campo de conversa | "Perguntar sobre esta nota" |
+| Painel: sem nada ainda | "Pergunte algo sobre a nota aberta." |
+| Painel: pensando | "pensando…" |
+| Painel: gateiro decidiu não participar | "O agente leu esta nota e decidiu não participar por enquanto." |
+| Painel: análise do gateiro falhou | "A análise desta nota falhou. O agente tenta de novo quando você escrever mais." |
+| Erro — chave recusada (401/403) | "A chave da API foi recusada pelo provedor. Confira a chave nas configurações." |
+| Erro — cota do provedor (429) | "O provedor limitou as chamadas agora. Tente de novo em instantes." |
+| Erro — modelo inexistente (404) | "O provedor não conhece o modelo «{modelo}». Confira o nome nas configurações." |
+| Erro — base URL fora do escopo permitido | "A base URL configurada está fora das permissões do app. Verifique o campo avançado nas configurações." |
+| Erro — resposta não entendida | "O provedor devolveu uma resposta que não pude entender. Tente outro modelo." |
+| Erro — sem conexão | "Sem conexão com o provedor. Verifique a rede e tente de novo." |
+| Erro — provedor fora do ar / genérico | "Não foi possível falar com o provedor. Verifique a conexão." |
+
+**Limite diário de gasto:** o campo existe no assistente e é gravado na configuração, mas hoje
+nada no código consulta esse valor para bloquear uma chamada nem para avisar que o teto foi
+atingido — **não implementado** além do campo e do armazenamento (`docs/11-agente-ia.md` §7
+descreve um toast de teto atingido que não existe no código; ver relatório).
+
+## 16. Atalhos e símbolos
+
+Decisões de arquitetura em doc 09, ADR-29; componentes no inventário do doc 06. Aqui ficam as
+regras de comportamento e os textos de interface (RF8.3). O glossário só lista o que funciona
+no código: os catálogos (`src/app/glossario/`) têm testes que conferem os atalhos contra os
+keymaps do editor e os símbolos contra o parser markdown do editor.
+
+**Onde fica.** Nas Configurações, seção nova "Atalhos e símbolos", logo depois de "Largura da nota": uma linha de ajuda e um botão compacto "Abrir glossário". O glossário abre como um segundo `Dialog` por cima das Configurações — a pilha de diálogos já existe, então Esc fecha só o glossário.
+
+**Comportamento.** Abre por cima das Configurações; Esc fecha o glossário e devolve o foco ao botão. Filtro ignora acento e caixa. Teclas de modificador são mostradas por plataforma (Mod vira Ctrl no Windows/Linux e ⌘ no macOS; Alt vira ⌥ no macOS). `Ctrl+K` no editor insere link markdown (RF2.11).
+
+**Divergência registrada** (doc 09, ADR-29): doc 03 diz Ctrl+E = modo leitura e Ctrl+` = código; o código usa Ctrl+E = código e não tem modo leitura nem Ctrl+`.
+
+### Textos de interface
+
+| Situação | Texto |
+|---|---|
+| Configurações: seção | "Atalhos e símbolos" |
+| Configurações: ajuda | "Tudo o que dá pra fazer pelo teclado e os símbolos que formatam o texto." |
+| Botão | "Abrir glossário" |
+| Diálogo: título | "Atalhos e símbolos" |
+| Filtro: rótulo | "Filtrar" |
+| Filtro: placeholder | "Filtrar por ação, tecla ou símbolo…" |
+| Abas | "Atalhos" / "Símbolos" |
+| Sem resultado | "Nada encontrado para «{consulta}»." |
+| Separador de combos alternativos | "ou" |
+| **Grupos de atalhos** | "Geral", "Abas e divisões", "Nota: formatação", "Nota: edição", "Nota: localizar", "Desenho" |
+| **Grupos de símbolos** | "Texto", "Blocos", "Links e embeds", "Enquanto você digita" |

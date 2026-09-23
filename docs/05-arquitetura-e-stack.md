@@ -12,12 +12,15 @@ Todas as versões abaixo foram verificadas no registry do npm em **28/08/2026**.
 | Filesystem | `@tauri-apps/plugin-fs` | 2.5.1 |
 | Diálogos nativos | `@tauri-apps/plugin-dialog` | 2.7.2 |
 | Preferências | `@tauri-apps/plugin-store` | 2.4.4 |
+| Atualização do app | `@tauri-apps/plugin-updater` + `@tauri-apps/plugin-process` (relaunch) | 2.11.0 / 2.3.1 — ver seção 11 |
 | Build | Vite + React + TypeScript | Vite 8.2.2 · React 19.2.8 |
-| Editor de texto | **CodeMirror 6** | `@codemirror/view` 6.43.9 · `@codemirror/lang-markdown` 6.5.2 · `@lezer/markdown` 1.7.2 |
+| Editor de texto | **CodeMirror 6** — vendorizado em `src/editor/atomico/` (não é mais a dependência `@atomic-editor/editor`; ver nota abaixo) | `@codemirror/view` 6.43.9 · `@codemirror/lang-markdown` 6.5.2 · `@lezer/markdown` 1.7.2 |
+| Blocos de código | Um `@codemirror/lang-*` por linguagem suportada no editor (`cpp`, `css`, `go`, `html`, `java`, `javascript`, `json`, `php`, `python`, `rust`, `sql`, `xml`, `yaml`) + `@codemirror/legacy-modes` para o resto, em `src/editor/atomico/code-languages.ts` | várias, todas `^6.x` |
 | Canvas | `@excalidraw/excalidraw` | **0.18.1** |
 | Abas e split | `dockview-react` | 8.2.0 |
 | Parsing markdown | `unified` 11.0.5 + `remark-parse` 11.0.0 + `remark-gfm` 4.0.1 | |
-| Frontmatter | `gray-matter` | 4.0.3 |
+| Frontmatter | `js-yaml` (miolo do YAML) direto, em `src/indice/frontmatter.ts` | 4.3.2 |
+| Compressão da cena | `lz-string` (`draw-json-lz`, doc 02 §3) | 1.5.0 |
 | Busca | `minisearch` | 7.2.0 |
 | Rede HTTP (agente de IA) | `@tauri-apps/plugin-http` + `tauri-plugin-http` (Rust) | 2.6.0 / 2.6.0 — verificado 13/09/2026 no install; único ponto de rede do app com o provedor, escopado por host em `capabilities/main.json` (doc 11) |
 | Estado | `zustand` | 5.0.15 |
@@ -48,7 +51,7 @@ Uma ressalva sobre esse teste: **WebView2 é Chromium, e Electron também é.** 
 
 Milkdown e TipTap são ProseMirror: o documento em memória é uma árvore e o markdown é serializado na saída, então o round-trip não é fiel. No CodeMirror 6 a fonte da verdade é o texto markdown, e o live preview é feito com *decorations* que escondem tokens fora da linha do cursor — é o que o Obsidian faz. Justificativa completa no ADR-4 do documento 09.
 
-**Atalho possível:** o pacote `@atomic-editor/editor` (0.6.2, MIT) é React + CM6 com live preview inline estilo Obsidian, incluindo wikilinks. Tem um mantenedor só e pouca tração — trate como **base para fork/vendor**, não como dependência de longo prazo. Vale gastar um dia testando com arquivos reais antes de decidir escrever do zero; se atender, corta semanas.
+**Decisão tomada:** o pacote `@atomic-editor/editor` (React + CM6 com live preview inline estilo Obsidian, incluindo wikilinks) foi vendorizado — não é mais uma dependência do `package.json`, é código do projeto em `src/editor/atomico/` (comentários e nomes de símbolo em inglês, do pacote original; a regra de nomes em português vale para o código do projeto propriamente dito, mesmo padrão adotado para os assets do Excalidraw no doc 06). A partir daí ganhou recursos próprios que o pacote não tinha: tabela (`table-model.ts`, `table-widget.ts`), blocos de código com syntax highlighting por linguagem (`code-languages.ts`, `highlight.ts`), progresso de task list (`tree-progress.ts`) e mais.
 
 ---
 
@@ -59,58 +62,82 @@ src/
 ├── main.tsx
 ├── app/
 │   ├── App.tsx
-│   ├── comandos/            registro de comandos + atalhos
-│   └── atalhos.ts
+│   ├── comandos/            registro de comandos: criação, exclusão, mover, galeria de anexos
+│   ├── glossario/           catálogo de atalhos e símbolos (comando "Glossário")
+│   ├── atalhos.ts
+│   ├── atualizacao.ts       fluxo do updater (plugin-updater + plugin-process)
+│   ├── capturaDeErros.ts
+│   ├── constantes.ts        APP_ID e derivados (chave de frontmatter, pasta de config, ext. tmp)
+│   ├── papel-de-parede-home.ts
+│   ├── sistemaOperacional.ts
+│   ├── useHojeLocal.ts
+│   └── useRessincronizarAoVoltar.ts
 ├── vault/
-│   ├── VaultAdapter.ts      interface: read, write, list, watch, move, delete
+│   ├── VaultAdapter.ts      interface: read, write, list, watch, move, delete (seção abaixo)
 │   ├── TauriVaultAdapter.ts implementação sobre plugin-fs
 │   ├── caminhos.ts          normalização NFC, "/" , validação Windows
 │   ├── escritaAtomica.ts    tmp + rename + mapa anti-loop
-│   └── lixeira.ts
+│   ├── lixeira.ts
+│   ├── configVault.ts       leitura/escrita de .excalisidian/vault.json (hoje só sortMode/customOrder — doc 02 §1)
+│   ├── criar.ts, mover.ts, renomear.ts, anexos.ts, arvore.ts, ordenacao.ts, customOrder.ts
+│   ├── vaultsRecentes.ts, janelas.ts, abrirNestaJanela.ts   múltiplos vaults (doc 12)
+│   └── galeria-anexos.ts
 ├── indice/
 │   ├── parser.ts            markdown -> FileMeta
 │   ├── wikilink.ts          parser próprio de [[...]]
+│   ├── frontmatter.ts       YAML do frontmatter com js-yaml (não gray-matter — ver seção 1)
 │   ├── cache.ts             load/save de index.json, reparse incremental
 │   ├── resolucao.ts         resolver link -> caminho
+│   ├── sugestoesLink.ts, sintaxe.ts
 │   └── backlinks.ts
 ├── busca/
-│   └── minisearchIndex.ts
+│   ├── minisearchIndex.ts
+│   ├── buscaTitulos.ts, montarListaBusca.ts, normalizacao.ts
+├── tarefas/                 painel de tarefas (doc 10-tarefas.md): formatoTarefas, agrupamento, ordem
 ├── agente/                    agente de IA opcional (doc 11) — único código que fala com rede
 │   ├── tipos.ts
 │   ├── provedores.ts          catálogo de provedores, dialetos, base URLs, preços
-│   ├── cliente.ts             completar() nos 3 dialetas sobre plugin-http
+│   ├── cliente.ts             completar() nos dialetas sobre plugin-http
 │   ├── orcamento.ts           tokens/custo, teto diário
 │   ├── gatilhos.ts            disparo local: inatividade + diff mínimo
 │   ├── gateiro.ts             análise inicial e convite
 │   ├── assistente.ts          ciclo de sugestões estruturadas
 │   ├── recuperacao.ts         top-k local (minisearch + backlinks)
-│   ├── memoria.ts             pasta de memória em %APPDATA% (escrita atômica)
-│   └── webSearch.ts           tool nativo do provedor
+│   └── memoria.ts             pasta de memória em %APPDATA% (escrita atômica)
 ├── editor/
 │   ├── EditorNota.tsx
-│   └── extensoes/           livePreview, wikilink, embed, atalhos, tema
+│   ├── editorAtivo.ts, useAutosave.ts
+│   ├── atomico/             CodeMirror 6 vendorizado (ex-@atomic-editor/editor) — seção 1
+│   └── extensoes/           wikilink, embed, atalhos, tabela, tema, corpo da nota
 ├── canvas/
 │   ├── EditorDesenho.tsx
 │   ├── formatoDesenho.ts    parse e serialize do .draw.md (draw-json e draw-json-lz)
-│   ├── postit.ts
+│   ├── adotarImagens.ts, reidratarFiles.ts, linkElemento.ts, atalhosCanvas.ts
+│   ├── paletaCanvas.ts      lê os tokens CSS (doc 06) — nunca hex literal
+│   ├── selecaoFormaVazia.ts, flushCanvas.ts
 │   └── renderSvg.ts         para o embed em nota
 ├── layout/
 │   ├── Workspace.tsx        dockview
+│   ├── AbaDocumento.tsx, AbaInicio.tsx, PainelDesenho.tsx, PainelDocumento.tsx, PainelInicio.tsx, PainelVazio.tsx, BotaoInicioAba.tsx
 │   └── persistencia.ts
-├── ui/                      componentes do design system
+├── ui/                      componentes-base do design system (Botao, Campo, Dialog, Menu, Select, …)
+│   └── excalisidian/        componentes específicos do produto (árvore, sidebar, diálogos, tarefas, agente, glossário, múltiplos vaults, …)
 ├── estado/
-│   ├── vaultStore.ts
-│   ├── workspaceStore.ts
-│   ├── prefsStore.ts
-│   └── agenteStore.ts         agente de IA (doc 11)
+│   ├── vaultStore.ts, documentosStore.ts, workspaceStore.ts
+│   ├── prefsStore.ts, agenteStore.ts, atualizacaoStore.ts, tarefasStore.ts
+│   ├── dialogoStore.ts, sobreposicaoStore.ts, revelacaoStore.ts, papel-parede-home-store.ts
+│   └── flushGeral.ts
 └── estilos/
     └── globals.css          tokens
 
 src-tauri/
 ├── src/
-│   ├── main.rs
+│   ├── main.rs, lib.rs
 │   ├── vault.rs             escolher_vault, permitir_vault, walk_vault
-│   └── watcher.rs
+│   ├── watcher.rs           observar_vault
+│   ├── janelas.rs           abrir_janela_vault, registrar_janela_vault, focar_janela, criar_vault (doc 12)
+│   ├── sistema.rs           nome_usuario, revelar_pasta
+│   └── papel_parede.rs      papel de parede da Home (preparar/importar/remover)
 └── capabilities/
 ```
 
@@ -128,8 +155,11 @@ interface VaultAdapter {
   escreverBinario(path: string, dados: Uint8Array): Promise<void>;
   criarPasta(path: string): Promise<void>;
   mover(de: string, para: string): Promise<void>;
+  remover(path: string): Promise<void>;             // exclusão PERMANENTE, só para esvaziar .trash/
+  listarPasta(path: string): Promise<{ nome: string; isDir: boolean }[]>; // 1 nível, sem filtro de pasta-ponto — único jeito de ver dentro de .trash/
   existe(path: string): Promise<boolean>;
   observar(cb: (eventos: EventoArquivo[]) => void): () => void;
+  aoPerderSincronia(cb: () => void): () => void;    // watcher perdeu eventos (overflow do SO); pede releitura completa
 }
 ```
 
@@ -137,7 +167,9 @@ interface VaultAdapter {
 
 ## 3. Ponte com o Rust
 
-Quatro pontos de contato com o Rust, e não mais que isso sem uma boa razão:
+O plano original era de "quatro pontos de contato com o Rust, e não mais que isso sem uma
+boa razão" — múltiplos vaults (doc 12) já levou isso a nove, e hoje, com a Home e o
+updater, são treze comandos registrados em `lib.rs`:
 
 | Comando | Assinatura | Por quê |
 |---|---|---|
@@ -145,8 +177,16 @@ Quatro pontos de contato com o Rust, e não mais que isso sem uma boa razão:
 | `permitir_vault` | `(path: String) -> Result<()>` | reaplica o escopo no boot, para o vault salvo |
 | `walk_vault` | `(path: String) -> Vec<EntradaArquivo>` | percorre a pasta inteira em uma chamada; devolve `path`, `mtimeMs`, `birthtimeMs`, `size`, `isDir` |
 | `observar_vault` | `(path: String) -> Result<()>` + canal de eventos | file watcher com debounce, emitindo **lotes** para o front |
-| `lixeira_sistema` | `(path: String) -> Result<()>` | só quando RF7.6 sair do P2 — ver a nota abaixo |
-| `revelar_pasta` | `(path: String) -> Result<()>` | abre uma pasta no Explorer do sistema (`explorer.exe`); usado por "Abrir pasta do agente" (doc 11 §6.3). Domínio de SO, mora em `sistema.rs` como `nome_usuario` |
+| `abrir_janela_vault` | `(app, path: String) -> Result<(), String>` | abre um vault numa janela nova ou foca a que já está aberta (doc 12 §2) |
+| `registrar_janela_vault` | `(window, path: String) -> Result<Option<String>, String>` | cada janela avisa qual vault está mostrando (doc 12 §2) |
+| `focar_janela` | `(app, label: String) -> Result<(), String>` | `unminimize` + `set_focus` por label (doc 12 §2) |
+| `criar_vault` | `(app, pai: String, nome: String) -> Result<String, String>` | cria a pasta de um vault novo no disco (doc 12 §2) |
+| `nome_usuario` | `() -> String` | nome do usuário do SO; mora em `sistema.rs` |
+| `revelar_pasta` | `(path: String) -> Result<()>` | abre uma pasta no Explorer do sistema (`explorer.exe`); usado por "Abrir pasta do agente" (doc 11 §6.3). Domínio de SO, mora em `sistema.rs` |
+| `preparar_papel_parede_home` | `(app) -> Result<Option<PapelParedeArquivo>, String>` | papel de parede da tela Início; `papel_parede.rs` |
+| `importar_papel_parede_home` | `(app, …) -> Result<..., String>` | idem |
+| `remover_papel_parede_home` | `(app) -> Result<(), String>` | idem |
+| `lixeira_sistema` | não implementado | só quando RF7.6 sair do P2 — ver a nota abaixo |
 
 Sobre o `observar_vault`: o `@tauri-apps/plugin-fs` já expõe `watch` e `watchImmediate` com `delayMs`, e para um watcher simples isso bastaria. O comando próprio existe por um motivo específico — a seção Watcher abaixo exige processar **lotes** de eventos (um `git checkout` gera milhares em um segundo), e agrupar do lado Rust evita atravessar o IPC uma vez por arquivo. Se na Fatia 5 o `watch` do plugin se mostrar suficiente, use-o e apague este comando: um ponto de contato a menos com o Rust é ganho, não perda.
 
@@ -238,17 +278,28 @@ Na leitura, o mapa `files` é reidratado lendo cada arquivo referenciado em `## 
 
 ## 7. Estado
 
-`zustand` 5.0.15, três stores:
+`zustand` 5.0.15, em `src/estado/`:
 
 | Store | Conteúdo | Persistência |
 |---|---|---|
 | `vaultStore` | raiz, árvore, índice, backlinks, status de indexação | `cache/index.json`, no idle |
+| `documentosStore` | documentos abertos, conteúdo em memória por aba, sincronização com o disco | não persiste sozinho — vive enquanto a aba existe |
 | `workspaceStore` | layout do dockview, aba ativa, estado por documento | `workspace/<hash-do-vault>.json`, debounce 1 s |
-| `prefsStore` | tema (`claro`/`escuro`/`sistema`), tamanho da janela, vaults recentes | `settings.json` via plugin-store |
-| `vaultPrefsStore` | pasta de anexos, local de novas notas, formato de link, lixeira | `.excalisidian/vault.json`, **dentro do vault** |
+| `prefsStore` | tema (`claro`/`escuro`/`sistema`), tamanho da janela | `settings.json` via plugin-store |
+| `tarefasStore` | painel de tarefas (doc 10-tarefas.md) | `.excalisidian/tarefas.json` |
 | `agenteStore` | config do agente de IA, participação, sugestões, uso de tokens | `settings.json` (config) + `%APPDATA%/Excalisidian/agente/<hash>/` (memória) — doc 11 |
+| `atualizacaoStore` | estado do updater (verificação, download, aplicar) | não persiste |
+| `dialogoStore`, `sobreposicaoStore`, `revelacaoStore` | diálogos e sobreposições de UI abertos no momento | não persistem |
+| `papel-parede-home-store` | papel de parede da tela Início | `%APPDATA%/Excalisidian/` via `papel_parede.rs` |
 
-Nada de conteúdo de arquivo no store global. O conteúdo vive dentro do estado do CodeMirror / Excalidraw da aba.
+`vaultsRecentes` (lista de vaults recentes, doc 12) mora em `settings.json` mas hoje é
+funções puras em `src/vault/vaultsRecentes.ts`, não um store zustand. **Não existe**
+`vaultPrefsStore`: as preferências por vault (pasta de anexos, local de nova nota, formato
+de link, lixeira) fazem parte do desenho ainda não implementado do `vault.json` — ver doc
+02 §1.
+
+Nada de conteúdo de arquivo no store global de vault/workspace. O texto e a cena da aba
+ativa vivem em `documentosStore`/no estado do CodeMirror e do Excalidraw.
 
 ---
 

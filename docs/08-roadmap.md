@@ -19,6 +19,15 @@ detalhamento na seção da própria Fatia 8, abaixo. A busca por conteúdo foi i
 auditoria de 12/09 (01–10) e o P2 11 corrigidos com testes de regressão; Fatia 10 (agente
 de IA, doc 11) com fases 1–4 construídas (web search, fase 5, segue pendente).
 
+**Status 19/09/2026 (v0.5.6):** desde o v0.4.0, entraram múltiplos vaults completos (RF1.3,
+`docs/12-multiplos-vaults.md`), entrada visível da busca unificada na sidebar (RF4.6/RF4.8/
+RF4.12, `docs/13-busca.md`), tabelas com redimensionamento de coluna (RF2.16,
+`docs/14-tabelas.md`), a tela de boas-vindas e o nome do usuário (RF1.13/RF8.5,
+`docs/15-onboarding.md`), a tela de atalhos e símbolos (RF8.3, `DialogoGlossario.tsx`),
+ordenação da árvore com um modo customizado por arrasto (RF4.2), mover bloco por arraste no
+editor (RF2.19) e o caminho de pastas acima do título (RF2.18). `docs/REQUISITOS-STATUS.md`
+foi revisado por inteiro nesta data — as fatias abaixo estavam desatualizadas em vários pontos.
+
 **Fora do roadmap original, decidido e construído no meio do caminho** (não estava em nenhuma
 fatia, entrou por pedido direto do usuário depois de testar o app em tela):
 
@@ -38,8 +47,20 @@ fatia, entrou por pedido direto do usuário depois de testar o app em tela):
   Pedido direto do usuário depois do MVP; o doc 10 é autocontido (modelo, formato, UI, RF10.x,
   decisões).
 - **Múltiplos vaults, uma janela por vault** (RF1.3a/b/c): criar vault, abrir pasta existente,
-  recentes e uma janela por vault. Em andamento — plano completo e normativo em
-  `docs/12-multiplos-vaults.md` (doc 09 ADR-24).
+  recentes e uma janela por vault. **Concluído** — `SeletorVault.tsx`, `vault/janelas.ts` sobre
+  os comandos Rust `criar_vault`/`abrir_janela_vault` (`src-tauri/src/janelas.rs`, que foca a
+  janela já aberta em vez de abrir outra). Plano normativo em `docs/12-multiplos-vaults.md`
+  (doc 09 ADR-24).
+- **Ordenação da árvore** (RF4.2): quatro modos (customizada por arrasto, alfabética, data
+  crescente/decrescente) pelo botão-dropdown ao lado da busca, com a ordem customizada
+  persistida em `.excalisidian/vault.json` — primeiro uso desse arquivo no código
+  (`vault/configVault.ts`). Pedido do usuário depois do MVP original, não estava em nenhuma
+  fatia.
+- **Glossário de atalhos e símbolos** (RF8.3): `DialogoGlossario.tsx` sobre
+  `src/app/glossario/`, com teste de deriva que confere os atalhos dos keymaps próprios do
+  editor contra o catálogo.
+- **Mover bloco por arraste** (RF2.19, doc 09 ADR-18): alça `⠿` que arrasta um bloco entre os
+  irmãos do mesmo nível no editor.
 
 ---
 
@@ -173,8 +194,10 @@ A fatia mais cara do projeto.
   (agrupada por arquivo, até 3 trechos por arquivo com número da linha e termo destacado,
   doc 04 §8), consulta com `"frase exata"` e `-termo`, atalho `Ctrl+Shift+F` e comando na
   paleta. Integração no `vaultStore`: boot via `sincronizarBusca` (fora do caminho crítico),
-  save/watcher via `reindexarArquivo`. Testes em `busca/minisearchIndex.test.ts`. **Não
-  testado em tela ainda** — validar com vault real (tempo de boot a quente/frio, RNF1).
+  save/watcher via `reindexarArquivo`. Testes em `busca/minisearchIndex.test.ts`.
+  ~~Não testado em tela ainda.~~ **Entrada visível adicionada depois** (`CampoBuscaSidebar.tsx`,
+  `Ctrl+Enter` abre ao lado, suporte a acento em `busca/normalizacao.ts`) — ver
+  `docs/13-busca.md` e `docs/REQUISITOS-STATUS.md` (RF4.6/RF4.8/RF4.12).
 - **Lixeira**: RF7.1–7.4 implementados (doc 09, ADR-7, status 01/09/2026 —
   `vault/lixeira.ts`, `PainelLixeira.tsx`). Pendentes: RF7.5 (desfazer pelo toast) e RF7.6
   (lixeira do sistema, crate `trash`).

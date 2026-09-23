@@ -474,17 +474,20 @@ Estado: `tarefas: Tarefa[]`, `carregado: boolean`, `painelAberto: boolean`,
 `larguraPainel: number`, `concluidasExpandidas: boolean` (efêmero), `tarefaAberta: string | null`,
 mais o estado transitório de arrasto.
 
-Ações (todas as que mudam `tarefas` agendam `persistir()` — debounce 800 ms, `escritaAtomica`):
-`carregar()`, `criar(secao, titulo, hoje)`, `editarTitulo(id, titulo)`,
+Ações (todas as que mudam `tarefas` chamam `mutar()`, que agenda `_persistirAgora()` — debounce
+800 ms, `escritaAtomica`): `carregar()`, `criar(secao, titulo, hoje)`, `editarTitulo(id, titulo)`,
 `moverTarefa(id, secaoAlvo, indiceAlvo, hoje)` (reordenar dentro da seção e mover entre
 seções colapsaram nesta única ação — o índice-alvo cobre os dois casos),
-`alternarConcluida(id, hoje)`, `adicionarComentario(id, texto)`,
-`editarComentario(id, comentarioId, texto)`, `removerComentario(id, comentarioId)` +
-`restaurarComentario(...)` para o desfazer, `abrirModal(id)`, `fecharModal()`,
-`alternarPainel()`, `definirLargura(n)`, `alternarConcluidas()`.
+`alternarConcluida(id, hoje)`, `removerTarefa(id)` + `restaurarTarefa(tarefa)` para o desfazer
+do apagar (§5.6), `adicionarComentario(id, texto)`, `editarComentario(id, comentarioId, texto)`,
+`removerComentario(id, comentarioId)` + `restaurarComentario(...)` para o desfazer do
+comentário, `abrirModal(id)`, `fecharModal()`, `alternarPainel()`, `definirLargura(n)`,
+`alternarConcluidas()`. `_persistirAgora()` também é exposta para o flush no fechamento e na
+troca de vault (fora do debounce).
 
-`painelAberto` e `larguraPainel` também vão para o `settings.json` (via o mesmo `plugin-store`
-que o `prefsStore` usa).
+`carregarPrefs()` é a ação separada que lê `painelAberto`/`larguraPainel` do `settings.json` (via
+o mesmo `plugin-store` que o `prefsStore` usa) — chamada uma vez na inicialização do `App.tsx`,
+não em `carregar()` (que só cuida de `tarefas.json`, por vault).
 
 ### 8.3 Montagem
 
@@ -493,7 +496,9 @@ que o `prefsStore` usa).
 `PainelTarefas` (não no `RaizDialogos`), porque ele cobre só a largura do painel.
 
 `tarefasStore.carregar()` é chamado quando o vault abre, junto com o resto da inicialização do
-`vaultStore`.
+`vaultStore`. `carregarPrefs()` é chamado uma vez, na inicialização do `App.tsx` (preferência de
+app, não depende de vault aberto). `_persistirAgora()` é chamado na troca de vault (antes de
+trocar o adapter) e no flush de fechamento da janela.
 
 ---
 

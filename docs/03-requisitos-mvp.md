@@ -45,15 +45,17 @@ Persona única: **o autor** — uma pessoa usando o app sozinha no próprio comp
 | RF2.13 | Colar uma URL com texto selecionado transforma a seleção em link markdown. | P2 |
 | RF2.14 | Desfazer e refazer com histórico por documento, preservado enquanto a aba estiver aberta. | P0 |
 | RF2.15 | Continuar lista automaticamente ao apertar Enter dentro de uma lista, e sair da lista com Enter em item vazio. | P1 |
-| RF2.16 | Criar tabela por digitação markdown (`\| a \| b \|` + `Enter`), pela paleta de comandos ("Inserir tabela") e por um botão na barra de formatação; editar com faixas "+" de adicionar linha/coluna, alças de linha e coluna com menu (inserir, mover, alinhar, excluir), e alinhamento de cada coluna preservado em qualquer edição, inserção, remoção ou movimentação. Detalhamento em `docs/14-tabelas.md`. | P1 |
+| RF2.16 | Criar tabela por digitação markdown (`\| a \| b \|` + `Enter`), pela paleta de comandos ("Inserir tabela") e por um botão na barra de formatação; editar com faixas "+" de adicionar linha/coluna, alças de linha e coluna com menu (inserir, mover, alinhar, excluir), e alinhamento de cada coluna preservado em qualquer edição, inserção, remoção ou movimentação; redimensionar a largura das colunas arrastando a borda entre elas, com a proporção gravada na linha delimitadora. Detalhamento em `docs/14-tabelas.md`. | P1 |
 | RF2.17 | Barra de formatação: flutuante só com seleção (some ao perder o foco do editor, na vista somente leitura e dentro de uma célula de tabela), ou acoplada embaixo da nota, sempre visível, por preferência do usuário. A versão que aparecia sem seleção foi revertida (16/09/2026). | P1 |
+| RF2.18 | Mostrar o caminho de pastas da nota (sem o nome do arquivo) como uma linha pequena e discreta acima do título, dentro da própria coluna de texto; nota na raiz do vault não mostra nada. | P2 |
+| RF2.19 | Mover um bloco (parágrafo, heading, citação, item de lista) para cima ou para baixo entre os irmãos do mesmo nível, arrastando pela alça `⠿` que aparece ao passar o mouse sobre o bloco. Escopo v1: só entre irmãos — não entra nem sai de uma lista. | P2 |
 
 ## Módulo 3 — Abas e divisão de tela
 
 | ID | Requisito | P |
 |---|---|---|
 | RF3.1 | Abrir arquivos em abas; `Ctrl+T` abre uma aba nova em branco. Com a aba em branco já ativa, `Ctrl+T` cria uma nota (substituindo-a, como abrir qualquer arquivo) e `Ctrl+D` cria um desenho, em vez de abrir mais uma aba em branco do lado. | P0 |
-| RF3.2 | Fechar aba com `Ctrl+W`; reabrir a última fechada com `Ctrl+Shift+T`. | P0 |
+| RF3.2 | Fechar aba com `Ctrl+W`, clicando no X que aparece no hover, ou pelo clique do meio (como um navegador); reabrir a última fechada com `Ctrl+Shift+T`. | P0 |
 | RF3.3 | Navegar entre abas com `Ctrl+Tab`, `Ctrl+Shift+Tab` e `Ctrl+1`…`Ctrl+9`. | P1 |
 | RF3.4 | Dividir a tela em vertical e em horizontal, pelo menu de contexto da aba e por comando. | P0 |
 | RF3.5 | Arrastar uma aba para a borda de um grupo para criar uma divisão nova, com destaque visual da zona de soltura. | P0 |
@@ -68,7 +70,7 @@ Persona única: **o autor** — uma pessoa usando o app sozinha no próprio comp
 | ID | Requisito | P |
 |---|---|---|
 | RF4.1 | Árvore de pastas e arquivos, com expandir e recolher, estado preservado entre sessões. | P0 |
-| RF4.2 | Ordenar por nome, por data de modificação e por data de criação, crescente e decrescente. Exige `birthtimeMs` no retorno do `walk_vault` e no `FileMeta`. | P1 |
+| RF4.2 | Ordenar a árvore por um botão-dropdown ao lado da busca, com quatro modos: customizada (arrastar item para reordenar dentro do próprio nível, com separadores inseríveis; ordem gravada em `.excalisidian/vault.json`), alfabética (pastas antes de arquivos, sem opção decrescente), e por data de modificação, crescente e decrescente (lista achatada, ignora a hierarquia). **Correção sobre a versão anterior:** este requisito previa também ordenar por data de criação (`birthtimeMs`) e alfabética decrescente — não foi construído; o que existe é o modo customizado no lugar. | P1 |
 | RF4.3 | Revelar automaticamente o arquivo ativo na árvore (ligável e desligável). | P1 |
 | RF4.4 | Menu de contexto na árvore: nova nota, novo desenho, nova pasta, renomear, mover para a lixeira, duplicar, revelar no Explorer, copiar caminho. | P0 |
 | RF4.5 | Arrastar arquivo para dentro de uma pasta na árvore. | P1 |
@@ -135,7 +137,7 @@ Persona única: **o autor** — uma pessoa usando o app sozinha no próprio comp
 |---|---|---|
 | RF8.1 | Tema claro (Papel) e escuro (Tinta), com opção de seguir o sistema. `prefsStore.tema` guarda `claro`, `escuro` ou `sistema`; no modo `sistema` o app escuta `prefers-color-scheme` e aplica ou remove a classe `.dark` na tag `<html>`. | P0 |
 | RF8.2 | Preferências do vault (pasta de anexos, local de novas notas, formato de link, lixeira), gravadas em `.excalisidian/vault.json`. Tema e vaults recentes são da máquina e ficam em `settings.json`. | P1 |
-| RF8.3 | Tela de atalhos de teclado, listando todos os comandos. | P2 |
+| RF8.3 | Tela de atalhos de teclado, listando todos os comandos. Implementado em `DialogoGlossario` (Configurações → Atalhos e símbolos), com filtro, atalhos e símbolos de formatação. | P2 |
 | RF8.4 | Toda ação de arrastar tem equivalente por teclado ou por menu. | P1 |
 | RF8.5 | Nome do usuário: informado uma vez na tela de boas-vindas (sugestão a partir do usuário do sistema, editável, pode ficar vazio), alterável depois nas Configurações. A saudação da Home usa o nome quando informado e sai sem nome quando não — nunca mais o usuário do sistema operacional. Detalhamento em `docs/15-onboarding.md`. | P1 |
 

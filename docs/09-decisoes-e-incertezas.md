@@ -471,6 +471,28 @@ de comportamento pedida pelo usuário, escreve `\n` simples. Aceito que renderiz
 estritos (GitHub incluso) vão juntar visualmente essas linhas — trade-off explícito, escolhido
 pelo usuário.
 
+**Revisão (18/09/2026) — Shift+Enter passa a gravar o hard break `  \n`.** Relato do usuário: a
+alça de mover pegava todas as linhas de um parágrafo feito com Enter, e mover bloco sumia ou
+multiplicava linhas em branco. Pedido: linha do Enter é bloco próprio; só Shift+Enter junta
+linhas no mesmo bloco. Com os dois gravando `\n` o arquivo não guarda essa diferença, então um
+dos dois tinha que mudar no disco. Mudou o Shift+Enter, que é o menos usado: em parágrafo solto
+grava dois espaços antes da quebra (hard break do CommonMark, que o Obsidian e o GitHub
+renderizam como quebra). Dois espaços, e não a barra invertida, porque se o marcador se perder
+(texto digitado depois dele) o resultado renderiza como espaço, não como `\` solto. Dentro de
+um parágrafo solto, bloco passa a ser a sequência de linhas ligadas por hard break
+(`blocoMarkdown.ts`); linhas ligadas só por `\n` são blocos separados. Nota antiga não é
+reformatada: um parágrafo feito com Shift+Enter antes desta revisão passa a mover linha a linha.
+Limitação aceita: quem apertar End numa linha do Shift+Enter e digitar escreve depois dos dois
+espaços, e a linha deixa de puxar a de baixo pro mesmo bloco.
+
+**Mover bloco não reconstrói a faixa de irmãos (mesma revisão).** A primeira versão juntava
+todos os irmãos de novo com o separador do primeiro par — que era o título e a linha de baixo.
+Título colado no texto grudava todos os parágrafos; título com linha em branco extra espalhava
+linha em branco. Agora `calcularMovimento` tira o bloco com uma quebra de linha e reinsere no
+alvo; linhas em branco não se movem. Colagem nova com `\n` simples só entre parágrafo e heading
+ATX — com lista, citação, tabela ou regra horizontal a junção leva linha em branco, pra não
+virar continuação preguiçosa nem heading Setext.
+
 **Por que não reformata nota existente:** doc 04 §11.8 — o app não toca no que o usuário não
 editou. Uma nota antiga com linhas separadas por Enter simples continua sendo um parágrafo de
 várias linhas; a mudança vale só para o que for digitado dali pra frente.
@@ -1205,3 +1227,77 @@ sozinho não bastava — subir só a vida do ponto sem subir o limite de pontos 
 `RASTRO_MAX`) deixaria o rastro mais esparso, não mais longo (pontos antigos descartados pelo
 limite de contagem antes de sumirem de verdade pela idade). Os dois subiram juntos de novo:
 vida 2200→3400ms, limite 48→72 pontos.
+
+### ADR-29 · Glossário de atalhos e símbolos (RF8.3)
+
+**Contexto e objetivo:** RF8.3 pede uma tela de atalhos de teclado listando todos os comandos. O glossário deve ficar acessível pelas Configurações, mostrar tanto atalhos quanto símbolos de formatação markdown, com filtro por ação/tecla/símbolo.
+
+**Arquitetura — catálogos como dados puros:**
+
+Dois catálogos: `CATALOGO_ATALHOS` (atalhos de teclado com descrição, teclas, condição e gesto) e `CATALOGO_SIMBOLOS` (símbolos markdown com sintaxe, descrição e amostra visual). Ambos em `src/app/glossario/` sem nenhuma dependência de React ou do editor — apenas TypeScript + tipos (`tipos.ts`).
+
+Cada catálogo tem um **teste de deriva** (`catalogoAtalhos.test.ts`, `catalogoSimbolos.test.ts`) que impede o glossário de mentir:
+- O de atalhos confere contra os keymaps reais do editor (`TECLAS_FORMATACAO`, `TECLAS_QUEBRA_DE_BLOCO`, `TECLAS_SELECIONAR_CORPO`), falhando se alguma tecla do código não está no glossário.
+- O de símbolos confere que cada sintaxe é mesmo reconhecida pelo parser markdown (nó no `lezer` para cada tipo de amostra visual).
+
+**Integração com o editor:**
+
+- **Ctrl+K agora insere link** na nota (`inserirLink()` em `comandosMarkdown.ts`, RF2.11 não estava implementado antes). Antes não havia binding nenhum e o glossário não pode listar um atalho morto.
+- Keymaps próprios do editor (`atalhosFormatacao.ts`, `quebraDeBloco.ts`, `selecionarCorpoDaNota.ts`) foram refatorados pra exportar suas teclas numa lista, lida pelo teste de deriva.
+- **Limite do teste de deriva:** ele só cobre esses três keymaps. Os atalhos de aplicação (`Workspace.tsx`, `App.tsx`) são handlers imperativos de `keydown`, e os do CodeMirror e do Excalidraw vêm de pacote — esses foram conferidos à mão no fonte (Excalidraw 0.18.1, `@codemirror/commands` e `@codemirror/search`) e ficam no catálogo sem teste automático.
+- **Formatação respeita somente leitura:** os atalhos de `atalhosFormatacao.ts` devolvem `false` quando `state.readOnly` (2ª vista do split, ADR-13). Antes, `Ctrl+B` e afins editavam a vista somente leitura, porque `envolver()` e `inserirLink()` não checam `readOnly`.
+
+**UI — DialogoGlossario:**
+
+- Empilhado sobre `DialogoPreferencias` (a pilha de diálogos já existe em `Dialog.tsx`, `fila`), abre pela Configurações seção "Atalhos e símbolos".
+- Dois catálogos desenhos por abas (`GrupoBotoes`): "Atalhos" (padrão) e "Símbolos".
+- Filtro sem acento/caixa (`filtrarGlossario`), busca em descrição, grupo, sintaxe e rótulos de tecla.
+- Teclas mostradas por plataforma: Mod → Ctrl (Windows/Linux) ou ⌘ (macOS), Alt → ⌥ (macOS), setas → símbolos.
+- Amostra visual de símbolos desenhada com os estilos do editor (negrito, destaque, código etc.), amostra `comportamento` sem visual.
+
+**Divergência registrada, não corrigida:**
+
+Doc 03 (RF2.4 e RF2.11) diz que Ctrl+E = modo leitura e Ctrl+` = código. Na prática:
+- Ctrl+E = código inline (envolve em backticks).
+- Não existe modo leitura nem Ctrl+`.
+- **O glossário mostra o que o código faz, não o que o doc diz.** Falta decidir qual dos dois está certo — o motivo da divergência não está registrado em lugar nenhum. Fica anotada aqui pra não virar bug oculto.
+
+**Teclas de keymaps levantadas (Tarefa A1):**
+
+Atalhos de ferramenta do canvas vêm direto do Excalidraw 0.18.1 nativo (doc 09, ADR-20): tecla única, nativa, não replicada — `V` seleção, `H` mão, `R` retângulo, etc. Nenhuma customização própria do app, só inventário.
+
+**Manutenção futura:**
+
+- Adicionar novo atalho no editor? Deve ir pra `TECLAS_*` primeiro, depois pro catálogo, e o teste avisa se faltar.
+- Adicionar novo símbolo? Primeiro confira que o parser `markdownLanguage` do CodeMirror reconhece a sintaxe (nó no `lezer`), depois adicione ao catálogo com a amostra visual certa.
+
+**Não é escopo (faz hoje e pode ser tarefa futura separada):** gerar os keymaps do editor a partir do catálogo — hoje o catálogo *confere contra* os keymaps, não *gera* eles. Refatorar `Workspace.tsx`/`App.tsx` pra ler do catálogo exigiria mais coordenação e testes; foi deixado pra depois.
+
+### ADR-30 · Largura de coluna de tabela gravada nos traços delimitadores
+
+**Contexto:** o usuário pediu para redimensionar colunas arrastando a linha entre elas (19/09/2026). Markdown não tem campo de largura de coluna, e o doc 02 exige que o disco continue markdown legível em qualquer editor.
+
+**Decisão:** a largura fica na linha delimitadora da tabela, pela contagem de traços de cada célula — a mesma ideia que o Pandoc usa para larguras relativas em tabelas.
+
+- Toda célula com no máximo 3 traços = largura automática (como sempre foi).
+- Alguma célula com 4 ou mais traços = proporcional. Fração da coluna = `traços dela ÷ soma dos traços`; os `:` de alinhamento não contam.
+- Ao gravar com larguras: traços = `max(4, arredondar(fração × 60))`, com os `:` de alinhamento em volta.
+- Com larguras, a tabela ocupa 100% da coluna de leitura e o arrasto é soma zero entre as duas colunas vizinhas.
+
+**Alternativas rejeitadas:**
+
+| Opção | Por que não |
+|---|---|
+| Só na sessão (sem gravar) | A largura se perde ao reabrir a nota |
+| Fora do vault, em `workspace/<hash>.json` | Perde em outro PC; quebra quando outra tabela é inserida antes desta |
+| Tabela cresce com rolagem lateral | Proporção não descreve largura absoluta; rolagem lateral esconde colunas — foi o problema relatado pelo usuário antes desta decisão |
+| Outro formato além de markdown | Viola RNF6 — arquivo legível em qualquer editor |
+
+**Consequências:**
+
+- A linha delimitadora continua GFM válida: `| ------ | --- |` é tabela em qualquer ferramenta.
+- Tabelas antigas com traços longos desiguais (feitas em outra ferramenta) passam a abrir com proporção. Aceito: antes, a primeira edição numa tabela dessas já reescrevia os traços para `---`.
+- Redimensionar altera o arquivo — é gesto explícito do usuário, nunca efeito de só abrir a nota.
+- O mínimo de 4 traços é o que impede uma tabela redimensionada de voltar a ser lida como automática.
+
+**Condição de reversão:** se a contagem de traços conflitar com outra ferramenta que o usuário use no mesmo vault, voltar a ler todo delimitador como automático é mudar uma função (`parseTableText`); os arquivos continuam válidos.

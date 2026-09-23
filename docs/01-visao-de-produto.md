@@ -60,6 +60,8 @@ Cinco cores de traço, cinco opções de preenchimento (uma delas transparente),
 - Backlinks.
 - Lixeira com restaurar e esvaziar.
 - Um painel de tarefas na lateral direita: lista vertical estreita, agrupada por prazo, fora do vault de notas (ver `10-tarefas.md`).
+- Múltiplos vaults, cada um na própria janela (ver `12-multiplos-vaults.md`).
+- Um agente de IA opcional, desligado por padrão, sem nenhuma chamada de rede sem configuração explícita (ver `11-agente-ia.md`).
 
 ## O que o produto explicitamente NÃO é (no MVP)
 
