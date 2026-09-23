@@ -22,7 +22,7 @@ Todas as versões abaixo foram verificadas no registry do npm em **28/08/2026**.
 | Frontmatter | `js-yaml` (miolo do YAML) direto, em `src/indice/frontmatter.ts` | 4.3.2 |
 | Compressão da cena | `lz-string` (`draw-json-lz`, doc 02 §3) | 1.5.0 |
 | Busca | `minisearch` | 7.2.0 |
-| Rede HTTP (agente de IA) | `@tauri-apps/plugin-http` + `tauri-plugin-http` (Rust) | 2.6.0 / 2.6.0 — verificado 13/09/2026 no install; único ponto de rede do app com o provedor, escopado por host em `capabilities/main.json` (doc 11) |
+| Rede HTTP (agente de IA, conta, serviço online) | `@tauri-apps/plugin-http` + `tauri-plugin-http` (Rust) | 2.6.0 / 2.6.0 — verificado 13/09/2026 no install; único transporte de rede do app (agente, `src/conta/`, `src/servico/`), escopado por host em `capabilities/main.json` (doc 11, doc 09 ADR-31) |
 | Estado | `zustand` | 5.0.15 |
 | Estilo | Tailwind v4 com os tokens do design system | |
 | Ícones | `lucide-react` | |
@@ -94,7 +94,24 @@ src/
 │   ├── minisearchIndex.ts
 │   ├── buscaTitulos.ts, montarListaBusca.ts, normalizacao.ts
 ├── tarefas/                 painel de tarefas (doc 10-tarefas.md): formatoTarefas, agrupamento, ordem
-├── agente/                    agente de IA opcional (doc 11) — único código que fala com rede
+├── i18n/                    tradução (doc 09, ADR-36)
+│   ├── idioma.ts            tipo Idioma = "pt-BR" | "en", detecção pelo idioma do sistema
+│   ├── tradutor.ts          resolução chave -> idioma pedido -> português -> a própria chave
+│   ├── catalogo.ts          porta de entrada única; monta PT_BR e EN por espalhamento
+│   ├── catalogo/            textos por domínio: vault.ts, prefs.ts, agente.ts, conta.ts
+│   ├── useTexto.ts          hook para componente React
+│   ├── traduzirAgora.ts     tradução fora de componente React (transporte, stores)
+│   └── cobertura.test.ts    trava: toda chave em português tem que ter inglês
+├── servico/                 cliente do serviço online (conta, créditos) — doc 09, ADR-31/34/35
+│   ├── base.ts              BASE_URL_SERVICO, CONTA_DISPONIVEL
+│   ├── sessao.ts             token de sessão em memória ("porta-token"); ver seção 7 abaixo
+│   └── creditos.ts           interpreta o saldo de créditos que o servidor manda
+├── conta/                   conta do usuário — doc 09, ADR-31/33/34
+│   ├── tipos.ts
+│   ├── ServicoConta.ts       contrato: entrar, criar, renovar, sair
+│   ├── ServicoContaFake.ts   implementação em memória, para teste
+│   └── ServicoContaHttp.ts   implementação real
+├── agente/                    agente de IA opcional (doc 11) — único outro código que fala com rede
 │   ├── tipos.ts
 │   ├── provedores.ts          catálogo de provedores, dialetos, base URLs, preços
 │   ├── cliente.ts             completar() nos dialetas sobre plugin-http
@@ -121,10 +138,11 @@ src/
 │   ├── AbaDocumento.tsx, AbaInicio.tsx, PainelDesenho.tsx, PainelDocumento.tsx, PainelInicio.tsx, PainelVazio.tsx, BotaoInicioAba.tsx
 │   └── persistencia.ts
 ├── ui/                      componentes-base do design system (Botao, Campo, Dialog, Menu, Select, …)
+│   │                        Dialog renderiza por portal em document.body — ver nota abaixo (doc 09, ADR-37)
 │   └── excalisidian/        componentes específicos do produto (árvore, sidebar, diálogos, tarefas, agente, glossário, múltiplos vaults, …)
 ├── estado/
 │   ├── vaultStore.ts, documentosStore.ts, workspaceStore.ts
-│   ├── prefsStore.ts, agenteStore.ts, atualizacaoStore.ts, tarefasStore.ts
+│   ├── prefsStore.ts, agenteStore.ts, atualizacaoStore.ts, tarefasStore.ts, contaStore.ts
 │   ├── dialogoStore.ts, sobreposicaoStore.ts, revelacaoStore.ts, papel-parede-home-store.ts
 │   └── flushGeral.ts
 └── estilos/
@@ -274,6 +292,20 @@ Na leitura, o mapa `files` é reidratado lendo cada arquivo referenciado em `## 
 - `workspace/<hash-do-vault>.json` é gravado com debounce de 1 s a cada mudança de layout. Um arquivo por vault: trocar de vault não pode sobrescrever o layout do anterior.
 - Se `fromJSON` falhar (arquivo corrompido, versão antiga), o app abre com layout vazio e avisa uma vez. Nunca trava por causa disso.
 
+### 6.1 Diálogo sempre por portal
+
+`src/ui/Dialog.tsx` renderiza **por portal em `document.body`**, não na posição em que o
+componente aparece na árvore React (doc 09, ADR-37). Motivo: qualquer ancestral com
+`transform` — inclusive um `translateX(0)` residual de uma animação com modo de preenchimento
+`both` — vira bloco de contenção CSS e confina o `fixed inset-0` do diálogo dentro dele
+(era o que deixava a tela "Criar vault" espremida dentro da sidebar). Regra derivada: **não
+use animação com `both` em elemento que possa ter descendente `position: fixed`.**
+
+O comentário de topo de `RaizDialogos.tsx` diz "nada além dele renderiza `Dialog`
+diretamente", mas hoje cinco componentes renderizam `Dialog` fora dali. Com o portal, isso
+deixou de causar o problema de posicionamento que a regra existia para evitar — a divergência
+está registrada aqui, sem promessa de correção.
+
 ---
 
 ## 7. Estado
@@ -291,6 +323,20 @@ Na leitura, o mapa `files` é reidratado lendo cada arquivo referenciado em `## 
 | `atualizacaoStore` | estado do updater (verificação, download, aplicar) | não persiste |
 | `dialogoStore`, `sobreposicaoStore`, `revelacaoStore` | diálogos e sobreposições de UI abertos no momento | não persistem |
 | `papel-parede-home-store` | papel de parede da tela Início | `%APPDATA%/Excalisidian/` via `papel_parede.rs` |
+| `contaStore` | estado da conta (usuário, plano, token) | só o **token** persiste, em `settings.json`, texto puro (doc 09, ADR-34) |
+
+### 7.1 `contaStore` × porta-token
+
+O token de sessão existe em dois lugares, deliberadamente:
+
+- `contaStore` (zustand, reativo) — é o que a **interface** lê, porque componente React
+  precisa de re-render quando a sessão muda.
+- `src/servico/sessao.ts` — um módulo simples com estado próprio (a "porta-token"), não um
+  store zustand, porque `src/agente/cliente.ts` roda fora do React e não pode usar hook. É o
+  que o **transporte** (cliente HTTP do serviço e do agente) lê.
+
+A duplicação é deliberada, não descuido: sincronizar os dois é responsabilidade do
+`contaStore` ao entrar, renovar e sair.
 
 `vaultsRecentes` (lista de vaults recentes, doc 12) mora em `settings.json` mas hoje é
 funções puras em `src/vault/vaultsRecentes.ts`, não um store zustand. **Não existe**
