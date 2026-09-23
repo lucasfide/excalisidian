@@ -1700,9 +1700,12 @@ decisões desse plano, em linguagem simples:
    conseguiria entrar na própria conta. Consequência: hoje não existe tela para trocar o
    e-mail da conta, e trocar o e-mail exigiria recalcular tudo de novo.
 3. **Normalização.** Antes de calcular, o e-mail é limpo (sem espaços nas pontas, tudo
-   minúsculo) e tanto o e-mail quanto a senha passam por uma limpeza de caracteres invisíveis,
-   para que a mesma senha digitada em teclados diferentes dê sempre o mesmo resultado. Espaços
-   que fazem parte da própria senha continuam contando normalmente.
+   minúsculo) e tanto o e-mail quanto a senha passam por uma "unificação de acentos" (chamada
+   de normalização NFC): uma letra acentuada, como "ç", pode chegar do teclado ou do sistema
+   como um caractere só ou como duas partes separadas ("c" mais o acento), dependendo de onde
+   foi digitada — essa unificação faz as duas formas darem sempre o mesmo resultado, sem
+   remover nem apagar nenhum caractere. Espaços que fazem parte da própria senha continuam
+   contando normalmente.
 4. **Separação em duas chaves.** Da senha nasce uma chave-mestra que nunca é usada
    diretamente. Dela nascem duas outras, cada uma feita só para um uso (a técnica se chama
    HKDF): a **prova de identidade**, que vai para o servidor, e a **chave de envelope**, que
@@ -1711,7 +1714,12 @@ decisões desse plano, em linguagem simples:
    agora para existir pronta quando a sincronização chegar.
 5. **Contrato novo com o servidor.** Em vez de mandar `{ e-mail, senha }`, o app passa a
    mandar `{ e-mail, prova de identidade, rótulo dos parâmetros }`. O servidor trata essa prova
-   exatamente como trataria uma senha comum — em nenhum momento ele vê a senha real.
+   exatamente como trataria uma senha comum — em nenhum momento ele vê a senha real. E, do
+   lado do servidor, quem tiver essa prova de identidade em mãos consegue entrar na conta, do
+   mesmo jeito que quem tivesse a senha original conseguiria — então o servidor precisa guardar
+   só um resumo lento dela (um "hash lento", a mesma ideia da decisão 1, aplicada de novo do
+   lado do servidor), nunca a prova em si, do mesmo jeito que um serviço bem feito nunca guarda
+   a senha do usuário do jeito que ela foi digitada.
 6. **Não travar a tela.** Como o cálculo é pesado de propósito (decisão 1), ele roda de um
    jeito que não congela a tela do app enquanto a pessoa espera.
 7. **Senha mínima de 12 caracteres, só para conta nova.** Quem já tem conta com senha menor
