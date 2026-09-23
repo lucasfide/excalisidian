@@ -44,6 +44,43 @@ function adaptadorFalhoQueEstoura() {
   };
 }
 
+// `escreverTexto` só resolve quando o teste manda (via `liberarProxima`), sem temporizador —
+// é assim que dá pra simular duas chamadas de `resolver` concorrentes, a primeira ainda "no
+// meio" da escrita quando a segunda chega. `caminhoLivre` faz um `await existe(...)` antes de
+// chegar em `escreverTexto`, então entre chamar `resolver` e a escrita realmente ficar
+// pendente há voltas de microtask no meio — `liberarProxima` drena a fila de microtasks (sem
+// timer nenhum) até a escrita aparecer, e só então libera.
+function adaptadorControlado() {
+  const arquivos = new Map<string, string>();
+  const pendentes: Array<() => void> = [];
+  const escreverTexto = vi.fn(
+    (caminho: string, conteudo: string) =>
+      new Promise<void>((resolve) => {
+        pendentes.push(() => {
+          arquivos.set(caminho, conteudo);
+          resolve();
+        });
+      }),
+  );
+  const existe = vi.fn(async (caminho: string) => arquivos.has(caminho));
+  return {
+    escreverTexto,
+    existe,
+    arquivos,
+    async liberarProxima() {
+      for (let i = 0; i < 1000 && pendentes.length === 0; i++) {
+        await Promise.resolve();
+      }
+      pendentes.shift()?.();
+    },
+  } as unknown as VaultAdapter & {
+    escreverTexto: typeof escreverTexto;
+    existe: typeof existe;
+    arquivos: Map<string, string>;
+    liberarProxima(): Promise<void>;
+  };
+}
+
 describe("conflitosStore", () => {
   beforeEach(() => useConflitosStore.setState({ conflitos: [] }));
 
@@ -199,5 +236,64 @@ describe("conflitosStore", () => {
       .resolver("nota.md", { acao: "ficarCom", origem: "remoto" }, adaptador, quando);
 
     expect(adaptador.escreverTexto).toHaveBeenLastCalledWith("nota.md", "de lá");
+  });
+
+  it("duas chamadas de resolver concorrentes para o mesmo caminho: só uma escrita acontece", async () => {
+    const adaptador = adaptadorControlado();
+    useConflitosStore.getState().registrar(conflito());
+
+    // Dispara as duas SEM esperar a primeira — a segunda deve ver o caminho já "em
+    // resolução" e retornar na hora, sem nem chamar escreverTexto.
+    const p1 = useConflitosStore
+      .getState()
+      .resolver("nota.md", { acao: "manterAmbas" }, adaptador, quando);
+    const p2 = useConflitosStore
+      .getState()
+      .resolver("nota.md", { acao: "manterAmbas" }, adaptador, quando);
+
+    await adaptador.liberarProxima();
+    await Promise.all([p1, p2]);
+
+    expect(adaptador.escreverTexto).toHaveBeenCalledTimes(1);
+  });
+
+  it("emResolucao é verdadeiro durante a resolução e falso depois", async () => {
+    const adaptador = adaptadorControlado();
+    useConflitosStore.getState().registrar(conflito());
+
+    expect(useConflitosStore.getState().emResolucao("nota.md")).toBe(false);
+
+    const p = useConflitosStore
+      .getState()
+      .resolver("nota.md", { acao: "manterAmbas" }, adaptador, quando);
+
+    expect(useConflitosStore.getState().emResolucao("nota.md")).toBe(true);
+
+    await adaptador.liberarProxima();
+    await p;
+
+    expect(useConflitosStore.getState().emResolucao("nota.md")).toBe(false);
+  });
+
+  it("depois de uma resolução que falha, o caminho sai do conjunto e aceita nova resolução", async () => {
+    const adaptador = adaptadorFalhoQueEstoura();
+    useConflitosStore.getState().registrar(conflito());
+
+    await expect(
+      useConflitosStore
+        .getState()
+        .resolver("nota.md", { acao: "ficarCom", origem: "remoto" }, adaptador, quando),
+    ).rejects.toThrow("disco cheio");
+
+    expect(useConflitosStore.getState().emResolucao("nota.md")).toBe(false);
+
+    // Nova tentativa, agora com um adaptador que funciona, deve ser aceita normalmente.
+    const adaptadorOk = adaptadorFalso();
+    await useConflitosStore
+      .getState()
+      .resolver("nota.md", { acao: "ficarCom", origem: "remoto" }, adaptadorOk, quando);
+
+    expect(adaptadorOk.escreverTexto).toHaveBeenCalledWith("nota.md", "de lá");
+    expect(useConflitosStore.getState().conflitos).toEqual([]);
   });
 });
