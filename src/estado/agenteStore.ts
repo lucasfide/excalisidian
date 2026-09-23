@@ -313,9 +313,12 @@ export const useAgenteStore = create<AgenteState>((set, get) => {
         delete tentativasGateiro[path];
       }
     } catch (e) {
-      // sessão ausente/expirada: sobe para erroAtual, como os outros caminhos do store
-      // já fazem, em vez de virar só "análise falhou" — o usuário precisa entrar na conta.
-      if (e instanceof FalhaAgente && e.codigo === "sessao") {
+      // sessão ausente/expirada, ou conta sem direito à IA (403 do provedor próprio): sobe
+      // para erroAtual, como os outros caminhos do store já fazem, em vez de virar só
+      // "análise falhou" — os dois são estados definitivos (não transitórios como rede/cota),
+      // e o usuário precisa saber por que o gateiro parou, mesmo que a ação seguinte difira
+      // (entrar na conta vs. mudar de plano — nenhum botão aqui distingue os dois).
+      if (e instanceof FalhaAgente && (e.codigo === "sessao" || e.codigo === "plano")) {
         set({ status: "erro", erroAtual: textoDoErro(e) });
       }
       // gateiro silencioso: demais erros não viram faixa, mas ficam na linha de status do

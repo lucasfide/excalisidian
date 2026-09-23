@@ -5,6 +5,7 @@
 export const PT_BR_AGENTE = {
   "agente.erro.chave": "A chave da API foi recusada pelo provedor. Confira a chave nas configurações.",
   "agente.erro.sessao": "Entre na sua conta do Excalisidian para usar a IA incluída no plano.",
+  "agente.erro.plano": "A IA do Excalisidian faz parte do plano premium. Sua conta está no plano grátis.",
   "agente.erro.cota": "O provedor limitou as chamadas agora. Tente de novo em instantes.",
   "agente.erro.modelo":
     "O provedor não conhece o modelo «{modelo}». Confira o nome nas configurações.",
@@ -33,6 +34,7 @@ export const PT_BR_AGENTE = {
 export const EN_AGENTE: Partial<Record<keyof typeof PT_BR_AGENTE, string>> = {
   "agente.erro.chave": "The API key was rejected by the provider. Check the key in settings.",
   "agente.erro.sessao": "Sign in to your Excalisidian account to use the AI included in your plan.",
+  "agente.erro.plano": "Excalisidian AI is part of the premium plan. Your account is on the free plan.",
   "agente.erro.cota": "The provider is rate-limiting calls right now. Try again in a moment.",
   "agente.erro.modelo":
     "The provider does not recognize the model \"{modelo}\". Check the name in settings.",

@@ -85,9 +85,13 @@ function erroDeStatus(status: number, corpo: unknown, ctx: ContextoChamada): Fal
       ? JSON.stringify(corpo).slice(0, 300)
       : undefined;
   if (status === 401 || status === 403) {
-    // Provedor próprio autentica por sessão, não por chave: 401/403 aqui é sessão
-    // vencida ou ausente, não uma chave de API recusada (correção 4, doc 11 §7).
-    if (ctx.provedor.exigeConta) return new FalhaAgente("sessao", detalhe);
+    // Provedor próprio autentica por sessão, não por chave (correção 4, doc 11 §7).
+    // 401 é sessão vencida ou ausente. 403 é sessão válida sem direito à IA — quem chega
+    // aqui já está autenticado, senão o servidor teria respondido 401; o caso real é uma
+    // conta grátis tentando usar a IA do plano pago (correção 1 da rodada de revisão).
+    if (ctx.provedor.exigeConta) {
+      return new FalhaAgente(status === 401 ? "sessao" : "plano", detalhe);
+    }
     return new FalhaAgente("chave", detalhe);
   }
   if (status === 429) return new FalhaAgente("cota", detalhe);
@@ -265,6 +269,8 @@ export function textoDoErro(
       return traduzirAgora("agente.erro.chave");
     case "sessao":
       return traduzirAgora("agente.erro.sessao");
+    case "plano":
+      return traduzirAgora("agente.erro.plano");
     case "cota":
       return traduzirAgora("agente.erro.cota");
     case "modelo":

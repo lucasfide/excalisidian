@@ -45,6 +45,7 @@ export interface UsoSimples {
 export type ErroAgente =
   | "chave" // 401/403
   | "sessao" // provedor exige conta e não há sessão ativa
+  | "plano" // provedor próprio: conta autenticada sem direito à IA (403)
   | "cota" // 429
   | "modelo" // 404
   | "rede" // exceção de conexão
