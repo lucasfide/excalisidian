@@ -108,7 +108,11 @@ function construirComandos(t: TradutorDoApp): Comando[] {
               }
               void simularConflito(adaptador, (conflito) =>
                 useConflitosStore.getState().registrar(conflito),
-              );
+              ).then((resultado) => {
+                for (const bloqueio of resultado.bloqueios) {
+                  toast(t("conflito.simular.jaExiste", { caminho: bloqueio.caminho }));
+                }
+              });
             },
           },
         ]

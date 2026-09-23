@@ -14,16 +14,28 @@ import type { VaultAdapter } from "../vault/VaultAdapter";
 
 // Mesmo padrão do fake usado em conflitosStore.test.ts: guarda o que foi escrito num Map,
 // pra o teste conferir tanto o conjunto de caminhos tocados quanto o conteúdo exato.
-function adaptadorFalso() {
-  const arquivos = new Map<string, string>();
+// `existe`/`lerTexto` lêem do mesmo Map, pra simular um arquivo já presente no vault antes
+// de `simularConflito` rodar (arquivo "estrangeiro" do usuário, ou de uma rodada anterior).
+function adaptadorFalso(preexistentes?: Record<string, string>) {
+  const arquivos = new Map<string, string>(Object.entries(preexistentes ?? {}));
   const escreverTexto = vi.fn(async (caminho: string, conteudo: string) => {
     arquivos.set(caminho, conteudo);
   });
+  const existe = vi.fn(async (caminho: string) => arquivos.has(caminho));
+  const lerTexto = vi.fn(async (caminho: string) => {
+    const conteudo = arquivos.get(caminho);
+    if (conteudo === undefined) throw new Error(`arquivo não existe: ${caminho}`);
+    return conteudo;
+  });
   return {
     escreverTexto,
+    existe,
+    lerTexto,
     arquivos,
   } as unknown as VaultAdapter & {
     escreverTexto: typeof escreverTexto;
+    existe: typeof existe;
+    lerTexto: typeof lerTexto;
     arquivos: Map<string, string>;
   };
 }
@@ -127,5 +139,69 @@ describe("simularConflito", () => {
     );
     expect(adaptador.escreverTexto).toHaveBeenCalledTimes(4);
     expect(registrados).toHaveLength(4);
+  });
+
+  it("caminho inexistente: grava normalmente", async () => {
+    const adaptador = adaptadorFalso();
+    const registrados: Conflito[] = [];
+
+    const resultado = await simularConflito(adaptador, (c) => registrados.push(c));
+
+    expect(resultado.ok).toBe(true);
+    expect(resultado.bloqueios).toEqual([]);
+    expect(adaptador.arquivos.size).toBe(2);
+    expect(registrados).toHaveLength(2);
+  });
+
+  it("caminho existente COM a marca: sobrescreve normalmente", async () => {
+    const adaptadorPrimeiraRodada = adaptadorFalso();
+    await simularConflito(adaptadorPrimeiraRodada, () => {});
+    const conteudoNotaMarcada = adaptadorPrimeiraRodada.arquivos.get(CAMINHO_NOTA_TESTE)!;
+    const conteudoDesenhoMarcado = adaptadorPrimeiraRodada.arquivos.get(CAMINHO_DESENHO_TESTE)!;
+
+    const adaptador = adaptadorFalso({
+      [CAMINHO_NOTA_TESTE]: conteudoNotaMarcada,
+      [CAMINHO_DESENHO_TESTE]: conteudoDesenhoMarcado,
+    });
+    const registrados: Conflito[] = [];
+
+    const resultado = await simularConflito(adaptador, (c) => registrados.push(c));
+
+    expect(resultado.ok).toBe(true);
+    expect(resultado.bloqueios).toEqual([]);
+    expect(registrados).toHaveLength(2);
+    for (const conflito of registrados) {
+      expect(adaptador.arquivos.get(conflito.caminho)).toBe(conflito.local.conteudo);
+    }
+  });
+
+  it("nota existente SEM a marca: não escreve em nenhum dos dois caminhos e não registra conflito", async () => {
+    const adaptador = adaptadorFalso({
+      [CAMINHO_NOTA_TESTE]: "# Nota de verdade do usuário\n\nConteúdo importante, não gerado pelo teste.",
+    });
+    const registrados: Conflito[] = [];
+
+    const resultado = await simularConflito(adaptador, (c) => registrados.push(c));
+
+    expect(resultado.ok).toBe(false);
+    expect(resultado.bloqueios).toEqual([{ tipo: "nota", caminho: CAMINHO_NOTA_TESTE }]);
+    expect(adaptador.escreverTexto).not.toHaveBeenCalled();
+    expect(adaptador.arquivos.has(CAMINHO_DESENHO_TESTE)).toBe(false);
+    expect(registrados).toHaveLength(0);
+  });
+
+  it("desenho existente SEM a marca: não escreve em nenhum dos dois caminhos e não registra conflito", async () => {
+    const adaptador = adaptadorFalso({
+      [CAMINHO_DESENHO_TESTE]: "---\nexcalisidian: drawing\n---\n%%\n# Excalisidian Drawing\n%%\n",
+    });
+    const registrados: Conflito[] = [];
+
+    const resultado = await simularConflito(adaptador, (c) => registrados.push(c));
+
+    expect(resultado.ok).toBe(false);
+    expect(resultado.bloqueios).toEqual([{ tipo: "desenho", caminho: CAMINHO_DESENHO_TESTE }]);
+    expect(adaptador.escreverTexto).not.toHaveBeenCalled();
+    expect(adaptador.arquivos.has(CAMINHO_NOTA_TESTE)).toBe(false);
+    expect(registrados).toHaveLength(0);
   });
 });

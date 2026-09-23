@@ -15,6 +15,15 @@
 // assume que a versão local já está no disco. Por isso o conteúdo gravado aqui tem de ser
 // IDÊNTICO, caractere por caractere, ao `local.conteudo` de cada conflito registrado.
 //
+// TERCEIRA REGRA (achado 23/09): as duas constantes acima não bastam — se o usuário tiver,
+// por coincidência, um arquivo de verdade com um desses dois nomes exatos, "escrever só
+// nesses dois caminhos" ainda apagaria o arquivo dele. Por isso `simularConflito` nunca
+// sobrescreve um caminho existente sem antes confirmar que o conteúdo já lá foi gerado por
+// este mesmo comando (ver a marca em `temMarcaDeNotaTeste`/`temMarcaDeDesenhoTeste` abaixo).
+// Um caminho existente sem a marca bloqueia a simulação inteira: nada é escrito em nenhum dos
+// dois arquivos, nenhum conflito é registrado, e quem chamou recebe o bloqueio para avisar o
+// usuário.
+//
 // NADA neste módulo roda no carregamento (nenhuma chamada de função no nível do módulo — só
 // declarações e literais): quem chama `simularConflito`/`conflitosDeTeste` é sempre o comando
 // de paleta, que só existe com `import.meta.env.DEV`. Sem uma chamada de verdade acontecendo
@@ -24,7 +33,7 @@
 
 import type { ExcalidrawElement } from "@excalidraw/excalidraw/element/types";
 
-import { serializarDesenho, type CenaDesenho } from "../canvas/formatoDesenho";
+import { serializarDesenho, parseDesenho, type CenaDesenho } from "../canvas/formatoDesenho";
 import type { Conflito } from "./tipos";
 import type { VaultAdapter } from "../vault/VaultAdapter";
 
@@ -32,6 +41,35 @@ import type { VaultAdapter } from "../vault/VaultAdapter";
  * sem querer uma nota de verdade com este título. */
 export const CAMINHO_NOTA_TESTE = "Excalisidian - conflito de teste.md";
 export const CAMINHO_DESENHO_TESTE = "Excalisidian - conflito de teste.draw.md";
+
+// --- marca de "gerado por este comando" ----------------------------------------------------
+//
+// O vault tocado é o REAL do usuário. Antes de escrever num dos dois caminhos acima, o
+// comando precisa provar que quem está lá — se algo estiver lá — foi ele mesmo quem escreveu,
+// nunca uma nota ou desenho de verdade que por coincidência tenha o mesmo nome. Cada tipo de
+// arquivo carrega sua marca de um jeito que sobrevive à leitura e gravação do formato:
+// - nota: uma linha fixa no corpo (comentário HTML, invisível na visualização).
+// - desenho: uma chave no frontmatter, que `parseDesenho`/`serializarDesenho` preservam
+//   byte a byte porque o frontmatter inteiro é copiado (`...fm`) e não filtrado.
+
+/** Linha inconfundível gravada como primeira linha da nota de teste. */
+export const MARCA_NOTA_TESTE = "<!-- excalisidian: conflito de teste gerado automaticamente -->";
+
+/** Chave de frontmatter gravada em `CAMINHO_DESENHO_TESTE`. */
+export const CHAVE_FRONTMATTER_MARCA_TESTE = "excalisidian-conflito-teste";
+
+function temMarcaDeNotaTeste(conteudo: string): boolean {
+  return conteudo.includes(MARCA_NOTA_TESTE);
+}
+
+function temMarcaDeDesenhoTeste(conteudo: string): boolean {
+  try {
+    return parseDesenho(conteudo).frontmatter[CHAVE_FRONTMATTER_MARCA_TESTE] === true;
+  } catch {
+    // Conteúdo que nem chega a ter frontmatter reconhecível: definitivamente não é nosso.
+    return false;
+  }
+}
 
 const DISPOSITIVO_REMOTO_TESTE = "Notebook de teste";
 const DISPOSITIVO_LOCAL_TESTE = "Esta máquina";
@@ -42,11 +80,18 @@ const DISPOSITIVO_LOCAL_TESTE = "Esta máquina";
 // (o comparador pareia removido+adicionado lado a lado), uma linha que só existe na remota
 // (adicionado isolado) e uma que só existe na local (removido isolado). As linhas "Âncora…"
 // entre elas dão ao diff de LCS um ponto comum pra ancorar em cada lado — sem isso as três
-// diferenças colapsariam num bloco só de removido+adicionado. Template literal em vez de
-// `array.join(...)`: nível do módulo não pode ter nenhuma chamada de função (ver comentário
-// do topo).
+// diferenças colapsariam num bloco só de removido+adicionado.
+//
+// DENTRO de funções, não em consts de nível do módulo (achado 23/09): a marca precisa entrar
+// por interpolação (`${MARCA_NOTA_TESTE}`), e um template literal com expressão no nível do
+// módulo deixa de ser um literal puro aos olhos do tree-shaker — ele não consegue mais provar
+// que o `const` é seguro de descartar quando não usado, e o texto vaza pro build de produção
+// mesmo com o comando morto. Uma função não usada é sempre removível inteira, corpo incluído,
+// então a interpolação só pode morar aqui dentro.
 
-const CONTEUDO_NOTA_LOCAL = `# Excalisidian - conflito de teste
+function conteudoNotaLocalDeTeste(): string {
+  return `${MARCA_NOTA_TESTE}
+# Excalisidian - conflito de teste
 
 Este é um arquivo de teste gerado pelo Excalisidian. Pode apagar quando quiser.
 
@@ -57,8 +102,11 @@ Linha que existe só nesta máquina.
 Âncora três.
 Fim do arquivo de teste.
 `;
+}
 
-const CONTEUDO_NOTA_REMOTA = `# Excalisidian - conflito de teste
+function conteudoNotaRemotaDeTeste(): string {
+  return `${MARCA_NOTA_TESTE}
+# Excalisidian - conflito de teste
 
 Este é um arquivo de teste gerado pelo Excalisidian. Pode apagar quando quiser.
 
@@ -69,6 +117,7 @@ Versão remota desta linha.
 Linha que existe só no notebook de teste.
 Fim do arquivo de teste.
 `;
+}
 
 // --- desenho de teste ---------------------------------------------------------------------
 //
@@ -125,7 +174,7 @@ function cenaRemotaDeTeste(): CenaDesenho {
 
 function serializarCenaDeTeste(cena: CenaDesenho): string {
   return serializarDesenho({
-    frontmatter: {},
+    frontmatter: { [CHAVE_FRONTMATTER_MARCA_TESTE]: true },
     verso: "",
     textElements: new Map(),
     elementLinks: new Map(),
@@ -154,13 +203,13 @@ export function conflitosDeTeste(quando: Date = new Date()): [Conflito, Conflito
     tipo: "nota",
     local: {
       origem: "local",
-      conteudo: CONTEUDO_NOTA_LOCAL,
+      conteudo: conteudoNotaLocalDeTeste(),
       mtimeMs: mtimeLocal,
       dispositivo: DISPOSITIVO_LOCAL_TESTE,
     },
     remoto: {
       origem: "remoto",
-      conteudo: CONTEUDO_NOTA_REMOTA,
+      conteudo: conteudoNotaRemotaDeTeste(),
       mtimeMs: mtimeRemoto,
       dispositivo: DISPOSITIVO_REMOTO_TESTE,
     },
@@ -186,10 +235,29 @@ export function conflitosDeTeste(quando: Date = new Date()): [Conflito, Conflito
   return [conflitoNota, conflitoDesenho];
 }
 
+export interface BloqueioSimulacao {
+  tipo: "nota" | "desenho";
+  caminho: string;
+}
+
+export interface ResultadoSimulacao {
+  /** `false` quando algum dos dois caminhos já tinha um arquivo estranho ao comando — nesse
+   * caso NADA foi escrito e NENHUM conflito foi registrado, nos dois caminhos. */
+  ok: boolean;
+  bloqueios: BloqueioSimulacao[];
+}
+
 /**
  * Grava os dois arquivos de teste pelo `VaultAdapter` — só nos dois caminhos acima, com o
  * conteúdo LOCAL (idêntico ao `local.conteudo` do conflito registrado, doc da regra no topo
  * do arquivo) — e registra os dois conflitos.
+ *
+ * Antes de gravar, confere os dois caminhos: um caminho que não existe pode ser criado; um
+ * caminho que existe só pode ser sobrescrito se o conteúdo já lá tiver a marca deste comando
+ * (rodada anterior do próprio teste). Um caminho existente SEM a marca é um arquivo do
+ * usuário (ou de outra coisa) que por coincidência tem esse nome — nesse caso o comando não
+ * escreve em NENHUM dos dois caminhos nem registra conflito nenhum, e devolve o bloqueio para
+ * quem chamou avisar o usuário.
  *
  * `registrar` é injetado (em vez de importar `useConflitosStore` direto) pra este módulo
  * continuar puro e testável com um adaptador falso, sem tocar o store do Zustand.
@@ -198,12 +266,34 @@ export async function simularConflito(
   adaptador: VaultAdapter,
   registrar: (conflito: Conflito) => void,
   quando: Date = new Date(),
-): Promise<void> {
+): Promise<ResultadoSimulacao> {
   const [conflitoNota, conflitoDesenho] = conflitosDeTeste(quando);
+
+  const bloqueios: BloqueioSimulacao[] = [];
+
+  if (await adaptador.existe(CAMINHO_NOTA_TESTE)) {
+    const existente = await adaptador.lerTexto(CAMINHO_NOTA_TESTE);
+    if (!temMarcaDeNotaTeste(existente)) {
+      bloqueios.push({ tipo: "nota", caminho: CAMINHO_NOTA_TESTE });
+    }
+  }
+
+  if (await adaptador.existe(CAMINHO_DESENHO_TESTE)) {
+    const existente = await adaptador.lerTexto(CAMINHO_DESENHO_TESTE);
+    if (!temMarcaDeDesenhoTeste(existente)) {
+      bloqueios.push({ tipo: "desenho", caminho: CAMINHO_DESENHO_TESTE });
+    }
+  }
+
+  if (bloqueios.length > 0) {
+    return { ok: false, bloqueios };
+  }
 
   await adaptador.escreverTexto(CAMINHO_NOTA_TESTE, conflitoNota.local.conteudo);
   await adaptador.escreverTexto(CAMINHO_DESENHO_TESTE, conflitoDesenho.local.conteudo);
 
   registrar(conflitoNota);
   registrar(conflitoDesenho);
+
+  return { ok: true, bloqueios: [] };
 }
