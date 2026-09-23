@@ -21,6 +21,9 @@ import DialogoGlossario from "./DialogoGlossario";
 
 interface Props {
   onFechar(): void;
+  /** Rola até a seção Conta ao abrir — usado pelo botão do passo de conta do assistente do
+   * agente (T4), pra quem não tem sessão não precisar procurar a seção. */
+  secaoInicial?: "conta";
 }
 
 const OPCOES_TEMA: OpcaoGrupo<Tema>[] = [
@@ -42,7 +45,7 @@ const OPCOES_LARGURA: OpcaoGrupo<LarguraNota>[] = [
   { rotulo: "Full", valor: "full" },
 ];
 
-export default function DialogoPreferencias({ onFechar }: Props) {
+export default function DialogoPreferencias({ onFechar, secaoInicial }: Props) {
   const tema = usePrefsStore((s) => s.tema);
   const idioma = usePrefsStore((s) => s.idioma);
   const larguraNota = usePrefsStore((s) => s.larguraNota);
@@ -88,6 +91,13 @@ export default function DialogoPreferencias({ onFechar }: Props) {
       ativo = false;
     };
   }, []);
+
+  // Rola até a seção Conta quando o assistente do agente abriu as preferências por esse
+  // caminho (T4) — o dialog é uma página só, sem abas, então "abrir na seção Conta" é isto.
+  useEffect(() => {
+    if (secaoInicial !== "conta") return;
+    document.getElementById("secao-conta")?.scrollIntoView({ block: "start" });
+  }, [secaoInicial]);
 
   return (
     <>
@@ -164,7 +174,7 @@ export default function DialogoPreferencias({ onFechar }: Props) {
               </Botao>
             </div>
           </Secao>
-          <Secao titulo={t("conta.titulo")}>
+          <Secao titulo={t("conta.titulo")} id="secao-conta">
             <SecaoConta />
           </Secao>
           <Secao titulo="Agente de IA">
@@ -204,9 +214,17 @@ export default function DialogoPreferencias({ onFechar }: Props) {
   );
 }
 
-function Secao({ titulo, children }: { titulo: string; children: ReactNode }) {
+function Secao({
+  titulo,
+  children,
+  id,
+}: {
+  titulo: string;
+  children: ReactNode;
+  id?: string;
+}) {
   return (
-    <div>
+    <div id={id}>
       <div className="meta mb-1.5 text-tinta-suave">{titulo}</div>
       {children}
     </div>
@@ -217,6 +235,7 @@ function Secao({ titulo, children }: { titulo: string; children: ReactNode }) {
 // entrar/criar. Com sessão, vira status + sair. Nada disto aparece fora das preferências.
 function SecaoConta() {
   const sessao = useContaStore((s) => s.sessao);
+  const carregado = useContaStore((s) => s.carregado);
   const ocupado = useContaStore((s) => s.ocupado);
   const erro = useContaStore((s) => s.erro);
   const t = useTexto();
@@ -224,6 +243,10 @@ function SecaoConta() {
   // Nunca preenchida de volta: o store não guarda senha, e um erro limpa o campo em vez de
   // repopular com o que falhou.
   const [senha, setSenha] = useState("");
+  // Rastreia qual ação o campo de senha serve agora: Enter no formulário e o autocomplete do
+  // navegador seguem o último botão que o usuário tocou. Começa em "entrar" — é a ação padrão
+  // do Enter enquanto o usuário ainda não escolheu nenhum dos dois.
+  const [acaoAtual, setAcaoAtual] = useState<"entrar" | "criar">("entrar");
 
   // Limpa os dois campos sempre que uma sessão passa a existir — não só no clique que a
   // criou, mas qualquer caminho futuro que resulte em sessão. Sem isto, "Sair" reexibe o
@@ -235,6 +258,20 @@ function SecaoConta() {
       setSenha("");
     }
   }, [sessao]);
+
+  // Erro de uma tentativa anterior não pode sobreviver a fechar e reabrir as preferências:
+  // sem isto, errar a senha, fechar e reabrir mostrava "E-mail ou senha não conferem." sob um
+  // campo vazio, como se a tentativa nova já tivesse falhado.
+  useEffect(() => {
+    useContaStore.setState({ erro: null });
+  }, []);
+
+  // Enquanto `carregar()` da abertura ainda está em voo (até 20s), `sessao` é `null` mas isso
+  // ainda não é conclusão — quem já tem conta não pode ver "deslogado" piscando antes do
+  // "Conectado como…". Estado neutro, sem alerta e sem formulário.
+  if (!carregado) {
+    return <p className="text-pequeno text-tinta-media">{t("conta.carregando")}</p>;
+  }
 
   if (sessao) {
     return (
@@ -270,7 +307,14 @@ function SecaoConta() {
   const erroGeral = erro && erro !== "emailEmUso" && erro !== "credenciais" ? erro : null;
 
   return (
-    <div className="flex flex-col gap-2">
+    <form
+      className="flex flex-col gap-2"
+      onSubmit={(e) => {
+        e.preventDefault();
+        setAcaoAtual("entrar");
+        void tentar("entrar");
+      }}
+    >
       <p className="text-pequeno text-tinta-media [text-wrap:pretty]">
         {t("conta.descricaoDeslogado")}
       </p>
@@ -285,7 +329,7 @@ function SecaoConta() {
       <Campo
         rotulo={t("conta.senha")}
         type="password"
-        autoComplete="current-password"
+        autoComplete={acaoAtual === "criar" ? "new-password" : "current-password"}
         value={senha}
         onChange={(e) => setSenha(e.target.value)}
         erro={erroSenha}
@@ -293,18 +337,27 @@ function SecaoConta() {
       {erroGeral && <p className="text-pequeno text-bordo">{t(`conta.erro.${erroGeral}`)}</p>}
       <div className="flex flex-wrap gap-2">
         <Botao
+          type="submit"
           variante="primario"
           tamanho="compacto"
           disabled={ocupado}
-          onClick={() => void tentar("entrar")}
+          onClick={() => setAcaoAtual("entrar")}
         >
           {t("conta.entrar")}
         </Botao>
-        <Botao tamanho="compacto" disabled={ocupado} onClick={() => void tentar("criar")}>
+        <Botao
+          type="button"
+          tamanho="compacto"
+          disabled={ocupado}
+          onClick={() => {
+            setAcaoAtual("criar");
+            void tentar("criar");
+          }}
+        >
           {t("conta.criar")}
         </Botao>
       </div>
-    </div>
+    </form>
   );
 }
 

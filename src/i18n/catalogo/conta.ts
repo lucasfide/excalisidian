@@ -4,6 +4,7 @@
 
 export const PT_BR_CONTA = {
   "conta.titulo": "Conta",
+  "conta.carregando": "Verificando sua conta…",
   "conta.descricaoDeslogado":
     "Entrar é opcional. O Excalisidian funciona inteiro sem conta, offline.",
   "conta.email": "E-mail",
@@ -25,6 +26,7 @@ export const PT_BR_CONTA = {
 // português em tempo de execução (tradutor.ts). cobertura.test.ts cobra a completude.
 export const EN_CONTA: Partial<Record<keyof typeof PT_BR_CONTA, string>> = {
   "conta.titulo": "Account",
+  "conta.carregando": "Checking your account…",
   "conta.descricaoDeslogado":
     "Signing in is optional. Excalisidian works fully offline, without an account.",
   "conta.email": "Email",

@@ -24,6 +24,8 @@ export const PT_BR_AGENTE = {
   "agente.passo.conta": "Conta",
   "agente.passo.contaExplicacao":
     "A IA do Excalisidian usa a sua conta. Não é preciso chave de API.",
+  "agente.passo.contaCarregando": "Verificando sua conta…",
+  "agente.passo.abrirConta": "Entrar na conta",
 } as const;
 
 // Partial, como o EN geral em catalogo.ts: uma tradução faltando não trava a edição, cai no
@@ -49,4 +51,6 @@ export const EN_AGENTE: Partial<Record<keyof typeof PT_BR_AGENTE, string>> = {
   "agente.passo.revisao": "Review",
   "agente.passo.conta": "Account",
   "agente.passo.contaExplicacao": "Excalisidian AI uses your account. No API key needed.",
+  "agente.passo.contaCarregando": "Checking your account…",
+  "agente.passo.abrirConta": "Sign in to your account",
 };

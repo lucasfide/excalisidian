@@ -96,7 +96,13 @@ function omitirChave<T extends Record<string, string>>(mapa: T, chave: string): 
   return resto as T;
 }
 
-export default function DialogoAgente() {
+interface Props {
+  /** Abre as preferências na seção Conta, por cima do assistente, sem fechá-lo (T4: o passo
+   * de conta era um beco sem saída — sem sessão, não havia caminho pra entrar dali). */
+  aoAbrirConta?: () => void;
+}
+
+export default function DialogoAgente({ aoAbrirConta }: Props) {
   const t = useTexto();
   const config = useAgenteStore((s) => s.config);
   const [etapa, setEtapa] = useState(config ? 2 : 1);
@@ -117,7 +123,12 @@ export default function DialogoAgente() {
   // entrar na conta com o assistente aberto precisa refletir na hora, sem esperar outro
   // re-render.
   const sessao = useContaStore((s) => s.sessao);
-  const semSessao = provedor.exigeConta && sessao === null;
+  const carregado = useContaStore((s) => s.carregado);
+  // Enquanto `carregar()` da abertura ainda está em voo (até 20s), `sessao` é `null` mas isso
+  // ainda não é conclusão. Sem `carregado`, quem já tem conta e abre o assistente logo no
+  // início via esse alerta com o botão desabilitado, mesmo tendo sessão.
+  const aguardandoConta = provedor.exigeConta && !carregado;
+  const semSessao = provedor.exigeConta && carregado && sessao === null;
   const rotulosPasso = provedor.exigeConta
     ? [
         t("agente.passo.provedor"),
@@ -144,10 +155,10 @@ export default function DialogoAgente() {
   const validarChaveEBuscarModelos = async () => {
     setErroChave(null);
     if (provedor.exigeConta) {
-      if (semSessao) {
-        setErroChave(t("agente.erro.sessao"));
-        return;
-      }
+      // Defensivo: o botão "Continuar" já fica desabilitado com `semSessao`/`aguardandoConta`,
+      // então isto não deveria disparar. `erroChave` não é exibido neste ramo (o alerta do
+      // passo de conta é quem mostra o estado) — nada a escrever na tela aqui.
+      if (semSessao || aguardandoConta) return;
     } else {
       if (erroBase) {
         setErroChave(erroBase);
@@ -246,7 +257,7 @@ export default function DialogoAgente() {
           {(etapa === 1 || etapa === 2) && (
             <Botao
               variante="primario"
-              disabled={etapa === 2 && (carregando || semSessao)}
+              disabled={etapa === 2 && (carregando || semSessao || aguardandoConta)}
               carregando={etapa === 2 && carregando}
               onClick={() => {
                 if (etapa === 1) irParaChave();
@@ -290,16 +301,29 @@ export default function DialogoAgente() {
       {etapa === 2 && (
         <div className="flex flex-col gap-3">
           {provedor.exigeConta ? (
-            <>
+            aguardandoConta ? (
               <p className="text-pequeno text-tinta-media">
-                {t("agente.passo.contaExplicacao")}
+                {t("agente.passo.contaCarregando")}
               </p>
-              {semSessao && (
-                <p className="text-pequeno text-bordo" role="alert">
-                  {t("agente.erro.sessao")}
+            ) : (
+              <>
+                <p className="text-pequeno text-tinta-media">
+                  {t("agente.passo.contaExplicacao")}
                 </p>
-              )}
-            </>
+                {semSessao && (
+                  <>
+                    <p className="text-pequeno text-bordo" role="alert">
+                      {t("agente.erro.sessao")}
+                    </p>
+                    {aoAbrirConta && (
+                      <Botao tamanho="compacto" className="self-start" onClick={aoAbrirConta}>
+                        {t("agente.passo.abrirConta")}
+                      </Botao>
+                    )}
+                  </>
+                )}
+              </>
+            )
           ) : provedor.precisaChave ? (
             <>
               <Campo

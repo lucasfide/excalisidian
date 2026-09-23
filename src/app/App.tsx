@@ -56,6 +56,14 @@ type Boot = "carregando" | "sem-vault" | "pronto" | { erro: string };
 export default function App() {
   const [boot, setBoot] = useState<Boot>("carregando");
   const [preferenciasAbertas, setPreferenciasAbertas] = useState(false);
+  // T4: o passo de conta do assistente do agente pode abrir as preferências na seção Conta,
+  // por cima de si mesmo, sem se fechar (perder o que o usuário já preencheu no assistente).
+  // `secaoInicial` manda o dialog rolar até lá. Não precisa inverter ordem de montagem: Dialog
+  // renderiza por portal em document.body (Dialog.tsx), então quem abre por último já fica por
+  // cima, não importa a ordem no JSX.
+  const [secaoPreferenciasInicial, setSecaoPreferenciasInicial] = useState<"conta" | undefined>(
+    undefined,
+  );
   const [lixeiraAberta, setLixeiraAberta] = useState(false);
   const [painelFlutuanteAberto, setPainelFlutuanteAberto] = useState(false);
   const abrirPainelTimerRef = useRef<number | null>(null);
@@ -451,14 +459,29 @@ export default function App() {
       <BalaoAgente />
       <PainelAgente />
       <DialogoAtualizacao />
+      {/* Preferências e o assistente do agente dividem o mesmo z-[100], mas Dialog renderiza
+          por portal em document.body (Dialog.tsx): o elemento de cada um entra no `body` no
+          momento em que o diálogo abre, então quem abre por último fica por cima — a ordem
+          aqui no JSX não desempata nada. */}
       {preferenciasAbertas && (
-        <DialogoPreferencias onFechar={() => setPreferenciasAbertas(false)} />
+        <DialogoPreferencias
+          secaoInicial={secaoPreferenciasInicial}
+          onFechar={() => {
+            setPreferenciasAbertas(false);
+            setSecaoPreferenciasInicial(undefined);
+          }}
+        />
+      )}
+      {agenteAssistenteAberto && (
+        <DialogoAgente
+          key="agente"
+          aoAbrirConta={() => {
+            setSecaoPreferenciasInicial("conta");
+            setPreferenciasAbertas(true);
+          }}
+        />
       )}
       {lixeiraAberta && <PainelLixeira onFechar={() => setLixeiraAberta(false)} />}
-      {/* Por trás do DialogoPreferencias no DOM o assistente saía escondido — os dois
-          Dialogos dividem o mesmo z-[100], e a ordem no DOM desempata. Montado por
-          último para abrir por cima de quem o chamou. */}
-      {agenteAssistenteAberto && <DialogoAgente key="agente" />}
       <Toaster
         position="bottom-right"
         // O balão do agente mora no canto inferior direito: com ele presente, os toasts
