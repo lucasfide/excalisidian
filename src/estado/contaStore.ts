@@ -151,13 +151,20 @@ export const useContaStore = create<ContaState>((set, get) => {
     },
 
     async sair() {
-      geracao++;
-      const token = get().sessao?.token;
-      set({ sessao: null, erro: null });
-      definirTokenDaSessao(null);
-      await gravarToken(null);
-      await emit(EVENTO_PREFS_MUDOU);
-      if (token) await get().servico.sair(token);
+      set({ ocupado: true, erro: null });
+      try {
+        geracao++;
+        const token = get().sessao?.token;
+        set({ sessao: null });
+        definirTokenDaSessao(null);
+        await gravarToken(null);
+        await emit(EVENTO_PREFS_MUDOU);
+        // Melhor-esforço: `sair` do serviço nunca propaga erro (ver ServicoContaHttp), mas o
+        // `finally` abaixo desmarca `ocupado` mesmo que uma implementação futura lance.
+        if (token) await get().servico.sair(token);
+      } finally {
+        set({ ocupado: false });
+      }
     },
   };
 });

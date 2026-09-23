@@ -24,6 +24,13 @@ class ServicoContaControlavel implements ServicoConta {
     this.resolverChamada = r;
   });
 
+  private resolverSair!: () => void;
+  private resolverChamadaSair!: () => void;
+  /** Mesma ideia de `chamada`, mas para `sair` — usada pelo teste de `ocupado` (correção 6c). */
+  chamadaSair = new Promise<void>((r) => {
+    this.resolverChamadaSair = r;
+  });
+
   constructor(private readonly base: ServicoConta) {}
 
   renovar(_token: string): Promise<Sessao> {
@@ -51,8 +58,16 @@ class ServicoContaControlavel implements ServicoConta {
     return this.base.criar(email, senha);
   }
 
-  sair(token: string): Promise<void> {
-    return this.base.sair(token);
+  sair(_token: string): Promise<void> {
+    const p = new Promise<void>((resolve) => {
+      this.resolverSair = resolve;
+    });
+    this.resolverChamadaSair();
+    return p;
+  }
+
+  resolverSairAgora(): void {
+    this.resolverSair();
   }
 }
 
@@ -129,6 +144,20 @@ describe("contaStore", () => {
     expect(useContaStore.getState().sessao).toBeNull();
     expect(guardados.tokenConta).toBeUndefined();
     expect(tokenDaSessaoAtual()).toBeNull();
+  });
+
+  it("sair marca ocupado enquanto o sair do serviço não resolve", async () => {
+    await useContaStore.getState().entrar("ana@exemplo.com", "segredo123");
+    const servico = new ServicoContaControlavel(comConta());
+    useContaStore.getState().definirServico(servico);
+
+    const saindo = useContaStore.getState().sair();
+    await servico.chamadaSair;
+    expect(useContaStore.getState().ocupado).toBe(true);
+
+    servico.resolverSairAgora();
+    await saindo;
+    expect(useContaStore.getState().ocupado).toBe(false);
   });
 
   it("carregar sem token salvo termina sem sessão e marca carregado", async () => {
