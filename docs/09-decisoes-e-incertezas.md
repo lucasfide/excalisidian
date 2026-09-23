@@ -1556,3 +1556,27 @@ prometer corrigi-la.
 **Consequências:** nenhuma tela nova pode aplicar uma animação com `both` a um elemento que
 tenha, ou possa vir a ter, um descendente `position: fixed`. A divergência do comentário em
 `RaizDialogos.tsx` fica registrada, não corrigida.
+
+### ADR-38 · Códigos de erro do provedor próprio: 401 é sessão, 403 é plano
+
+**Contexto:** antes, 401 e 403 do provedor próprio ("IA do Excalisidian") viravam o mesmo
+erro, e o usuário lia "Entre na sua conta" mesmo já tendo entrado.
+
+**Decisão:** 401 → código `sessao`, texto "Entre na sua conta do Excalisidian para usar a IA
+incluída no plano."; 403 → código `plano`, texto "A IA do Excalisidian faz parte do plano
+premium. Sua conta está no plano grátis." Para os seis provedores de chave própria, 401 e 403
+continuam significando chave recusada. O texto de `plano` é factual e sem convite, link ou
+botão, porque só aparece quando o usuário ativamente tentou usar a IA paga (ADR-31, menções
+não invasivas). Depois de `sessao` ou `plano`, o agente para de tentar até a sessão ou a
+configuração mudar.
+
+**Alternativas rejeitadas:**
+
+| Opção | Por que não |
+|---|---|
+| Manter 403 como `sessao` | Falso — a pessoa já entrou na conta; o texto de "entre na sua conta" mentiria sobre a causa. |
+| Usar o código genérico `provedor` | A mensagem dele manda "verificar a conexão", o que desviaria o usuário para o problema errado — a conexão não é a causa. |
+
+**Consequências:** o servidor, quando existir, tem de devolver 403 exatamente nesse caso e só
+nele; a mensagem de `plano` é o único lugar do app que menciona o plano premium a quem não
+assinou.
