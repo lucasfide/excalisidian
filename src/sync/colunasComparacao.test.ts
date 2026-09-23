@@ -5,32 +5,70 @@ import { colunasDeComparacao } from "./colunasComparacao";
 import { diffLinhas } from "./diffLinhas";
 
 describe("colunasDeComparacao", () => {
-  it("trecho igual aparece nas duas colunas", () => {
+  it("trecho igual aparece nas duas colunas, sem marcação", () => {
     expect(colunasDeComparacao([{ tipo: "igual", linhas: ["a", "b"] }])).toEqual([
-      { tipo: "igual", esquerda: "a", direita: "a" },
-      { tipo: "igual", esquerda: "b", direita: "b" },
+      { esquerda: { texto: "a", marcada: false }, direita: { texto: "a", marcada: false } },
+      { esquerda: { texto: "b", marcada: false }, direita: { texto: "b", marcada: false } },
     ]);
   });
 
-  it("trecho removido aparece só na esquerda", () => {
-    expect(colunasDeComparacao([{ tipo: "removido", linhas: ["x"] }])).toEqual([
-      { tipo: "removido", esquerda: "x", direita: null },
-    ]);
-  });
-
-  it("trecho adicionado aparece só na direita", () => {
-    expect(colunasDeComparacao([{ tipo: "adicionado", linhas: ["y"] }])).toEqual([
-      { tipo: "adicionado", esquerda: null, direita: "y" },
-    ]);
-  });
-
-  it("preserva a ordem dos trechos, linha a linha", () => {
+  it("troca de 1 por 1: uma linha só na grade, as duas versões lado a lado", () => {
     const trechos = diffLinhas("a\nx\nc", "a\ny\nc");
     expect(colunasDeComparacao(trechos)).toEqual([
-      { tipo: "igual", esquerda: "a", direita: "a" },
-      { tipo: "removido", esquerda: "x", direita: null },
-      { tipo: "adicionado", esquerda: null, direita: "y" },
-      { tipo: "igual", esquerda: "c", direita: "c" },
+      { esquerda: { texto: "a", marcada: false }, direita: { texto: "a", marcada: false } },
+      { esquerda: { texto: "x", marcada: true }, direita: { texto: "y", marcada: true } },
+      { esquerda: { texto: "c", marcada: false }, direita: { texto: "c", marcada: false } },
+    ]);
+  });
+
+  it("3 removidas seguidas de 1 adicionada: a primeira pareia, as outras duas ficam com a direita em branco", () => {
+    const trechos: Parameters<typeof colunasDeComparacao>[0] = [
+      { tipo: "removido", linhas: ["a", "b", "c"] },
+      { tipo: "adicionado", linhas: ["x"] },
+    ];
+    expect(colunasDeComparacao(trechos)).toEqual([
+      { esquerda: { texto: "a", marcada: true }, direita: { texto: "x", marcada: true } },
+      { esquerda: { texto: "b", marcada: true }, direita: { texto: null, marcada: false } },
+      { esquerda: { texto: "c", marcada: true }, direita: { texto: null, marcada: false } },
+    ]);
+  });
+
+  it("1 removida seguida de 3 adicionadas: a primeira pareia, as outras duas ficam com a esquerda em branco", () => {
+    const trechos: Parameters<typeof colunasDeComparacao>[0] = [
+      { tipo: "removido", linhas: ["a"] },
+      { tipo: "adicionado", linhas: ["x", "y", "z"] },
+    ];
+    expect(colunasDeComparacao(trechos)).toEqual([
+      { esquerda: { texto: "a", marcada: true }, direita: { texto: "x", marcada: true } },
+      { esquerda: { texto: null, marcada: false }, direita: { texto: "y", marcada: true } },
+      { esquerda: { texto: null, marcada: false }, direita: { texto: "z", marcada: true } },
+    ]);
+  });
+
+  it("removido isolado (sem adicionado logo depois) aparece só na esquerda", () => {
+    expect(colunasDeComparacao([{ tipo: "removido", linhas: ["x"] }])).toEqual([
+      { esquerda: { texto: "x", marcada: true }, direita: { texto: null, marcada: false } },
+    ]);
+  });
+
+  it("adicionado isolado (sem removido antes) aparece só na direita", () => {
+    expect(colunasDeComparacao([{ tipo: "adicionado", linhas: ["y"] }])).toEqual([
+      { esquerda: { texto: null, marcada: false }, direita: { texto: "y", marcada: true } },
+    ]);
+  });
+
+  it("igual entre duas trocas não se mistura com elas", () => {
+    const trechos: Parameters<typeof colunasDeComparacao>[0] = [
+      { tipo: "removido", linhas: ["a"] },
+      { tipo: "adicionado", linhas: ["x"] },
+      { tipo: "igual", linhas: ["m"] },
+      { tipo: "removido", linhas: ["b"] },
+      { tipo: "adicionado", linhas: ["y"] },
+    ];
+    expect(colunasDeComparacao(trechos)).toEqual([
+      { esquerda: { texto: "a", marcada: true }, direita: { texto: "x", marcada: true } },
+      { esquerda: { texto: "m", marcada: false }, direita: { texto: "m", marcada: false } },
+      { esquerda: { texto: "b", marcada: true }, direita: { texto: "y", marcada: true } },
     ]);
   });
 
