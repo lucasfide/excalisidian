@@ -5,7 +5,12 @@ sem você ter percebido, e para você decidir o que fazer com ela. Escrito em 22
 pedido direto do usuário, depois que ele disse: *"eu não tava sabendo desse código de 24
 caracteres, acho que passou despercebido por mim"*.
 
-Nada aqui está decidido. O módulo existe no código e **nenhuma tela do produto usa**.
+**A decisão foi tomada em 23/09/2026.** Ver `docs/09-decisoes-e-incertezas.md`, ADR-33. O
+resumo em linguagem de produto, sem jargão, está na **seção 9**, no fim deste documento. As
+seções abaixo continuam aqui como o registro de como se chegou até a decisão — algumas foram
+superadas pela seção 9, e isso está marcado onde acontece.
+
+O módulo existe no código e **nenhuma tela do produto usa**; ele será removido (ver seção 9).
 
 ---
 
@@ -134,6 +139,10 @@ plano.
 ---
 
 ## 5. A decisão que está aberta
+
+> **Superada pela seção 9 (23/09/2026).** A decisão foi: não haverá código de recuperação.
+> A discussão do dígito verificador abaixo ficou sem efeito prático, mas continua aqui como
+> registro de como se chegou até a decisão final.
 
 Uma revisão levantou o seguinte: **o código não tem dígito verificador.**
 
@@ -283,6 +292,11 @@ existe na lista, então o app detecta o erro de digitação sem precisar de cara
 
 ### 8.4 As combinações possíveis
 
+> **Superada pela seção 9 (23/09/2026).** A decisão final não seguiu a recomendação da linha
+> 4 desta tabela ("senha humana + palavras como reserva"). Ficou decidido: só senha humana,
+> com derivação lenta, sem nenhuma reserva. A tabela abaixo continua aqui como registro de
+> como se chegou até lá.
+
 | Desenho | Força | Se esquecer | Atrito |
 |---|---|---|---|
 | Só senha humana (mín. 16) | Fraca a média | **Perde tudo** | Mínimo |
@@ -297,3 +311,63 @@ guardar. Nenhuma das duas é pedida no uso diário.
 
 **Nada disso está decidido nem implementado.** O módulo atual implementa apenas a segunda
 linha da tabela, e nenhuma tela o usa.
+
+---
+
+## 9. A decisão (23/09/2026)
+
+Esta seção resume o que foi decidido. Está registrada formalmente como ADR-33, em
+`docs/09-decisoes-e-incertezas.md`.
+
+**Não vai existir código de recuperação, nem frase de palavras, nem nenhuma outra segunda
+chave de reserva.** A senha do vault, escolhida por você, é a única coisa que abre suas
+cópias sincronizadas. Se você esquecer essa senha, as cópias que estão no servidor viram
+lixo permanente — ninguém consegue recuperar, nem eu, nem uma eventual equipe de suporte,
+nem o próprio servidor.
+
+**O que não se perde:** os arquivos no seu computador continuam exatamente onde estão, em
+Markdown, legíveis, do jeito que sempre foram. Esquecer a senha não apaga o seu vault local.
+Você perde as cópias sincronizadas e o acesso a partir de outros computadores — não perde o
+trabalho que já está na sua máquina.
+
+Por que essa decisão, e não a recomendação da seção 8.4 (senha + palavras de reserva):
+
+1. Um código ou uma frase de reserva não é medida de segurança — é medida contra
+   esquecimento. Quem protege de verdade é a senha, combinada com uma técnica chamada
+   derivação lenta de chave, que torna cada tentativa de adivinhar a senha cara de propósito
+   para quem tentar. Uma segunda cópia da chave, guardada em papel, só **reduz** a segurança:
+   pode ser fotografada, perdida ou roubada.
+2. Neste produto, o desastre de esquecer a senha é menor do que seria num gerenciador de
+   senhas ou num e-mail cifrado — porque as suas notas continuam intactas no computador.
+   Você perde a conveniência de sincronizar, não o seu trabalho.
+3. Um código de recuperação acrescenta atrito bem no momento de criar a conta — o que afasta
+   gente — e cria um segundo segredo que a maioria das pessoas acaba guardando mal de
+   qualquer forma.
+4. Você mesmo, ao ver o código de 24 caracteres pela primeira vez nesta conversa, achou
+   "muito sensível" e disse que não sabia que ele existia. Isso, sozinho, já é um sinal de
+   que a peça não deveria existir do jeito que estava.
+
+O que continua valendo, e não muda com esta decisão:
+
+- A senha é escolhida por você, e nunca é pedida na abertura comum do app — só uma vez por
+  computador, quando você conecta aquele computador à sincronização. Dali em diante, a chave
+  fica guardada no cofre do sistema operacional daquele computador.
+- A senha passa por derivação lenta (Argon2id ou equivalente) antes de virar chave de
+  criptografia — isso é obrigatório, com ou sem código de recuperação, porque protege contra
+  alguém que roube os arquivos cifrados do servidor e tente adivinhar sua senha sem limite de
+  tentativas, no computador dele.
+- A tela de criação de conta vai dizer isso sem meias palavras: que a senha não pode ser
+  recuperada, e que as notas locais continuam a salvo mesmo assim. Vai recomendar guardar a
+  senha no gerenciador de senhas do navegador ou do sistema operacional.
+- Fica reservada, desde o primeiro dia de implementação, uma forma de no futuro acrescentar
+  uma recuperação sem afetar quem já estiver usando o produto (a chave que cifra o vault é
+  ela mesma protegida por uma segunda camada, e essa segunda camada pode ganhar uma segunda
+  via mais adiante). Isso é trabalho técnico interno, não muda nada do que está escrito
+  acima, e não é uma promessa de que a recuperação vai existir.
+
+**O módulo `src/conta/codigoDeRecuperacao.ts` e seu teste serão removidos.** Nenhuma tela
+chegou a usá-lo.
+
+Ainda em aberto, e sem relação com este documento: se a senha da conta (para entrar no site,
+recuperar por e-mail etc.) vai ser a mesma senha do vault, ou uma senha separada. Essa
+pergunta está registrada no `docs/09-decisoes-e-incertezas.md`, Parte 4.
