@@ -136,6 +136,33 @@ describe("cliente — completar", () => {
     }
   });
 
+  it("401 do provedor que exige conta vira 'sessao', não 'chave'", async () => {
+    definirTokenDaSessao("tok-abc");
+    fetchMock.mockResolvedValue(respostaHTTP(401, { error: { message: "x" } }));
+    const erro = await completar({
+      provedor: provedorDe("excalisidian"),
+      baseUrl: BASE_URL_SERVICO,
+      modelo: MODELO_LEITURA,
+      thinking: "padrao",
+      system: "s",
+      mensagens: [{ papel: "usuario", texto: "x" }],
+    }).catch((e) => e);
+    expect(erro).toBeInstanceOf(FalhaAgente);
+    expect(erro.codigo).toBe("sessao");
+    definirTokenDaSessao(null);
+  });
+
+  it("401 de um provedor de chave própria continua virando 'chave'", async () => {
+    fetchMock.mockResolvedValue(respostaHTTP(401, { error: { message: "x" } }));
+    const erro = await completar({
+      ...contexto("openai"),
+      system: "s",
+      mensagens: [{ papel: "usuario", texto: "x" }],
+    }).catch((e) => e);
+    expect(erro).toBeInstanceOf(FalhaAgente);
+    expect(erro.codigo).toBe("chave");
+  });
+
   it("exceção de conexão vira FalhaAgente('rede'); escopo bloqueado vira 'escopo'", async () => {
     fetchMock.mockRejectedValueOnce(new TypeError("fetch failed"));
     const erro = await completar({

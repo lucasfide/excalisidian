@@ -79,12 +79,17 @@ async function lancar(
   return { status: res.status, corpo };
 }
 
-function erroDeStatus(status: number, corpo: unknown): FalhaAgente {
+function erroDeStatus(status: number, corpo: unknown, ctx: ContextoChamada): FalhaAgente {
   const detalhe =
     corpo && typeof corpo === "object"
       ? JSON.stringify(corpo).slice(0, 300)
       : undefined;
-  if (status === 401 || status === 403) return new FalhaAgente("chave", detalhe);
+  if (status === 401 || status === 403) {
+    // Provedor próprio autentica por sessão, não por chave: 401/403 aqui é sessão
+    // vencida ou ausente, não uma chave de API recusada (correção 4, doc 11 §7).
+    if (ctx.provedor.exigeConta) return new FalhaAgente("sessao", detalhe);
+    return new FalhaAgente("chave", detalhe);
+  }
   if (status === 429) return new FalhaAgente("cota", detalhe);
   if (status === 404) return new FalhaAgente("modelo", detalhe);
   if (status >= 500) return new FalhaAgente("provedor", detalhe);
@@ -131,7 +136,7 @@ async function completarOpenAI(p: PedidoComplecao): Promise<RespostaComplecao> {
     `${p.baseUrl}/chat/completions`,
     { method: "POST", headers: cabecalhosBase(p), body: JSON.stringify(corpo) },
   );
-  if (status < 200 || status >= 300) throw erroDeStatus(status, res);
+  if (status < 200 || status >= 300) throw erroDeStatus(status, res, p);
   const escolha = (res as { choices?: { message?: { content?: string } }[] })?.choices?.[0];
   const texto = escolha?.message?.content;
   if (typeof texto !== "string") throw new FalhaAgente("resposta");
@@ -159,7 +164,7 @@ async function completarAnthropic(p: PedidoComplecao): Promise<RespostaComplecao
     `${p.baseUrl}/v1/messages`,
     { method: "POST", headers: cabecalhosBase(p), body: JSON.stringify(corpo) },
   );
-  if (status < 200 || status >= 300) throw erroDeStatus(status, res);
+  if (status < 200 || status >= 300) throw erroDeStatus(status, res, p);
   const blocos = (res as { content?: { type?: string; text?: string }[] })?.content ?? [];
   const texto = blocos
     .filter((b) => b.type === "text" && typeof b.text === "string")
@@ -190,7 +195,7 @@ async function completarGemini(p: PedidoComplecao): Promise<RespostaComplecao> {
     headers: cabecalhosBase(p),
     body: JSON.stringify(corpo),
   });
-  if (status < 200 || status >= 300) throw erroDeStatus(status, res);
+  if (status < 200 || status >= 300) throw erroDeStatus(status, res, p);
   const partes =
     (res as {
       candidates?: { content?: { parts?: { text?: string }[] } }[];
@@ -222,7 +227,7 @@ export async function listarModelos(ctx: ContextoLista): Promise<string[]> {
         method: "GET",
         headers: cabecalhosBase(ctx),
       });
-      if (status < 200 || status >= 300) throw erroDeStatus(status, corpo);
+      if (status < 200 || status >= 300) throw erroDeStatus(status, corpo, ctx);
       const ids = (corpo as { data?: { id?: string }[] })?.data ?? [];
       return ids.map((x) => x.id).filter((x): x is string => !!x);
     }
@@ -231,14 +236,14 @@ export async function listarModelos(ctx: ContextoLista): Promise<string[]> {
         method: "GET",
         headers: cabecalhosBase(ctx),
       });
-      if (status < 200 || status >= 300) throw erroDeStatus(status, corpo);
+      if (status < 200 || status >= 300) throw erroDeStatus(status, corpo, ctx);
       const ids = (corpo as { data?: { id?: string }[] })?.data ?? [];
       return ids.map((x) => x.id).filter((x): x is string => !!x);
     }
     case "gemini": {
       const url = `${ctx.baseUrl}/v1beta/models?key=${encodeURIComponent(credencial(ctx) ?? "")}`;
       const { status, corpo } = await lancar(url, { method: "GET" });
-      if (status < 200 || status >= 300) throw erroDeStatus(status, corpo);
+      if (status < 200 || status >= 300) throw erroDeStatus(status, corpo, ctx);
       const nomes = (corpo as { models?: { name?: string }[] })?.models ?? [];
       return nomes
         .map((x) => x.name)
