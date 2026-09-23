@@ -27,8 +27,11 @@ O fluxo tem dois estágios, cada um com seu modelo configurável:
 ### Princípios
 
 - **Desligado por padrão, e fica desligado.** Sem configuração, nenhum traço do agente
-  aparece na UI — nem balão, nem comando, nem aviso. O produto nunca pede, sugere ou
-  anuncia a integração.
+  aparece na UI — nem balão, nem comando, nem aviso. O produto não pede, não insiste, não
+  interrompe para sugerir que o agente seja ligado. A única menção permitida é discreta:
+  a IA do Excalisidian aparece como mais uma opção na lista de provedores do assistente de
+  configuração (§3.2), ao lado dos provedores de chave própria — não como anúncio recorrente
+  (ver ADR-31, `docs/09-decisoes-e-incertezas.md`).
 - **Nada sai da máquina sem participação explícita.** Sem o aceite do convite (ou sem o
   usuário iniciar uma conversa manual), nenhuma chamada de rede é feita.
 - **O vault continua sendo o produto.** O agente lê notas; ele nunca escreve nem edita
@@ -42,7 +45,9 @@ O fluxo tem dois estágios, cada um com seu modelo configurável:
 ### O que NÃO tem (v1)
 
 - Sem escrita automática no vault (nem nota, nem frontmatter, nem link).
-- Sem OAuth de assinatura (Claude Pro/Max etc.) — só API key (decisão 10.1).
+- Sem OAuth de assinatura de terceiros (Claude Pro/Max etc.) — os seis provedores de chave
+  própria continuam só por API key (decisão 10.1). Existe, à parte, um sétimo provedor
+  autenticado pela própria conta do Excalisidian, sem chave digitada (§3.2, ADR-35).
 - Sem embeddings/vetores locais — a recuperação usa o índice de busca e o grafo de links.
 - Sem streaming no painel (respostas chegam inteiras; ver doc 09, incerteza).
 - Sem agente no canvas — só notas (`.md`). Desenho pode ser *relacionado* (entra na
@@ -191,6 +196,7 @@ Catálogo declarativo em `src/agente/provedores.ts`. Três **dialetos** de API c
 | `openrouter` | OpenRouter | `https://openrouter.ai/api/v1` | parcial (passthrough, não garantido) |
 | `alibaba` | Alibaba (DashScope) | `https://dashscope.aliyuncs.com/compatible-mode/v1` | não |
 | `ollama` | Ollama (local) | `http://localhost:11434/v1` | não |
+| `excalisidian` | IA do Excalisidian | `BASE_URL_SERVICO` (§3.2) | não (v1) |
 
 - **Base URL é editável** na tela de configuração (campo avançado): cobre gateways próprios,
   Azure OpenAI, instância Ollama em outra porta, e variantes do plano Alibaba.
@@ -216,7 +222,7 @@ Catálogo declarativo em `src/agente/provedores.ts`. Três **dialetos** de API c
   resposta vem em `prompt_tokens`/`completion_tokens` — o medidor consome daí).
 - Transporte: **`@tauri-apps/plugin-http`** (reqwest em Rust), nunca `fetch` do WebView —
   CORS e exposição da chave no renderer. Escopo de hosts declarado em
-  `src-tauri/capabilities/main.json` (os seis hosts acima + `http://localhost:11434`).
+  `src-tauri/capabilities/main.json` (os sete hosts acima, incluindo `BASE_URL_SERVICO`).
   Base URL customizada fora do escopo: o app avisa e pede a permissão — ver doc 05.
 - `Ollama` não exige chave (o passo da chave some no assistente; a listagem usa
   `GET {base}/models` sem autenticação).
@@ -232,9 +238,37 @@ revisáveis — o número exato é o billing do provedor. Sem telemetria: a cont
 somando `usage` das respostas.
 
 **Estado atual:** o campo `precos` do catálogo (`provedores.ts`) está vazio para os seis
-provedores — os números de 2026 não foram verificados contra o billing (doc 09, incerteza
-26), e inventar preço é pior que não ter. Até algum modelo ganhar preço verificado, o
-medidor de uso (§5.6) mostra só tokens em qualquer provedor, nunca custo estimado.
+provedores de chave própria — os números de 2026 não foram verificados contra o billing
+(doc 09, incerteza 26), e inventar preço é pior que não ter. Até algum modelo ganhar preço
+verificado, o medidor de uso (§5.6) mostra só tokens em qualquer um desses seis provedores,
+nunca custo estimado. O sétimo provedor, IA do Excalisidian, não usa esse medidor — ver §3.2.
+
+### 3.2 IA do Excalisidian (provedor próprio)
+
+Sétimo provedor do catálogo, id `excalisidian`, dialeto `openai` — o servidor fala o mesmo
+protocolo da OpenAI, sem caminho de rede novo no cliente (ADR-35,
+`docs/09-decisoes-e-incertezas.md`). Diferenças em relação aos seis provedores de chave
+própria:
+
+- **Exige conta, não exige chave** (`exigeConta: true`, `precisaChave: false`). Autentica
+  pela sessão da conta do Excalisidian (§ credencial em `cliente.ts`), não por API key
+  digitada. Sem sessão ativa, a chamada falha com um código de erro próprio (`sessao`) antes
+  de qualquer rede.
+- **Identificadores lógicos de modelo** (`leitura-rapida`, `acompanhamento`), não nomes de
+  modelo de um fornecedor específico — para poder trocar o modelo real por trás sem
+  atualizar o app. **O nome do fornecedor de IA nunca aparece na interface.**
+- **Assistente de configuração** (§6.3) tem passos diferentes para este provedor: o passo da
+  chave vira passo de conta (sem campo de chave), a listagem de modelos não vai à rede, o
+  campo "Avançado · Base URL" some, e o passo de revisão esconde chave e limite de gasto.
+- **Cota mensal em créditos, contada no servidor** — o cliente só interpreta o saldo que
+  chega (`src/servico/creditos.ts`), nunca conta localmente. O medidor em créditos **não
+  renderiza enquanto não houver saldo real**: o endpoint de saldo ainda não existe, e
+  mostrar zero seria mentir sobre dinheiro (doc 09, incerteza).
+- **"Testar conexão"** verifica a sessão em vez de responder "funcionando" sem testar nada.
+- O modo com chave própria (os seis provedores acima) continua **gratuito e intacto**.
+  Vende-se conveniência, não exclusividade.
+- O agente continua **desligado por padrão** também com este provedor; nenhuma chamada de
+  rede sem aceite do usuário.
 
 ---
 
@@ -410,8 +444,9 @@ O usuário nunca edita JSON nem digita nome de modelo no escuro. A configuraçã
 **assistente em etapas** (`DialogoAgente`, um `Dialog` padrão com indicador de passos no
 topo), e o `settings.json` (§2.1) é só onde o resultado fica guardado.
 
-**Entradas** (nenhuma delas importuna — o produto nunca anuncia o agente por conta
-própria):
+**Entradas** (nenhuma delas importuna — o produto não anuncia o agente por conta própria;
+a única exceção é o provedor próprio aparecendo como mais uma opção no passo 1 do assistente,
+§3.2):
 
 - Configurações (`Ctrl+,` / engrenagem da sidebar) → seção "Agente de IA", colapsada por
   padrão, com o aviso fixo: "Opcional. Nada é enviado sem a sua configuração, e o agente
