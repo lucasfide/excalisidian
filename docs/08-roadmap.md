@@ -352,9 +352,12 @@ nem quantidade de notas (D2/ADR-32). Conflito (mesma nota editada em dois comput
 funde sozinho: vira uma tela com três saídas (ficar com esta, ficar com aquela, manter as
 duas); desenho compara como duas telas lado a lado, não como texto.
 
-**Estado real:** não começada. A sincronização em si não existe. A tela de conflitos (plano
-`2026-09-21-04-conflitos-de-sync.md`) é a primeira parte planejada e **não depende de
-servidor** — opera sobre "duas versões do mesmo arquivo".
+**Estado real:** tela de conflitos pronta (plano `2026-09-21-04-conflitos-de-sync.md`,
+commits `fd9e4e9..3e0da31`) — faixa de aviso, comparador de notas lado a lado e comparador de
+desenhos, todos operando sobre "duas versões do mesmo arquivo", sem depender de servidor. Para
+ver a tela sem sincronização de verdade existir, há um comando só de desenvolvimento, "Simular
+conflito de sincronização", na paleta de comandos. A sincronização em si — observar o vault,
+cifrar, enviar e receber — ainda não começou.
 
 **Status:** não começada.
 
