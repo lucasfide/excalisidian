@@ -228,7 +228,7 @@ O documento não dizia, e isso provavelmente é a raiz do desconforto. A respost
 | Situação | O que o app pede |
 |---|---|
 | Abrir o app, no dia a dia | Nada |
-| Instalar num computador novo | A senha do vault, uma vez |
+| Instalar num computador novo | A sua senha — a mesma da conta, ADR-39 — uma vez |
 | Trocar de computador outra vez | A senha, uma vez naquele computador |
 | Esqueceu a senha, num computador novo | O código de recuperação |
 
@@ -320,7 +320,7 @@ Esta seção resume o que foi decidido. Está registrada formalmente como ADR-33
 `docs/09-decisoes-e-incertezas.md`.
 
 **Não vai existir código de recuperação, nem frase de palavras, nem nenhuma outra segunda
-chave de reserva.** A senha do vault, escolhida por você, é a única coisa que abre suas
+chave de reserva.** A senha — a mesma da conta, ver ADR-39 — escolhida por você, é a única coisa que abre suas
 cópias sincronizadas. Se você esquecer essa senha, as cópias que estão no servidor viram
 lixo permanente — ninguém consegue recuperar, nem eu, nem uma eventual equipe de suporte,
 nem o próprio servidor.
@@ -368,6 +368,7 @@ O que continua valendo, e não muda com esta decisão:
 **O módulo `src/conta/codigoDeRecuperacao.ts` e seu teste serão removidos.** Nenhuma tela
 chegou a usá-lo.
 
-Ainda em aberto, e sem relação com este documento: se a senha da conta (para entrar no site,
-recuperar por e-mail etc.) vai ser a mesma senha do vault, ou uma senha separada. Essa
-pergunta está registrada no `docs/09-decisoes-e-incertezas.md`, Parte 4.
+**Decidido em 23/09/2026** (ADR-39, em `docs/09-decisoes-e-incertezas.md`): só existe uma
+senha, a da conta. Não há senha separada para o vault. É essa mesma senha da conta que, uma
+vez por computador, deriva a chave que protege o vault sincronizado — tudo o que está escrito
+acima neste documento sobre "a senha" se refere a ela.

@@ -1037,7 +1037,9 @@ Foram acrescentados o **ADR-8** (a extensão `.draw.md`, com as alternativas que
 4. **O que acontece com as abas quando o vault é trocado?** Minha suposição: dá flush em tudo, fecha todas as abas, grava o arquivo de layout do vault que está saindo e carrega o do que está entrando. Não está especificado em lugar nenhum e a Fatia 8 vai esbarrar nisso.
 5. **A escolha de `S` para o post-it** é minha. Se você usa muito `S` para outra coisa, mude antes de virar memória muscular.
 6. **O nome do produto.** Se "Excalisidian" é para ficar, feche agora; se não, escolha antes da Fatia 1, porque ele entra na chave de frontmatter, na pasta de config e na extensão temporária. Ver ADR-9.
-7. **Uma senha só para conta e vault, ou duas?** Ninguém decidiu ainda.
+7. **Uma senha só para conta e vault, ou duas?** **Decidido em 23/09/2026: uma senha só, a
+   da conta — ver ADR-39.** As opções abaixo ficam registradas como histórico de como se
+   chegou até a decisão.
 
    - **Uma senha só** (o modelo do Bitwarden e do 1Password): você decora uma coisa só. Mas
      essa senha **nunca pode ir para o servidor do jeito que foi digitada** — o app precisa
@@ -1421,7 +1423,7 @@ leva. Ela decorre direto do ADR-32: se o servidor não consegue ler nada, ele ta
 em linguagem de produto e sem pressa, em `docs/16-codigo-de-recuperacao.md`.
 
 **Decisão:** como o servidor não consegue ler nada (ADR-32), **não existe "esqueci minha
-senha".** Esquecer a senha do vault faz as cópias sincronizadas no servidor virarem lixo
+senha".** Esquecer a senha do vault (que, pelo ADR-39, é a mesma senha da conta) faz as cópias sincronizadas no servidor virarem lixo
 permanente — ninguém consegue recuperar, nem o usuário, nem a empresa, nem o servidor. **O
 que não se perde:** os arquivos no computador do usuário continuam lá, em Markdown, legíveis,
 exatamente como estavam — perde-se só as cópias no servidor e o acesso a partir de outros
@@ -1633,3 +1635,50 @@ configuração mudar.
 **Consequências:** o servidor, quando existir, tem de devolver 403 exatamente nesse caso e só
 nele; a mensagem de `plano` é o único lugar do app que menciona o plano premium a quem não
 assinou.
+
+### ADR-39 · Uma senha só: a da conta também protege o vault
+
+**Contexto:** a Parte 4, item 7 deste documento, e o `docs/16-codigo-de-recuperacao.md`
+(linha ~371) deixaram em aberto se a senha da conta (a que entra no site, e que dá para
+redefinir por e-mail) e a senha que protege o vault sincronizado seriam a mesma coisa ou duas
+senhas separadas. O dono do produto decidiu em 23/09/2026, nestas palavras: *"Só uma senha. A
+senha da conta. Não tem senha por vault."*
+
+**Decisão:** existe uma única senha, a da conta. Não há senha separada por vault. Como já
+estava desenhado no ADR-33 e no doc 16, ela é pedida uma vez por computador — quando aquele
+computador se conecta à sincronização — e não a cada abertura do app.
+
+**Alternativas rejeitadas:**
+
+| Opção | Por que não |
+|---|---|
+| Duas senhas separadas — conta redefinível por e-mail, e senha do vault sem recuperação (ADR-33) | Rejeitada pelo dono do produto. O motivo é a simplicidade para quem usa o app: uma senha só para decorar. |
+
+**Consequências:**
+
+1. **A senha nunca pode ir ao servidor do jeito que foi digitada — e isso ainda não está
+   implementado.** Hoje `ServicoContaHttp.entrar` e `ServicoContaHttp.criar`
+   (`src/conta/ServicoContaHttp.ts`) mandam a senha crua para o servidor, protegida só pela
+   conexão cifrada — o tratamento normal para uma senha de conta comum, redefinível por
+   e-mail. Mas como essa mesma senha agora também protege o vault, isso tem que mudar antes
+   de a sincronização existir: o app precisa derivar da senha, dentro do computador do
+   usuário, duas chaves diferentes — uma que prova a identidade da pessoa para o servidor, e
+   outra que cifra o vault e nunca sai do computador. É o mesmo modelo usado pelo Bitwarden e
+   pelo 1Password (a técnica de derivar duas chaves de uma senha se chama, em termos
+   técnicos, *key stretching*/derivação de chave). Sem essa mudança, o servidor receberia a
+   mesma senha que abre as notas cifradas, o que quebraria a promessa do ADR-32 de que o
+   servidor não consegue ler nada. Ainda não existe plano escrito para essa mudança.
+2. **Esquecer a senha faz perder o acesso à conta e às cópias sincronizadas no servidor, ao
+   mesmo tempo.** Os arquivos que já estão em cada computador continuam lá, intactos, porque
+   o vault é uma pasta comum de arquivos — o que se perde é só a cópia cifrada guardada no
+   servidor. Um eventual "esqueci minha senha" por e-mail só pode criar uma conta nova, vazia
+   de sincronização; nunca recuperar as cópias antigas, porque o servidor não tem como lê-las
+   (ADR-32, ADR-33).
+3. **Trocar a senha, sabendo a atual, precisa reenvelopar a chave do vault no computador —
+   não precisa recifrar todos os arquivos.** Isso é consequência do desenho de chave
+   envelopada já previsto no ADR-33 (a senha nunca cifra os arquivos diretamente; ela cifra
+   uma chave aleatória, e é essa chave que cifra o vault). Trocar a senha troca só o
+   envelope, não o conteúdo. Isto é registro de como o desenho se comporta — não é uma
+   promessa de quando essa tela vai existir.
+
+**Estado real: decidido; nada implementado.**
