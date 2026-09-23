@@ -1371,8 +1371,32 @@ três saídas possíveis: ficar com esta, ficar com aquela, ou manter as duas. A
 decidir, nada é apagado. Desenho não se compara como texto: duas versões de um `.draw.md`
 aparecem como duas telas, lado a lado, não como um diff de linhas.
 
-**Estado real: a sincronização não existe ainda.** O plano 04 (conflitos de sync) cobre só a
-tela de conflitos, que opera sobre "duas versões do mesmo arquivo" sem depender de servidor.
+**Estado real: a tela de conflitos está concluída; a sincronização em si ainda não existe.**
+O plano 04 (conflitos de sync) cobriu a tela inteira — faixa de aviso, comparador de notas
+lado a lado e comparador de desenhos — que opera sobre "duas versões do mesmo arquivo" sem
+depender de servidor. Falta só a sincronização de verdade: observar o vault, cifrar, subir,
+baixar, detectar conflito.
+
+**Decisões tomadas na execução (23/09/2026):**
+
+Três pontos que a decisão acima não previa, resolvidos durante a construção da tela:
+
+- **Cópia duplicada numera em vez de sobrescrever.** Quando o usuário escolhe "manter as
+  duas", a versão que perde o nome original vira uma cópia separada. Se isso acontecer duas
+  vezes para a mesma nota, no mesmo dia, vindo do mesmo computador, as duas cópias teriam o
+  mesmo nome — e a segunda apagaria a primeira, exatamente o que este ADR promete nunca
+  acontecer. Por isso a cópia segue o mesmo padrão do ADR-15 (`Nome (2)`, `Nome (3)`...) e
+  nunca sobrescreve. Um duplo clique tentando resolver a mesma escolha duas vezes ao mesmo
+  tempo também é barrado, pelo mesmo motivo.
+- **Linhas alteradas aparecem pareadas, lado a lado.** Quando uma linha muda de uma versão
+  para a outra, a tela mostra a versão antiga e a nova na mesma altura, uma em cada coluna —
+  em vez da antiga numa linha e a nova sozinha na linha de baixo, que ficaria confuso de ler.
+- **A comparação tem um teto de memória.** Para diferenças muito grandes — acima de cerca de
+  2.000 × 2.000 linhas diferentes entre as duas versões — a tela para de tentar destacar linha
+  a linha e mostra o bloco inteiro como "saiu" de um lado e "entrou" do outro, para não travar
+  o app. Linhas iguais no começo e no fim do arquivo são descartadas da comparação antes desse
+  cálculo, então um conflito de verdade — que normalmente muda só um trecho pequeno de uma
+  nota — quase nunca chega perto desse teto.
 
 **Alternativas rejeitadas:**
 
