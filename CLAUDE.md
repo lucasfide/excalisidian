@@ -21,7 +21,7 @@ Leia, nesta ordem:
 ## Regras do projeto
 
 - Português do Brasil em nomes de arquivo, componentes, variáveis e comentários, seguindo o que já está em `docs/05`.
-- Interface em português do Brasil, sentence case, sem emoji.
+- Português do Brasil é o idioma-fonte da interface; inglês é a tradução. Sentence case e sem emoji valem para os dois idiomas.
 - Nenhum valor de cor, fonte, espaçamento, raio ou sombra fora dos tokens de `globals.css`.
 - Nenhuma classe de cor padrão do Tailwind (`bg-background`, `text-foreground`, `border-input`).
 - Toda gravação em disco passa por `escritaAtomica.ts`. Nunca chame `writeTextFile` direto.
@@ -32,6 +32,9 @@ Leia, nesta ordem:
 - Desenhos são `.draw.md`. A extensão `.excalidraw` não é usada em lugar nenhum do produto.
 - O identificador do app (`excalisidian`) sai de uma constante única `APP_ID`, usada pela chave de frontmatter, pela pasta de config do vault e pela extensão temporária. O nome do produto ainda não está fechado — ver ADR-9.
 - Ao terminar uma fatia do roadmap, rode os testes mínimos da seção 10 do `docs/05`.
+- Todo texto de interface sai do catálogo (`src/i18n/catalogo/`), por `useTexto()` dentro de componente e `traduzirAgora()` fora. Nunca literal no JSX. Toda chave nova precisa de português e inglês.
+- `Dialog` renderiza por portal; não usar animação com preenchimento `both` em elemento que possa ter descendente `position: fixed`.
+- A árvore costuma ter trabalho não commitado do usuário. Commit sempre por caminho explícito, conferindo o diff antes; nunca `git add -A` nem `git add .`.
 
 ## Comandos
 
