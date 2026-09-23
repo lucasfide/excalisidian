@@ -951,7 +951,57 @@ git commit -m "feat(sync): comparador visual de duas versoes de um desenho"
 
 ---
 
-### Task 7: Testes mínimos da fatia
+### Task 7: Simular conflito em desenvolvimento
+
+> Acrescentada em 23/09/2026 no pré-voo da execução. Sem ela o usuário não consegue ver nada
+> do que as tarefas 5 e 6 constroem: a sincronização não existe, então nenhum conflito
+> acontece de verdade, e o único teste previsto era colar código no console do desenvolvedor —
+> o que o dono do produto, que não é técnico, não faria.
+
+**Esforço:** medium.
+
+**Files:**
+- Create: `src/sync/simularConflito.ts`
+- Test: `src/sync/simularConflito.test.ts`
+- Modify: o registro de comandos da paleta em `src/app/comandos/` (ler a pasta para achar
+  onde os comandos são declarados)
+- Modify: `src/i18n/catalogo/conflito.ts`
+
+**O que faz:** um comando na paleta de comandos, **que só existe quando
+`import.meta.env.DEV` é verdadeiro**, chamado "Simular conflito de sincronização". Ele:
+
+1. Cria no vault, pelo `VaultAdapter`, uma nota de teste de nome inconfundível —
+   `Excalisidian - conflito de teste.md` — com algumas linhas de conteúdo "local".
+2. Cria um desenho de teste `Excalisidian - conflito de teste.draw.md` com uma cena mínima
+   válida (um retângulo), no formato que `src/canvas/formatoDesenho.ts` lê e escreve.
+3. Registra no `conflitosStore` dois conflitos, um por arquivo, com uma versão "remota"
+   diferente (linhas alteradas na nota; um segundo elemento no desenho), dispositivo
+   "Notebook de teste".
+
+**Regras de segurança, que os testes cobram:**
+- O comando **NUNCA** registra conflito sobre um arquivo do usuário. Só sobre os dois nomes de
+  teste acima. Se eles já existirem (o comando rodou antes), são sobrescritos com o conteúdo
+  local de teste antes de registrar o conflito — só esses dois caminhos, nunca outro.
+- A resolução "ficar com a local" não escreve nada, porque assume que a versão local já está no
+  disco. Por isso o conteúdo gravado no passo 1 e no passo 2 tem de ser **idêntico** ao
+  `local.conteudo` do conflito registrado.
+- Em build de produção o comando não existe: nem na paleta, nem executável.
+
+**Testes (módulo puro):** a função que monta e registra os conflitos recebe um
+`VaultAdapter` falso e prova: que escreve só nos dois caminhos de teste; que o conteúdo
+gravado é igual ao `local.conteudo` de cada conflito registrado; que a versão remota difere
+da local; e que o conteúdo do desenho de teste é lido sem erro pelo mesmo leitor que
+`src/canvas/formatoDesenho.ts` usa.
+
+- [ ] **Step 1:** ler `src/app/comandos/`, `src/canvas/formatoDesenho.ts` e o `conflitosStore`.
+- [ ] **Step 2:** escrever os testes e ver falhar.
+- [ ] **Step 3:** implementar o módulo e o comando.
+- [ ] **Step 4:** `npm test` e `npm run build`.
+- [ ] **Step 5:** commit.
+
+---
+
+### Task 8: Testes mínimos da fatia
 
 **Files:**
 - Nenhum arquivo novo.
