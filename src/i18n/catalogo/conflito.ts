@@ -25,6 +25,10 @@ export const PT_BR_CONFLITO = {
     "Este desenho foi editado em dois computadores. Compare as duas telas e escolha.",
   "conflito.desenho.sugestao": "Manter as duas costuma ser a escolha segura num desenho.",
   "conflito.desenho.naoAbriu": "Não foi possível desenhar esta versão. Ela continua salva.",
+  // Comando de desenvolvimento (task-7): só existe com `import.meta.env.DEV`, mas o texto
+  // segue a mesma regra de catálogo dos demais.
+  "conflito.simular.nome": "Simular conflito de sincronização",
+  "conflito.simular.semVault": "Abra um vault para simular um conflito.",
 } as const;
 
 // Partial, como o EN geral em catalogo.ts: uma tradução faltando não trava a edição, cai no
@@ -51,4 +55,6 @@ export const EN_CONFLITO: Partial<Record<keyof typeof PT_BR_CONFLITO, string>> =
     "This drawing was edited on two computers. Compare both canvases and choose.",
   "conflito.desenho.sugestao": "Keeping both is usually the safe choice for a drawing.",
   "conflito.desenho.naoAbriu": "Could not render this version. It is still saved.",
+  "conflito.simular.nome": "Simulate sync conflict",
+  "conflito.simular.semVault": "Open a vault to simulate a conflict.",
 };

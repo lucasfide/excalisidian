@@ -14,10 +14,16 @@ import { verificarAtualizacao } from "../../app/atualizacao";
 import { useWorkspaceStore } from "../../estado/workspaceStore";
 import { useSobreposicaoStore } from "../../estado/sobreposicaoStore";
 import { usePrefsStore } from "../../estado/prefsStore";
+import { useVaultStore } from "../../estado/vaultStore";
+import { useConflitosStore } from "../../estado/conflitosStore";
 import { editorAtivo } from "../../editor/editorAtivo";
 import { inserirTabela } from "../../editor/extensoes/comandosMarkdown";
+import { useTexto } from "../../i18n/useTexto";
+import type { TradutorDoApp } from "../../i18n/catalogo";
+import { simularConflito } from "../../sync/simularConflito";
 import SobreposicaoBusca, { type ItemBusca } from "./SobreposicaoBusca";
 import { pontuar } from "./pontuarComando";
+import { FlaskConical } from "lucide-react";
 
 interface Comando extends ItemBusca {
   executar(): void;
@@ -25,7 +31,7 @@ interface Comando extends ItemBusca {
 
 /** Monta a lista de comandos. Não é um hook — só lê `getState()` uma vez por abertura da
  * paleta (via `useMemo`), os stores mudam entre uma abertura e outra, não durante. */
-function construirComandos(): Comando[] {
+function construirComandos(t: TradutorDoApp): Comando[] {
   const ws = useWorkspaceStore.getState();
   const prefs = usePrefsStore.getState();
   return [
@@ -84,12 +90,36 @@ function construirComandos(): Comando[] {
       rotulo: "Largura da nota: full",
       executar: () => prefs.definirLarguraNota("full"),
     },
+    // Só em desenvolvimento (task-7): `import.meta.env.DEV` é substituído por uma constante
+    // literal no build de produção, e o `? [...] : []` faz o empacotador eliminar este objeto
+    // — nome, mensagens e a chamada a `simularConflito` — do bundle publicado. Não é só
+    // esconder da lista: o código nem existe em produção.
+    ...(import.meta.env.DEV
+      ? [
+          {
+            id: "simular-conflito",
+            rotulo: t("conflito.simular.nome"),
+            Icone: FlaskConical,
+            executar: () => {
+              const adaptador = useVaultStore.getState().adapter;
+              if (!adaptador) {
+                toast(t("conflito.simular.semVault"));
+                return;
+              }
+              void simularConflito(adaptador, (conflito) =>
+                useConflitosStore.getState().registrar(conflito),
+              );
+            },
+          },
+        ]
+      : []),
   ];
 }
 
 export default function PaletaComandos() {
   const [valor, setValor] = useState("");
-  const comandos = useMemo(construirComandos, []);
+  const t = useTexto();
+  const comandos = useMemo(() => construirComandos(t), [t]);
   const fechar = () => useSobreposicaoStore.getState().fechar();
 
   const q = valor.trim().toLowerCase();
