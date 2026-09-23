@@ -17,6 +17,8 @@ export const PT_BR_CONFLITO = {
   "conflito.manterAmbasExplicacao":
     "A outra versão é salva ao lado, com o nome marcado como conflito.",
   "conflito.semDiferenca": "As duas versões têm o mesmo conteúdo.",
+  "conflito.erro.salvar":
+    "Não foi possível salvar a versão escolhida. Nada foi apagado — as duas versões continuam aqui.",
 } as const;
 
 // Partial, como o EN geral em catalogo.ts: uma tradução faltando não trava a edição, cai no
@@ -36,4 +38,6 @@ export const EN_CONFLITO: Partial<Record<keyof typeof PT_BR_CONFLITO, string>> =
   "conflito.manterAmbasExplicacao":
     "The other version is saved alongside, with the name marked as a conflict.",
   "conflito.semDiferenca": "Both versions have the same content.",
+  "conflito.erro.salvar":
+    "Could not save the chosen version. Nothing was deleted — both versions are still here.",
 };

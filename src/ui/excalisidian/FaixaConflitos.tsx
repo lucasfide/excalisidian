@@ -6,8 +6,17 @@
 // mesma convenção de `BalaoAgente.tsx` (`fixed bottom-4 right-4`): quem é overlay se posiciona
 // sozinho, o `App.tsx` só monta. Aqui não há o risco do comentário de `Dialog.tsx` (ancestral
 // com `transform` confinando um `fixed`): este componente entra direto num filho do container
-// raiz, sem ancestral transformado entre os dois, e o `Dialog` do comparador abaixo renderiza
-// por portal em `document.body` de qualquer forma.
+// raiz, sem ancestral transformado entre os dois — conferido subindo a cadeia até a raiz —, e
+// o `Dialog` do comparador abaixo renderiza por portal em `document.body` de qualquer forma.
+//
+// Posição (revisão 1 do planejador, 2026-09-23): embaixo, centralizada, acima da
+// `BarraStatus` (`h-6` = 24px). Não em cima: o topo da janela é onde o dockview desenha as
+// abas, e a faixa ficava por cima delas. Também não no canto inferior direito: é lá que moram
+// o balão do agente (`BalaoAgente`, `bottom-4 right-4`) e os toasts — outro alvo ali criaria
+// disputa de atenção com esses dois. `bottom-8` (32px) é a altura da barra de status (24px)
+// mais um respiro de 8px acima dela, os dois na escala numérica padrão do Tailwind que o resto
+// do app já usa para espaçamento (`gap-3`, `bottom-4`, etc. — os tokens do doc 06 cobrem cor,
+// fonte, raio e sombra, não espaçamento).
 //
 // O comparador abre num `Dialog` (portal em document.body, pilha do Esc) — nunca como um
 // `position: fixed` solto dentro de outro componente. O conflito some da fila sozinho quando
@@ -43,7 +52,7 @@ export default function FaixaConflitos() {
     <>
       <div
         role="status"
-        className="fixed left-1/2 top-4 z-40 flex w-fit max-w-lg -translate-x-1/2 items-center justify-between gap-3 rounded-ficha border border-ocre bg-[color-mix(in_srgb,var(--color-ocre)_18%,var(--color-superficie))] px-4 py-2 shadow-sobreposicao"
+        className="fixed bottom-8 left-1/2 z-40 flex w-fit max-w-lg -translate-x-1/2 items-center justify-between gap-3 rounded-ficha border border-ocre bg-[color-mix(in_srgb,var(--color-ocre)_18%,var(--color-superficie))] px-4 py-2 shadow-sobreposicao"
       >
         <span className="text-pequeno text-tinta">{texto}</span>
         <Botao

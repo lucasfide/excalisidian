@@ -14,12 +14,13 @@
 // maior parte do texto, que normalmente é igual nas duas versões.
 
 import { useMemo } from "react";
+import { toast } from "sonner";
 
 import { useConflitosStore } from "../../estado/conflitosStore";
 import { usePrefsStore } from "../../estado/prefsStore";
 import { useVaultStore } from "../../estado/vaultStore";
 import { diffLinhas, temDiferenca } from "../../sync/diffLinhas";
-import { colunasDeComparacao } from "../../sync/colunasComparacao";
+import { colunasDeComparacao, type CelulaComparacao, type LinhaComparacao } from "../../sync/colunasComparacao";
 import type { Conflito, Resolucao, VersaoEmConflito } from "../../sync/tipos";
 import { tagDeLocale } from "../../i18n/idioma";
 import { useTexto } from "../../i18n/useTexto";
@@ -50,10 +51,22 @@ export default function ComparadorNotas({ conflito }: Props) {
 
   const tagLocale = tagDeLocale(idioma);
 
-  const resolver = (resolucao: Resolucao) => {
+  // Falha na gravação (disco cheio, permissão, etc.): o store já mantém o conflito na fila —
+  // nada foi apagado —, mas a rejeição não pode escapar até o tratador global de
+  // `capturaDeErros.ts`, que mostraria "Promise rejeitada: Error: <mensagem técnica>" pro
+  // usuário. Todo outro ponto de escrita do app (criacao.ts, PainelLixeira.tsx) mostra o
+  // próprio erro com toast; aqui não é diferente. O diálogo continua aberto pra tentar de novo.
+  const resolver = async (resolucao: Resolucao) => {
     const adaptador = useVaultStore.getState().adapter;
-    if (!adaptador) return;
-    void useConflitosStore.getState().resolver(conflito.caminho, resolucao, adaptador);
+    if (!adaptador) {
+      toast.error(t("conflito.erro.salvar"));
+      return;
+    }
+    try {
+      await useConflitosStore.getState().resolver(conflito.caminho, resolucao, adaptador);
+    } catch {
+      toast.error(t("conflito.erro.salvar"));
+    }
   };
 
   return (
@@ -88,7 +101,7 @@ export default function ComparadorNotas({ conflito }: Props) {
           <Botao
             className="sm:justify-self-start"
             disabled={emAndamento}
-            onClick={() => resolver({ acao: "ficarCom", origem: "local" })}
+            onClick={() => void resolver({ acao: "ficarCom", origem: "local" })}
           >
             {t("conflito.ficarComEsta")}
           </Botao>
@@ -96,7 +109,7 @@ export default function ComparadorNotas({ conflito }: Props) {
             <Botao
               variante="primario"
               disabled={emAndamento}
-              onClick={() => resolver({ acao: "manterAmbas" })}
+              onClick={() => void resolver({ acao: "manterAmbas" })}
             >
               {t("conflito.manterAmbas")}
             </Botao>
@@ -105,7 +118,7 @@ export default function ComparadorNotas({ conflito }: Props) {
           <Botao
             className="sm:justify-self-end"
             disabled={emAndamento}
-            onClick={() => resolver({ acao: "ficarCom", origem: "remoto" })}
+            onClick={() => void resolver({ acao: "ficarCom", origem: "remoto" })}
           >
             {t("conflito.ficarComEsta")}
           </Botao>
@@ -114,7 +127,7 @@ export default function ComparadorNotas({ conflito }: Props) {
         <div className="pt-1">
           <Botao
             disabled={emAndamento}
-            onClick={() => resolver({ acao: "ficarCom", origem: "local" })}
+            onClick={() => void resolver({ acao: "ficarCom", origem: "local" })}
           >
             {t("conflito.ficarComEsta")}
           </Botao>
@@ -137,39 +150,36 @@ function CabecalhoColuna({ rotulo, data }: { rotulo: string; data: string }) {
 // grid do CSS sincroniza a altura de cada linha entre as duas colunas automaticamente, mesmo
 // quando o texto de um lado quebra em mais linhas que o outro. Duas grades separadas
 // perderiam esse alinhamento. Em telas estreitas (`grid-cols-1`), as células caem em sequência
-// — esquerda da linha 1, direita da linha 1, esquerda da linha 2… — que é a forma mais simples
+// — esquerda da linha 1, direita da linha 1, esquerda da linha 2... — que é a forma mais simples
 // de empilhar sem reescrever a lógica de alinhamento.
-function FragmentoLinha({ linha }: { linha: ReturnType<typeof colunasDeComparacao>[number] }) {
+//
+// Desde a revisão 1: uma linha da grade pode ter as duas células marcadas ao mesmo tempo — é o
+// caso da troca pareada que `colunasDeComparacao` monta (a versão antiga ao lado da nova). A
+// cor de cada célula sempre segue o LADO em que ela está (esquerda = removida = bordo, direita
+// = adicionada = cristal), nunca um "tipo" da linha inteira.
+function FragmentoLinha({ linha }: { linha: LinhaComparacao }) {
   return (
     <>
-      <CelulaLinha texto={linha.esquerda} marcada={linha.tipo === "removido"} tipo="removido" />
-      <CelulaLinha texto={linha.direita} marcada={linha.tipo === "adicionado"} tipo="adicionado" />
+      <CelulaLinha celula={linha.esquerda} cor="bordo" />
+      <CelulaLinha celula={linha.direita} cor="cristal" />
     </>
   );
 }
 
-function CelulaLinha({
-  texto,
-  tipo,
-  marcada,
-}: {
-  texto: string | null;
-  tipo: "removido" | "adicionado";
-  marcada: boolean;
-}) {
+function CelulaLinha({ celula, cor }: { celula: CelulaComparacao; cor: "bordo" | "cristal" }) {
   return (
     <div
       className={cn(
         "whitespace-pre-wrap px-2 py-0.5 text-tinta",
-        marcada &&
-          tipo === "removido" &&
+        celula.marcada &&
+          cor === "bordo" &&
           "bg-[color-mix(in_srgb,var(--color-bordo)_16%,transparent)]",
-        marcada &&
-          tipo === "adicionado" &&
+        celula.marcada &&
+          cor === "cristal" &&
           "bg-[color-mix(in_srgb,var(--color-cristal)_16%,transparent)]",
       )}
     >
-      {texto ?? " "}
+      {celula.texto ?? " "}
     </div>
   );
 }
