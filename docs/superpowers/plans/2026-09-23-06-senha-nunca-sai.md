@@ -14,7 +14,7 @@ mandar `{ email, provaDeIdentidade, kdf }` em vez de `{ email, senha }`. A inter
 `ServicoConta` **não muda** (continua recebendo a senha): a derivação é detalhe do transporte
 HTTP, e o fake e o `contaStore` ficam intactos.
 
-**Tech Stack:** `@noble/hashes` (Argon2id e HKDF, TypeScript puro, MIT), vitest.
+**Tech Stack:** `hash-wasm` (Argon2id, WASM, MIT), `@noble/hashes` (HKDF, SHA-256 e o teste cruzado do Argon2id, MIT), vitest.
 
 **Spec:** ADR-39 e ADR-33 em `docs/09-decisoes-e-incertezas.md`; `docs/16-codigo-de-recuperacao.md`.
 
@@ -30,6 +30,16 @@ HTTP, e o fake e o `contaStore` ficam intactos.
   última publicação em nov/2024. Fica como alternativa se o `@noble` se mostrar lento demais.
 - Referência de tempo: `argon2id(t=1, m=128MB)` ≈ 276 ms num Apple M4 (README do noble). Os
   parâmetros escolhidos abaixo devem ficar perto de 1 s num notebook Windows comum.
+- **Medição real (23/09/2026, Intel i7-1355U, node):** com `m=65536, t=3, p=4`, o Argon2id do
+  `@noble/hashes` levou **3,75–3,93 s** (até 19 s com a máquina ocupada) — acima do limite de
+  3 s da Task 2. O `hash-wasm` 4.12.0, com os mesmos parâmetros, levou **0,30–0,34 s**.
+  **Decisão (revisão do plano):** o Argon2id passa a ser do `hash-wasm` (implementação de
+  referência dos autores do algoritmo, compilada para WASM); o `@noble/hashes` fica para HKDF e
+  SHA-256 (partes auditadas) e para o teste. Os parâmetros **não** mudam. O `hash-wasm` não aceita
+  o campo *associated data* do vetor da RFC 9106, então o teste passa a ser: vetor da RFC no
+  Argon2id do noble **e** igualdade byte a byte entre noble e `hash-wasm` para os parâmetros do
+  app — duas implementações independentes concordando. O `tauri.conf.json` tem `csp: null`,
+  então o WebView executa WASM sem ajuste.
 
 ## Decisões técnicas (registradas no ADR-39 pela Task 1)
 
@@ -50,7 +60,7 @@ HTTP, e o fake e o `contaStore` ficam intactos.
 5. **Contrato novo com o servidor** (anotado no ADR-39): `POST /sessoes` e `POST /contas`
    recebem `{ email, provaDeIdentidade, kdf }`. O servidor trata a prova como trataria uma
    senha — guarda só um hash lento dela — porque quem tiver a prova consegue entrar.
-6. **Não travar a tela:** usar `argon2idAsync` (cede a vez ao navegador durante o cálculo). O
+6. **Não travar a tela:** o `argon2id` do `hash-wasm` é assíncrono e leva ~0,3 s. O
    `contaStore` já mostra "ocupado" enquanto `entrar`/`criar` roda.
 7. **Mínimo de 12 caracteres ao criar conta**, validado antes de qualquer derivação ou rede,
    com mensagem do catálogo. Só no **criar**: no **entrar**, qualquer senha vai para a
