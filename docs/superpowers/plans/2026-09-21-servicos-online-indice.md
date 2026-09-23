@@ -81,7 +81,7 @@ nele, ou quando a tarefa é de interface e não tem teste automatizado para guia
 | 03 | 1 — interface e falso | low | Módulos novos, código completo. |
 | 03 | 2 — implementação HTTP | low | Idem. |
 | 03 | 3 — `contaStore` | **medium** | Persistência, espelho no porta-token e ligação na abertura do app. |
-| 03 | 4 — código de recuperação | low | Módulo puro, código completo. |
+| 03 | 4 — código de recuperação | low | Módulo puro, código completo — **superada em 23/09/2026, ver ADR-33 e `docs/16` §9; o módulo será removido.** |
 | 03 | 5 — seção de conta | **medium** | Interface, sem teste. |
 | 04 | 1 — tipos e nome da cópia | low | Módulos novos; a armadilha do `.draw.md` já está no teste. |
 | 04 | 2 — comparação linha a linha | low | Algoritmo fechado no plano. |

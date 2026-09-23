@@ -835,6 +835,11 @@ git commit -m "feat(conta): contaStore com sessao persistida e espelho no porta-
 
 ### Task 4: Código de recuperação
 
+> **Superada em 23/09/2026.** Decisão tomada: não vai existir código de recuperação. O
+> módulo `src/conta/codigoDeRecuperacao.ts` e seu teste serão removidos. Ver ADR-33 em
+> `docs/09-decisoes-e-incertezas.md` e `docs/16-codigo-de-recuperacao.md` §9. Esta tarefa
+> fica registrada abaixo, não apagada, como histórico de como o código chegou a existir.
+
 **Files:**
 - Create: `src/conta/codigoDeRecuperacao.ts`
 - Test: `src/conta/codigoDeRecuperacao.test.ts`

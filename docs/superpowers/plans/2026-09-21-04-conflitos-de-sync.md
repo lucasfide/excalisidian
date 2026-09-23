@@ -978,6 +978,7 @@ Expected: `tsc` sem erro. É aqui que aparece qualquer `switch` sobre `ProvedorI
 
 - **O sync em si**: observar o vault, cifrar, subir, baixar, versionar, detectar que houve
   conflito. Este plano cobre o que acontece **depois** de o conflito ser detectado.
-- A criptografia e a derivação de chave a partir do código de recuperação.
+- A criptografia e a derivação de chave a partir da senha do vault, com chave envelopada
+  (ADR-33).
 - Histórico de versões no servidor.
 - Merge automático — decisão fechada no estudo de viabilidade: não existe, por princípio.
