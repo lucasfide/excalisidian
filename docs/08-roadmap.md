@@ -371,7 +371,7 @@ estiver integrada a ele.
 5. Grade com encaixe no canvas.
 6. Exportar nota para PDF.
 7. Graph view.
-8. Sincronização (provavelmente só documentar como usar Git).
+8. Sincronização — virou serviço pago, cifrado ponta a ponta. Ver Fatia 15 e ADR-32.
 
 ---
 
