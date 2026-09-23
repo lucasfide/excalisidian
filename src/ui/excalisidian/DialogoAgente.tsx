@@ -193,11 +193,12 @@ export default function DialogoAgente({ aoAbrirConta }: Props) {
       );
       setEtapa(3);
     } catch (e) {
-      // Chave recusada ou sessão ausente: fica no passo, com a mensagem própria de cada
-      // erro. Rede/listagem: segue com a lista estática do catálogo (doc 11 §6.3).
-      if (e instanceof FalhaAgente && e.codigo === "sessao") {
-        setErroChave(t("agente.erro.sessao"));
-      } else if (e instanceof FalhaAgente && e.codigo === "chave") {
+      // Chave recusada: fica no passo, com a mensagem própria do erro. Sessão ausente não
+      // chega aqui na prática — o provedor próprio sempre tem `modelosFixos` e retorna antes
+      // desta chamada (ver acima); se chegasse, cairia no fallback abaixo, já que este passo
+      // não renderiza `erroChave` no ramo `exigeConta`. Rede/listagem: segue com a lista
+      // estática do catálogo (doc 11 §6.3).
+      if (e instanceof FalhaAgente && e.codigo === "chave") {
         setErroChave(textoDoErro(e));
       } else {
         setModelos(null);
