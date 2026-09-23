@@ -510,7 +510,9 @@ Português do Brasil, sentence case, sem emoji (doc 06, Voz da interface).
 | Estado pausado (tooltip) | "Agente — pausado" |
 | Medidor de uso | "{n} tokens · ~US$ {v} hoje" |
 | Teto atingido (toast) | "Limite diário do agente atingido. Ele volta amanhã, ou você pode ajustar o limite." — **não implementado** (§ uso e custo) |
-| Chave inválida (401/403) | "A chave da API foi recusada pelo provedor. Confira a chave nas configurações." |
+| Chave inválida (401/403, provedores de chave própria) | "A chave da API foi recusada pelo provedor. Confira a chave nas configurações." |
+| Sem sessão (401 do provedor próprio, código `sessao`) | "Entre na sua conta do Excalisidian para usar a IA incluída no plano." (ADR-38) |
+| Conta sem direito à IA paga (403 do provedor próprio, código `plano`) | "A IA do Excalisidian faz parte do plano premium. Sua conta está no plano grátis." (ADR-38) |
 | Cota do provedor (429) | "O provedor limitou as chamadas agora. Tente de novo em instantes." |
 | Provedor fora do ar (5xx/rede) | "Não foi possível falar com o provedor. Verifique a conexão." |
 | Modelo inexistente (404) | "O provedor não conhece o modelo «{modelo}». Confira o nome nas configurações." |
