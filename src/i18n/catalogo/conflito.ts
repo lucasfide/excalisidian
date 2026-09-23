@@ -1,6 +1,7 @@
-// Textos do domínio "conflito": `FaixaConflitos` (aviso discreto) e `ComparadorNotas`
-// (as duas versões lado a lado). Fatia de `catalogo.ts` — ver o comentário de topo dele para
-// as regras gerais (fonte da verdade, queda pro português, redação).
+// Textos do domínio "conflito": `FaixaConflitos` (aviso discreto), `ComparadorNotas`
+// (as duas versões lado a lado) e `ComparadorDesenhos` (as duas telas do Excalidraw, task-6).
+// Fatia de `catalogo.ts` — ver o comentário de topo dele para as regras gerais (fonte da
+// verdade, queda pro português, redação).
 
 export const PT_BR_CONFLITO = {
   "conflito.faixa.um": "Uma nota foi editada em dois lugares.",
@@ -19,6 +20,11 @@ export const PT_BR_CONFLITO = {
   "conflito.semDiferenca": "As duas versões têm o mesmo conteúdo.",
   "conflito.erro.salvar":
     "Não foi possível salvar a versão escolhida. Nada foi apagado — as duas versões continuam aqui.",
+  "conflito.desenho.titulo": "Duas versões de {nome}",
+  "conflito.desenho.explicacao":
+    "Este desenho foi editado em dois computadores. Compare as duas telas e escolha.",
+  "conflito.desenho.sugestao": "Manter as duas costuma ser a escolha segura num desenho.",
+  "conflito.desenho.naoAbriu": "Não foi possível desenhar esta versão. Ela continua salva.",
 } as const;
 
 // Partial, como o EN geral em catalogo.ts: uma tradução faltando não trava a edição, cai no
@@ -40,4 +46,9 @@ export const EN_CONFLITO: Partial<Record<keyof typeof PT_BR_CONFLITO, string>> =
   "conflito.semDiferenca": "Both versions have the same content.",
   "conflito.erro.salvar":
     "Could not save the chosen version. Nothing was deleted — both versions are still here.",
+  "conflito.desenho.titulo": "Two versions of {nome}",
+  "conflito.desenho.explicacao":
+    "This drawing was edited on two computers. Compare both canvases and choose.",
+  "conflito.desenho.sugestao": "Keeping both is usually the safe choice for a drawing.",
+  "conflito.desenho.naoAbriu": "Could not render this version. It is still saved.",
 };

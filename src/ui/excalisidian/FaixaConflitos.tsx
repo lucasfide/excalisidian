@@ -23,6 +23,12 @@
 // `resolver` termina (conflitosStore.ts), e como `conflitoAberto` é lido direto do store por
 // caminho, o diálogo fecha em silêncio quando isso acontece — sem precisar de um callback
 // "ao resolver".
+//
+// Roteamento por tipo (task-6): nota abre `ComparadorNotas` (diff de texto), desenho abre
+// `ComparadorDesenhos` (duas telas do Excalidraw — desenho não compara como texto). O diálogo
+// do desenho é mais largo (`max-w-5xl` em vez do `max-w-3xl` da nota, mesma escala de
+// `max-w-*` que o resto do app já usa nos outros `Dialog`) para caber duas telas lado a lado
+// sem espremer.
 
 import { useState } from "react";
 
@@ -31,6 +37,7 @@ import { useTexto } from "../../i18n/useTexto";
 import { dividirExtensao, nomeBase } from "../../vault/caminhos";
 import Botao from "../Botao";
 import Dialog from "../Dialog";
+import ComparadorDesenhos from "./ComparadorDesenhos";
 import ComparadorNotas from "./ComparadorNotas";
 
 export default function FaixaConflitos() {
@@ -63,7 +70,20 @@ export default function FaixaConflitos() {
         </Botao>
       </div>
 
-      {conflitoAberto && (
+      {conflitoAberto && conflitoAberto.tipo === "desenho" && (
+        <Dialog
+          titulo={t("conflito.desenho.titulo", {
+            nome: dividirExtensao(nomeBase(conflitoAberto.caminho)).base,
+          })}
+          descricao={t("conflito.desenho.explicacao")}
+          onFechar={() => setCaminhoAberto(null)}
+          className="max-w-5xl"
+        >
+          <ComparadorDesenhos conflito={conflitoAberto} />
+        </Dialog>
+      )}
+
+      {conflitoAberto && conflitoAberto.tipo === "nota" && (
         <Dialog
           titulo={t("conflito.titulo", {
             nome: dividirExtensao(nomeBase(conflitoAberto.caminho)).base,
