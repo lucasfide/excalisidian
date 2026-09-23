@@ -1378,9 +1378,12 @@ tela de conflitos, que opera sobre "duas versões do mesmo arquivo" sem depender
 
 | Opção | Por que não |
 |---|---|
-| Servidor com acesso de leitura, mesmo que só em trânsito | Quebra a promessa central de privacidade do produto — o servidor passaria a poder ver o conteúdo das notas do usuário. |
-| Resolver conflito automaticamente (merge) | Arriscado para texto e sem sentido para desenho; o app poderia perder conteúdo do usuário sem ele perceber. |
-| Comparar `.draw.md` como texto (diff de linhas) | O arquivo é uma cena serializada; um diff de linhas não mostra o que mudou visualmente. Por isso as duas versões viram duas telas. |
+| O servidor lê o conteúdo (conexão cifrada e criptografia em repouso, mas legível para a empresa) | Rejeitada pelo usuário: a empresa vira responsável pelos dados sob LGPD, e o público que escolhe um app local-first é justamente o que mais se importa com isso. Era mais simples — recuperação de conta, busca no servidor, cliente web, suporte — e ainda assim foi rejeitada. |
+| Criptografia ponta a ponta opcional, desligada por padrão | Dois caminhos de código, dois modelos de suporte e dois textos de recuperação para manter; na prática gera confusão constante. |
+| Resolver conflito automaticamente (merge frase a frase, como o Google Docs) | Cerca de um ano de trabalho para um desenvolvedor sozinho até ficar confiável; quando erra, apaga texto de alguém sem avisar — contraria o princípio 1 do doc 01, "nenhuma ação apaga conteúdo do usuário sem uma volta atrás". |
+| Não construir sincronização; documentar Dropbox, iCloud ou Git e vender só a IA | Perde o principal argumento do plano pago e nunca chega a um cliente web. |
+| Largar a cópia de conflito na pasta, sem tela (como Dropbox e Obsidian fazem) | Rejeitada pelo próprio usuário, que propôs a tela lado a lado: o usuário acharia um arquivo estranho na pasta e teria de se virar sozinho. |
+| Comparar `.draw.md` como texto (diff de linhas) | O JSON da cena não é legível como diferença; desenho se compara vendo as duas telas. |
 
 **Consequências:** o plano 04 pode ser construído e testado sem depender de um servidor, pois
 opera só sobre "duas versões de um arquivo". A sincronização de verdade — observar o vault,
@@ -1452,8 +1455,8 @@ assim por ora.
 
 | Opção | Por que não |
 |---|---|
-| Manter o token em texto puro no `settings.json` (o estado atual) | Expõe o token a qualquer processo ou pessoa com acesso ao arquivo; o usuário decidiu que a sessão da conta merece a proteção do cofre do sistema. |
-| Mover o token e as seis chaves de API para o cofre ao mesmo tempo | Fora do escopo desta decisão — vira trabalho futuro; o usuário foi avisado da inconsistência atual e aceitou mantê-la por ora. |
+| Manter o token em texto puro no `settings.json`, declarando isso como incerteza no doc 09 | Rejeitada pelo usuário. Era o tratamento que as chaves de API já recebem, então não seria regressão — mas o token agora é credencial de conta paga. |
+| Levar para o cofre o token **e** as chaves de API dos seis provedores | Rejeitada pelo usuário: é trabalho próprio, mexe em código que já funciona, e exige migração para quem já tem chave salva. A inconsistência resultante (chaves de API em texto puro ao lado do token no cofre) foi aceita conscientemente. |
 
 **Consequências:** enquanto a Fase B não migra o token, ele continua exposto do mesmo jeito
 que as chaves de API já estão hoje. Não existe ainda um plano escrito para essa migração.
@@ -1515,7 +1518,9 @@ testou e constatou isso. A migração das telas restantes foi **adiada por decis
 |---|---|
 | Texto literal espalhado pelo JSX, com tradução caso a caso | Era o estado anterior a esta fundação; dificulta manter cobertura entre os idiomas e garante divergência ao longo do tempo. |
 | Migrar toda a interface para o catálogo já, de uma vez | Adiado por decisão do usuário — a prioridade foi para conta e sincronização primeiro. |
-| Inglês como idioma-fonte, com português como tradução | O produto e quem trabalha nele pensam em português; manter o português como fonte evita tradução reversa e perda de nuance. |
+| Usar uma biblioteca de tradução | O produto tem dois idiomas e um único formato de interpolação; um catálogo com teste cobre isso melhor do que uma dependência. |
+| Catálogo num arquivo só | Rejeitada na revisão da fundação: com as centenas de chaves previstas viraria um arquivo de milhares de linhas; dividir por domínio com poucas chaves é barato, depois é caro. |
+| Tradução incremental, sem trava (inglês parcial, faltando chaves) | Tradução faltando passaria despercebida. Decidiu-se cobrar por teste que toda chave em português tenha inglês; a queda para o português continua existindo só como garantia de execução — nunca mostra chave crua na tela. |
 
 **Consequências:** a interface continua majoritariamente em português fixo até a migração das
 telas restantes acontecer. Trocar o idioma nas preferências hoje muda pouco do que aparece na
@@ -1544,8 +1549,9 @@ prometer corrigi-la.
 
 | Opção | Por que não |
 |---|---|
-| Ajustar o CSS de cada ancestral problemático, um de cada vez | Não ataca a causa raiz — qualquer novo ancestral com `transform` reintroduziria o mesmo bug; o portal resolve de uma vez para sempre. |
-| Só remover o `both` da animação da sidebar, sem portal | Corrigia o sintoma que apareceu (a sidebar), mas deixava o diálogo vulnerável a qualquer outro ancestral com `transform` que aparecesse depois. |
+| Só remover o `both` da animação da sidebar, sem portal | O bug some hoje, mas a armadilha fica armada — qualquer `transform` futuro em qualquer ancestral (uma animação nova, um deslocamento de redimensionar) quebra os diálogos de novo, do mesmo jeito e sem aviso. |
+| Só o portal, mantendo o `both` | Resolve os diálogos, mas deixa o `both` inútil criando bloco de contenção para qualquer outro elemento `fixed` que nasça dentro da sidebar — um tooltip, um menu, um popover. |
+| Registrar o defeito e seguir sem corrigir | O defeito era visível para o usuário, no diálogo de criar vault. |
 
 **Consequências:** nenhuma tela nova pode aplicar uma animação com `both` a um elemento que
 tenha, ou possa vir a ter, um descendente `position: fixed`. A divergência do comentário em
