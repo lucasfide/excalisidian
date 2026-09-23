@@ -360,7 +360,7 @@ ver a tela sem sincronização de verdade existir, há um comando só de desenvo
 conflito de sincronização", na paleta de comandos. A sincronização em si — observar o vault,
 cifrar, enviar e receber — ainda não começou.
 
-**Status:** não começada.
+**Status:** tela de conflitos pronta; sincronização não começada.
 
 **Pronto quando:** existir um servidor de sincronização cifrada e a tela de conflitos
 estiver integrada a ele.
