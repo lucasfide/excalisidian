@@ -204,3 +204,96 @@ módulo está correto e bem testado, mas você descobriu a existência dele por 
 minha sobre um detalhe técnico — o que é a pior ordem possível.
 
 Este documento é a correção disso.
+
+---
+
+## 8. Perguntas do usuário, respondidas (23/09/2026)
+
+Duas perguntas que mostraram lacunas neste documento.
+
+### 8.1 "Quando esse código é solicitado?"
+
+O documento não dizia, e isso provavelmente é a raiz do desconforto. A resposta curta:
+**quase nunca.**
+
+| Situação | O que o app pede |
+|---|---|
+| Abrir o app, no dia a dia | Nada |
+| Instalar num computador novo | A senha do vault, uma vez |
+| Trocar de computador outra vez | A senha, uma vez naquele computador |
+| Esqueceu a senha, num computador novo | O código de recuperação |
+
+Quando um computador novo é conectado, o app pede a senha uma vez, deriva a chave e a
+guarda **no cofre do sistema operacional** — o mesmo cofre já decidido para o token da
+conta. Dali em diante aquele computador abre sozinho, sem perguntar nada.
+
+O código de recuperação é um extintor de incêndio: fica na parede, espera-se nunca usar, e
+só serve no dia em que a senha não está mais na cabeça de ninguém e o computador que a
+guardava não existe mais.
+
+Pedir a senha a cada abertura seria hostil e contraria o princípio de que o app funciona
+inteiro sem atrito. Não está proposto em lugar nenhum.
+
+### 8.2 "Não podemos pedir uma senha forte, de no mínimo 16 caracteres, em vez do código?"
+
+Dá, e é o que produtos reais fazem. O Obsidian Sync funciona assim: você define uma senha de
+criptografia e eles avisam que, se perdê-la, os dados vão junto. Sem código de recuperação.
+
+Mas existe um número contraintuitivo que precisa estar escrito aqui.
+
+**Uma senha de 16 caracteres escolhida por uma pessoa não vale 16 caracteres de força.**
+Pessoas escolhem padrões: palavras conhecidas, datas, substituir `a` por `@`, maiúscula no
+começo e número no fim. Na prática, uma senha humana de 16 caracteres costuma valer entre
+**30 e 45 bits** de aleatoriedade. O código gerado vale **119**.
+
+A diferença importa por causa do tipo de ataque possível aqui. Quem obtiver os arquivos
+embaralhados do servidor ataca **offline**: na máquina dele, sem limite de tentativas, com
+placas de vídeo, pelo tempo que quiser. Não há bloqueio após três erros, porque não há
+servidor no meio para bloquear.
+
+Isso tem remédio parcial e obrigatório: **derivação lenta de chave** (Argon2id ou
+equivalente), que torna cada tentativa cara de propósito. Transforma bilhões de tentativas
+por segundo em algumas centenas. Seria usado de qualquer forma, com ou sem código de
+recuperação.
+
+Conclusão honesta: senha humana forte + derivação lenta é **aceitável**. Não é equivalente
+ao código gerado, e a diferença aparece exatamente no cenário de um vazamento do servidor.
+
+### 8.3 Um quarto caminho: palavras em vez de caracteres
+
+Se a objeção ao código é que ele é impossível de memorizar e fácil de errar ao copiar,
+existe meio-termo. Em vez de:
+
+```
+K7MP-3RT9-WXQ2-BHJ5-NFD8-VYC4
+```
+
+o app gera uma sequência de palavras sorteadas:
+
+```
+girafa-tapete-vinagre-oceano-martelo-cadeira-trombone
+```
+
+Sete palavras sorteadas de uma lista grande valem por volta de **90 bits** — muito acima de
+qualquer senha humana, e da mesma ordem do código atual. E é incomparavelmente mais fácil de
+ditar por telefone, copiar de um papel sem errar, e até memorizar para quem quiser.
+
+Esse formato também resolve sozinho o problema do dígito verificador: palavra errada não
+existe na lista, então o app detecta o erro de digitação sem precisar de caractere extra.
+
+### 8.4 As combinações possíveis
+
+| Desenho | Força | Se esquecer | Atrito |
+|---|---|---|---|
+| Só senha humana (mín. 16) | Fraca a média | **Perde tudo** | Mínimo |
+| Só código gerado em caracteres | Muito forte | Perde tudo | Alto — ninguém memoriza |
+| Só sequência de palavras | Forte | Perde tudo | Médio |
+| Senha humana **+** palavras como reserva | Forte | Recupera pela reserva | Médio |
+| Senha humana **+** código em caracteres | Forte | Recupera pelo código | Alto |
+
+A quarta linha é a que eu recomendaria: a pessoa escolhe a senha que vai digitar quando
+conectar um computador novo, e o app gera a sequência de palavras como reserva, para
+guardar. Nenhuma das duas é pedida no uso diário.
+
+**Nada disso está decidido nem implementado.** O módulo atual implementa apenas a segunda
+linha da tabela, e nenhuma tela o usa.
