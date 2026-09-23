@@ -253,6 +253,115 @@ orçamento configurado, e um app sem agente configurado é indistinguível do ap
 
 ---
 
+## Fatia 11 — Tradução (i18n)
+
+Pedida pelo usuário; decisão em ADR-36 (`docs/09-decisoes-e-incertezas.md`). Todo texto de
+interface sai de um catálogo por domínio, nunca literal no JSX; português do Brasil é a
+fonte da verdade e define as chaves, inglês é a tradução; um teste trava toda chave em
+português sem par em inglês.
+
+- `src/i18n/idioma.ts`, `tradutor.ts`, `catalogo.ts` + `catalogo/<domínio>.ts`; `useTexto()`
+  dentro de componente React, `traduzirAgora()` fora (transporte, stores).
+- Preferência de idioma persistida em `prefsStore`; detecta o idioma do sistema na primeira
+  abertura.
+
+**Estado real:** a fundação está pronta e testada (cobertura por teste, resolução de
+fallback). Mas só estão no catálogo as mensagens de erro de criar vault, o seletor de
+idioma, os textos do agente de IA e a seção Conta — **o resto da interface continua em
+português fixo no código.** Trocar o idioma hoje quase não muda nada visível. A migração das
+telas restantes foi **adiada por decisão do usuário** (22/09/2026), para depois de conta e
+sincronização.
+
+**Status:** fundação pronta; migração das telas adiada pelo usuário.
+
+**Pronto quando:** trocar o idioma muda visivelmente a interface inteira, não só uma fração
+dela.
+
+---
+
+## Fatia 12 — IA do Excalisidian (provedor próprio)
+
+Sétimo provedor do catálogo do agente (doc 11 §3.2), decisão em ADR-35. Autentica pela
+sessão da conta em vez de chave digitada; identificadores lógicos de modelo, nunca o nome do
+fornecedor na interface; cota mensal em créditos, contada no servidor.
+
+- Assistente de configuração com passo de conta no lugar do passo de chave; listagem de
+  modelos não vai à rede; campo "Avançado · Base URL" some; revisão esconde chave e limite
+  de gasto.
+- Medidor em créditos, não em tokens; "Testar conexão" verifica a sessão.
+- Os seis provedores de chave própria continuam gratuitos e intactos; o agente continua
+  desligado por padrão.
+
+**Estado real:** pronta no cliente, depende do servidor. O domínio `api.excalisidian.app` é
+placeholder e não está registrado (doc 09, incerteza), e o endpoint de saldo de créditos
+ainda não existe — por isso o medidor de créditos **não renderiza** até haver saldo real.
+
+**Status:** pronta no cliente; depende do servidor.
+
+**Pronto quando:** o servidor existir, o domínio estiver registrado, e o medidor mostrar
+saldo real em vez de ficar oculto.
+
+---
+
+## Fatia 13 — Conta
+
+Entrar, criar, renovar, sair; seção "Conta" dentro de Configurações, em nenhum outro lugar —
+sem banner, sem aviso, sem convite recorrente (D1/ADR-31). E-mail inexistente e senha errada
+devolvem o mesmo erro, para não revelar quem tem conta.
+
+- `src/conta/` (`ServicoConta.ts`, `ServicoContaFake.ts`, `ServicoContaHttp.ts`) e
+  `src/estado/contaStore.ts`.
+- Só o token é persistido, em `settings.json`, texto puro (ver Fatia 14); carrega na abertura
+  sem bloquear a tela; só "sessão expirada" apaga o token — falha de rede ou de servidor
+  preserva a sessão.
+
+**Estado real:** pronta no cliente, com três pendências conhecidas (Fase B do trabalho): as
+telas ainda não usam o indicador de carregamento da conta, então quem já tem conta pode ver
+"entre na sua conta" por alguns segundos na abertura; um 401 do provedor próprio ainda
+aparece como "chave recusada"; o passo de conta do assistente de configuração do agente não
+tem botão para entrar — o usuário precisa fechar o assistente e ir às Configurações. E
+depende do servidor: sem ele, entrar e criar conta não completam de verdade.
+
+**Status:** pronta no cliente, com pendências; depende do servidor.
+
+**Pronto quando:** o servidor existir e as três pendências acima estiverem resolvidas.
+
+---
+
+## Fatia 14 — Token no cofre do sistema
+
+Decisão do usuário (22/09/2026, D4/ADR-34): o token da conta vai para o cofre do sistema
+operacional (keyring do Windows), não fica em texto puro no `settings.json`.
+
+**Estado real:** decidida, não começada. Hoje o token está em `settings.json`, em texto
+puro. A migração é trabalho da Fase B e ainda não tem plano escrito. Inconsistência aceita
+pelo usuário: as chaves de API dos seis provedores de chave própria do agente continuam em
+texto puro no `settings.json` mesmo depois desta fatia.
+
+**Status:** decidida, não começada.
+
+**Pronto quando:** o token de sessão nunca aparecer em texto puro em disco.
+
+---
+
+## Fatia 15 — Sincronização
+
+Vaults cifrados ponta a ponta; o servidor não lê nada — nem conteúdo, nem nome de arquivo,
+nem quantidade de notas (D2/ADR-32). Conflito (mesma nota editada em dois computadores) nunca
+funde sozinho: vira uma tela com três saídas (ficar com esta, ficar com aquela, manter as
+duas); desenho compara como duas telas lado a lado, não como texto.
+
+**Estado real:** não começada. A sincronização em si não existe. A tela de conflitos (plano
+`2026-09-21-04-conflitos-de-sync.md`) é a primeira parte planejada e **não depende de
+servidor** — opera sobre "duas versões do mesmo arquivo".
+
+**Status:** não começada.
+
+**Pronto quando:** existir um servidor de sincronização cifrada e a tela de conflitos
+estiver integrada a ele.
+
+---
+
 ## Depois do MVP, em ordem de valor
 
 1. Transclusão de elemento do desenho na nota (`#^id`).
