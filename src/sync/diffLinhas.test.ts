@@ -1,4 +1,6 @@
 // src/sync/diffLinhas.test.ts
+import { performance } from "node:perf_hooks";
+
 import { describe, it, expect } from "vitest";
 
 import { diffLinhas, temDiferenca } from "./diffLinhas";
@@ -63,5 +65,47 @@ describe("temDiferenca", () => {
 
   it("é verdadeiro com qualquer trecho diferente", () => {
     expect(temDiferenca(diffLinhas("a", "b"))).toBe(true);
+  });
+});
+
+describe("diffLinhas com textos grandes — corte de prefixo/sufixo comuns", () => {
+  it("5.000 linhas iguais com uma diferença no meio: só o miolo entra na tabela, e roda rápido", () => {
+    const TOTAL = 5000;
+    const MEIO = 2500;
+    const linhas = Array.from({ length: TOTAL }, (_, i) => `linha ${i}`);
+    const antes = linhas.join("\n");
+    const depois = linhas
+      .map((linha, i) => (i === MEIO ? "linha 2500 MODIFICADA" : linha))
+      .join("\n");
+
+    const inicio = performance.now();
+    const trechos = diffLinhas(antes, depois);
+    const duracaoMs = performance.now() - inicio;
+
+    // 500ms é folgado para um miolo de 1 linha contra 1 linha; se o ambiente de CI for
+    // muito mais lento que uma máquina de desenvolvimento, este número pode precisar subir,
+    // mas qualquer coisa na casa dos segundos indica que o corte de prefixo/sufixo não
+    // está funcionando (a tabela cheia de 5000×5000 é que levaria segundos).
+    expect(duracaoMs).toBeLessThan(500);
+
+    expect(trechos).toEqual([
+      { tipo: "igual", linhas: linhas.slice(0, MEIO) },
+      { tipo: "removido", linhas: ["linha 2500"] },
+      { tipo: "adicionado", linhas: ["linha 2500 MODIFICADA"] },
+      { tipo: "igual", linhas: linhas.slice(MEIO + 1) },
+    ]);
+  });
+
+  it("dois textos grandes completamente diferentes estouram o teto: vira removido + adicionado em bloco", () => {
+    const TOTAL = 2100; // 2100 × 2100 = 4.410.000 > LIMITE_CELULAS (4.000.000)
+    const linhasAntes = Array.from({ length: TOTAL }, (_, i) => `a-linha-${i}`);
+    const linhasDepois = Array.from({ length: TOTAL }, (_, i) => `b-linha-${i}`);
+
+    const trechos = diffLinhas(linhasAntes.join("\n"), linhasDepois.join("\n"));
+
+    expect(trechos).toEqual([
+      { tipo: "removido", linhas: linhasAntes },
+      { tipo: "adicionado", linhas: linhasDepois },
+    ]);
   });
 });
