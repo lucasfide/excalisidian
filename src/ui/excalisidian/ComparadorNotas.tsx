@@ -1,6 +1,7 @@
 // As duas versões de uma nota em conflito, lado a lado (task-5). Toda a lógica de alinhar as
 // colunas mora em `colunasDeComparacao` (`src/sync/colunasComparacao.ts`, com teste próprio) —
-// este componente só desenha.
+// este componente só desenha. A resolução (ficar com esta / manter as duas, tratamento de
+// erro) mora em `useResolucaoDeConflito`, compartilhada com `ComparadorDesenhos` (task-6).
 //
 // Cores das diferenças: fundo translúcido derivado dos tokens semânticos com `color-mix`, o
 // mesmo recurso que o escurecido do `Dialog.tsx` já usa (`color-mix(in srgb, var(--color-tinta)
@@ -14,33 +15,26 @@
 // maior parte do texto, que normalmente é igual nas duas versões.
 
 import { useMemo } from "react";
-import { toast } from "sonner";
 
-import { useConflitosStore } from "../../estado/conflitosStore";
 import { usePrefsStore } from "../../estado/prefsStore";
-import { useVaultStore } from "../../estado/vaultStore";
 import { diffLinhas, temDiferenca } from "../../sync/diffLinhas";
 import { colunasDeComparacao, type CelulaComparacao, type LinhaComparacao } from "../../sync/colunasComparacao";
-import type { Conflito, Resolucao, VersaoEmConflito } from "../../sync/tipos";
+import type { Conflito } from "../../sync/tipos";
 import { tagDeLocale } from "../../i18n/idioma";
 import { useTexto } from "../../i18n/useTexto";
 import Botao from "../Botao";
 import { cn } from "../cn";
+import { useResolucaoDeConflito } from "./useResolucaoDeConflito";
+import { CabecalhoColuna, formatarData } from "./cabecalhoVersaoConflito";
 
 interface Props {
   conflito: Conflito;
 }
 
-function formatarData(versao: VersaoEmConflito, tag: string): string {
-  return new Intl.DateTimeFormat(tag, { dateStyle: "short", timeStyle: "short" }).format(
-    new Date(versao.mtimeMs),
-  );
-}
-
 export default function ComparadorNotas({ conflito }: Props) {
   const t = useTexto();
   const idioma = usePrefsStore((s) => s.idioma);
-  const emAndamento = useConflitosStore((s) => s.emResolucao(conflito.caminho));
+  const { emAndamento, resolver } = useResolucaoDeConflito(conflito.caminho);
 
   const trechos = useMemo(
     () => diffLinhas(conflito.local.conteudo, conflito.remoto.conteudo),
@@ -50,24 +44,6 @@ export default function ComparadorNotas({ conflito }: Props) {
   const linhas = useMemo(() => colunasDeComparacao(trechos), [trechos]);
 
   const tagLocale = tagDeLocale(idioma);
-
-  // Falha na gravação (disco cheio, permissão, etc.): o store já mantém o conflito na fila —
-  // nada foi apagado —, mas a rejeição não pode escapar até o tratador global de
-  // `capturaDeErros.ts`, que mostraria "Promise rejeitada: Error: <mensagem técnica>" pro
-  // usuário. Todo outro ponto de escrita do app (criacao.ts, PainelLixeira.tsx) mostra o
-  // próprio erro com toast; aqui não é diferente. O diálogo continua aberto pra tentar de novo.
-  const resolver = async (resolucao: Resolucao) => {
-    const adaptador = useVaultStore.getState().adapter;
-    if (!adaptador) {
-      toast.error(t("conflito.erro.salvar"));
-      return;
-    }
-    try {
-      await useConflitosStore.getState().resolver(conflito.caminho, resolucao, adaptador);
-    } catch {
-      toast.error(t("conflito.erro.salvar"));
-    }
-  };
 
   return (
     <div className="flex flex-col gap-3">
@@ -133,15 +109,6 @@ export default function ComparadorNotas({ conflito }: Props) {
           </Botao>
         </div>
       )}
-    </div>
-  );
-}
-
-function CabecalhoColuna({ rotulo, data }: { rotulo: string; data: string }) {
-  return (
-    <div className="min-w-0">
-      <div className="truncate text-pequeno font-medium text-tinta">{rotulo}</div>
-      <div className="meta text-tinta-suave">{data}</div>
     </div>
   );
 }
