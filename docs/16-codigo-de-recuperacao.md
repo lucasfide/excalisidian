@@ -10,7 +10,7 @@ resumo em linguagem de produto, sem jargão, está na **seção 9**, no fim dest
 seções abaixo continuam aqui como o registro de como se chegou até a decisão — algumas foram
 superadas pela seção 9, e isso está marcado onde acontece.
 
-O módulo existe no código e **nenhuma tela do produto usa**; ele será removido (ver seção 9).
+O módulo existe no código e **nenhuma tela do produto usa**; foi removido em 23/09/2026 (ver seção 9).
 
 ---
 
