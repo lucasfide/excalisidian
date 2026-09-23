@@ -1667,7 +1667,9 @@ computador se conecta à sincronização — e não a cada abertura do app.
    pelo 1Password (a técnica de derivar duas chaves de uma senha se chama, em termos
    técnicos, *key stretching*/derivação de chave). Sem essa mudança, o servidor receberia a
    mesma senha que abre as notas cifradas, o que quebraria a promessa do ADR-32 de que o
-   servidor não consegue ler nada. Ainda não existe plano escrito para essa mudança.
+   servidor não consegue ler nada. O plano de como fazer isso está escrito em
+   `docs/superpowers/plans/2026-09-23-06-senha-nunca-sai.md` (seção "Como será implementado",
+   abaixo).
 2. **Esquecer a senha faz perder o acesso à conta e às cópias sincronizadas no servidor, ao
    mesmo tempo.** Os arquivos que já estão em cada computador continuam lá, intactos, porque
    o vault é uma pasta comum de arquivos — o que se perde é só a cópia cifrada guardada no
@@ -1680,5 +1682,44 @@ computador se conecta à sincronização — e não a cada abertura do app.
    uma chave aleatória, e é essa chave que cifra o vault). Trocar a senha troca só o
    envelope, não o conteúdo. Isto é registro de como o desenho se comporta — não é uma
    promessa de quando essa tela vai existir.
+
+**Como será implementado (plano de 23/09/2026).** Existe agora um plano escrito para a
+consequência 1 acima: `docs/superpowers/plans/2026-09-23-06-senha-nunca-sai.md`. Resumo das
+decisões desse plano, em linguagem simples:
+
+1. **Parâmetros de segurança.** O app vai usar os mesmos parâmetros do Bitwarden (um
+   concorrente sério de gerenciador de senhas) para transformar a senha numa chave (a técnica
+   se chama Argon2id). Quanto mais "pesado" esse cálculo, mais caro fica para alguém tentar
+   adivinhar a senha testando várias de uma vez. Um rótulo de versão desses parâmetros viaja
+   junto para o servidor, para poder torná-los mais pesados no futuro sem travar quem já tem
+   conta.
+2. **Sal.** Cada conta usa um ingrediente extra fixo, calculado a partir do e-mail (chamado
+   "sal" em criptografia), para que a mesma senha não vire a mesma chave em contas diferentes.
+   Esse ingrediente usa um texto fixo do próprio código — e não o nome do produto, que ainda
+   pode mudar (ver ADR-9): se o nome mudasse e o ingrediente mudasse com ele, ninguém mais
+   conseguiria entrar na própria conta. Consequência: hoje não existe tela para trocar o
+   e-mail da conta, e trocar o e-mail exigiria recalcular tudo de novo.
+3. **Normalização.** Antes de calcular, o e-mail é limpo (sem espaços nas pontas, tudo
+   minúsculo) e tanto o e-mail quanto a senha passam por uma limpeza de caracteres invisíveis,
+   para que a mesma senha digitada em teclados diferentes dê sempre o mesmo resultado. Espaços
+   que fazem parte da própria senha continuam contando normalmente.
+4. **Separação em duas chaves.** Da senha nasce uma chave-mestra que nunca é usada
+   diretamente. Dela nascem duas outras, cada uma feita só para um uso (a técnica se chama
+   HKDF): a **prova de identidade**, que vai para o servidor, e a **chave de envelope**, que
+   vai proteger o vault e nunca sai do computador do usuário. Hoje ainda não existe
+   sincronização, então ainda ninguém usa essa chave de envelope — ela já está sendo criada
+   agora para existir pronta quando a sincronização chegar.
+5. **Contrato novo com o servidor.** Em vez de mandar `{ e-mail, senha }`, o app passa a
+   mandar `{ e-mail, prova de identidade, rótulo dos parâmetros }`. O servidor trata essa prova
+   exatamente como trataria uma senha comum — em nenhum momento ele vê a senha real.
+6. **Não travar a tela.** Como o cálculo é pesado de propósito (decisão 1), ele roda de um
+   jeito que não congela a tela do app enquanto a pessoa espera.
+7. **Senha mínima de 12 caracteres, só para conta nova.** Quem já tem conta com senha menor
+   continua conseguindo entrar normalmente — a regra nova não tranca ninguém que já existe.
+8. **Aviso na tela de criação de conta.** Um texto vai avisar, sem rodeios, que essa senha não
+   pode ser recuperada por ninguém (nem pela própria empresa), que as notas já salvas no
+   computador continuam seguras mesmo assim, e recomendando guardar a senha num gerenciador de
+   senhas. Isso cumpre um aviso que o ADR-33 já previa e que ainda não tinha sido colocado na
+   tela.
 
 **Estado real: decidido; nada implementado.**
