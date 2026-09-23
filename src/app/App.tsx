@@ -38,6 +38,7 @@ import PainelLixeira from "../ui/excalisidian/PainelLixeira";
 import PainelTarefas from "../ui/excalisidian/PainelTarefas";
 import BalaoAgente from "../ui/excalisidian/BalaoAgente";
 import PainelAgente from "../ui/excalisidian/PainelAgente";
+import FaixaConflitos from "../ui/excalisidian/FaixaConflitos";
 import DialogoAgente from "../ui/excalisidian/DialogoAgente";
 import RaizDialogos from "../ui/excalisidian/RaizDialogos";
 import RaizSobreposicoes from "../ui/excalisidian/RaizSobreposicoes";
@@ -458,6 +459,7 @@ export default function App() {
       <RaizSobreposicoes />
       <BalaoAgente />
       <PainelAgente />
+      <FaixaConflitos />
       <DialogoAtualizacao />
       {/* Preferências e o assistente do agente dividem o mesmo z-[100], mas Dialog renderiza
           por portal em document.body (Dialog.tsx): o elemento de cada um entra no `body` no
