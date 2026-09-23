@@ -1001,6 +1001,12 @@ Trate cada item abaixo como suposição a validar antes de depender dele.
 
 27. **Endpoint exato do "Alibaba token plan" do usuário.** O catálogo assume o DashScope compatible-mode (`https://dashscope.aliyuncs.com/compatible-mode/v1`); se a conta do usuário usar um gateway diferente, o campo de base URL editável cobre — mas a URL real precisa ser confirmada com o usuário antes da fase 1 (doc 11 §3).
 
+28. **Domínio placeholder.** `api.excalisidian.app` não está registrado, e já está no binário e na lista de permissões de rede do Tauri. Nenhum token real pode existir antes de registrá-lo.
+29. **Plano da assinatura preso até reiniciar.** O plano só é lido na abertura do app. Quem assinar pelo site continua vendo "Plano grátis" até fechar e reabrir o Excalisidian. Resolver isso exige um endpoint que não existe; usar `renovar` só para checar o plano rotacionaria o token a cada verificação, o que não é aceitável.
+30. **Sem renovação automática de sessão.** Um token que expira durante o uso não é renovado sozinho; o usuário precisa entrar de novo.
+31. **Fornecedor de IA e GDPR.** O modelo previsto no estudo de viabilidade para a IA do Excalisidian é de um fornecedor chinês. Mandar notas de um usuário europeu para lá é transferência internacional de dados sob o GDPR. Verificar se existe hospedagem ocidental do mesmo modelo antes de anunciar preço para esse serviço.
+32. **Endpoint de saldo de créditos não existe.** O medidor de créditos (doc 11, D5) não renderiza enquanto esse endpoint não existir — mostrar zero seria mentir sobre dinheiro.
+
 ---
 
 ## Parte 3.1 — O que a revisão consertou
@@ -1031,6 +1037,25 @@ Foram acrescentados o **ADR-8** (a extensão `.draw.md`, com as alternativas que
 4. **O que acontece com as abas quando o vault é trocado?** Minha suposição: dá flush em tudo, fecha todas as abas, grava o arquivo de layout do vault que está saindo e carrega o do que está entrando. Não está especificado em lugar nenhum e a Fatia 8 vai esbarrar nisso.
 5. **A escolha de `S` para o post-it** é minha. Se você usa muito `S` para outra coisa, mude antes de virar memória muscular.
 6. **O nome do produto.** Se "Excalisidian" é para ficar, feche agora; se não, escolha antes da Fatia 1, porque ele entra na chave de frontmatter, na pasta de config e na extensão temporária. Ver ADR-9.
+7. **Uma senha só para conta e vault, ou duas?** Ninguém decidiu ainda.
+
+   - **Uma senha só** (o modelo do Bitwarden e do 1Password): você decora uma coisa só. Mas
+     essa senha **nunca pode ir para o servidor do jeito que foi digitada** — o app precisa
+     derivar dela duas chaves diferentes: uma que prova a sua identidade para o servidor, e
+     outra que cifra o vault e nunca sai do seu computador. Consequência: esquecer essa senha
+     única faz você perder o acesso à conta **e** as cópias sincronizadas, no mesmo momento.
+   - **Duas senhas separadas:** a senha da conta funciona como a de qualquer serviço comum —
+     dá para redefinir por e-mail se você esquecer. A senha do vault é outra, e essa não tem
+     recuperação (ADR-33). Dá mais trabalho para decorar duas senhas, mas quem esquece a
+     senha da conta não perde nada do vault.
+   - **Um fato técnico que precisa entrar nessa decisão:** hoje, o código
+     (`ServicoContaHttp.entrar`) manda a senha da conta para o servidor exatamente como ela
+     foi digitada, protegida só pela conexão cifrada (o "cadeado" do navegador). Isso é normal
+     para uma senha de conta comum, do tipo que dá para redefinir. **Mas se a decisão for
+     "uma senha só", isso tem que mudar antes de a sincronização existir** — senão o servidor
+     passaria a receber a mesma senha que protege o vault, e poderia, em tese, derivar a
+     chave que abre suas notas. Isso quebraria a promessa do ADR-32, de que o servidor não
+     consegue ler nada.
 
 ---
 
@@ -1301,3 +1326,227 @@ Atalhos de ferramenta do canvas vêm direto do Excalidraw 0.18.1 nativo (doc 09,
 - O mínimo de 4 traços é o que impede uma tabela redimensionada de voltar a ser lida como automática.
 
 **Condição de reversão:** se a contagem de traços conflitar com outra ferramenta que o usuário use no mesmo vault, voltar a ler todo delimitador como automático é mudar uma função (`parseTableText`); os arquivos continuam válidos.
+
+---
+
+### ADR-31 · Serviços online são opcionais e nunca atrapalham o uso local
+
+**Contexto:** a visão original do produto (doc 01) foi escrita para a prova de conceito
+técnica, quando o Excalisidian "não queria plugin, marketplace, sincronização paga, nem
+conta". O usuário decidiu pivotar depois de usar o app e ver que o produto se sustenta — o
+Excalisidian passa a ter serviços pagos opcionais: sincronização de vaults e IA própria.
+
+**Decisão:** o núcleo do Excalisidian funciona inteiro sem internet e sem conta. Quem nunca
+criar conta não percebe diferença nenhuma: nenhuma tela bloqueia o uso, nenhum aviso
+recorrente aparece, e não há tela de login na abertura do app. Sincronização e IA própria são
+serviços pagos, e são **opt-in** — nada sai da máquina do usuário sem permissão explícita
+dele. Menções aos serviços pagos são permitidas, mas não invasivas: hoje isso significa que a
+conta vive só dentro de Configurações, e a IA própria aparece só como mais uma opção na lista
+de provedores do agente, ao lado dos outros seis. O vault continua sendo o produto — cancelar
+a assinatura não tira nada de ninguém.
+
+**Alternativas rejeitadas:**
+
+| Opção | Por que não |
+|---|---|
+| Manter a visão original (sem conta, sem sincronização paga) | Era a decisão certa para a prova de conceito técnica, mas o usuário decidiu pivotar depois de usar o produto — ele se sustenta melhor com serviços pagos opcionais. |
+| Exigir conta, ou mostrar tela de login na abertura do app | Contraria o princípio de que nada atrapalha quem usa o app localmente — bloquear ou interromper a abertura por causa de um serviço opcional penaliza justamente quem nunca vai usá-lo. |
+| Anunciar os serviços pagos de forma recorrente (banner, convite periódico) | O usuário foi explícito: "haverá menções, mensagens, avisos... mas não seremos invasivos". Um lembrete recorrente contraria isso. |
+
+**Consequências:** a conta fica isolada dentro de Configurações, sem nenhum outro ponto de
+entrada no produto. Qualquer serviço pago futuro precisa seguir a mesma regra: opt-in, sem
+bloquear o núcleo, sem aviso recorrente.
+
+### ADR-32 · Sincronização cifrada ponta a ponta; conflito vira tela, nunca merge
+
+**Contexto:** a sincronização ainda não existe, mas precisa de uma regra de tratamento de
+dados definida antes de qualquer código de servidor — é a base sobre a qual o ADR-33 (senha
+sem recuperação) se sustenta.
+
+**Decisão:** o servidor não consegue ler nada do que sincroniza — nem o conteúdo das notas,
+nem o nome dos arquivos, nem quantas notas existem. Ele recebe pacotes cifrados e um
+manifesto de versões, só isso. Quando a mesma nota é editada em dois computadores diferentes
+(conflito), o app **nunca junta as duas versões sozinho** — mostra as duas lado a lado, com
+três saídas possíveis: ficar com esta, ficar com aquela, ou manter as duas. Até o usuário
+decidir, nada é apagado. Desenho não se compara como texto: duas versões de um `.draw.md`
+aparecem como duas telas, lado a lado, não como um diff de linhas.
+
+**Estado real: a sincronização não existe ainda.** O plano 04 (conflitos de sync) cobre só a
+tela de conflitos, que opera sobre "duas versões do mesmo arquivo" sem depender de servidor.
+
+**Alternativas rejeitadas:**
+
+| Opção | Por que não |
+|---|---|
+| Servidor com acesso de leitura, mesmo que só em trânsito | Quebra a promessa central de privacidade do produto — o servidor passaria a poder ver o conteúdo das notas do usuário. |
+| Resolver conflito automaticamente (merge) | Arriscado para texto e sem sentido para desenho; o app poderia perder conteúdo do usuário sem ele perceber. |
+| Comparar `.draw.md` como texto (diff de linhas) | O arquivo é uma cena serializada; um diff de linhas não mostra o que mudou visualmente. Por isso as duas versões viram duas telas. |
+
+**Consequências:** o plano 04 pode ser construído e testado sem depender de um servidor, pois
+opera só sobre "duas versões de um arquivo". A sincronização de verdade — observar o vault,
+cifrar, subir, baixar, detectar conflito — ainda depende de um servidor que não existe.
+
+### ADR-33 · Senha do vault escolhida pelo usuário, sem código de recuperação
+
+**Contexto:** esta é a decisão mais delicada deste documento, e a mais importante desta
+leva. Ela decorre direto do ADR-32: se o servidor não consegue ler nada, ele também não pode
+"trocar a fechadura" de quem esquece a senha, como um serviço comum faz. Discussão completa,
+em linguagem de produto e sem pressa, em `docs/16-codigo-de-recuperacao.md`.
+
+**Decisão:** como o servidor não consegue ler nada (ADR-32), **não existe "esqueci minha
+senha".** Esquecer a senha do vault faz as cópias sincronizadas no servidor virarem lixo
+permanente — ninguém consegue recuperar, nem o usuário, nem a empresa, nem o servidor. **O
+que não se perde:** os arquivos no computador do usuário continuam lá, em Markdown, legíveis,
+exatamente como estavam — perde-se só as cópias no servidor e o acesso a partir de outros
+computadores.
+
+A senha que cifra o vault é escolhida pelo usuário. Não há código nem frase de recuperação,
+por quatro motivos: (1) um código não é medida de segurança, é medida contra esquecimento — a
+segurança vem da senha e da derivação lenta, e uma segunda cópia da chave em papel só
+**reduz** a segurança, porque pode ser fotografada, perdida ou roubada; (2) neste produto o
+desastre de esquecer é menor do que num gerenciador de senhas ou e-mail cifrado, porque as
+notas locais continuam intactas; (3) o código acrescenta atrito na criação da conta e um
+segundo segredo que muita gente guarda mal; (4) o usuário achou o código de 24 caracteres já
+implementado "muito sensível" e nem sabia que ele existia.
+
+**Derivação lenta de chave** (Argon2id ou equivalente) é obrigatória: torna cada tentativa de
+adivinhar a senha cara de propósito, porque quem obtiver os pacotes cifrados ataca **offline**,
+sem limite de tentativas. **Chave envelopada desde o primeiro dia:** o vault é cifrado com uma
+chave aleatória, e essa chave é que é cifrada pela senha — isso permite, no futuro, acrescentar
+uma forma de recuperação sem reprocessar nada e sem afetar quem já usa. É a única parte desta
+decisão com prazo: precisa estar no desenho antes de o primeiro usuário sincronizar.
+
+**Quando a senha é pedida:** uma vez por computador, ao conectá-lo à sincronização. A chave
+derivada fica no cofre do sistema operacional. **Nunca na abertura do app.** A tela de criação
+de conta diz, sem eufemismo, que a senha não pode ser recuperada e que as notas locais
+continuam a salvo, e recomenda guardar a senha no gerenciador de senhas do navegador ou do
+sistema.
+
+**Alternativas rejeitadas:**
+
+| Opção | Por que não |
+|---|---|
+| Código gerado de 24 caracteres (implementado em 21/09, removido por esta decisão) | Impossível de memorizar, fácil de errar ao copiar, sensível demais, e o usuário nem sabia que existia. |
+| Frase de palavras aleatórias como reserva | Melhor que o código de caracteres, mas mantém os problemas (2) e (3) acima: ainda é um segundo segredo, e ainda existe para ser perdido, fotografado ou roubado. |
+| Senha humana sem derivação lenta | Uma senha humana de 16 caracteres vale, na prática, 30 a 45 bits de aleatoriedade — pouco contra um ataque offline sem limite de tentativas. |
+
+**Consequências:** o módulo `src/conta/codigoDeRecuperacao.ts` e seu teste são removidos —
+nenhuma tela chegou a usá-lo (ver item 2.6 do plano de adequação e `docs/16` §9). A tarefa que
+o criou (plano 03, Task 4) fica marcada como superada, não apagada. A chave envelopada tem
+prazo: precisa existir no desenho antes do primeiro usuário sincronizar.
+
+### ADR-34 · Token de sessão no cofre do sistema operacional
+
+**Contexto:** decisão do usuário em 22/09/2026, sobre onde guardar o token que mantém a
+sessão da conta entre aberturas do app.
+
+**Decisão:** o token da conta vai para o cofre do sistema operacional (o keyring do Windows),
+e não fica em texto puro no `settings.json`. **Estado real: isso NÃO está implementado.**
+Hoje o token está em `settings.json`, em texto puro, do jeito que o plano 03 implementou; a
+migração para o cofre é trabalho da Fase B e ainda não tem plano escrito. Inconsistência
+declarada e aceita pelo usuário: as chaves de API dos seis provedores de IA de chave própria
+continuam em texto puro no `settings.json` — o usuário foi avisado disso e escolheu manter
+assim por ora.
+
+**Alternativas rejeitadas:**
+
+| Opção | Por que não |
+|---|---|
+| Manter o token em texto puro no `settings.json` (o estado atual) | Expõe o token a qualquer processo ou pessoa com acesso ao arquivo; o usuário decidiu que a sessão da conta merece a proteção do cofre do sistema. |
+| Mover o token e as seis chaves de API para o cofre ao mesmo tempo | Fora do escopo desta decisão — vira trabalho futuro; o usuário foi avisado da inconsistência atual e aceitou mantê-la por ora. |
+
+**Consequências:** enquanto a Fase B não migra o token, ele continua exposto do mesmo jeito
+que as chaves de API já estão hoje. Não existe ainda um plano escrito para essa migração.
+
+### ADR-35 · IA do Excalisidian é o sétimo provedor do agente
+
+**Contexto:** o catálogo de provedores do agente de IA (doc 11) já tem seis provedores de
+chave própria. A IA do Excalisidian entra como mais um, autenticado pela conta em vez de por
+chave digitada.
+
+**Decisão:** a IA do Excalisidian entra no catálogo do doc 11 como mais um provedor, sem
+dialeto de rede novo — o servidor fala o mesmo dialeto da OpenAI que o cliente já sabe
+conversar. Autentica por sessão da conta, não por chave digitada; sem sessão, a chamada falha
+com um código de erro próprio (`sessao`), antes de qualquer rede. Usa identificadores lógicos
+de modelo (`leitura-rapida`, `acompanhamento`) em vez de nomes de modelo de fornecedor, para
+poder trocar o modelo real por trás sem atualizar o app — **o nome do fornecedor de IA nunca
+aparece na interface.** A cota mensal é contada **em créditos, no servidor**; o cliente só
+interpreta o saldo que chega, nunca conta nada localmente. O modo com chave própria (os seis
+provedores existentes) continua **gratuito e intacto** — vende-se conveniência, não
+exclusividade. O agente continua desligado por padrão; nenhuma chamada de rede acontece sem
+aceite explícito do usuário. `CONTA_DISPONIVEL` é a chave única que liga o provedor próprio na
+interface: ficou `false` enquanto não havia tela de conta (o cartão seria um beco sem saída) e
+virou `true` no plano 03.
+
+**Alternativas rejeitadas:**
+
+| Opção | Por que não |
+|---|---|
+| Dialeto de rede novo, próprio do Excalisidian | Sem necessidade — o servidor já fala o dialeto da OpenAI; um dialeto próprio duplicaria código do cliente sem ganho nenhum. |
+| Nomear o fornecedor de IA por trás do provedor próprio na interface | O produto usa identificadores lógicos de modelo de propósito, justamente para poder trocar o fornecedor real sem depender de uma atualização do app nem expor essa troca na interface. |
+| Tornar o provedor próprio exclusivo, limitando os seis provedores de chave própria | Contraria o princípio: vende-se conveniência, não exclusividade. Os seis continuam gratuitos e intactos. |
+
+**Consequências:** o medidor de créditos não renderiza enquanto o endpoint de saldo não
+existir (Parte 3, item 32) — mostrar zero seria mentir sobre dinheiro. O provedor próprio
+inteiro depende de um servidor que ainda não existe.
+
+### ADR-36 · Tradução por catálogo de domínios, português como fonte
+
+**Contexto:** a interface do Excalisidian precisa suportar mais de um idioma. A fundação de
+tradução (doc 05, item 2.1) foi construída antes da migração completa das telas.
+
+**Decisão:** todo texto de interface sai do catálogo — nunca literal no JSX. Português do
+Brasil é a fonte da verdade e define as chaves; inglês é a tradução, e toda chave em português
+precisa ter uma em inglês, travado por teste (`cobertura.test.ts`). Dentro de um componente
+React usa-se `useTexto()`; fora dele — transporte, stores — usa-se `traduzirAgora()`. Estado
+duradouro guarda a **chave**, e traduz no momento de renderizar, nunca o texto já traduzido.
+Uma tela que traduz no primeiro render aguarda o carregamento das preferências antes de
+mostrar qualquer coisa. Números e datas são formatados no idioma corrente.
+
+**Estado real:** só estão no catálogo hoje as mensagens de erro de criar vault, o seletor de
+idioma, os textos do agente de IA e a seção Conta. **O resto da interface continua em
+português fixo no código** — trocar o idioma hoje quase não muda nada visível, o usuário
+testou e constatou isso. A migração das telas restantes foi **adiada por decisão do usuário**
+(22/09), para depois de conta e sincronização.
+
+**Alternativas rejeitadas:**
+
+| Opção | Por que não |
+|---|---|
+| Texto literal espalhado pelo JSX, com tradução caso a caso | Era o estado anterior a esta fundação; dificulta manter cobertura entre os idiomas e garante divergência ao longo do tempo. |
+| Migrar toda a interface para o catálogo já, de uma vez | Adiado por decisão do usuário — a prioridade foi para conta e sincronização primeiro. |
+| Inglês como idioma-fonte, com português como tradução | O produto e quem trabalha nele pensam em português; manter o português como fonte evita tradução reversa e perda de nuance. |
+
+**Consequências:** a interface continua majoritariamente em português fixo até a migração das
+telas restantes acontecer. Trocar o idioma nas preferências hoje muda pouco do que aparece na
+tela — isso é esperado, não é um bug.
+
+### ADR-37 · Diálogo sempre por portal
+
+**Contexto:** a tela "Criar vault" apareceu espremida dentro da sidebar em vez de centralizada
+na janela. Investigação feita nesta sessão (doc 09, item 2.5 do plano de adequação).
+
+**Decisão:** o componente `Dialog` (`src/ui/Dialog.tsx`) passa a renderizar **por portal em
+`document.body`**. Motivo técnico: qualquer ancestral com `transform` — inclusive um
+`translateX(0)` residual de uma animação com modo de preenchimento `both` — vira um bloco de
+contenção e confina o `fixed inset-0` do diálogo dentro dele, em vez de deixá-lo cobrir a
+janela inteira. Era exatamente isso que prendia "Criar vault" dentro da sidebar. A animação da
+sidebar perdeu o `both` pelo mesmo motivo. **Animação com modo de preenchimento `both` fica
+proibida** em qualquer elemento que possa ter um descendente `position: fixed`.
+
+**Divergência registrada, não corrigida:** o comentário de topo de `RaizDialogos.tsx` diz que
+"nada além dele renderiza `Dialog` diretamente", mas cinco componentes renderizam `Dialog`
+diretamente. Com o portal, essa regra deixou de ser necessária para corrigir o posicionamento
+— mas a divergência entre o comentário e o código continua lá, e este ADR só a registra, sem
+prometer corrigi-la.
+
+**Alternativas rejeitadas:**
+
+| Opção | Por que não |
+|---|---|
+| Ajustar o CSS de cada ancestral problemático, um de cada vez | Não ataca a causa raiz — qualquer novo ancestral com `transform` reintroduziria o mesmo bug; o portal resolve de uma vez para sempre. |
+| Só remover o `both` da animação da sidebar, sem portal | Corrigia o sintoma que apareceu (a sidebar), mas deixava o diálogo vulnerável a qualquer outro ancestral com `transform` que aparecesse depois. |
+
+**Consequências:** nenhuma tela nova pode aplicar uma animação com `both` a um elemento que
+tenha, ou possa vir a ter, um descendente `position: fixed`. A divergência do comentário em
+`RaizDialogos.tsx` fica registrada, não corrigida.
