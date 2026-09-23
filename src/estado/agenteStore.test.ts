@@ -49,6 +49,20 @@ vi.mock("./workspaceStore", () => ({
     subscribe: () => () => {},
   },
 }));
+const { dispararConta } = vi.hoisted(() => ({
+  dispararConta: { lista: [] as Array<(s: unknown, p: unknown) => void> },
+}));
+vi.mock("./contaStore", () => ({
+  useContaStore: {
+    subscribe: (cb: (s: unknown, p: unknown) => void) => {
+      dispararConta.lista.push(cb);
+      return () => {
+        const i = dispararConta.lista.indexOf(cb);
+        if (i >= 0) dispararConta.lista.splice(i, 1);
+      };
+    },
+  },
+}));
 vi.mock("./documentosStore", () => ({
   useDocumentosStore: {
     getState: () => ({ docs: new Map([["Nota.md", notaAberta]]) }),
@@ -78,6 +92,7 @@ vi.mock("./vaultStore", () => ({
 
 import { useAgenteStore } from "./agenteStore";
 import { completar, listarModelos } from "../agente/cliente";
+import { FalhaAgente } from "../agente/tipos";
 import type { ConfigAgente } from "../agente/tipos";
 import { BASE_URL_SERVICO } from "../servico/base";
 import { MODELO_LEITURA } from "../agente/provedores";
@@ -403,6 +418,70 @@ describe("agenteStore — gateiro, convite e ciclo", () => {
     expect(st().participacao).toEqual({ "novo.md": "recusado" });
     expect(st().sugestoes["novo.md"]).toHaveLength(1);
     expect(st().convite).toEqual({ path: "novo.md", tema: "t" });
+  });
+});
+
+// ——— erro definitivo (sessao/plano) para o agente de tentar; erro transitório não ———
+
+describe("agenteStore — para de tentar depois de um erro definitivo", () => {
+  it("depois de um erro 'plano', nenhum novo ciclo é agendado", async () => {
+    vi.useFakeTimers();
+    vi.mocked(completar).mockRejectedValue(new FalhaAgente("plano"));
+    notaAberta.conteudoEditor = "x".repeat(500);
+    await st().aplicarConfig(CONFIG);
+    await st().aoAbrirVault("C:/vault");
+    st().conectarGatilhos();
+
+    await vi.advanceTimersByTimeAsync(6000);
+    expect(st().status).toBe("erro");
+    expect(st().erroAtual).toBe("erro simulado");
+    const chamadasAteAqui = vi.mocked(completar).mock.calls.length;
+
+    await vi.advanceTimersByTimeAsync(60_000); // vários repousos depois
+
+    expect(vi.mocked(completar)).toHaveBeenCalledTimes(chamadasAteAqui);
+  });
+
+  it("depois de um erro 'sessao', mudança de sessão no contaStore tira o agente do erro e volta a agendar", async () => {
+    vi.useFakeTimers();
+    vi.mocked(completar).mockRejectedValue(new FalhaAgente("sessao"));
+    notaAberta.conteudoEditor = "x".repeat(500);
+    await st().aplicarConfig(CONFIG);
+    await st().aoAbrirVault("C:/vault");
+    st().conectarGatilhos();
+
+    await vi.advanceTimersByTimeAsync(6000);
+    expect(st().status).toBe("erro");
+    const chamadasAntes = vi.mocked(completar).mock.calls.length;
+
+    // sessão mudou (por exemplo, o usuário entrou na conta): o gateiro volta a funcionar.
+    vi.mocked(completar).mockImplementation(async (p) => respostaPorPapel(p));
+    for (const cb of dispararConta.lista) {
+      cb({ sessao: { token: "novo-token" } }, { sessao: null });
+    }
+
+    expect(st().status).not.toBe("erro");
+    expect(st().erroAtual).toBeNull();
+
+    await vi.advanceTimersByTimeAsync(6000);
+
+    expect(vi.mocked(completar).mock.calls.length).toBeGreaterThan(chamadasAntes);
+  });
+
+  it("erro NÃO definitivo (rede) continua reagendando normalmente — não regride", async () => {
+    vi.useFakeTimers();
+    vi.mocked(completar).mockRejectedValue(new Error("sem rede"));
+    notaAberta.conteudoEditor = "x".repeat(500);
+    await st().aplicarConfig(CONFIG);
+    await st().aoAbrirVault("C:/vault");
+    st().conectarGatilhos();
+
+    await vi.advanceTimersByTimeAsync(6000);
+    const aposPrimeira = vi.mocked(completar).mock.calls.length;
+
+    await vi.advanceTimersByTimeAsync(6000); // outro repouso: continua tentando
+
+    expect(vi.mocked(completar).mock.calls.length).toBeGreaterThan(aposPrimeira);
   });
 });
 

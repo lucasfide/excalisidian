@@ -62,6 +62,7 @@ import {
 import { useDocumentosStore } from "./documentosStore";
 import { useWorkspaceStore } from "./workspaceStore";
 import { useVaultStore } from "./vaultStore";
+import { useContaStore } from "./contaStore";
 
 const CHAVE_CONFIG = "agente";
 // Doc 12 §6 / doc 04 §5.1: config do agente é preferência da máquina como tema e largura da
@@ -167,6 +168,12 @@ let timerGateiro: number | undefined;
 let ultimoCicloTexto: Record<string, string> = {};
 let tentativasGateiro: Record<string, { chars: number }> = {};
 let falhasSeguidas = 0;
+// true só para os erros definitivos do provedor próprio (sessao/plano — ver gateiroSePuder e
+// rodarCiclo). Erros transitórios (rede, cota, etc.) também podem deixar `status` em "erro"
+// depois de FALHAS_PARA_ERRO_VISIVEL tentativas, mas continuam reagendando normalmente — só
+// esta flag bloqueia `agendar()`, porque só ela significa "tentar de novo é inútil até algo
+// mudar" (a sessão, via conectarGatilhos, ou a config, via aplicarConfig).
+let erroDefinitivo = false;
 let gatilhosLigados = false;
 let resumosCache: Record<string, Resumo> = {};
 let timerPersistirParticipacao: number | undefined;
@@ -233,6 +240,12 @@ export const useAgenteStore = create<AgenteState>((set, get) => {
     const s = get();
     window.clearTimeout(timerCiclo);
     window.clearTimeout(timerGateiro);
+    // erro definitivo (sessao/plano do provedor próprio): reagendar bateria de novo na cara
+    // do servidor a cada intervalo de inatividade, para sempre. Erros transitórios (rede,
+    // cota) não entram aqui — continuam reagendando como já faziam. Só sai daqui quando a
+    // sessão mudar (conectarGatilhos) ou a config for reaplicada (aplicarConfig já limpa
+    // erroAtual e chama agendar de novo).
+    if (erroDefinitivo) return;
     if (!s.config?.habilitado || s.pausado) return;
     const ativa = notaAtivaAtual();
     if (!ativa) return;
@@ -319,6 +332,7 @@ export const useAgenteStore = create<AgenteState>((set, get) => {
       // e o usuário precisa saber por que o gateiro parou, mesmo que a ação seguinte difira
       // (entrar na conta vs. mudar de plano — nenhum botão aqui distingue os dois).
       if (e instanceof FalhaAgente && (e.codigo === "sessao" || e.codigo === "plano")) {
+        erroDefinitivo = true;
         set({ status: "erro", erroAtual: textoDoErro(e) });
       }
       // gateiro silencioso: demais erros não viram faixa, mas ficam na linha de status do
@@ -458,12 +472,20 @@ export const useAgenteStore = create<AgenteState>((set, get) => {
       ultimoCicloTexto[path] = texto;
       falhasSeguidas = 0;
     } catch (e) {
-      falhasSeguidas++;
-      // ciclo em segundo plano só grita na terceira falha seguida (doc 11 §7).
-      if (falhasSeguidas >= FALHAS_PARA_ERRO_VISIVEL) {
+      // sessão ausente/expirada ou conta sem direito à IA: definitivo, grita na hora — não
+      // faz sentido esperar mais duas falhas seguidas para um erro que não é transitório
+      // (mesmo raciocínio do catch do gateiro, acima).
+      if (e instanceof FalhaAgente && (e.codigo === "sessao" || e.codigo === "plano")) {
+        erroDefinitivo = true;
         set({ status: "erro", erroAtual: textoDoErro(e) });
       } else {
-        set((st) => ({ status: statusBase(st) }));
+        falhasSeguidas++;
+        // ciclo em segundo plano só grita na terceira falha seguida (doc 11 §7).
+        if (falhasSeguidas >= FALHAS_PARA_ERRO_VISIVEL) {
+          set({ status: "erro", erroAtual: textoDoErro(e) });
+        } else {
+          set((st) => ({ status: statusBase(st) }));
+        }
       }
     } finally {
       emVoo.delete(path);
@@ -508,6 +530,7 @@ export const useAgenteStore = create<AgenteState>((set, get) => {
     },
 
     async aplicarConfig(config) {
+      erroDefinitivo = false;
       set({ config, erroAtual: null });
       set((s) => ({ status: statusBase(s) }));
       const store = await load("settings.json", { autoSave: false });
@@ -652,6 +675,16 @@ export const useAgenteStore = create<AgenteState>((set, get) => {
       });
       useWorkspaceStore.subscribe((state, prev) => {
         if (state.caminhoAtivo !== prev.caminhoAtivo) agendar();
+      });
+      // sessão mudou (entrar/sair/renovar) enquanto o agente estava parado num erro
+      // definitivo (sessao/plano): reavalia. Isto só lê e reage a `useContaStore` — nunca
+      // escreve nele — então não pode disparar este mesmo assinante de volta (sem laço).
+      useContaStore.subscribe((state, prev) => {
+        if (state.sessao !== prev.sessao && erroDefinitivo) {
+          erroDefinitivo = false;
+          set((s) => ({ status: statusBase(s), erroAtual: null }));
+          agendar();
+        }
       });
       agendar();
     },
