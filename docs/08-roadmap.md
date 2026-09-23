@@ -334,12 +334,13 @@ verdade.
 Decisão do usuário (22/09/2026, D4/ADR-34): o token da conta vai para o cofre do sistema
 operacional (keyring do Windows), não fica em texto puro no `settings.json`.
 
-**Estado real:** decidida, não começada. Hoje o token está em `settings.json`, em texto
-puro. A migração é trabalho da Fase B e ainda não tem plano escrito. Inconsistência aceita
+**Estado real:** plano escrito, não começada. Hoje o token está em `settings.json`, em texto
+puro. A migração é trabalho da Fase B e já tem plano escrito
+(`docs/superpowers/plans/2026-09-23-05-token-no-cofre.md`). Inconsistência aceita
 pelo usuário: as chaves de API dos seis provedores de chave própria do agente continuam em
 texto puro no `settings.json` mesmo depois desta fatia.
 
-**Status:** decidida, não começada.
+**Status:** plano escrito, não começada.
 
 **Pronto quando:** o token de sessão nunca aparecer em texto puro em disco.
 

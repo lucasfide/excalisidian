@@ -1483,7 +1483,31 @@ assim por ora.
 | Levar para o cofre o token **e** as chaves de API dos seis provedores | Rejeitada pelo usuário: é trabalho próprio, mexe em código que já funciona, e exige migração para quem já tem chave salva. A inconsistência resultante (chaves de API em texto puro ao lado do token no cofre) foi aceita conscientemente. |
 
 **Consequências:** enquanto a Fase B não migra o token, ele continua exposto do mesmo jeito
-que as chaves de API já estão hoje. Não existe ainda um plano escrito para essa migração.
+que as chaves de API já estão hoje. Existe um plano escrito para essa migração
+(`docs/superpowers/plans/2026-09-23-05-token-no-cofre.md`).
+
+**Como será implementado (plano de 23/09/2026):**
+
+1. **Se o cofre de senhas do Windows (termo técnico: *keyring*) falhar ao gravar o token, o
+   app não volta a guardá-lo em texto puro.** A promessa é "o token nunca aparece em texto
+   puro em disco", sem exceção — então, nesse caso, a sessão vale só enquanto o app estiver
+   aberto, e na próxima abertura o usuário precisa entrar de novo.
+2. **Uma falha do cofre nunca aparece para o usuário como erro de login.** Se entrar ou criar
+   conta deu certo no servidor, continua dando certo para quem está usando o app, mesmo que
+   guardar o token no cofre falhe por baixo dos panos. Isso só fica registrado num aviso
+   técnico interno, sem nenhum texto novo na tela.
+3. **Quem já tem o token salvo em texto puro é migrado sem perceber.** Na primeira vez que o
+   app lê o token depois desta mudança: se ele ainda estiver no `settings.json`, o app grava
+   esse token no cofre (quando o cofre ainda não tem um) e apaga o `settings.json` de
+   qualquer forma — mesmo que gravar no cofre não funcione. Nesse caso a sessão daquela
+   abertura ainda funciona, e só a próxima abertura pede login de novo.
+4. **O nome usado para guardar o token no cofre do Windows vem de um único lugar**, o
+   identificador do app já configurado no projeto — assim ele acompanha automaticamente uma
+   eventual troca do nome do produto (ADR-9). O app só pede esse token específico: ele não
+   deixa a tela do app escolher qual credencial ler ou gravar no cofre do Windows, então não
+   dá para usar esse mecanismo para mexer em outras senhas guardadas no computador.
+5. **As chaves de API dos seis provedores de IA continuam do jeito que estão hoje**, em texto
+   puro no `settings.json` — decisão do usuário, já registrada acima, mantida sem mudança.
 
 ### ADR-35 · IA do Excalisidian é o sétimo provedor do agente
 
