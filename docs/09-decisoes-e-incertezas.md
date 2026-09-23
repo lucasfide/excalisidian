@@ -1468,12 +1468,16 @@ prazo: precisa existir no desenho antes do primeiro usuário sincronizar.
 sessão da conta entre aberturas do app.
 
 **Decisão:** o token da conta vai para o cofre do sistema operacional (o keyring do Windows),
-e não fica em texto puro no `settings.json`. **Estado real: isso NÃO está implementado.**
-Hoje o token está em `settings.json`, em texto puro, do jeito que o plano 03 implementou; a
-migração para o cofre é trabalho da Fase B e ainda não tem plano escrito. Inconsistência
-declarada e aceita pelo usuário: as chaves de API dos seis provedores de IA de chave própria
-continuam em texto puro no `settings.json` — o usuário foi avisado disso e escolheu manter
-assim por ora.
+e não fica em texto puro no `settings.json`. **Implementado em 23/09/2026** (commits
+`f69efbe`, `82b8287` e `ab4cd73`). Quem já tinha o token em texto puro é migrado
+sem perceber na primeira leitura depois da atualização. Inconsistência declarada e aceita pelo
+usuário: as chaves de API dos seis provedores de IA de chave própria continuam em texto puro
+no `settings.json` — o usuário foi avisado disso e escolheu manter assim por ora.
+
+**Pendente:** a conferência no Windows real (entrar numa conta de teste, ver a entrada
+aparecer no Gerenciador de Credenciais do Windows e sumir ao sair) ainda não foi feita, porque
+ainda não existe servidor de conta para completar um login de verdade. Fica na lista de
+conferência manual do usuário assim que o servidor existir.
 
 **Alternativas rejeitadas:**
 
@@ -1482,11 +1486,10 @@ assim por ora.
 | Manter o token em texto puro no `settings.json`, declarando isso como incerteza no doc 09 | Rejeitada pelo usuário. Era o tratamento que as chaves de API já recebem, então não seria regressão — mas o token agora é credencial de conta paga. |
 | Levar para o cofre o token **e** as chaves de API dos seis provedores | Rejeitada pelo usuário: é trabalho próprio, mexe em código que já funciona, e exige migração para quem já tem chave salva. A inconsistência resultante (chaves de API em texto puro ao lado do token no cofre) foi aceita conscientemente. |
 
-**Consequências:** enquanto a Fase B não migra o token, ele continua exposto do mesmo jeito
-que as chaves de API já estão hoje. Existe um plano escrito para essa migração
+**Consequências:** a migração seguiu o plano escrito
 (`docs/superpowers/plans/2026-09-23-05-token-no-cofre.md`).
 
-**Como será implementado (plano de 23/09/2026):**
+**Como foi implementado (plano de 23/09/2026):**
 
 1. **Se o cofre de senhas do Windows (termo técnico: *keyring*) falhar ao gravar o token, o
    app não volta a guardá-lo em texto puro.** A promessa é "o token nunca aparece em texto

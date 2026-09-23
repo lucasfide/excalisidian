@@ -186,9 +186,8 @@ interface VaultAdapter {
 ## 3. Ponte com o Rust
 
 O plano original era de "quatro pontos de contato com o Rust, e não mais que isso sem uma
-boa razão" — múltiplos vaults (doc 12) já levou isso a nove, e hoje, com a Home e o
-updater, são treze comandos registrados em `lib.rs`, e o plano do token no cofre (ADR-34)
-acrescenta mais três, marcados como planejados abaixo:
+boa razão" — múltiplos vaults (doc 12) já levou isso a nove, e hoje, com a Home, o
+updater e o cofre do token da conta (ADR-34), são dezesseis comandos registrados em `lib.rs`:
 
 | Comando | Assinatura | Por quê |
 |---|---|---|
@@ -206,9 +205,9 @@ acrescenta mais três, marcados como planejados abaixo:
 | `importar_papel_parede_home` | `(app, …) -> Result<..., String>` | idem |
 | `remover_papel_parede_home` | `(app) -> Result<(), String>` | idem |
 | `lixeira_sistema` | não implementado | só quando RF7.6 sair do P2 — ver a nota abaixo |
-| `ler_token_conta` *(planejado)* | `(app) -> Result<Option<String>, String>` | token da conta no cofre de senhas do Windows, em vez de texto puro (doc 09, ADR-34) |
-| `gravar_token_conta` *(planejado)* | `(app, token: String) -> Result<(), String>` | token da conta no cofre de senhas do Windows, em vez de texto puro (doc 09, ADR-34) |
-| `apagar_token_conta` *(planejado)* | `(app) -> Result<(), String>` | token da conta no cofre de senhas do Windows, em vez de texto puro (doc 09, ADR-34) |
+| `ler_token_conta` | `(app) -> Result<Option<String>, String>` | token da conta no cofre de senhas do Windows, em vez de texto puro (doc 09, ADR-34) |
+| `gravar_token_conta` | `(app, token: String) -> Result<(), String>` | token da conta no cofre de senhas do Windows, em vez de texto puro (doc 09, ADR-34) |
+| `apagar_token_conta` | `(app) -> Result<(), String>` | token da conta no cofre de senhas do Windows, em vez de texto puro (doc 09, ADR-34) |
 
 Sobre o `observar_vault`: o `@tauri-apps/plugin-fs` já expõe `watch` e `watchImmediate` com `delayMs`, e para um watcher simples isso bastaria. O comando próprio existe por um motivo específico — a seção Watcher abaixo exige processar **lotes** de eventos (um `git checkout` gera milhares em um segundo), e agrupar do lado Rust evita atravessar o IPC uma vez por arquivo. Se na Fatia 5 o `watch` do plugin se mostrar suficiente, use-o e apague este comando: um ponto de contato a menos com o Rust é ganho, não perda.
 
@@ -327,7 +326,7 @@ está registrada aqui, sem promessa de correção.
 | `atualizacaoStore` | estado do updater (verificação, download, aplicar) | não persiste |
 | `dialogoStore`, `sobreposicaoStore`, `revelacaoStore` | diálogos e sobreposições de UI abertos no momento | não persistem |
 | `papel-parede-home-store` | papel de parede da tela Início | `%APPDATA%/Excalisidian/` via `papel_parede.rs` |
-| `contaStore` | estado da conta (usuário, plano, token) | só o **token** persiste, no cofre do Windows (doc 09, ADR-34); se o cofre falhar, a sessão vale só até fechar o app *(planejado)* |
+| `contaStore` | estado da conta (usuário, plano, token) | só o **token** persiste, no cofre do Windows (doc 09, ADR-34); se o cofre falhar, a sessão vale só até fechar o app |
 
 ### 7.1 `contaStore` × porta-token
 

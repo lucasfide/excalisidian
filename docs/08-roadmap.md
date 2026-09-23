@@ -334,13 +334,16 @@ verdade.
 Decisão do usuário (22/09/2026, D4/ADR-34): o token da conta vai para o cofre do sistema
 operacional (keyring do Windows), não fica em texto puro no `settings.json`.
 
-**Estado real:** plano escrito, não começada. Hoje o token está em `settings.json`, em texto
-puro. A migração é trabalho da Fase B e já tem plano escrito
-(`docs/superpowers/plans/2026-09-23-05-token-no-cofre.md`). Inconsistência aceita
-pelo usuário: as chaves de API dos seis provedores de chave própria do agente continuam em
-texto puro no `settings.json` mesmo depois desta fatia.
+**Estado real: implementada** em 23/09/2026, seguindo o plano escrito
+(`docs/superpowers/plans/2026-09-23-05-token-no-cofre.md`). O token da conta agora mora no
+cofre de senhas do Windows; quem já tinha o token em texto puro no `settings.json` é migrado
+sem perceber na primeira leitura depois da atualização. Inconsistência aceita pelo usuário: as
+chaves de API dos seis provedores de chave própria do agente continuam em texto puro no
+`settings.json` mesmo depois desta fatia. Pendente: a conferência no Windows real (entrar numa
+conta de teste e ver a entrada no Gerenciador de Credenciais) ainda não foi feita, porque ainda
+não existe servidor de conta.
 
-**Status:** plano escrito, não começada.
+**Status:** implementada; conferência no Windows real pendente (depende do servidor de conta).
 
 **Pronto quando:** o token de sessão nunca aparecer em texto puro em disco.
 
