@@ -1104,3 +1104,129 @@ git commit -m "feat(conta): secao de conta nas preferencias"
 - Exclusão de conta pela interface: exigida por GDPR e LGPD, e depende de endpoint.
   Entra no plano do servidor.
 - Derivação de chave a partir do código de recuperação — plano de sync.
+
+---
+
+### Task 6: Ligar a conta ao agente
+
+**Files:**
+- Modify: `src/servico/base.ts`
+- Modify: `src/ui/excalisidian/DialogoAgente.tsx`
+- Modify: `src/estado/agenteStore.ts`
+- Modify: `src/estado/agenteStore.test.ts`
+
+**Interfaces:**
+- Consumes: `useContaStore` (Task 3), `CONTA_DISPONIVEL`, `provedorDe`.
+- Produces: nada consumido por outra tarefa.
+
+Esta tarefa não estava no plano original. Ela existe porque o plano 02 (provedor próprio)
+terminou com três pendências que só podem fechar depois que a conta existir, e que foram
+registradas na revisão final daquele plano. Sem esta tarefa, o provedor pago continua
+invisível e o trabalho do plano 02 fica inerte.
+
+**As três pendências:**
+
+1. **`CONTA_DISPONIVEL` continua `false`.** A constante em `src/servico/base.ts` esconde do
+   assistente todo provedor com `exigeConta`. Ela existe porque, sem tela de conta, o cartão
+   era um beco sem saída: aparecia em primeiro lugar e o botão de continuar ficava
+   permanentemente desabilitado, mandando entrar numa conta que não existia.
+
+2. **A leitura da sessão no assistente não é reativa.** `DialogoAgente.tsx` chama
+   `tokenDaSessaoAtual()` durante o render, e `src/servico/sessao.ts` é um módulo com estado
+   que não notifica ninguém. Entrar na conta com o assistente aberto deixaria o botão
+   desabilitado e o aviso na tela até um re-render por outro motivo. O porta-token continua
+   existindo para `cliente.ts`, que roda fora de React — o que muda é só quem a **interface**
+   consulta.
+
+3. **"Testar conexão" devolve sucesso sem testar nada.** `agenteStore.ts` pula
+   `listarModelos` quando o provedor tem `modelosFixos`, e `DialogoPreferencias` traduz isso
+   em "Conexão funcionando." Para o provedor próprio isso é um sucesso maquiado: não
+   verifica sessão nem servidor.
+
+- [ ] **Step 1: Write the failing test**
+
+Em `src/estado/agenteStore.test.ts`, acrescentar ao `describe` existente:
+
+```ts
+  it("testar conexão do provedor próprio falha sem sessão, em vez de dizer que funciona", async () => {
+    definirTokenDaSessao(null);
+    const erro = await useAgenteStore.getState().testarConexao({
+      provedor: "excalisidian",
+      chave: "",
+      baseUrl: BASE_URL_SERVICO,
+      modelo: MODELO_LEITURA,
+    });
+    expect(erro).not.toBeNull();
+  });
+
+  it("testar conexão do provedor próprio não chama listarModelos", async () => {
+    definirTokenDaSessao("tok-valido");
+    await useAgenteStore.getState().testarConexao({
+      provedor: "excalisidian",
+      chave: "",
+      baseUrl: BASE_URL_SERVICO,
+      modelo: MODELO_LEITURA,
+    });
+    expect(listarModelosMock).not.toHaveBeenCalled();
+  });
+```
+
+> Adaptar os nomes ao que o arquivo de teste já usa para o mock de `listarModelos` e para a
+> assinatura real de `testarConexao` — não renomear o que já está lá.
+
+- [ ] **Step 2: Run test to verify it fails**
+
+Run: `npm test -- src/estado/agenteStore.test.ts`
+Expected: FAIL no primeiro teste — hoje devolve `null` (sucesso) sem sessão.
+
+- [ ] **Step 3: Write minimal implementation**
+
+Três mudanças, uma por pendência:
+
+```ts
+// 1. src/servico/base.ts
+// A tela de conta existe desde o plano 03; o provedor próprio pode aparecer.
+export const CONTA_DISPONIVEL = true;
+```
+
+```ts
+// 2. src/ui/excalisidian/DialogoAgente.tsx
+// A interface lê a sessão do store (reativo); `sessao.ts` continua servindo `cliente.ts`,
+// que roda fora de React e não pode usar hook.
+const sessao = useContaStore((s) => s.sessao);
+const semSessao = sessao === null;
+```
+
+Remover o import e a chamada de `tokenDaSessaoAtual` deste arquivo. Nenhum outro consumidor
+de `sessao.ts` muda.
+
+```ts
+// 3. src/estado/agenteStore.ts, em testarConexao
+// Provedor por conta: não há endpoint de listagem, então o que se testa é a sessão.
+// Dizer "funcionando" sem verificar nada seria pior que não ter botão.
+if (provedor.exigeConta) {
+  return tokenDaSessaoAtual() ? null : "sessao";
+}
+```
+
+> O valor devolvido tem que ser do mesmo tipo que os outros caminhos de `testarConexao` já
+> devolvem. Ler a função inteira antes de editar e seguir o que ela já faz.
+
+- [ ] **Step 4: Run test to verify it passes**
+
+Run: `npm test` inteiro e `npm run build`.
+Expected: PASS, build limpo.
+
+- [ ] **Step 5: Verificar no app**
+
+Conferir se já existe um `npm run tauri dev` na porta 1420. Abrir o assistente do agente: a
+"IA do Excalisidian" agora deve aparecer na lista. Sem entrar na conta, o passo de conta
+deve desabilitar o botão e mostrar o aviso. Entrar na conta **com o assistente aberto** e
+confirmar que o aviso some sozinho — é exatamente o que a pendência 2 conserta.
+
+- [ ] **Step 6: Commit**
+
+```bash
+git add src/servico/base.ts src/ui/excalisidian/DialogoAgente.tsx src/estado/agenteStore.ts src/estado/agenteStore.test.ts
+git commit -m "feat(conta): liga a conta ao agente e mostra o provedor proprio"
+```
