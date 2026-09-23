@@ -108,4 +108,37 @@ describe("diffLinhas com textos grandes — corte de prefixo/sufixo comuns", () 
       { tipo: "adicionado", linhas: linhasDepois },
     ]);
   });
+
+  it("teto de segurança vale mesmo com linhas iguais espalhadas no meio — sem isso, o LCS real acharia essas linhas e este teste distingue os dois comportamentos", () => {
+    // Textos grandes o bastante para estourar LIMITE_CELULAS mesmo depois do corte de
+    // prefixo/sufixo, mas com ALGUMAS linhas iguais em posições salteadas do meio — nem no
+    // começo nem no fim, para o corte de prefixo/sufixo não alcançá-las. Sem o teto, o LCS
+    // real encontraria essas linhas e produziria trechos "igual" no meio; com o teto, o
+    // miolo inteiro vira um bloco removido+adicionado, ignorando a coincidência.
+    const TOTAL = 2100; // 2100 × 2100 = 4.410.000 > LIMITE_CELULAS (4.000.000)
+    const POSICOES_COMPARTILHADAS = new Set([300, 700, 1200, 1600, 1900]);
+    const linhasAntes: string[] = [];
+    const linhasDepois: string[] = [];
+    for (let i = 0; i < TOTAL; i++) {
+      if (POSICOES_COMPARTILHADAS.has(i)) {
+        const linha = `linha-compartilhada-${i}`;
+        linhasAntes.push(linha);
+        linhasDepois.push(linha);
+      } else {
+        linhasAntes.push(`a-linha-${i}`);
+        linhasDepois.push(`b-linha-${i}`);
+      }
+    }
+    // Garante que o corte de prefixo/sufixo não alcança as linhas compartilhadas: a primeira
+    // e a última linha de cada texto têm de diferir entre si.
+    expect(linhasAntes[0]).not.toBe(linhasDepois[0]);
+    expect(linhasAntes[TOTAL - 1]).not.toBe(linhasDepois[TOTAL - 1]);
+
+    const trechos = diffLinhas(linhasAntes.join("\n"), linhasDepois.join("\n"));
+
+    expect(trechos).toEqual([
+      { tipo: "removido", linhas: linhasAntes },
+      { tipo: "adicionado", linhas: linhasDepois },
+    ]);
+  });
 });
