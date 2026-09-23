@@ -11,10 +11,16 @@ import { emit } from "@tauri-apps/api/event";
 
 import type { ServicoConta } from "../conta/ServicoConta";
 import { ServicoContaHttp } from "../conta/ServicoContaHttp";
+import type { CofreToken } from "../conta/cofreToken";
+import { CofreTokenSistema } from "../conta/cofreToken";
+import { lerTokenComMigracao, type TokenLegado } from "../conta/migracaoToken";
 import { FalhaConta, type ErroConta, type PlanoAssinatura, type Sessao } from "../conta/tipos";
 import { definirTokenDaSessao } from "../servico/sessao";
 
-const CHAVE_TOKEN = "tokenConta";
+// Legado, só para migração (ADR-34): antes do cofre do sistema, o token morava em texto puro
+// nesta chave do settings.json. `carregar()` lê essa chave uma vez, migra para o cofre e apaga
+// — ver `lerTokenComMigracao`. Nenhum código novo grava aqui.
+const CHAVE_TOKEN_LEGADO = "tokenConta";
 // Doc 12 §6 / doc 04 §5.1: mesmo evento que prefsStore.ts e agenteStore.ts emitem depois de
 // gravar uma mudança compartilhada no settings.json (literal repetido nos três arquivos — ver
 // comentário em flushEntreJanelas.ts sobre por que não virou uma constante importada). Só as
@@ -24,13 +30,6 @@ const EVENTO_PREFS_MUDOU = "app://prefs-mudou";
 
 async function abrirStore() {
   return load("settings.json", { autoSave: false });
-}
-
-async function gravarToken(token: string | null): Promise<void> {
-  const store = await abrirStore();
-  if (token) await store.set(CHAVE_TOKEN, token);
-  else await store.delete(CHAVE_TOKEN);
-  await store.save();
 }
 
 function codigoDe(e: unknown): ErroConta {
@@ -45,6 +44,8 @@ interface ContaState {
   erro: ErroConta | null;
   servico: ServicoConta;
   definirServico(s: ServicoConta): void;
+  cofre: CofreToken;
+  definirCofre(c: CofreToken): void;
   plano(): PlanoAssinatura;
   carregar(): Promise<void>;
   entrar(email: string, senha: string): Promise<boolean>;
@@ -64,15 +65,33 @@ export const useContaStore = create<ContaState>((set, get) => {
   // (token velho morto) deslogava em silêncio quem tinha acabado de entrar.
   let geracao = 0;
 
+  // Decisão 2 do plano (ADR-34): gravar/apagar no cofre nunca rejeita para quem chama. Se o
+  // cofre falhar (loja ausente, permissão negada, token maior que o limite do Windows), a
+  // sessão desta abertura continua valendo em memória — só um aviso técnico no console, nunca
+  // um erro de login para o usuário.
+  async function gravarToken(token: string | null): Promise<void> {
+    try {
+      if (token) await get().cofre.gravar(token);
+      else await get().cofre.apagar();
+    } catch (e) {
+      console.warn("Não foi possível gravar o token da conta no cofre do sistema.", e);
+    }
+  }
+
   return {
     sessao: null,
     carregado: false,
     ocupado: false,
     erro: null,
     servico: new ServicoContaHttp(),
+    cofre: new CofreTokenSistema(),
 
     definirServico(servico) {
       set({ servico });
+    },
+
+    definirCofre(cofre) {
+      set({ cofre });
     },
 
     plano() {
@@ -81,8 +100,15 @@ export const useContaStore = create<ContaState>((set, get) => {
 
     async carregar() {
       const minhaGeracao = geracao;
-      const store = await abrirStore();
-      const token = await store.get<string>(CHAVE_TOKEN);
+      const legadoStore = await abrirStore();
+      const legado: TokenLegado = {
+        ler: async () => (await legadoStore.get<string>(CHAVE_TOKEN_LEGADO)) ?? null,
+        apagar: async () => {
+          await legadoStore.delete(CHAVE_TOKEN_LEGADO);
+          await legadoStore.save();
+        },
+      };
+      const token = await lerTokenComMigracao(get().cofre, legado);
       if (!token) {
         if (geracao !== minhaGeracao) return;
         definirTokenDaSessao(null);
@@ -97,13 +123,13 @@ export const useContaStore = create<ContaState>((set, get) => {
         set({ sessao, carregado: true });
       } catch (e) {
         if (geracao !== minhaGeracao) return;
-        // Só o servidor dizendo "essa sessão não vale mais" pode apagar o disco. `rede` (não
+        // Só o servidor dizendo "essa sessão não vale mais" pode apagar o cofre. `rede` (não
         // deu pra falar com o servidor — app offline, rotina num local-first) e `servidor`
         // (erro inesperado, ou o token rotativo já foi consumido por OUTRA janela — `renovar`
-        // é de uso único e todas as janelas leem o mesmo token do settings.json compartilhado)
-        // não são prova de que a sessão morreu. Apagar nesses casos desloga em silêncio quem
-        // só abriu o app sem internet, ou builda uma corrida entre janelas onde a mais lenta
-        // apaga o token que a mais rápida acabou de renovar.
+        // é de uso único e todas as janelas leem o mesmo token do cofre compartilhado) não são
+        // prova de que a sessão morreu. Apagar nesses casos desloga em silêncio quem só abriu
+        // o app sem internet, ou builda uma corrida entre janelas onde a mais lenta apaga o
+        // token que a mais rápida acabou de renovar.
         if (codigoDe(e) === "expirada") {
           definirTokenDaSessao(null);
           await gravarToken(null);

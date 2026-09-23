@@ -8,6 +8,7 @@ vi.mock("@tauri-apps/api/event", () => ({
 import { useContaStore } from "./contaStore";
 import { ServicoContaFake } from "../conta/ServicoContaFake";
 import type { ServicoConta } from "../conta/ServicoConta";
+import { CofreTokenFake } from "../conta/CofreTokenFake";
 import { FalhaConta, type Sessao } from "../conta/tipos";
 import { tokenDaSessaoAtual, definirTokenDaSessao } from "../servico/sessao";
 
@@ -89,6 +90,8 @@ vi.mock("@tauri-apps/plugin-store", () => ({
 const comConta = () =>
   new ServicoContaFake({ "ana@exemplo.com": { senha: "segredo123", plano: "premium" } });
 
+let cofre: CofreTokenFake;
+
 describe("contaStore", () => {
   beforeEach(() => {
     for (const k of Object.keys(guardados)) delete guardados[k];
@@ -96,6 +99,8 @@ describe("contaStore", () => {
     emitMock.mockClear();
     useContaStore.setState({ sessao: null, carregado: false, ocupado: false, erro: null });
     useContaStore.getState().definirServico(comConta());
+    cofre = new CofreTokenFake();
+    useContaStore.getState().definirCofre(cofre);
   });
 
   it("entrar emite o evento de sincronização entre janelas depois de gravar o token", async () => {
@@ -125,9 +130,23 @@ describe("contaStore", () => {
 
   it("entrar persiste só o token, nunca a senha nem o email", async () => {
     await useContaStore.getState().entrar("ana@exemplo.com", "segredo123");
-    expect(guardados.tokenConta).toBe(useContaStore.getState().sessao?.token);
+    expect(cofre.token).toBe(useContaStore.getState().sessao?.token);
     expect(JSON.stringify(guardados)).not.toContain("segredo123");
     expect(JSON.stringify(guardados)).not.toContain("ana@exemplo.com");
+  });
+
+  it("entrar grava o token no cofre e o settings.json não recebe tokenConta", async () => {
+    await useContaStore.getState().entrar("ana@exemplo.com", "segredo123");
+    expect(cofre.token).toBe(useContaStore.getState().sessao?.token);
+    expect(guardados.tokenConta).toBeUndefined();
+  });
+
+  it("entrar com o cofre falhando ainda devolve true, com sessão e porta-token", async () => {
+    cofre.falhar = true;
+    const ok = await useContaStore.getState().entrar("ana@exemplo.com", "segredo123");
+    expect(ok).toBe(true);
+    expect(useContaStore.getState().sessao).not.toBeNull();
+    expect(tokenDaSessaoAtual()).toBe(useContaStore.getState().sessao?.token);
   });
 
   it("entrar com senha errada guarda o código do erro e não abre sessão", async () => {
@@ -142,8 +161,14 @@ describe("contaStore", () => {
     await useContaStore.getState().entrar("ana@exemplo.com", "segredo123");
     await useContaStore.getState().sair();
     expect(useContaStore.getState().sessao).toBeNull();
-    expect(guardados.tokenConta).toBeUndefined();
+    expect(cofre.token).toBeNull();
     expect(tokenDaSessaoAtual()).toBeNull();
+  });
+
+  it("sair apaga o token do cofre", async () => {
+    await useContaStore.getState().entrar("ana@exemplo.com", "segredo123");
+    await useContaStore.getState().sair();
+    expect(cofre.token).toBeNull();
   });
 
   it("sair marca ocupado enquanto o sair do serviço não resolve", async () => {
@@ -170,7 +195,7 @@ describe("contaStore", () => {
     const servico = comConta();
     useContaStore.getState().definirServico(servico);
     const inicial = await servico.entrar("ana@exemplo.com", "segredo123");
-    guardados.tokenConta = inicial.token;
+    cofre.token = inicial.token;
 
     await useContaStore.getState().carregar();
 
@@ -178,8 +203,24 @@ describe("contaStore", () => {
     expect(tokenDaSessaoAtual()).toBe(useContaStore.getState().sessao?.token);
   });
 
+  it("carregar migra o token legado do settings.json para o cofre e apaga o legado", async () => {
+    const servico = comConta();
+    useContaStore.getState().definirServico(servico);
+    const inicial = await servico.entrar("ana@exemplo.com", "segredo123");
+    guardados.tokenConta = inicial.token; // só no legado; cofre começa vazio
+
+    await useContaStore.getState().carregar();
+
+    // O renovar troca o token (rotativo); o que importa é que o legado migrou e sumiu, e a
+    // sessão foi carregada com sucesso — o cofre fica com o token atual da sessão, não com o
+    // token legado original.
+    expect(cofre.token).toBe(useContaStore.getState().sessao?.token);
+    expect(guardados.tokenConta).toBeUndefined();
+    expect(useContaStore.getState().sessao?.plano).toBe("premium");
+  });
+
   it("carregar com token morto (expirada) limpa o disco em silêncio, sem erro na tela", async () => {
-    guardados.tokenConta = "tok-que-nao-existe";
+    cofre.token = "tok-que-nao-existe";
     const servico = new ServicoContaControlavel(comConta());
     useContaStore.getState().definirServico(servico);
 
@@ -190,12 +231,12 @@ describe("contaStore", () => {
 
     expect(useContaStore.getState().sessao).toBeNull();
     expect(useContaStore.getState().erro).toBeNull();
-    expect(guardados.tokenConta).toBeUndefined();
+    expect(cofre.token).toBeNull();
     expect(tokenDaSessaoAtual()).toBeNull();
   });
 
-  it("carregar sem internet (falha de rede) mantém o token no disco, sem deslogar em silêncio", async () => {
-    guardados.tokenConta = "tok-offline";
+  it("carregar sem internet (falha de rede) mantém o token no cofre, sem deslogar em silêncio", async () => {
+    cofre.token = "tok-offline";
     const servico = new ServicoContaControlavel(comConta());
     useContaStore.getState().definirServico(servico);
 
@@ -207,12 +248,12 @@ describe("contaStore", () => {
     expect(useContaStore.getState().sessao).toBeNull();
     expect(useContaStore.getState().carregado).toBe(true);
     expect(useContaStore.getState().erro).toBeNull();
-    // O token PERMANECE no disco: não é prova de que a sessão expirou, é só falta de rede.
-    expect(guardados.tokenConta).toBe("tok-offline");
+    // O token PERMANECE no cofre: não é prova de que a sessão expirou, é só falta de rede.
+    expect(cofre.token).toBe("tok-offline");
   });
 
-  it("carregar com erro de servidor (ex.: token rotativo já consumido por outra janela) mantém o token no disco", async () => {
-    guardados.tokenConta = "tok-consumido-por-outra-janela";
+  it("carregar com erro de servidor (ex.: token rotativo já consumido por outra janela) mantém o token no cofre", async () => {
+    cofre.token = "tok-consumido-por-outra-janela";
     const servico = new ServicoContaControlavel(comConta());
     useContaStore.getState().definirServico(servico);
 
@@ -223,11 +264,11 @@ describe("contaStore", () => {
 
     expect(useContaStore.getState().sessao).toBeNull();
     expect(useContaStore.getState().carregado).toBe(true);
-    expect(guardados.tokenConta).toBe("tok-consumido-por-outra-janela");
+    expect(cofre.token).toBe("tok-consumido-por-outra-janela");
   });
 
   it("sair durante um carregar() em andamento: o carregar que termina depois não restaura nada", async () => {
-    guardados.tokenConta = "tok-velho";
+    cofre.token = "tok-velho";
     const servico = new ServicoContaControlavel(comConta());
     useContaStore.getState().definirServico(servico);
 
@@ -236,12 +277,12 @@ describe("contaStore", () => {
 
     await useContaStore.getState().sair();
     expect(useContaStore.getState().sessao).toBeNull();
-    expect(guardados.tokenConta).toBeUndefined();
+    expect(cofre.token).toBeNull();
     expect(tokenDaSessaoAtual()).toBeNull();
 
     // O renovar do carregar() finalmente resolve, com uma sessão diferente da que o sair
     // apagou. Como o sair venceu (geração mais recente), o carregar não pode restaurar
-    // sessão, regravar o token no disco nem religar o porta-token.
+    // sessão, regravar o token no cofre nem religar o porta-token.
     servico.resolverComo({
       token: "tok-velho-renovado",
       email: "outra@exemplo.com",
@@ -251,12 +292,12 @@ describe("contaStore", () => {
     await carregando;
 
     expect(useContaStore.getState().sessao).toBeNull();
-    expect(guardados.tokenConta).toBeUndefined();
+    expect(cofre.token).toBeNull();
     expect(tokenDaSessaoAtual()).toBeNull();
   });
 
   it("entrar bem-sucedido vence um carregar() em andamento cujo renovar resolve depois", async () => {
-    guardados.tokenConta = "tok-velho";
+    cofre.token = "tok-velho";
     const servico = new ServicoContaControlavel(comConta());
     useContaStore.getState().definirServico(servico);
 
@@ -277,12 +318,12 @@ describe("contaStore", () => {
     await carregando;
 
     expect(useContaStore.getState().sessao?.token).toBe(tokenDoEntrar);
-    expect(guardados.tokenConta).toBe(tokenDoEntrar);
+    expect(cofre.token).toBe(tokenDoEntrar);
     expect(tokenDaSessaoAtual()).toBe(tokenDoEntrar);
   });
 
   it("entrar bem-sucedido sobrevive a um carregar() cujo renovar falha depois (token morto)", async () => {
-    guardados.tokenConta = "tok-morto";
+    cofre.token = "tok-morto";
     const servico = new ServicoContaControlavel(comConta());
     useContaStore.getState().definirServico(servico);
 
@@ -297,7 +338,7 @@ describe("contaStore", () => {
     await carregando;
 
     expect(useContaStore.getState().sessao?.token).toBe(tokenDoEntrar);
-    expect(guardados.tokenConta).toBe(tokenDoEntrar);
+    expect(cofre.token).toBe(tokenDoEntrar);
     expect(tokenDaSessaoAtual()).toBe(tokenDoEntrar);
   });
 
