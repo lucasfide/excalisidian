@@ -103,6 +103,11 @@ testou e constatou. A migração das telas restantes foi **adiada por decisão d
 - O passo de conta do assistente não tem botão para entrar — o usuário precisa fechar o
   assistente e ir às Configurações.
 
+> **Nota (23/09, fim da Fase B):** as três pendências acima foram resolvidas — indicador de
+> carregamento e botão de entrar no assistente no commit `a417158`, 401 virando falha de
+> sessão no commit `a974946`. Este registro histórico não foi reescrito; ver `docs/08-roadmap.md`
+> (Fatia 13) e ADR-38 para o estado atual.
+
 ### 2.5 Interface — correção feita nesta sessão
 
 - `src/ui/Dialog.tsx` renderiza **por portal em `document.body`**. Motivo: qualquer ancestral

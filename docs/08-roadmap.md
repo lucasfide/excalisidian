@@ -315,16 +315,17 @@ devolvem o mesmo erro, para não revelar quem tem conta.
   sem bloquear a tela; só "sessão expirada" apaga o token — falha de rede ou de servidor
   preserva a sessão.
 
-**Estado real:** pronta no cliente, com três pendências conhecidas (Fase B do trabalho): as
-telas ainda não usam o indicador de carregamento da conta, então quem já tem conta pode ver
-"entre na sua conta" por alguns segundos na abertura; um 401 do provedor próprio ainda
-aparece como "chave recusada"; o passo de conta do assistente de configuração do agente não
-tem botão para entrar — o usuário precisa fechar o assistente e ir às Configurações. E
-depende do servidor: sem ele, entrar e criar conta não completam de verdade.
+**Estado real:** pronta no cliente. As três pendências conhecidas da Fase B foram resolvidas:
+as telas passaram a usar o indicador de carregamento da conta, então quem já tem conta não vê
+mais "entre na sua conta" por alguns segundos na abertura, e o passo de conta do assistente de
+configuração do agente ganhou um botão para entrar (commit `a417158`); e um 401 do provedor
+próprio deixou de aparecer como "chave recusada", virando falha de sessão (commit `a974946`,
+ver também ADR-38). Depende do servidor: sem ele, entrar e criar conta não completam de
+verdade.
 
-**Status:** pronta no cliente, com pendências; depende do servidor.
+**Status:** pronta no cliente; depende do servidor.
 
-**Pronto quando:** o servidor existir e as três pendências acima estiverem resolvidas.
+**Pronto quando:** o servidor existir.
 
 ---
 
