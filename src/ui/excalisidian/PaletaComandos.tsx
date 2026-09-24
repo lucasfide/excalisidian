@@ -77,7 +77,9 @@ function construirComandos(t: TradutorDoApp): Comando[] {
     { id: "tema-escuro", rotulo: "Tema: escuro", executar: () => prefs.definirTema("escuro") },
     {
       id: "largura-pequena",
-      rotulo: "Largura da nota: pequena",
+      // Mesmo termo do controle segmentado das Configurações ("Estreita"), não o antigo
+      // "pequena" — o valor salvo continua "pequena" (prefsStore.ts), só o rótulo mudou.
+      rotulo: "Largura da nota: estreita",
       executar: () => prefs.definirLarguraNota("pequena"),
     },
     {
@@ -87,7 +89,9 @@ function construirComandos(t: TradutorDoApp): Comando[] {
     },
     {
       id: "largura-full",
-      rotulo: "Largura da nota: full",
+      // "Full" saiu da interface em português (Configurações usa "Inteira"); o valor salvo
+      // continua "full" (prefsStore.ts).
+      rotulo: "Largura da nota: inteira",
       executar: () => prefs.definirLarguraNota("full"),
     },
     // Só em desenvolvimento (task-7): `import.meta.env.DEV` é substituído por uma constante

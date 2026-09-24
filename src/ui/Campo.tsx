@@ -14,12 +14,16 @@ interface Props extends Omit<InputHTMLAttributes<HTMLInputElement>, "id"> {
   /** Conteúdo fixo no fim do campo, por dentro da borda (ex.: dica "↵ ENTER"). Decorativo:
    * não recebe clique, o texto digitado nunca passa por baixo dele. */
   sufixo?: ReactNode;
+  /** O `<label>` continua no DOM (o `id` liga os dois, leitor de tela anuncia o rótulo) mas
+   * fica `sr-only` — para telas cujo layout já deixa o rótulo óbvio visualmente (ex.: uma
+   * `LinhaConfig` com título próprio) e um rótulo duplicado visível seria ruído. */
+  rotuloOculto?: boolean;
 }
 
 // Ref encaminhada pro <input>: o PainelBusca/PaletaComandos precisam focar o campo na
 // hora de abrir sem depender de autoFocus (que não refoca se o componente já está montado).
 const Campo = forwardRef<HTMLInputElement, Props>(function Campo(
-  { rotulo, erro, grande = false, sufixo, className, ...resto },
+  { rotulo, erro, grande = false, sufixo, rotuloOculto = false, className, ...resto },
   ref,
 ) {
   const id = useId();
@@ -27,7 +31,7 @@ const Campo = forwardRef<HTMLInputElement, Props>(function Campo(
 
   return (
     <div className="flex flex-col gap-1">
-      <label htmlFor={id} className="meta text-tinta-suave">
+      <label htmlFor={id} className={cn("meta text-tinta-suave", rotuloOculto && "sr-only")}>
         {rotulo}
       </label>
       <div className="relative">

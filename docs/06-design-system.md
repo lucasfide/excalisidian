@@ -459,6 +459,22 @@ Todos precisam de estados: repouso, hover, foco visível, ativo, desabilitado, c
 
 **Base (`ui/`)** — shadcn re-estilizado: Button, Input, Label, Select, Checkbox, Dialog, Popover, Command, DropdownMenu, ContextMenu, Tooltip, Toast (sonner), Skeleton, Separator, Badge, ScrollArea, Tabs.
 
+`Dialog` aceita `cru`: a `Superficie` fica sem o padding padrão e sem `h2`/descrição/rodapé de
+ações — só `children` — para um diálogo que desenha o próprio layout de ponta a ponta (ex.:
+`DialogoPreferencias`, com navegação e cabeçalho próprios). O foco inicial procura primeiro um
+elemento com `data-foco-inicial` dentro da caixa, e só cai no primeiro focável genérico se não
+achar — necessário porque o efeito de foco do `Dialog` roda depois dos efeitos dos filhos, então
+um filho não consegue focar a si mesmo a tempo. `Campo` aceita `rotuloOculto`: o `<label>`
+continua no DOM (acessibilidade) mas vira `sr-only` — para um layout cujo título ao lado já deixa
+o rótulo óbvio visualmente, sem repeti-lo (ex.: "Seu nome" nas Configurações).
+
+`GrupoBotoes` tem duas variantes (prop `variante`): `solto` (padrão, intocado — botões com borda
+própria, usado no painel de propriedades do canvas) e `segmentado` — um único controle com
+trilho (`rounded-controle border border-regua-forte p-1`), segmentos de 26px de altura interna
+(36px com padding e borda, a mesma altura de `Botao` e `Campo`), ativo em `cristal`/`superficie`,
+inativo em `tinta-media` com hover `lavagem` — usado nas Configurações (tema, largura da nota,
+idioma).
+
 Botões:
 
 | Variante | Aparência |
@@ -477,7 +493,7 @@ Altura padrão 36px, compacto 30px, ícone 32×32.
 | `Logotipo` | lettering em imagem, altura parametrizável (prop `altura`, padrão 16px — o do cabeçalho histórico; 32px na `TelaBoasVindas`); sem uso no cabeçalho da sidebar desde o Seletor de vault — ver "Elemento de assinatura" |
 | `TelaBoasVindas` | tela sem vault (primeiro uso, retorno e erro) — lettering, nome do usuário (só no primeiro uso sem nome informado) e criação do primeiro vault com sugestão pronta; ver "Tela de boas-vindas", abaixo |
 | `SeletorVault` | botão do cabeçalho da sidebar com o nome do vault e fade de transbordo; menu de recentes, criar e abrir vault (`docs/12-multiplos-vaults.md` §4) |
-| `DialogoCriarVault` | diálogo de criar vault (nome + local), mesmo padrão de `DialogoPreferencias` (`docs/12-multiplos-vaults.md` §4.3) |
+| `DialogoCriarVault` | diálogo de criar vault (nome + local), `Dialog` padrão (título + conteúdo + rodapé de ações, sem `cru`) (`docs/12-multiplos-vaults.md` §4.3) |
 | `ArvoreArquivos` | árvore virtualizada, expandir/recolher, arrastar, menu de contexto; durante o arrasto o documento inteiro força `cursor: grabbing` (classe `.arrastando-arvore`, `globals.css`) — inclusive sobre elementos com cursor próprio, como o separador de redimensionar e o texto do editor — para o cursor não trocar de cara ao passar por cima deles |
 | `ItemArvore` | linha de arquivo ou pasta, com ícone por tipo e régua de nível ativo |
 | `BarraAbas` | fichas de aba, arrastar, zonas de soltura, indicador de não salvo |
@@ -497,11 +513,11 @@ Altura padrão 36px, compacto 30px, ícone 32×32.
 | `PainelBusca` | busca unificada por título e por conteúdo (doc 13): um campo, seções "Títulos" e "No conteúdo", trechos com destaque. Absorveu o `QuickSwitcher`, que foi apagado — a busca por nome/alias virou a seção "Títulos" desta mesma sobreposição |
 | `CampoBuscaSidebar` | linha "Buscar" abaixo do cabeçalho da sidebar, com o atalho à direita; visualmente um campo, mas é um botão que abre `PainelBusca` (doc 13 §2.4) |
 | `PaletaComandos` | sobreposição de comandos com atalho em `meta` |
-| `PainelLixeira` | diálogo modal (mesmo padrão de `DialogoPreferencias`, não uma seção fixa da sidebar — o diagrama de Layout abaixo é aspiracional nesse ponto) com a lista de itens excluídos, restaurar por item e esvaziar |
+| `PainelLixeira` | diálogo modal (`Dialog` padrão, não `cru` — não uma seção fixa da sidebar — o diagrama de Layout abaixo é aspiracional nesse ponto) com a lista de itens excluídos, restaurar por item e esvaziar |
 | `EstadoVazio` | bloco com hairline superior e inferior, título, apoio e ação |
 | `TelaInicio` | aba fixa de início, nesta ordem: saudação por horário (`display-1`, com o nome do usuário quando informado — `nomeUsuario` `null` ou `""` mostra só a saudação, sem nome), o convite de `EstadoVazio` para criar nota/desenho/pasta, atalhos para as pastas de primeiro nível, e — ao clicar num atalho — os arquivos/subpastas dela, navegável (mini-explorador) |
 | `AsciiPeaks` | camada de fundo bem suave (15% de opacidade) por cima da vinheta do papel de parede, na Home e na aba em branco — relevo gerado por ruído, renderizado como caracteres ASCII (técnica de "ASCII art shader", código autoral em WebGL2 — não um efeito comprado, ver doc 09 ADR-28), na cor `cristal`; o mesmo brilho que já clareia os picos altos do relevo também reage à proximidade do cursor, deixando um rastro que se dispersa aos poucos; para de animar com `prefers-reduced-motion` e enquanto a tela não está visível; preferência `asciiPeaksHabilitado` (padrão ligado) — botão "Desabilitar shaders"/"Habilitar shaders" no rodapé da Home, separado do grupo de papel de parede por um bullet |
-| `DialogoPreferencias` | configurações do app — seção "Seu nome" (`Campo` "Nome", ajuda "Aparece na saudação da tela de início.") é a primeira da lista, seguida de tema e largura da nota e da seção "Atalhos e símbolos" (botão "Abrir glossário", que abre `DialogoGlossario` por cima) — ícone de engrenagem no rodapé da sidebar, ou `Ctrl+,` |
+| `DialogoPreferencias` | configurações do app — ícone de engrenagem no rodapé da sidebar, ou `Ctrl+,`; `Dialog` `cru`, duas colunas (padrão Obsidian/Linear): navegação à esquerda com as 4 abas — Geral, Aparência, Conta, Agente de IA — ícone lucide 16px + rótulo no estilo de `ItemArvore` (fundo `lavagem` e régua `cristal` de 2px na aba ativa), hairline `regua` separando da coluna de conteúdo; conteúdo à direita com o nome da aba no topo, `BotaoIcone` `x` para fechar no canto, e o corpo em linhas de configuração (`LinhaConfig`: título + descrição à esquerda, controle à direita, régua `regua` entre linhas, nunca sombra) — Geral tem "Seu nome" (`Campo` `rotuloOculto`), idioma, "Atalhos e símbolos" (botão "Abrir glossário", que abre `DialogoGlossario` por cima) e Atualizações; Aparência tem tema e largura da nota, ambos em `GrupoBotoes` `segmentado`; Conta reaproveita a seção de conta (formulário deslogado, `LinhaConfig` "Conectado como" logado); Agente de IA tem uma `LinhaConfig` por ação (ligar/desligar, reconfigurar, testar conexão, abrir pasta, limpar memória). Aba inicial: `secaoInicial === "conta"` abre direto na aba Conta (usado pelo assistente do agente); sem isso, reabre a última aba usada nesta sessão do app (não persistida), e a primeira vez de todas cai em Geral (`ui/excalisidian/abasPreferencias.ts`) |
 | `DialogoGlossario` | atalhos de teclado e símbolos de formatação (RF8.3): dois catálogos de dados puros com testes de deriva, filtro sem acento/caixa, interface com duas abas, abre por cima de `DialogoPreferencias` (pilha de diálogos) |
 | `TeclasAtalho` | desenha cada tecla de uma combinação (ou gesto) num `<kbd>` — `meta`, hairline `regua`, `rounded-controle`, fundo `superficie`, texto `tinta-media` —, com rótulos por plataforma (Mod → Ctrl/⌘, Alt → ⌥, setas → ↑/↓/←/→); combinações alternativas separadas por "ou" em `text-pequeno` `tinta-suave` |
 | `AmostraSimbolo` | coluna "Fica assim" do glossário: desenha a sintaxe markdown com os estilos que o editor aplica (negrito, código, citação etc.); amostra `comportamento` não desenha nada (só texto) |
@@ -614,6 +630,8 @@ agente está habilitado — o produto sem agente não tem nenhum destes elemento
 | dividir vertical / horizontal | `columns-2` / `rows-2` |
 | ordenar | `arrow-up-narrow-wide` |
 | preferências | `settings` |
+| Configurações: aba Geral / Aparência / Conta / Agente de IA | `sliders-horizontal` / `palette` / `user-round` / `bot` |
+| fechar (Configurações, canto superior direito) | `x` |
 | colapsar sidebar / expandir sidebar | `panel-left-close` / `panel-left` |
 | aviso | `alert-triangle` |
 | negrito / itálico / riscado / código | `bold` / `italic` / `strikethrough` / `code` |

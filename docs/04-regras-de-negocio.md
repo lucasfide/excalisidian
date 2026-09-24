@@ -476,8 +476,8 @@ atualizações" (paleta de comandos e em Configurações).
 | Diálogo de erro — botão | "Fechar" |
 | Comando manual sem novidade | "Você já está na versão mais recente." |
 | Comando na paleta de comandos | "Verificar atualizações" |
-| Preferências — seção | "Atualizações" |
-| Preferências — versão atual | "Versão {versão}" |
+| Configurações — aba Geral, linha | "Atualizações" |
+| Configurações — versão atual | "Versão {versão}" (vazio enquanto a versão não carrega) |
 
 Os erros de rede ("Não foi possível baixar a atualização…" e "Não foi possível verificar
 atualizações.") estão na tabela da seção 10, junto com as demais mensagens de erro do app.
@@ -566,8 +566,8 @@ operacional.
 | Alternativa | "Já tenho uma pasta com notas" / "Abrir pasta" |
 | Recentes | "Recentes" |
 | Falha no conteúdo de exemplo | "O vault foi criado, mas não foi possível criar a nota de boas-vindas." |
-| Configurações: seção | "Seu nome" |
-| Configurações: rótulo / ajuda | "Nome" / "Aparece na saudação da tela de início." |
+| Configurações: aba Geral, linha | "Seu nome" |
+| Configurações: rótulo / ajuda | "Seu nome" (rótulo oculto, `sr-only`) / "Aparece na saudação da tela de início." |
 | Arquivos de exemplo | "Boas-vindas", "Primeiro desenho" |
 
 ## 15. Agente de IA
@@ -577,8 +577,8 @@ Contrato completo — pipeline, provedores, estados e arquitetura — em `docs/1
 interface.
 
 - **Opcional e silencioso.** Sem configuração, nenhum componente do agente (balão, painel,
-  seção nas Configurações além do botão) aparece de outra forma além do próprio botão
-  "Configurar agente". Configura-se pelas Configurações (`Ctrl+,`), seção "Agente de IA" — não
+  aba nas Configurações além do botão) aparece de outra forma além do próprio botão
+  "Configurar agente". Configura-se pelas Configurações (`Ctrl+,`), aba "Agente de IA" — não
   existe atalho de teclado nem item de paleta de comandos dedicado.
 - Nada é gravado até o botão final do assistente ("Ativar agente"): fechar o assistente no
   meio do caminho não deixa configuração pela metade.
@@ -597,11 +597,14 @@ interface.
 
 | Situação | Texto |
 |---|---|
-| Configurações: seção | "Agente de IA" |
+| Configurações: aba | "Agente de IA" |
 | Configurações: aviso sem configuração | "Opcional. Nada é enviado sem a sua configuração, e o agente só acompanha uma nota depois que você aceita o convite." |
 | Configurações: botão sem configuração | "Configurar agente" |
-| Configurações: resumo | "{Ativo/Desligado} · {provedor}" + "{modelo gateiro} · {modelo assistente}" |
-| Configurações: ações | "Ligar agente" / "Desligar agente", "Reconfigurar", "Testar conexão", "Abrir pasta do agente", "Limpar memória" |
+| Configurações: linha "Agente" | "Ativo · {provedor}" / "Desligado · {provedor}" — botão "Desligar agente" / "Ligar agente" |
+| Configurações: linha "Modelos" | "{modelo gateiro} · {modelo assistente}" — botão "Reconfigurar" |
+| Configurações: linha "Conexão" (só com o agente ligado) | "Confere se o provedor responde com a sua chave." — botão "Testar conexão" |
+| Configurações: linha "Pasta do agente" | "Arquivos do agente neste computador." — botão "Abrir pasta" |
+| Configurações: linha "Memória" | "Resumos, fatos, participações e conversas. As notas não são afetadas." — botão destrutivo "Limpar memória" |
 | Limpar memória (confirmação) | "Apagar resumos, fatos, participações e conversas do agente? As notas não são afetadas." |
 | Limpar memória (toast) | "Memória do agente apagada." |
 | Teste de conexão bem-sucedido | "Conexão funcionando." |
@@ -649,7 +652,7 @@ regras de comportamento e os textos de interface (RF8.3). O glossário só lista
 no código: os catálogos (`src/app/glossario/`) têm testes que conferem os atalhos contra os
 keymaps do editor e os símbolos contra o parser markdown do editor.
 
-**Onde fica.** Nas Configurações, seção nova "Atalhos e símbolos", logo depois de "Largura da nota": uma linha de ajuda e um botão compacto "Abrir glossário". O glossário abre como um segundo `Dialog` por cima das Configurações — a pilha de diálogos já existe, então Esc fecha só o glossário.
+**Onde fica.** Nas Configurações, aba "Geral", uma linha "Atalhos e símbolos" com uma ajuda e um botão compacto "Abrir glossário". O glossário abre como um segundo `Dialog` por cima das Configurações — a pilha de diálogos já existe, então Esc fecha só o glossário.
 
 **Comportamento.** Abre por cima das Configurações; Esc fecha o glossário e devolve o foco ao botão. Filtro ignora acento e caixa. Teclas de modificador são mostradas por plataforma (Mod vira Ctrl no Windows/Linux e ⌘ no macOS; Alt vira ⌥ no macOS). `Ctrl+K` no editor insere link markdown (RF2.11).
 
@@ -659,7 +662,7 @@ keymaps do editor e os símbolos contra o parser markdown do editor.
 
 | Situação | Texto |
 |---|---|
-| Configurações: seção | "Atalhos e símbolos" |
+| Configurações: aba Geral, linha | "Atalhos e símbolos" |
 | Configurações: ajuda | "Tudo o que dá pra fazer pelo teclado e os símbolos que formatam o texto." |
 | Botão | "Abrir glossário" |
 | Diálogo: título | "Atalhos e símbolos" |

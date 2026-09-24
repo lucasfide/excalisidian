@@ -57,9 +57,9 @@ type Boot = "carregando" | "sem-vault" | "pronto" | { erro: string };
 export default function App() {
   const [boot, setBoot] = useState<Boot>("carregando");
   const [preferenciasAbertas, setPreferenciasAbertas] = useState(false);
-  // T4: o passo de conta do assistente do agente pode abrir as preferências na seção Conta,
+  // T4: o passo de conta do assistente do agente pode abrir as preferências na aba Conta,
   // por cima de si mesmo, sem se fechar (perder o que o usuário já preencheu no assistente).
-  // `secaoInicial` manda o dialog rolar até lá.
+  // `secaoInicial` manda o dialog abrir direto nela.
   const [secaoPreferenciasInicial, setSecaoPreferenciasInicial] = useState<"conta" | undefined>(
     undefined,
   );
