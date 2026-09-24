@@ -132,6 +132,7 @@ async function configurarParSincronizado() {
     servico,
     chaveDeEnvelope,
     nomeDoVault: "Vault de teste",
+    nomeDesteComputador: compA.nome,
   });
 
   const [{ id, envelope }] = await servico.listarVaults();
@@ -382,7 +383,7 @@ describe("motor — computador novo C recebe tudo de retrato + lotes", () => {
     // mudança para o retrato ser considerado.
     const ctxAcomRetrato: ContextoCiclo = {
       ...ctxDe(compA, servico, chaveDoVault, estadoA),
-      limiarRetrato: { lotes: 1, bytesBrutos: Number.POSITIVE_INFINITY },
+      limiarRetrato: { lotes: 1 },
     };
     await compA.adaptador.escreverTexto("gatilho.md", "só pra ter algo pra enviar");
     const comRetrato = await executarCiclo(ctxAcomRetrato);

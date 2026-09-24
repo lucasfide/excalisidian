@@ -44,15 +44,16 @@ import type { EfeitosDeGravacao } from "../vault/efeitosDeGravacao";
  * o controle (a agenda, plano 10, tenta de novo no próximo gatilho). */
 const MAX_TENTATIVAS_FORA_DE_ORDEM = 5;
 
-/** Limiar para o retrato automático (doc 17 §9): "o diário passa de 200 lotes ou de 50 MiB
- * desde o último retrato". Injetável em `ContextoCiclo` só para os testes exercitarem o
- * caminho sem mandar 200 lotes de verdade — ver nota em `talvezEnviarRetrato`. */
+/** Limiar para o retrato automático (doc 17 §9, revisão pós-Task 4): "`cursor − ultimoRetrato
+ * ≥ 200`". O critério de tamanho (50 MiB) foi retirado do doc — o cliente não tem como medir
+ * bytes do diário desde o retrato sem baixá-lo, e medir o vault inteiro mandaria retrato em
+ * todo ciclo de vaults grandes. Injetável em `ContextoCiclo` só para os testes exercitarem o
+ * caminho sem mandar 200 lotes de verdade — ver `talvezEnviarRetrato`. */
 export interface LimiarRetrato {
   lotes: number;
-  bytesBrutos: number;
 }
 
-const LIMIAR_RETRATO_PADRAO: LimiarRetrato = { lotes: 200, bytesBrutos: 50 * 1024 * 1024 };
+const LIMIAR_RETRATO_PADRAO: LimiarRetrato = { lotes: 200 };
 
 /** Tudo que o ciclo precisa além do que já está em `EstadoSync`. `estado` é mutado em
  * memória — persistir (`salvarEstadoSync`) é responsabilidade de quem chama, como em
@@ -281,6 +282,20 @@ async function hashesDoVault(
   return { atual, foraDaSincronizacao };
 }
 
+/** União dos caminhos com conflito aberto na TELA agora (`conflitosAbertos()`) com os que já
+ * estão em `estado.conflitosPendentes` (persistido). Os dois deveriam coincidir sempre que a
+ * fila foi re-registrada ao abrir o vault (doc 17 §5), mas usar só `conflitosAbertos()` deixa
+ * uma janela: se um ciclo rodar ANTES da fila ser re-registrada (app acabou de abrir), um
+ * conflito pendente pareceria "não mexi" e a versão local subiria por cima da remota que
+ * gerou o conflito — exatamente o que `conflitosPendentes` existe para evitar (doc 17 §5,
+ * comentário do próprio tipo). Defesa em profundidade: nunca é a fila sozinha que decide o
+ * que fica de fora do envio. */
+function conflitosParaExcluirDoEnvio(ctx: ContextoCiclo): Set<string> {
+  const uniao = new Set(ctx.conflitosAbertos());
+  for (const caminho of Object.keys(ctx.estado.conflitosPendentes)) uniao.add(caminho);
+  return uniao;
+}
+
 async function mudancasParaEnviar(
   ctx: ContextoCiclo,
   atual: Map<string, string>,
@@ -288,7 +303,7 @@ async function mudancasParaEnviar(
   const semConteudo = mudancasLocais(
     atual,
     ctx.estado.bases,
-    ctx.conflitosAbertos(),
+    conflitosParaExcluirDoEnvio(ctx),
   ) as MudancaDecisao[];
 
   const mudancas: Mudanca[] = [];
@@ -297,14 +312,15 @@ async function mudancasParaEnviar(
       mudancas.push(m);
       continue;
     }
+    // O hash enviado (e o que vira `bases[caminho]` depois de aceito) é sempre o SHA-256
+    // dos bytes efetivamente lidos AGORA para o envio — não o hash "rápido" calculado antes
+    // em `hashesDoVault` (que só serviu para decidir SE este arquivo mudou). Se o usuário
+    // gravar de novo entre as duas leituras, usar o hash antigo com o conteúdo novo mandaria
+    // um lote mentiroso (hash não bate com o conteúdo) e, pior, gravaria em `bases` um hash
+    // que não corresponde ao que está de fato no disco.
     const bytes = await ctx.adaptador.lerBinario(m.caminho);
-    mudancas.push({
-      tipo: "gravar",
-      caminho: m.caminho,
-      base: m.base,
-      hash: atual.get(m.caminho)!,
-      conteudo: bytes,
-    });
+    const hash = await hashDe(bytes);
+    mudancas.push({ tipo: "gravar", caminho: m.caminho, base: m.base, hash, conteudo: bytes });
   }
   return mudancas;
 }
@@ -406,34 +422,64 @@ async function enviarMudancas(
 // --- retrato automático (best-effort) ---
 
 /**
- * Doc 17 §9: "um computador que manda um retrato faz isso quando o diário passa de 200 lotes
- * ou de 50 MiB desde o último retrato". O documento não diz como o cliente sabe onde ficou o
- * ÚLTIMO retrato quando ele não precisou baixá-lo agora (`ServicoSync.baixar` só devolve
- * `retrato` quando o cliente está atrás dele) — não há como distinguir "nunca houve retrato"
- * de "há um retrato recente e eu já passei dele" sem um campo a mais no contrato. Na falta
- * dessa informação, a aproximação aqui é conservadora: usa o `cursor` (lotes aplicados desde
- * sempre) como proxy de "lotes desde o retrato", o que manda retrato mais cedo do que o
- * necessário em vez de mais tarde (nunca deixa de mandar) — seguro, só não é ótimo. Ver
- * relatório da Task 4 para a recomendação de acrescentar esse dado ao contrato.
+ * Confere se o estado local está inteiramente sincronizado — condição para o retrato
+ * representar de verdade o diário na sequência `cursor` (doc 17 §9, revisão pós-Task 4):
+ * nenhum conflito pendente, todo arquivo sincronizável com hash no disco IGUAL ao de `bases`,
+ * e o mesmo conjunto de caminhos (nada em `bases` que sumiu do disco sem essa exclusão ainda
+ * ter sido enviada, nada novo no disco que `bases` ainda não conhece). Se qualquer coisa não
+ * bater, devolve `null`: mandar retrato agora gravaria no diário uma versão que não é nem a
+ * remota (o disco tem uma edição/exclusão local ainda não enviada) nem a local (é só um
+ * retrato do que já está sincronizado) — um computador novo receberia a versão ERRADA. Quando
+ * bate, devolve os arquivos já lidos e com hash conferido (reaproveitados no retrato — não lê
+ * o disco de novo).
+ */
+async function estadoSincronizadoParaRetrato(ctx: ContextoCiclo): Promise<Retrato["arquivos"] | null> {
+  if (Object.keys(ctx.estado.conflitosPendentes).length > 0) return null;
+
+  const entradas = (await ctx.adaptador.listar()).filter((e) => !e.isDir);
+  const caminhosVistos = new Set<string>();
+  const arquivos: Retrato["arquivos"] = [];
+
+  for (const entrada of entradas) {
+    if (entrada.size > TAMANHO_MAXIMO_SINCRONIZAVEL) {
+      // Nunca deveria estar em `bases` (arquivo grande nunca é sincronizado) — se estiver,
+      // algo está inconsistente; mais seguro não mandar retrato do que mandar um errado.
+      if (Object.prototype.hasOwnProperty.call(ctx.estado.bases, entrada.path)) return null;
+      continue;
+    }
+    caminhosVistos.add(entrada.path);
+    const baseConhecida = ctx.estado.bases[entrada.path];
+    if (baseConhecida === undefined) return null; // arquivo novo, ainda não sincronizado
+    const bytes = await ctx.adaptador.lerBinario(entrada.path);
+    const hash = await hashDe(bytes);
+    if (hash !== baseConhecida) return null; // editado localmente, ainda não enviado
+    arquivos.push({ caminho: entrada.path, hash, conteudo: bytes });
+  }
+
+  for (const caminho of Object.keys(ctx.estado.bases)) {
+    if (!caminhosVistos.has(caminho)) return null; // apagado localmente, ainda não enviado
+  }
+
+  return arquivos;
+}
+
+/**
+ * Doc 17 §9 (revisão pós-Task 4): manda retrato depois de um ciclo que enviou com sucesso, se
+ * `cursor − ultimoRetrato ≥ 200` **e** o estado local estiver inteiramente sincronizado
+ * (`estadoSincronizadoParaRetrato`). `ultimoRetrato` vem do último `baixar()` deste ciclo
+ * (`ResultadoBaixar.ultimoRetrato`, sempre preenchido pelo servidor — mesmo quando o cliente já
+ * está na frente do retrato atual e a resposta não trouxe `retrato`) — sem isso o cliente não
+ * saberia há quantos lotes foi o último retrato depois do primeiro ciclo em que o baixou.
  *
  * `limiarRetrato` é injetável só para os testes: mandar 200 lotes de verdade num teste não é
  * razoável, então os testes usam um limiar pequeno para exercitar o mesmo código.
  */
-async function talvezEnviarRetrato(ctx: ContextoCiclo): Promise<void> {
+async function talvezEnviarRetrato(ctx: ContextoCiclo, ultimoRetrato: number): Promise<void> {
   const limiar = ctx.limiarRetrato ?? LIMIAR_RETRATO_PADRAO;
+  if (ctx.estado.cursor - ultimoRetrato < limiar.lotes) return;
 
-  const entradas = (await ctx.adaptador.listar()).filter(
-    (e) => !e.isDir && e.size <= TAMANHO_MAXIMO_SINCRONIZAVEL,
-  );
-  const bytesTotais = entradas.reduce((soma, e) => soma + e.size, 0);
-
-  if (ctx.estado.cursor < limiar.lotes && bytesTotais < limiar.bytesBrutos) return;
-
-  const arquivos: Retrato["arquivos"] = [];
-  for (const entrada of entradas) {
-    const bytes = await ctx.adaptador.lerBinario(entrada.path);
-    arquivos.push({ caminho: entrada.path, hash: await hashDe(bytes), conteudo: bytes });
-  }
+  const arquivos = await estadoSincronizadoParaRetrato(ctx);
+  if (arquivos === null) return; // disco tem algo que o diário ainda não tem — tenta no próximo ciclo
 
   const retrato: Retrato = { versao: 1, ateSequencia: ctx.estado.cursor, arquivos };
   const partes = dividirRetrato(retrato);
@@ -503,7 +549,7 @@ export async function executarCiclo(ctx: ContextoCiclo): Promise<ResultadoCiclo>
 
     foraDaSincronizacaoAcumulado = [...foraDaSincronizacaoAcumulado, ...resultadoEnvio.foraDaSincronizacao];
 
-    await talvezEnviarRetrato(ctx);
+    await talvezEnviarRetrato(ctx, resultadoBaixar.ultimoRetrato);
 
     return { ok: true, foraDaSincronizacao: foraDaSincronizacaoAcumulado };
   }
@@ -520,6 +566,9 @@ export interface ContextoIniciar {
   chaveDeEnvelope: Uint8Array;
   /** Nome do vault em claro; vai cifrado ao servidor. */
   nomeDoVault: string;
+  /** Nome deste computador (doc 17 §7) — vira o `dispositivo` do(s) lote(s) com o conteúdo
+   * inicial, igual qualquer outro lote que este computador manda. */
+  nomeDesteComputador: string;
 }
 
 export interface ResultadoIniciar {
@@ -599,7 +648,7 @@ export async function iniciarVault(ctx: ContextoIniciar): Promise<ResultadoInici
       chave: chaveDoVault,
       estado,
       efeitos: efeitosNulos(),
-      nomeDesteComputador: "(inicial)",
+      nomeDesteComputador: ctx.nomeDesteComputador,
       registrarConflito: () => {},
       flushTudo: async () => {},
       conflitosAbertos: () => new Set(),
