@@ -90,6 +90,11 @@ comportamento — os testes existentes dele têm que passar sem afrouxar).
   `caminhoLivre`), a local fica, e `bases` passa a ser o hash remoto para o caminho original
   (o próximo ciclo reenvia a local por cima — é a regra "manter as duas"); só-atualizar-base;
   manter-local-e-reenviar (não toca o disco, não muda `bases`).
+- [ ] **Pasta nova:** gravar `a/b/c.md` num computador que não tem `a/b` falha no disco real
+  (`escritaAtomica.ts` não cria pastas). Antes de gravar/recriar, `criarPasta(pastaDe(caminho))`.
+  O `VaultAdapterMemoria` falha igual ao disco (corrigido na revisão da Task 1) — teste o caso.
+  Pastas que começam com ponto não sincronizam (doc 17 §4.4, mesma regra do `listar()`);
+  `mudancasLocais` e a aplicação ignoram esses caminhos.
 - [ ] Atualiza `bases` e `hashesConhecidos` conforme cada ação. Dois cuidados que vêm da
   revisão do plano 08 (`decisoes.ts`): (a) `"so-atualizar-base"` vindo de uma mudança
   `apagar` significa **remover** o caminho de `bases` (os dois lados apagaram), não gravar um

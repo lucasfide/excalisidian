@@ -126,8 +126,11 @@ imagens) é dividido em vários lotes.
 
 ### 4.4 O que entra e o que não entra
 
-- Entra: todo arquivo do vault, inclusive `.excalisidian/vault.json`.
-- Não entra: a lixeira (`.trash/`), arquivos temporários de gravação
+- Entra: todo arquivo do vault fora de pastas que começam com ponto.
+- Não entra: pastas que começam com ponto — a lixeira (`.trash/`, ver abaixo) e a pasta de
+  configuração do vault (`.excalisidian/`, cujo `vault.json` ainda não existe — doc 02 §1;
+  quando existir, este documento decide se ele sincroniza). É a mesma regra da listagem do
+  vault (RF1.6: `listar()` não enxerga pastas ponto). Também não entram os temporários de gravação
   (`*.excalisidian-tmp`), e qualquer arquivo acima de 7 MiB (fica só local; a tela de
   sincronização lista quais). O limite vem do tamanho máximo de um pacote (8 MiB, com folga
   para o formato): nesta primeira versão um arquivo não é dividido entre pacotes. Notas e
