@@ -36,7 +36,9 @@ export async function abrirOuCriarPorLink(
   const nomeArquivo = bruto.slice(bruto.lastIndexOf("/") + 1);
   const nomeBase = nomeArquivo.replace(/\.md$/i, "");
 
-  const seguro = sanitizarNome(nomeBase);
+  // Nota criada por link: o nome-base vai ganhar ".md" na frente, então um ponto final do
+  // título (ex.: "[[Frase.]]") não é o fim do arquivo — não corta (doc 02 §9).
+  const seguro = sanitizarNome(nomeBase, { vaiReceberExtensao: true });
   if (!seguro) return;
 
   if (seguro !== nomeBase) {

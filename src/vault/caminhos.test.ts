@@ -2,6 +2,8 @@ import { describe, it, expect } from "vitest";
 
 import {
   validarNomeArquivo,
+  validarNomeRenomear,
+  sanitizarNome,
   normalizarCaminho,
   chaveCanonica,
 } from "./caminhos";
@@ -30,6 +32,45 @@ describe("validarNomeArquivo (doc 02 §9)", () => {
   it("aceita nome comum", () => {
     expect(validarNomeArquivo("Arquitetura.md").ok).toBe(true);
     expect(validarNomeArquivo("2026-08-28.md").ok).toBe(true);
+  });
+});
+
+describe("validarNomeRenomear (doc 02 §9 — ponto final na nota/desenho)", () => {
+  it("aceita ponto final para nota (o nome final termina em .md)", () => {
+    expect(validarNomeRenomear("Nota.md", "Frase.")).toBeNull();
+  });
+
+  it("aceita ponto final para desenho (o nome final termina em .draw.md)", () => {
+    expect(validarNomeRenomear("Fluxo.draw.md", "Frase.")).toBeNull();
+  });
+
+  it("recusa ponto final para pasta (o nome digitado é o nome final)", () => {
+    expect(validarNomeRenomear("Projetos", "Frase.")).not.toBeNull();
+  });
+
+  it("recusa ponto final para anexo (o nome digitado já inclui a extensão)", () => {
+    expect(validarNomeRenomear("foto.png", "foto.")).not.toBeNull();
+  });
+
+  it("continua recusando caractere proibido e nome reservado", () => {
+    expect(validarNomeRenomear("Nota.md", "a:b")).not.toBeNull();
+    expect(validarNomeRenomear("Nota.md", "CON")).not.toBeNull();
+  });
+});
+
+describe("sanitizarNome — vaiReceberExtensao (doc 02 §9)", () => {
+  it("sem a opção: corta o ponto final, igual sempre foi", () => {
+    expect(sanitizarNome("Frase.")).toBe("Frase");
+  });
+
+  it("com vaiReceberExtensao: mantém o ponto final, corta só o espaço", () => {
+    expect(sanitizarNome("Frase.", { vaiReceberExtensao: true })).toBe("Frase.");
+    expect(sanitizarNome("Frase. ", { vaiReceberExtensao: true })).toBe("Frase.");
+  });
+
+  it("com vaiReceberExtensao: ainda substitui caractere proibido e recusa nome reservado", () => {
+    expect(sanitizarNome("a:b.", { vaiReceberExtensao: true })).toBe("a-b.");
+    expect(sanitizarNome("CON", { vaiReceberExtensao: true })).toBeNull();
   });
 });
 

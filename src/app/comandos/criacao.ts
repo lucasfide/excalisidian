@@ -8,7 +8,7 @@ import { toast } from "sonner";
 
 import { pedirTexto } from "../../estado/dialogoStore";
 import { useWorkspaceStore } from "../../estado/workspaceStore";
-import { validarNomeArquivo } from "../../vault/caminhos";
+import { validarNomeArquivo, validarNomeRenomear } from "../../vault/caminhos";
 import {
   criarNota,
   criarDesenho,
@@ -99,7 +99,7 @@ export async function comandoRenomear(path: string): Promise<void> {
     rotulo: "Novo nome",
     valorInicial: atual,
     textoConfirmar: "Renomear",
-    validar: (v) => validarNomeArquivo(v).motivo ?? null,
+    validar: (v) => validarNomeRenomear(path, v),
   });
   if (!novo || novo === atual) return;
 

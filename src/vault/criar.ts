@@ -52,7 +52,11 @@ async function criarArquivo(
   const vault = useVaultStore.getState();
   if (!vault.adapter) return { ok: false, motivo: "Nenhum vault aberto." };
 
-  const nome = sanitizarNome(nomeBruto.replace(/\.(draw\.)?md$/i, "").trim());
+  // `vaiReceberExtensao`: o ponto final do título (ex.: "Frase.") é do nome-base, não do
+  // arquivo final — o arquivo final termina em `ext` (doc 02 §9). Não corta o ponto aqui.
+  const nome = sanitizarNome(nomeBruto.replace(/\.(draw\.)?md$/i, "").trim(), {
+    vaiReceberExtensao: true,
+  });
   if (!nome) return { ok: false, motivo: "Nome inválido." };
 
   const caminho = await caminhoLivre(juntar(dir, nome), ext);

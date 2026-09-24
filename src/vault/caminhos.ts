@@ -69,13 +69,42 @@ function semControle(s: string): string {
  * Sanitização visível para criar nota a partir de link (doc 02 §9 / doc 04 §4): os
  * caracteres proibidos viram `-`, controles somem, não termina em ponto nem espaço.
  * Devolve `null` se sobrar um nome vazio ou reservado.
+ *
+ * `vaiReceberExtensao`: quando este nome-base vai ganhar `.md`/`.draw.md` na frente (nota,
+ * desenho), o ponto final é do **título**, não do nome final do arquivo — a regra "não pode
+ * terminar em ponto" (doc 02 §9) vale para o nome final, que aqui termina na extensão. Corta
+ * só o espaço do fim (é sempre indesejado); mantém o ponto.
  */
-export function sanitizarNome(nome: string): string | null {
-  const s = semControle(nome.replace(new RegExp(RE_PROIBIDOS.source, "g"), "-"))
-    .replace(/[.\s]+$/g, "")
-    .trim();
+export function sanitizarNome(
+  nome: string,
+  opcoes?: { vaiReceberExtensao?: boolean },
+): string | null {
+  const semProibidos = semControle(nome.replace(new RegExp(RE_PROIBIDOS.source, "g"), "-"));
+  const s = opcoes?.vaiReceberExtensao
+    ? semProibidos.trim()
+    : semProibidos.replace(/[.\s]+$/g, "").trim();
   if (s.length === 0 || ehReservado(s)) return null;
   return s;
+}
+
+/** Extensão de nota/desenho para um nome de arquivo, ou "" se for pasta ou anexo — casos em
+ * que o campo de renomear já mostra o nome completo (doc 02 §9: a regra do ponto/espaço no
+ * fim vale para o nome final, e pasta/anexo têm o nome digitado como nome final). */
+export function extensaoDeNotaOuDesenho(nomeArquivo: string): "" | ".md" | ".draw.md" {
+  if (/\.draw\.md$/i.test(nomeArquivo)) return ".draw.md";
+  if (/\.md$/i.test(nomeArquivo)) return ".md";
+  return "";
+}
+
+/**
+ * Decide o motivo de erro (ou `null`) para o nome digitado no diálogo de renomear. Nota e
+ * desenho validam nome + extensão do próprio arquivo (o ponto final do título é permitido —
+ * o nome final termina na extensão); pasta e anexo validam o nome completo digitado, ponto e
+ * espaço no fim continuam proibidos.
+ */
+export function validarNomeRenomear(caminhoAtual: string, nomeDigitado: string): string | null {
+  const ext = extensaoDeNotaOuDesenho(nomeBase(caminhoAtual));
+  return validarNomeArquivo(ext ? nomeDigitado + ext : nomeDigitado).motivo ?? null;
 }
 
 /** Valida um nome de arquivo (não caminho) contra as regras do Windows. Doc 02 §9. */

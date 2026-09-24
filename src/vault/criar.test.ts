@@ -25,7 +25,7 @@ vi.mock("../estado/vaultStore", () => ({
   useVaultStore: { getState: () => vaultState },
 }));
 
-import { duplicarArquivo, separarExtensao } from "./criar";
+import { duplicarArquivo, separarExtensao, criarNota, criarDesenho } from "./criar";
 
 beforeEach(() => {
   arquivos.clear();
@@ -59,6 +59,20 @@ describe("duplicarArquivo", () => {
 
     expect(r).toEqual({ ok: true, caminho: "Fluxo (2).draw.md" });
     expect(arquivos.get("Fluxo (2).draw.md")).toBe("conteudo do desenho");
+  });
+});
+
+describe("criarNota/criarDesenho — ponto final do título (doc 02 §9)", () => {
+  it("nota: título terminado em ponto gera Frase..md, não corta o ponto", async () => {
+    const r = await criarNota("Frase.", "");
+    expect(r).toEqual({ ok: true, caminho: "Frase..md" });
+    expect(arquivos.has("Frase..md")).toBe(true);
+  });
+
+  it("desenho: título terminado em ponto gera Frase..draw.md", async () => {
+    const r = await criarDesenho("Frase.", "");
+    expect(r).toEqual({ ok: true, caminho: "Frase..draw.md" });
+    expect(arquivos.has("Frase..draw.md")).toBe(true);
   });
 });
 

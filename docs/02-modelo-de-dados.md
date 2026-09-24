@@ -465,6 +465,13 @@ Validação obrigatória na criação e no rename, porque isso é Windows:
 - caminho completo acima de 240 caracteres: recusa com mensagem explicando;
 - nome vazio ou só espaços: recusa.
 
+A regra "não pode terminar em `.` nem em espaço" vale para o **nome final** do arquivo ou da
+pasta — o que fica gravado no disco. Em pasta, o nome digitado é o nome final. Em nota e
+desenho, o nome final termina na extensão (`.md`/`.draw.md`); o título que o usuário digita é
+só a base, então um ponto no fim do título é permitido (`Frase.` vira `Frase..md`) — o
+espaço no fim continua cortado nos dois casos. `[[Frase.]]` resolve para `Frase..md` do mesmo
+jeito.
+
 Ao criar nota a partir de um link, o app faz sanitização visível (`:` vira `-`) e mostra o nome final antes de gravar.
 
 ---
