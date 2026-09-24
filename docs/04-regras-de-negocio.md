@@ -673,3 +673,29 @@ keymaps do editor e os símbolos contra o parser markdown do editor.
 | Separador de combos alternativos | "ou" |
 | **Grupos de atalhos** | "Geral", "Abas e divisões", "Nota: formatação", "Nota: edição", "Nota: localizar", "Desenho" |
 | **Grupos de símbolos** | "Texto", "Blocos", "Links e embeds", "Enquanto você digita" |
+
+## 17. Busca nas Configurações
+
+Um campo na coluna de navegação das Configurações, logo abaixo do título e acima das abas —
+filtra as linhas de todas as abas por título, descrição e termos extras que só existem para a
+busca (não aparecem na tela). É o foco inicial ao abrir o diálogo: dá pra digitar assim que ele
+abre, sem clicar em nada primeiro.
+
+**Comportamento.** Com o campo vazio, as Configurações funcionam como sempre (abas, uma de cada
+vez). Com texto no campo, nenhuma aba fica destacada — os resultados não pertencem a uma aba só
+— e o conteúdo mostra, na ordem das abas, só as linhas que casaram, agrupadas sob o nome da aba.
+São as linhas de verdade, com os controles funcionando normalmente ali — não é uma lista de
+atalhos para outro lugar. A seção Conta casa (ou não) inteira, como uma linha só. Sem o agente
+configurado, "Configurar agente" é a única entrada possível da aba Agente de IA; com o agente
+configurado, cada ação (ligar/desligar, modelos, conexão, pasta, memória) é uma entrada
+independente. Nenhum resultado: uma mensagem centralizada. Clicar numa aba, ou navegar até ela
+pelas setas, limpa a busca e abre a aba escolhida. Esc com o campo vazio fecha as Configurações,
+como em qualquer diálogo; Esc com texto no campo só limpa o campo.
+
+### Textos de interface
+
+| Situação | Texto |
+|---|---|
+| Campo: rótulo (oculto) / placeholder | "Buscar nas configurações" / "Buscar" |
+| Cabeçalho do conteúdo, com busca ativa | "Resultados" |
+| Nenhum resultado | "Nada encontrado para «{consulta}»." |

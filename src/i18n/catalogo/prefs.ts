@@ -62,6 +62,21 @@ export const PT_BR_PREFS = {
     "Apagar resumos, fatos, participações e conversas do agente? As notas não são afetadas.",
   "prefs.agente.memoria.confirmarBotao": "Apagar memória",
   "prefs.agente.memoria.toast": "Memória do agente apagada.",
+
+  "prefs.busca.rotulo": "Buscar nas configurações",
+  "prefs.busca.placeholder": "Buscar",
+  "prefs.busca.resultados": "Resultados",
+  "prefs.busca.vazio": "Nada encontrado para «{consulta}».",
+  // Termos extras por entrada da busca — só para casar consulta, nunca aparecem na tela
+  // (catalogo.test.ts cobra "nenhum texto vazio", não redação: aqui é lista de palavras).
+  "prefs.busca.termos.nome": "nome saudação apelido",
+  "prefs.busca.termos.idioma": "idioma língua inglês português language english",
+  "prefs.busca.termos.glossario": "atalhos teclado símbolos markdown glossário",
+  "prefs.busca.termos.atualizacoes": "versão atualizar update",
+  "prefs.busca.termos.tema": "tema escuro claro modo noturno dark light",
+  "prefs.busca.termos.largura": "largura coluna texto",
+  "prefs.busca.termos.conta": "conta login entrar sair e-mail senha sincronização",
+  "prefs.busca.termos.agente": "ia inteligência artificial agente chave api provedor modelo",
 } as const;
 
 // Partial, como o EN geral em catalogo.ts: uma tradução faltando não trava a edição, cai no
@@ -124,4 +139,17 @@ export const EN_PREFS: Partial<Record<keyof typeof PT_BR_PREFS, string>> = {
     "Delete the agent's summaries, facts, participations and conversations? Your notes are not affected.",
   "prefs.agente.memoria.confirmarBotao": "Delete memory",
   "prefs.agente.memoria.toast": "Agent memory cleared.",
+
+  "prefs.busca.rotulo": "Search settings",
+  "prefs.busca.placeholder": "Search",
+  "prefs.busca.resultados": "Results",
+  "prefs.busca.vazio": "Nothing found for “{consulta}”.",
+  "prefs.busca.termos.nome": "name greeting nickname",
+  "prefs.busca.termos.idioma": "language idioma português portuguese english",
+  "prefs.busca.termos.glossario": "shortcuts keyboard symbols markdown glossary",
+  "prefs.busca.termos.atualizacoes": "version update upgrade",
+  "prefs.busca.termos.tema": "theme dark light mode night",
+  "prefs.busca.termos.largura": "width column text",
+  "prefs.busca.termos.conta": "account login sign in sign out email password sync",
+  "prefs.busca.termos.agente": "ai artificial intelligence agent key api provider model",
 };

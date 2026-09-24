@@ -5,12 +5,21 @@
 
 import {
   useEffect,
+  useMemo,
   useRef,
   useState,
   type KeyboardEvent,
   type ReactNode,
 } from "react";
-import { Bot, CornerDownLeft, Palette, SlidersHorizontal, UserRound, X } from "lucide-react";
+import {
+  Bot,
+  CornerDownLeft,
+  Palette,
+  Search,
+  SlidersHorizontal,
+  UserRound,
+  X,
+} from "lucide-react";
 import type { LucideIcon } from "lucide-react";
 import { getVersion } from "@tauri-apps/api/app";
 import { toast } from "sonner";
@@ -30,7 +39,10 @@ import {
   ABAS_PREFERENCIAS,
   abaInicial,
   abaPorTecla,
+  agruparResultadosBusca,
+  entradasBusca,
   type AbaPreferencias,
+  type IdLinhaBusca,
 } from "./abasPreferencias";
 
 interface Props {
@@ -73,7 +85,11 @@ let ultimaAbaUsada: AbaPreferencias = "geral";
 
 export default function DialogoPreferencias({ onFechar, secaoInicial }: Props) {
   const t = useTexto();
+  // Lido aqui (não só dentro de `AbaAgente`) porque o registro de busca precisa saber se o
+  // agente está configurado/ligado para não indexar uma linha que não vai aparecer na tela.
+  const config = useAgenteStore((s) => s.config);
   const [aba, setAba] = useState<AbaPreferencias>(() => abaInicial(secaoInicial, ultimaAbaUsada));
+  const [consulta, setConsulta] = useState("");
   // Estado do glossário mora aqui, não em `AbaGeral`: `DialogoGlossario` precisa continuar
   // IRMÃO do `Dialog`, não filho — dentro da caixa dele, o `fixed` do glossário ficaria preso
   // ao `transform` da caixa enquanto a animação `surgir` roda. Montado depois, fica por cima e
@@ -82,9 +98,33 @@ export default function DialogoPreferencias({ onFechar, secaoInicial }: Props) {
   const [glossarioAberto, setGlossarioAberto] = useState(false);
   const navRefs = useRef<Partial<Record<AbaPreferencias, HTMLButtonElement | null>>>({});
 
+  // Consulta vazia (não só "sem espaço") é o estado "não filtrando" — uma consulta só com
+  // espaço já entra no modo de busca e casa tudo (`correspondeBusca`).
+  const buscaAtiva = consulta !== "";
+  const entradas = useMemo(
+    () =>
+      entradasBusca(t, {
+        agenteConfigurado: !!config,
+        agenteHabilitado: !!config?.habilitado,
+      }),
+    [t, config],
+  );
+  const grupos = useMemo(
+    () => (buscaAtiva ? agruparResultadosBusca(consulta, entradas) : []),
+    [buscaAtiva, consulta, entradas],
+  );
+  // Set único, reaproveitado por todas as abas: os ids são globalmente exclusivos
+  // (`geral.nome`, `agente.pasta`...), então não precisa recortar por aba.
+  const idsVisiveis = useMemo(
+    () => (buscaAtiva ? new Set(grupos.flatMap((grupo) => grupo.ids)) : undefined),
+    [buscaAtiva, grupos],
+  );
+
   function selecionarAba(proxima: AbaPreferencias) {
     setAba(proxima);
     ultimaAbaUsada = proxima;
+    // Escolher uma aba (clique ou seta) sai do modo de busca.
+    setConsulta("");
   }
 
   function aoTeclarNav(e: KeyboardEvent<HTMLButtonElement>) {
@@ -110,64 +150,125 @@ export default function DialogoPreferencias({ onFechar, secaoInicial }: Props) {
           <div className="shrink-0 px-4 pt-5 pb-3 font-display text-[19px] font-medium leading-[1.3] text-tinta">
             {t("prefs.titulo")}
           </div>
-          <div role="tablist" aria-orientation="vertical" className="flex sm:flex-col">
-            {ABAS_PREFERENCIAS.map((item) => {
-              const ativa = item === aba;
-              const Icone = ICONE_POR_ABA[item];
-              return (
-                <button
-                  key={item}
-                  ref={(el) => {
-                    navRefs.current[item] = el;
-                  }}
-                  type="button"
-                  role="tab"
-                  id={`prefs-aba-${item}`}
-                  aria-selected={ativa}
-                  aria-controls={`prefs-painel-${item}`}
-                  tabIndex={ativa ? 0 : -1}
-                  data-foco-inicial={ativa ? true : undefined}
-                  onClick={() => selecionarAba(item)}
-                  onKeyDown={aoTeclarNav}
-                  className={cn(
-                    "flex shrink-0 items-center gap-2 whitespace-nowrap px-4 py-2 text-left text-[13px]",
-                    "transition-colors duration-[140ms] ease-caderno",
-                    ativa
-                      ? "bg-lavagem text-tinta"
-                      : "text-tinta-media hover:bg-lavagem hover:text-tinta",
-                  )}
-                  style={{
-                    boxShadow: ativa ? "inset 2px 0 0 0 var(--color-cristal)" : undefined,
-                  }}
-                >
-                  <Icone size={16} strokeWidth={1.5} aria-hidden />
-                  {rotuloAba(item, t)}
-                </button>
-              );
-            })}
+          {/* Busca e abas dividem este `flex sm:flex-col`: abaixo de `sm` ficam lado a lado na
+           * mesma faixa horizontal rolável do `nav`; a partir de `sm`, empilhadas — busca
+           * primeiro, abas embaixo. */}
+          <div className="flex sm:flex-col">
+            <div className="w-40 shrink-0 px-3 pb-3 sm:w-auto">
+              <Campo
+                rotulo={t("prefs.busca.rotulo")}
+                rotuloOculto
+                placeholder={t("prefs.busca.placeholder")}
+                type="text"
+                autoComplete="off"
+                spellCheck={false}
+                data-esc-limpa
+                data-foco-inicial
+                value={consulta}
+                onChange={(e) => setConsulta(e.target.value)}
+                onKeyDown={(e) => {
+                  // O Dialog (captura na window) já deixa este Esc passar quando o campo tem
+                  // texto — ver `Dialog.tsx`. Aqui é só limpar.
+                  if (e.key === "Escape" && consulta !== "") {
+                    e.stopPropagation();
+                    setConsulta("");
+                  }
+                }}
+                prefixo={<Search size={14} strokeWidth={1.5} aria-hidden />}
+              />
+            </div>
+            <div role="tablist" aria-orientation="vertical" className="flex sm:flex-col">
+              {ABAS_PREFERENCIAS.map((item) => {
+                // Com busca ativa nenhuma aba fica destacada — os resultados não pertencem a
+                // uma aba só —, mas a última selecionada continua sendo a parada do Tab
+                // (`tabIndex`), pra voltar pra ela ao limpar a busca com o foco já na navegação.
+                const selecionada = item === aba;
+                const destacada = !buscaAtiva && selecionada;
+                const Icone = ICONE_POR_ABA[item];
+                return (
+                  <button
+                    key={item}
+                    ref={(el) => {
+                      navRefs.current[item] = el;
+                    }}
+                    type="button"
+                    role="tab"
+                    id={`prefs-aba-${item}`}
+                    aria-selected={destacada}
+                    aria-controls={`prefs-painel-${item}`}
+                    tabIndex={selecionada ? 0 : -1}
+                    onClick={() => selecionarAba(item)}
+                    onKeyDown={aoTeclarNav}
+                    className={cn(
+                      "flex shrink-0 items-center gap-2 whitespace-nowrap px-4 py-2 text-left text-[13px]",
+                      "transition-colors duration-[140ms] ease-caderno",
+                      destacada
+                        ? "bg-lavagem text-tinta"
+                        : "text-tinta-media hover:bg-lavagem hover:text-tinta",
+                    )}
+                    style={{
+                      boxShadow: destacada ? "inset 2px 0 0 0 var(--color-cristal)" : undefined,
+                    }}
+                  >
+                    <Icone size={16} strokeWidth={1.5} aria-hidden />
+                    {rotuloAba(item, t)}
+                  </button>
+                );
+              })}
+            </div>
           </div>
         </nav>
         <div className="flex min-w-0 flex-1 flex-col">
           <div className="flex shrink-0 items-center justify-between px-8 pt-6 pb-2">
             <h2 className="font-display text-[19px] font-medium leading-[1.3] text-tinta">
-              {rotuloAba(aba, t)}
+              {buscaAtiva ? t("prefs.busca.resultados") : rotuloAba(aba, t)}
             </h2>
             <BotaoIcone Icone={X} titulo={t("prefs.fechar")} onClick={onFechar} />
           </div>
-          <div
-            key={aba}
-            role="tabpanel"
-            id={`prefs-painel-${aba}`}
-            aria-labelledby={`prefs-aba-${aba}`}
-            className="flex-1 overflow-y-auto px-8 pb-8"
-          >
-            {aba === "geral" && (
-              <AbaGeral onAbrirGlossario={() => setGlossarioAberto(true)} />
-            )}
-            {aba === "aparencia" && <AbaAparencia />}
-            {aba === "conta" && <SecaoConta />}
-            {aba === "agente" && <AbaAgente />}
-          </div>
+          {buscaAtiva ? (
+            <div
+              key="busca"
+              role="region"
+              aria-label={t("prefs.busca.resultados")}
+              className="flex-1 overflow-y-auto px-8 pb-8"
+            >
+              {grupos.length === 0 ? (
+                <p className="py-8 text-center text-pequeno text-tinta-suave">
+                  {t("prefs.busca.vazio", { consulta })}
+                </p>
+              ) : (
+                grupos.map((grupo, i) => (
+                  <div key={grupo.aba} className={i === 0 ? undefined : "mt-6"}>
+                    <div className="meta text-tinta-suave">{rotuloAba(grupo.aba, t)}</div>
+                    {grupo.aba === "geral" && (
+                      <AbaGeral
+                        idsVisiveis={idsVisiveis}
+                        onAbrirGlossario={() => setGlossarioAberto(true)}
+                      />
+                    )}
+                    {grupo.aba === "aparencia" && <AbaAparencia idsVisiveis={idsVisiveis} />}
+                    {grupo.aba === "conta" && <SecaoConta idsVisiveis={idsVisiveis} />}
+                    {grupo.aba === "agente" && <AbaAgente idsVisiveis={idsVisiveis} />}
+                  </div>
+                ))
+              )}
+            </div>
+          ) : (
+            <div
+              key={aba}
+              role="tabpanel"
+              id={`prefs-painel-${aba}`}
+              aria-labelledby={`prefs-aba-${aba}`}
+              className="flex-1 overflow-y-auto px-8 pb-8"
+            >
+              {aba === "geral" && (
+                <AbaGeral onAbrirGlossario={() => setGlossarioAberto(true)} />
+              )}
+              {aba === "aparencia" && <AbaAparencia />}
+              {aba === "conta" && <SecaoConta />}
+              {aba === "agente" && <AbaAgente />}
+            </div>
+          )}
         </div>
       </Dialog>
       {glossarioAberto && <DialogoGlossario onFechar={() => setGlossarioAberto(false)} />}
@@ -178,17 +279,24 @@ export default function DialogoPreferencias({ onFechar, secaoInicial }: Props) {
 // Linha de configuração (doc 06): título + descrição à esquerda, controle à direita, réguas
 // entre linhas — nunca sombra. `descricao` aceita um nó pronto (ex.: o texto do plano da conta,
 // em `meta`) além de string: string ganha o estilo padrão de ajuda; um nó já vem com o dele.
+// `id` é a unidade que a busca das Configurações indexa (`abasPreferencias.ts`, `IdLinhaBusca`)
+// — estável, não é só uma chave de React.
 function LinhaConfig({
+  id,
   titulo,
   descricao,
   children,
 }: {
+  id?: string;
   titulo: string;
   descricao?: ReactNode;
   children: ReactNode;
 }) {
   return (
-    <div className="flex flex-wrap items-center justify-between gap-x-6 gap-y-3 border-b border-regua py-4 last:border-b-0">
+    <div
+      id={id}
+      className="flex flex-wrap items-center justify-between gap-x-6 gap-y-3 border-b border-regua py-4 last:border-b-0"
+    >
       <div className="min-w-0 flex-1">
         <div className="text-corpo font-medium text-tinta">{titulo}</div>
         {descricao &&
@@ -203,13 +311,23 @@ function LinhaConfig({
   );
 }
 
-// Aba "Geral": nome, idioma, atalhos/símbolos, atualizações.
-function AbaGeral({ onAbrirGlossario }: { onAbrirGlossario(): void }) {
+// Aba "Geral": nome, idioma, atalhos/símbolos, atualizações. `idsVisiveis` vem do modo de
+// busca (`DialogoPreferencias`): `undefined` mostra tudo (uso normal, uma aba de cada vez);
+// definido, só as linhas cujo id está no conjunto — as demais somem por completo, não só
+// visualmente, senão a busca "achava" uma linha que a tela não mostra.
+function AbaGeral({
+  onAbrirGlossario,
+  idsVisiveis,
+}: {
+  onAbrirGlossario(): void;
+  idsVisiveis?: Set<string>;
+}) {
   const t = useTexto();
   const idioma = usePrefsStore((s) => s.idioma);
   const definirIdioma = usePrefsStore((s) => s.definirIdioma);
   const nomeUsuario = usePrefsStore((s) => s.nomeUsuario);
   const definirNomeUsuario = usePrefsStore((s) => s.definirNomeUsuario);
+  const mostrar = (id: IdLinhaBusca) => !idsVisiveis || idsVisiveis.has(id);
 
   const opcoesIdioma: OpcaoGrupo<Idioma>[] = IDIOMAS.map((id) => ({
     rotulo: t(ROTULO_POR_IDIOMA[id]),
@@ -257,67 +375,90 @@ function AbaGeral({ onAbrirGlossario }: { onAbrirGlossario(): void }) {
 
   return (
     <div>
-      <LinhaConfig titulo={t("prefs.geral.nome.titulo")} descricao={t("prefs.geral.nome.descricao")}>
-        <Campo
-          rotulo={t("prefs.geral.nome.titulo")}
-          rotuloOculto
-          className="w-56"
-          value={nome}
-          onChange={(e) => setNome(e.target.value)}
-          onFocus={() => setNomeFocado(true)}
-          onBlur={() => {
-            setNomeFocado(false);
-            gravarNomeSeMudou();
-          }}
-          onKeyDown={(e) => {
-            if (e.key === "Enter") gravarNomeSeMudou();
-          }}
-          // Sem isto nada dizia como salvar depois de mudar o nome (usuário, 16/09/2026).
-          // Sair do campo também salva; a dica mostra o gesto explícito.
-          sufixo={
-            <>
-              <CornerDownLeft size={12} strokeWidth={1.5} />
-              <span className="meta">Enter</span>
-            </>
-          }
-        />
-      </LinhaConfig>
-      <LinhaConfig titulo={t("prefs.idioma.rotulo")} descricao={t("prefs.idioma.descricao")}>
-        <GrupoBotoes
-          variante="segmentado"
-          rotuloGrupo={t("prefs.idioma.rotulo")}
-          opcoes={opcoesIdioma}
-          valor={idioma}
-          onEscolher={definirIdioma}
-        />
-      </LinhaConfig>
-      <LinhaConfig
-        titulo={t("prefs.geral.atalhos.titulo")}
-        descricao={t("prefs.geral.atalhos.descricao")}
-      >
-        <Botao tamanho="compacto" onClick={onAbrirGlossario}>
-          {t("prefs.geral.atalhos.botao")}
-        </Botao>
-      </LinhaConfig>
-      <LinhaConfig
-        titulo={t("prefs.geral.atualizacoes.titulo")}
-        descricao={versao ? t("prefs.geral.atualizacoes.descricao", { versao }) : ""}
-      >
-        <Botao tamanho="compacto" carregando={verificando} onClick={() => void aoVerificarAtualizacoes()}>
-          {t("prefs.geral.atualizacoes.botao")}
-        </Botao>
-      </LinhaConfig>
+      {mostrar("geral.nome") && (
+        <LinhaConfig
+          id="geral.nome"
+          titulo={t("prefs.geral.nome.titulo")}
+          descricao={t("prefs.geral.nome.descricao")}
+        >
+          <Campo
+            rotulo={t("prefs.geral.nome.titulo")}
+            rotuloOculto
+            className="w-56"
+            value={nome}
+            onChange={(e) => setNome(e.target.value)}
+            onFocus={() => setNomeFocado(true)}
+            onBlur={() => {
+              setNomeFocado(false);
+              gravarNomeSeMudou();
+            }}
+            onKeyDown={(e) => {
+              if (e.key === "Enter") gravarNomeSeMudou();
+            }}
+            // Sem isto nada dizia como salvar depois de mudar o nome (usuário, 16/09/2026).
+            // Sair do campo também salva; a dica mostra o gesto explícito.
+            sufixo={
+              <>
+                <CornerDownLeft size={12} strokeWidth={1.5} />
+                <span className="meta">Enter</span>
+              </>
+            }
+          />
+        </LinhaConfig>
+      )}
+      {mostrar("geral.idioma") && (
+        <LinhaConfig
+          id="geral.idioma"
+          titulo={t("prefs.idioma.rotulo")}
+          descricao={t("prefs.idioma.descricao")}
+        >
+          <GrupoBotoes
+            variante="segmentado"
+            rotuloGrupo={t("prefs.idioma.rotulo")}
+            opcoes={opcoesIdioma}
+            valor={idioma}
+            onEscolher={definirIdioma}
+          />
+        </LinhaConfig>
+      )}
+      {mostrar("geral.atalhos") && (
+        <LinhaConfig
+          id="geral.atalhos"
+          titulo={t("prefs.geral.atalhos.titulo")}
+          descricao={t("prefs.geral.atalhos.descricao")}
+        >
+          <Botao tamanho="compacto" onClick={onAbrirGlossario}>
+            {t("prefs.geral.atalhos.botao")}
+          </Botao>
+        </LinhaConfig>
+      )}
+      {mostrar("geral.atualizacoes") && (
+        <LinhaConfig
+          id="geral.atualizacoes"
+          titulo={t("prefs.geral.atualizacoes.titulo")}
+          descricao={versao ? t("prefs.geral.atualizacoes.descricao", { versao }) : ""}
+        >
+          <Botao
+            tamanho="compacto"
+            carregando={verificando}
+            onClick={() => void aoVerificarAtualizacoes()}
+          >
+            {t("prefs.geral.atualizacoes.botao")}
+          </Botao>
+        </LinhaConfig>
+      )}
     </div>
   );
 }
 
-// Aba "Aparência": tema e largura da nota.
-function AbaAparencia() {
+// Aba "Aparência": tema e largura da nota. Ver `AbaGeral` sobre `idsVisiveis`.
+function AbaAparencia({ idsVisiveis }: { idsVisiveis?: Set<string> }) {
   const t = useTexto();
   const tema = usePrefsStore((s) => s.tema);
   const definirTema = usePrefsStore((s) => s.definirTema);
   const larguraNota = usePrefsStore((s) => s.larguraNota);
   const definirLarguraNota = usePrefsStore((s) => s.definirLarguraNota);
+  const mostrar = (id: IdLinhaBusca) => !idsVisiveis || idsVisiveis.has(id);
 
   const opcoesTema: OpcaoGrupo<Tema>[] = [
     { rotulo: t("prefs.aparencia.tema.sistema"), valor: "sistema" },
@@ -332,37 +473,45 @@ function AbaAparencia() {
 
   return (
     <div>
-      <LinhaConfig
-        titulo={t("prefs.aparencia.tema.titulo")}
-        descricao={t("prefs.aparencia.tema.descricao")}
-      >
-        <GrupoBotoes
-          variante="segmentado"
-          rotuloGrupo={t("prefs.aparencia.tema.titulo")}
-          opcoes={opcoesTema}
-          valor={tema}
-          onEscolher={definirTema}
-        />
-      </LinhaConfig>
-      <LinhaConfig
-        titulo={t("prefs.aparencia.largura.titulo")}
-        descricao={t("prefs.aparencia.largura.descricao")}
-      >
-        <GrupoBotoes
-          variante="segmentado"
-          rotuloGrupo={t("prefs.aparencia.largura.titulo")}
-          opcoes={opcoesLargura}
-          valor={larguraNota}
-          onEscolher={definirLarguraNota}
-        />
-      </LinhaConfig>
+      {mostrar("aparencia.tema") && (
+        <LinhaConfig
+          id="aparencia.tema"
+          titulo={t("prefs.aparencia.tema.titulo")}
+          descricao={t("prefs.aparencia.tema.descricao")}
+        >
+          <GrupoBotoes
+            variante="segmentado"
+            rotuloGrupo={t("prefs.aparencia.tema.titulo")}
+            opcoes={opcoesTema}
+            valor={tema}
+            onEscolher={definirTema}
+          />
+        </LinhaConfig>
+      )}
+      {mostrar("aparencia.largura") && (
+        <LinhaConfig
+          id="aparencia.largura"
+          titulo={t("prefs.aparencia.largura.titulo")}
+          descricao={t("prefs.aparencia.largura.descricao")}
+        >
+          <GrupoBotoes
+            variante="segmentado"
+            rotuloGrupo={t("prefs.aparencia.largura.titulo")}
+            opcoes={opcoesLargura}
+            valor={larguraNota}
+            onEscolher={definirLarguraNota}
+          />
+        </LinhaConfig>
+      )}
     </div>
   );
 }
 
 // Conta é opcional (docs 04/09): sem sessão, a aba é só descrição + formulário de
 // entrar/criar. Com sessão, vira status + sair. Nada disto aparece fora das preferências.
-function SecaoConta() {
+// `idsVisiveis`: Conta é UMA entrada só ("conta") — a busca das Configurações não entra dentro
+// da seção, mostra ela inteira quando casa.
+function SecaoConta({ idsVisiveis }: { idsVisiveis?: Set<string> }) {
   const sessao = useContaStore((s) => s.sessao);
   const carregado = useContaStore((s) => s.carregado);
   const ocupado = useContaStore((s) => s.ocupado);
@@ -405,6 +554,10 @@ function SecaoConta() {
     useContaStore.setState({ erro: null });
   }, []);
 
+  // Depois dos hooks (nunca antes — hook não pode ser condicional): com busca ativa e "conta"
+  // fora do conjunto casado, a seção inteira some.
+  if (idsVisiveis && !idsVisiveis.has("conta")) return null;
+
   // Enquanto `carregar()` da abertura ainda está em voo (até 20s), `sessao` é `null` mas isso
   // ainda não é conclusão — quem já tem conta não pode ver "deslogado" piscando antes do
   // "Conectado como…". Estado neutro, sem alerta e sem formulário.
@@ -415,6 +568,7 @@ function SecaoConta() {
   if (sessao) {
     return (
       <LinhaConfig
+        id="conta"
         titulo={t("conta.conectadoComo", { email: sessao.email })}
         descricao={
           <span className="meta text-tinta-suave">
@@ -451,7 +605,7 @@ function SecaoConta() {
       : null;
 
   return (
-    <div className="flex max-w-sm flex-col gap-3">
+    <div id="conta" className="flex max-w-sm flex-col gap-3">
       <p className="text-pequeno text-tinta-media [text-wrap:pretty]">
         {t("conta.descricaoDeslogado")}
       </p>
@@ -502,18 +656,22 @@ function SecaoConta() {
   );
 }
 
-// Doc 11 §6.3. Sem configuração, a aba inteira é o aviso + um botão; nada de importunar.
-function AbaAgente() {
+// Doc 11 §6.3. Sem configuração, a aba inteira é o aviso + um botão ("agente.configurar", uma
+// entrada só na busca); com configuração, uma `LinhaConfig` por ação. Ver `AbaGeral` sobre
+// `idsVisiveis`.
+function AbaAgente({ idsVisiveis }: { idsVisiveis?: Set<string> }) {
   const t = useTexto();
   const config = useAgenteStore((s) => s.config);
   const [testando, setTestando] = useState(false);
   const [resultadoTeste, setResultadoTeste] = useState<{ ok: boolean; texto: string } | null>(
     null,
   );
+  const mostrar = (id: IdLinhaBusca) => !idsVisiveis || idsVisiveis.has(id);
 
   if (!config) {
+    if (!mostrar("agente.configurar")) return null;
     return (
-      <div className="flex flex-col gap-3">
+      <div id="agente.configurar" className="flex flex-col gap-3">
         <p className="text-pequeno text-tinta-media [text-wrap:pretty]">{t("prefs.agente.aviso")}</p>
         <Botao
           variante="primario"
@@ -544,40 +702,47 @@ function AbaAgente() {
 
   return (
     <div>
-      <LinhaConfig
-        titulo={t("prefs.agente.linha.agente.titulo")}
-        descricao={t(
-          config.habilitado
-            ? "prefs.agente.linha.agente.descricaoAtivo"
-            : "prefs.agente.linha.agente.descricaoDesligado",
-          { provedor: provedor.nome },
-        )}
-      >
-        <Botao
-          tamanho="compacto"
-          onClick={() => void useAgenteStore.getState().definirHabilitado(!config.habilitado)}
-        >
-          {t(
-            config.habilitado
-              ? "prefs.agente.linha.agente.desligar"
-              : "prefs.agente.linha.agente.ligar",
-          )}
-        </Botao>
-      </LinhaConfig>
-      <LinhaConfig
-        titulo={t("prefs.agente.linha.modelos.titulo")}
-        descricao={
-          <span className="meta truncate text-tinta-suave">
-            {config.modeloGateiro} · {config.modeloAssistente}
-          </span>
-        }
-      >
-        <Botao tamanho="compacto" onClick={() => useAgenteStore.getState().abrirAssistente()}>
-          {t("prefs.agente.linha.modelos.botao")}
-        </Botao>
-      </LinhaConfig>
-      {config.habilitado && (
+      {mostrar("agente.agente") && (
         <LinhaConfig
+          id="agente.agente"
+          titulo={t("prefs.agente.linha.agente.titulo")}
+          descricao={t(
+            config.habilitado
+              ? "prefs.agente.linha.agente.descricaoAtivo"
+              : "prefs.agente.linha.agente.descricaoDesligado",
+            { provedor: provedor.nome },
+          )}
+        >
+          <Botao
+            tamanho="compacto"
+            onClick={() => void useAgenteStore.getState().definirHabilitado(!config.habilitado)}
+          >
+            {t(
+              config.habilitado
+                ? "prefs.agente.linha.agente.desligar"
+                : "prefs.agente.linha.agente.ligar",
+            )}
+          </Botao>
+        </LinhaConfig>
+      )}
+      {mostrar("agente.modelos") && (
+        <LinhaConfig
+          id="agente.modelos"
+          titulo={t("prefs.agente.linha.modelos.titulo")}
+          descricao={
+            <span className="meta truncate text-tinta-suave">
+              {config.modeloGateiro} · {config.modeloAssistente}
+            </span>
+          }
+        >
+          <Botao tamanho="compacto" onClick={() => useAgenteStore.getState().abrirAssistente()}>
+            {t("prefs.agente.linha.modelos.botao")}
+          </Botao>
+        </LinhaConfig>
+      )}
+      {config.habilitado && mostrar("agente.conexao") && (
+        <LinhaConfig
+          id="agente.conexao"
           titulo={t("prefs.agente.linha.conexao.titulo")}
           descricao={
             <>
@@ -602,50 +767,56 @@ function AbaAgente() {
           </Botao>
         </LinhaConfig>
       )}
-      <LinhaConfig
-        titulo={t("prefs.agente.linha.pasta.titulo")}
-        descricao={t("prefs.agente.linha.pasta.descricao")}
-      >
-        <Botao
-          tamanho="compacto"
-          onClick={() => {
-            void useAgenteStore
-              .getState()
-              .abrirPasta()
-              .then((erro) => {
-                if (erro) toast(erro);
-              });
-          }}
+      {mostrar("agente.pasta") && (
+        <LinhaConfig
+          id="agente.pasta"
+          titulo={t("prefs.agente.linha.pasta.titulo")}
+          descricao={t("prefs.agente.linha.pasta.descricao")}
         >
-          {t("prefs.agente.linha.pasta.botao")}
-        </Botao>
-      </LinhaConfig>
-      <LinhaConfig
-        titulo={t("prefs.agente.linha.memoria.titulo")}
-        descricao={t("prefs.agente.linha.memoria.descricao")}
-      >
-        <Botao
-          tamanho="compacto"
-          variante="destrutivo"
-          onClick={() => {
-            void (async () => {
-              // Doc 11 §7: texto exato da confirmação de limpeza.
-              const apagar = await confirmar({
-                titulo: t("prefs.agente.memoria.confirmarTitulo"),
-                descricao: t("prefs.agente.memoria.confirmarDescricao"),
-                textoConfirmar: t("prefs.agente.memoria.confirmarBotao"),
-                destrutivo: true,
-              });
-              if (apagar) {
-                await useAgenteStore.getState().limparMemoria();
-                toast(t("prefs.agente.memoria.toast"));
-              }
-            })();
-          }}
+          <Botao
+            tamanho="compacto"
+            onClick={() => {
+              void useAgenteStore
+                .getState()
+                .abrirPasta()
+                .then((erro) => {
+                  if (erro) toast(erro);
+                });
+            }}
+          >
+            {t("prefs.agente.linha.pasta.botao")}
+          </Botao>
+        </LinhaConfig>
+      )}
+      {mostrar("agente.memoria") && (
+        <LinhaConfig
+          id="agente.memoria"
+          titulo={t("prefs.agente.linha.memoria.titulo")}
+          descricao={t("prefs.agente.linha.memoria.descricao")}
         >
-          {t("prefs.agente.linha.memoria.botao")}
-        </Botao>
-      </LinhaConfig>
+          <Botao
+            tamanho="compacto"
+            variante="destrutivo"
+            onClick={() => {
+              void (async () => {
+                // Doc 11 §7: texto exato da confirmação de limpeza.
+                const apagar = await confirmar({
+                  titulo: t("prefs.agente.memoria.confirmarTitulo"),
+                  descricao: t("prefs.agente.memoria.confirmarDescricao"),
+                  textoConfirmar: t("prefs.agente.memoria.confirmarBotao"),
+                  destrutivo: true,
+                });
+                if (apagar) {
+                  await useAgenteStore.getState().limparMemoria();
+                  toast(t("prefs.agente.memoria.toast"));
+                }
+              })();
+            }}
+          >
+            {t("prefs.agente.linha.memoria.botao")}
+          </Botao>
+        </LinhaConfig>
+      )}
     </div>
   );
 }

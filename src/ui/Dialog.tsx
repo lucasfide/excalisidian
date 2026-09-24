@@ -61,7 +61,7 @@ export default function Dialog({
     const caixa = caixaRef.current;
     // Este efeito roda DEPOIS dos efeitos dos filhos (ordem de montagem React), então um filho
     // não consegue focar a si mesmo a tempo — o foco automático abaixo o atropelaria. Um filho
-    // que precisa do foco inicial (ex.: a aba selecionada de `DialogoPreferencias`) marca o
+    // que precisa do foco inicial (ex.: o campo de busca de `DialogoPreferencias`) marca o
     // elemento com `data-foco-inicial`, e é nele que o foco cai primeiro.
     const focoInicial = caixa?.querySelector<HTMLElement>("[data-foco-inicial]");
     (focoInicial ?? caixa?.querySelector<HTMLElement>(FOCAVEIS))?.focus();
@@ -74,6 +74,18 @@ export default function Dialog({
         // Só o diálogo do topo da pilha fecha — com a Configurações embaixo do
         // assistente, um Esc não pode fechar os dois.
         if (fila[fila.length - 1] !== id) return;
+        // Um campo com `data-esc-limpa` (a busca das Configurações) trata o próprio Esc: limpa
+        // o texto em vez de fechar o diálogo. Sem `preventDefault`/`stopPropagation` aqui, o
+        // evento segue seu curso normal (este handler está na fase de captura) e chega ao
+        // `onKeyDown` do campo, que é quem limpa.
+        const alvo = e.target;
+        if (
+          alvo instanceof HTMLInputElement &&
+          alvo.hasAttribute("data-esc-limpa") &&
+          alvo.value !== ""
+        ) {
+          return;
+        }
         e.preventDefault();
         e.stopPropagation();
         fecharRef.current();
