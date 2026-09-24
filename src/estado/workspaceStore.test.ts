@@ -33,6 +33,7 @@ function apiFalsa() {
     addPanel: vi.fn(),
     removePanel: vi.fn(),
     getPanel: vi.fn(() => null),
+    getGroup: vi.fn(() => null),
   };
 }
 
@@ -151,6 +152,113 @@ describe("workspaceStore.renomearDocumento — preservação de params", () => {
     expect(novos[0].params).toEqual({ path: "Nova.md" });
     expect(novos[1].params).toEqual({ path: "Nova.md", somenteLeitura: true });
     expect(novos[1].id).not.toBe("clone");
+  });
+});
+
+// Bug reproduzido pelo dono do produto: editar o título (linha 1) e, sem apertar Enter,
+// clicar em outra nota na lateral. O rename é assíncrono (dispara no blur, em
+// sincronizarTituloComArquivo.ts) e o addPanel que recria o painel ativava ele de volta
+// mesmo quando o usuário já tinha saído para outra aba — porque addPanel sem `inactive`
+// sempre ativa o painel novo (dockview-core, options.d.ts). Também cobre a posição: o
+// painel recriado deve voltar ao mesmo grupo/índice da aba antiga, não pular para o fim
+// da barra nem para o grupo ativo.
+describe("workspaceStore.renomearDocumento — foco e posição do painel recriado", () => {
+  it("painel não era o ativo: entra inativo e não rouba o foco de quem o usuário abriu", () => {
+    const grupo = { id: "g1", panels: [] as unknown[] };
+    const painel = { id: "Nota.md", params: { path: "Nota.md" }, group: grupo };
+    grupo.panels = [painel];
+    const api = {
+      panels: [painel],
+      activePanel: null,
+      addPanel: vi.fn(),
+      removePanel: vi.fn(),
+      getPanel: vi.fn(() => null),
+      getGroup: vi.fn((id: string) => (id === "g1" ? grupo : undefined)),
+    };
+    useWorkspaceStore.setState({ api: api as never });
+
+    ws().renomearDocumento("Nota.md", "Nova.md");
+
+    const opcoes = api.addPanel.mock.calls[0][0] as {
+      inactive?: boolean;
+      position?: unknown;
+    };
+    expect(opcoes.inactive).toBe(true);
+    expect(opcoes.position).toEqual({
+      referenceGroup: "g1",
+      direction: "within",
+      index: 0,
+    });
+  });
+
+  it("painel já era o ativo: entra ativo e reativa depois de recriado", () => {
+    const grupo = { id: "g1", panels: [] as unknown[] };
+    const painel = { id: "Nota.md", params: { path: "Nota.md" }, group: grupo };
+    grupo.panels = [painel];
+    const painelNovo = { id: "Nova.md", api: { setActive: vi.fn() } };
+    const api = {
+      panels: [painel],
+      activePanel: painel,
+      addPanel: vi.fn(),
+      removePanel: vi.fn(),
+      getPanel: vi.fn((id: string) => (id === "Nova.md" ? painelNovo : null)),
+      getGroup: vi.fn((id: string) => (id === "g1" ? grupo : undefined)),
+    };
+    useWorkspaceStore.setState({ api: api as never });
+
+    ws().renomearDocumento("Nota.md", "Nova.md");
+
+    const opcoes = api.addPanel.mock.calls[0][0] as { inactive?: boolean };
+    expect(opcoes.inactive).toBe(false);
+    expect(painelNovo.api.setActive).toHaveBeenCalledTimes(1);
+  });
+
+  it("grupo antigo não existe mais (ficou vazio e foi descartado): não força posição", () => {
+    const grupo = { id: "g1", panels: [] as unknown[] };
+    const painel = { id: "Nota.md", params: { path: "Nota.md" }, group: grupo };
+    grupo.panels = [painel];
+    const api = {
+      panels: [painel],
+      activePanel: null,
+      addPanel: vi.fn(),
+      removePanel: vi.fn(),
+      getPanel: vi.fn(() => null),
+      // Simula o grupo tendo sido removido junto com o painel (removePanel esvaziou-o).
+      getGroup: vi.fn(() => undefined),
+    };
+    useWorkspaceStore.setState({ api: api as never });
+
+    ws().renomearDocumento("Nota.md", "Nova.md");
+
+    const opcoes = api.addPanel.mock.calls[0][0] as { position?: unknown };
+    expect(opcoes.position).toBeUndefined();
+  });
+
+  it("segundo painel de um grupo com dois: preserva o índice correto (1)", () => {
+    const grupo = { id: "g1", panels: [] as unknown[] };
+    const outro = { id: "Outra.md", params: { path: "Outra.md" }, group: grupo };
+    const painel = { id: "Nota.md", params: { path: "Nota.md" }, group: grupo };
+    grupo.panels = [outro, painel];
+    const api = {
+      panels: [outro, painel],
+      activePanel: null,
+      addPanel: vi.fn(),
+      removePanel: vi.fn(),
+      getPanel: vi.fn(() => null),
+      getGroup: vi.fn((id: string) => (id === "g1" ? grupo : undefined)),
+    };
+    useWorkspaceStore.setState({ api: api as never });
+
+    ws().renomearDocumento("Nota.md", "Nova.md");
+
+    const opcoes = api.addPanel.mock.calls[0][0] as {
+      position?: { index?: number };
+    };
+    expect(opcoes.position).toEqual({
+      referenceGroup: "g1",
+      direction: "within",
+      index: 1,
+    });
   });
 });
 

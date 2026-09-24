@@ -234,6 +234,10 @@ export const useWorkspaceStore = create<WorkspaceState>((set, get) => ({
     const alvos = api.panels.filter((p) => pathDoPainel(p) === antigo);
     for (const painel of alvos) {
       const eraAtivo = api.activePanel === painel;
+      // Guarda grupo e posição do painel antigo: o rename recria o painel (removePanel +
+      // addPanel), e sem isso o dockview reabre a aba no fim da barra ou no grupo ativo.
+      const grupoId = painel.group?.id;
+      const indice = painel.group ? painel.group.panels.indexOf(painel) : -1;
       const idNovo =
         painel.id === antigo ? novo : `${novo}::${crypto.randomUUID()}`;
       // Preserva os demais params do painel (auditoria 12/09, achado 09): a segunda
@@ -246,11 +250,28 @@ export const useWorkspaceStore = create<WorkspaceState>((set, get) => ({
       void _path;
       renomeando.add(painel.id);
       api.removePanel(painel);
+      // Se o grupo ficou vazio, removePanel já o descartou; nesse caso não há posição
+      // antiga para restaurar e o addPanel cai no comportamento padrão (grupo ativo).
+      const grupoAindaExiste = grupoId ? Boolean(api.getGroup(grupoId)) : false;
+      // O rename é assíncrono (disparado no blur do editor por
+      // sincronizarTituloComArquivo.ts): se o usuário já clicou em outra nota antes de o
+      // rename terminar, este addPanel não pode roubar o foco dela — `inactive` só fica
+      // false quando o painel já era o ativo antes do rename.
       api.addPanel({
         id: idNovo,
         component: componenteDe(novo),
         title: nomeCurto(novo),
         params: { ...paramsRestantes, path: novo },
+        inactive: !eraAtivo,
+        ...(grupoAindaExiste && indice >= 0
+          ? {
+              position: {
+                referenceGroup: grupoId as string,
+                direction: "within",
+                index: indice,
+              },
+            }
+          : {}),
       });
       if (eraAtivo) api.getPanel(idNovo)?.api.setActive();
     }
