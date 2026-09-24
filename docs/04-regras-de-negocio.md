@@ -53,8 +53,11 @@ um edita o outro:
   nota pra bater com o nome novo. Se a nota não tiver H1 nenhum ainda, insere um logo depois
   do frontmatter — nunca no meio do conteúdo do usuário.
 - **Editar o H1** (só quando ele está na linha 1 da nota — um H1 em outro lugar do documento
-  não é o título) e sair da linha (mover o cursor pra outra linha, não a cada tecla) dispara
-  um rename de verdade, com a mesma reescrita de backlinks de um rename pela árvore.
+  não é o título) dispara um rename de verdade, com a mesma reescrita de backlinks de um
+  rename pela árvore. Isso vale ao sair da linha (mover o cursor pra outra linha dentro da
+  mesma nota, não a cada tecla), **ao sair da nota** (clicar em outra nota, em outra aba ou
+  na barra lateral) e **ao fechar a aba** — não só quando o cursor se move dentro do mesmo
+  editor.
 - **O `#` da linha 1 é fixo.** Quando a linha 1 já é um H1, o prefixo `# ` não pode ser
   editado nem apagado: selecionar a linha inteira e digitar troca só o texto depois do `# `,
   Backspace no começo do título não come o `#`, e apagar todo o texto do título deixa `# ` —
