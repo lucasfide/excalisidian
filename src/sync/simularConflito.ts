@@ -36,6 +36,7 @@ import type { Conflito } from "./tipos";
 import type { VaultAdapter } from "../vault/VaultAdapter";
 import { caminhoLivre } from "../vault/criar";
 import { dividirExtensao } from "../vault/caminhos";
+import { sincronizarH1ComTitulo } from "../vault/tituloNota";
 import { useVaultStore } from "../estado/vaultStore";
 
 /** Nomes-base dos dois arquivos de teste. Inconfundíveis de propósito: ninguém cria sem
@@ -251,6 +252,16 @@ export async function simularConflito(
   const caminhoNota = await caminhoLivre(baseNota, extNota, adaptador);
   const { base: baseDesenho, ext: extDesenho } = dividirExtensao(CAMINHO_DESENHO_TESTE);
   const caminhoDesenho = await caminhoLivre(baseDesenho, extDesenho, adaptador);
+
+  // O H1 da nota é o nome do arquivo (doc 04 §3.1) — quando `caminhoLivre` numera (já existia
+  // um arquivo com o nome-base), o H1 das duas versões tem que acompanhar o nome numerado,
+  // senão a tela de comparação mostraria "linha alterada" onde na verdade é só o título
+  // desatualizado. Mesma extração de nome que `duplicarArquivo` usa. O conteúdo gravado
+  // continua sendo exatamente o texto registrado no conflito (regra do topo do arquivo) —
+  // aqui só se sincroniza ANTES de montar `conflitoNota`, não depois.
+  const nomeNota = caminhoNota.slice(caminhoNota.lastIndexOf("/") + 1, caminhoNota.length - extNota.length);
+  conflitoNota.local.conteudo = sincronizarH1ComTitulo(conflitoNota.local.conteudo, nomeNota);
+  conflitoNota.remoto.conteudo = sincronizarH1ComTitulo(conflitoNota.remoto.conteudo, nomeNota);
 
   await adaptador.escreverTexto(caminhoNota, conflitoNota.local.conteudo);
   await adaptador.escreverTexto(caminhoDesenho, conflitoDesenho.local.conteudo);

@@ -194,6 +194,32 @@ describe("simularConflito", () => {
     expect(registrados).toHaveLength(4);
   });
 
+  it("nome numerado: o H1 das duas versões da nota acompanha o nome numerado, não o nome-base", async () => {
+    const adaptador = adaptadorFalso({ [CAMINHO_NOTA_TESTE]: "conteúdo qualquer do usuário" });
+    const registrados: Conflito[] = [];
+
+    const resultado = await simularConflito(
+      adaptador,
+      (c) => registrados.push(c),
+      new Date(),
+      depsFalso(),
+    );
+
+    expect(resultado.caminhoNota).toBe("Excalisidian - conflito de teste (2).md");
+
+    const notaRegistrada = registrados.find((c) => c.tipo === "nota");
+    expect(notaRegistrada?.local.conteudo.split("\n")[0]).toBe(
+      "# Excalisidian - conflito de teste (2)",
+    );
+    expect(notaRegistrada?.remoto.conteudo.split("\n")[0]).toBe(
+      "# Excalisidian - conflito de teste (2)",
+    );
+
+    // o conteúdo gravado no disco continua idêntico ao local.conteudo registrado (regra do
+    // topo do arquivo), mesmo depois do H1 ser sincronizado.
+    expect(adaptador.arquivos.get(resultado.caminhoNota)).toBe(notaRegistrada?.local.conteudo);
+  });
+
   it("arquivo de verdade do usuário com o nome de teste: a simulação numera e o arquivo do usuário fica intacto byte a byte", async () => {
     const conteudoDoUsuario =
       "# Nota de verdade do usuário\n\nConteúdo importante, não gerado pelo teste.";
