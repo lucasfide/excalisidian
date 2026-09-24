@@ -24,6 +24,13 @@ export interface CelulaComparacao {
   /** True quando esta célula faz parte da diferença (removida ou adicionada) — o componente
    * usa isto para decidir o fundo translúcido. Uma célula "igual" ou em branco nunca marca. */
   marcada: boolean;
+  /** True SÓ na célula de PREENCHIMENTO de alinhamento (o lado mais curto de um par
+   * removido/adicionado, completado pra as duas colunas terem o mesmo número de linhas na
+   * grade — ver comentário de topo do arquivo). Uma linha vazia de verdade do arquivo (uma
+   * linha "igual" com `texto === ""`) tem `preenchimento: false`: ela existe no conteúdo, o
+   * preenchimento não. Sem esta distinção o dono do produto via as duas do mesmo jeito na
+   * tela e achava que o arquivo tinha uma linha em branco que não existe (achado 23/09). */
+  preenchimento: boolean;
 }
 
 export interface LinhaComparacao {
@@ -31,7 +38,7 @@ export interface LinhaComparacao {
   direita: CelulaComparacao;
 }
 
-const CELULA_VAZIA: CelulaComparacao = { texto: null, marcada: false };
+const CELULA_VAZIA: CelulaComparacao = { texto: null, marcada: false, preenchimento: true };
 
 export function colunasDeComparacao(trechos: Trecho[]): LinhaComparacao[] {
   const linhas: LinhaComparacao[] = [];
@@ -43,8 +50,8 @@ export function colunasDeComparacao(trechos: Trecho[]): LinhaComparacao[] {
     if (trecho.tipo === "igual") {
       for (const linha of trecho.linhas) {
         linhas.push({
-          esquerda: { texto: linha, marcada: false },
-          direita: { texto: linha, marcada: false },
+          esquerda: { texto: linha, marcada: false, preenchimento: false },
+          direita: { texto: linha, marcada: false, preenchimento: false },
         });
       }
       i++;
@@ -60,8 +67,14 @@ export function colunasDeComparacao(trechos: Trecho[]): LinhaComparacao[] {
       const total = Math.max(removidas.length, adicionadas.length);
       for (let k = 0; k < total; k++) {
         linhas.push({
-          esquerda: k < removidas.length ? { texto: removidas[k], marcada: true } : CELULA_VAZIA,
-          direita: k < adicionadas.length ? { texto: adicionadas[k], marcada: true } : CELULA_VAZIA,
+          esquerda:
+            k < removidas.length
+              ? { texto: removidas[k], marcada: true, preenchimento: false }
+              : CELULA_VAZIA,
+          direita:
+            k < adicionadas.length
+              ? { texto: adicionadas[k], marcada: true, preenchimento: false }
+              : CELULA_VAZIA,
         });
       }
       // Se pareou, o trecho "adicionado" seguinte já foi consumido — pula os dois.
@@ -74,7 +87,7 @@ export function colunasDeComparacao(trechos: Trecho[]): LinhaComparacao[] {
     for (const linha of trecho.linhas) {
       linhas.push({
         esquerda: CELULA_VAZIA,
-        direita: { texto: linha, marcada: true },
+        direita: { texto: linha, marcada: true, preenchimento: false },
       });
     }
     i++;

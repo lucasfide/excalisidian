@@ -133,11 +133,20 @@ function FragmentoLinha({ linha }: { linha: LinhaComparacao }) {
   );
 }
 
+// Célula de PREENCHIMENTO de alinhamento (o lado mais curto de um par removido/adicionado,
+// completado só pra as duas colunas terem o mesmo número de linhas — `colunasComparacao.ts`)
+// leva o fundo `lavagem`, o mesmo token que este arquivo já usa pra "sem diferença" mais
+// abaixo: sólido e claramente diferente do fundo transparente de uma linha em branco de
+// verdade. Sem isto, as duas ficavam com a mesma cara e o dono do produto lia "linha em
+// branco" onde só havia espaço de alinhamento (achado 23/09). `aria-hidden`: não é conteúdo
+// da nota, um leitor de tela não deve anunciar esse espaço.
 function CelulaLinha({ celula, cor }: { celula: CelulaComparacao; cor: "bordo" | "cristal" }) {
   return (
     <div
+      aria-hidden={celula.preenchimento || undefined}
       className={cn(
         "whitespace-pre-wrap px-2 py-0.5 text-tinta",
+        celula.preenchimento && "bg-lavagem",
         celula.marcada &&
           cor === "bordo" &&
           "bg-[color-mix(in_srgb,var(--color-bordo)_16%,transparent)]",
