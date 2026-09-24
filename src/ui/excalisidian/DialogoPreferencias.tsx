@@ -243,10 +243,20 @@ function SecaoConta() {
   // Nunca preenchida de volta: o store não guarda senha, e um erro limpa o campo em vez de
   // repopular com o que falhou.
   const [senha, setSenha] = useState("");
-  // Rastreia qual ação o campo de senha serve agora: Enter no formulário e o autocomplete do
-  // navegador seguem o último botão que o usuário tocou. Começa em "entrar" — é a ação padrão
-  // do Enter enquanto o usuário ainda não escolheu nenhum dos dois.
+  // Modo do formulário — não mais "último botão tocado": agora é um modo mesmo, com botão
+  // primário, `autoComplete` e Enter próprios. Criar conta tem duas etapas de propósito: no
+  // modo "entrar", "Criar conta" só troca de modo, sem enviar nada, para o aviso do ADR-33
+  // ("não pode ser recuperada") ficar visível ANTES de a conta existir — enviar direto no
+  // primeiro clique (como era antes) deixava a maioria decidir sem ler o aviso.
   const [acaoAtual, setAcaoAtual] = useState<"entrar" | "criar">("entrar");
+
+  // Troca de modo: sempre limpa erro e senha, nunca dispara `tentar`. Usada pelo botão
+  // secundário dos dois modos ("Criar conta" no modo entrar, "Já tenho conta" no modo criar).
+  function trocarModo(modo: "entrar" | "criar") {
+    setAcaoAtual(modo);
+    useContaStore.setState({ erro: null });
+    setSenha("");
+  }
 
   // Limpa os dois campos sempre que uma sessão passa a existir — não só no clique que a
   // criou, mas qualquer caminho futuro que resulte em sessão. Sem isto, "Sair" reexibe o
@@ -316,8 +326,7 @@ function SecaoConta() {
       className="flex flex-col gap-2"
       onSubmit={(e) => {
         e.preventDefault();
-        setAcaoAtual("entrar");
-        void tentar("entrar");
+        void tentar(acaoAtual);
       }}
     >
       <p className="text-pequeno text-tinta-media [text-wrap:pretty]">
@@ -346,25 +355,16 @@ function SecaoConta() {
         </p>
       )}
       <div className="flex flex-wrap gap-2">
-        <Botao
-          type="submit"
-          variante="primario"
-          tamanho="compacto"
-          disabled={ocupado}
-          onClick={() => setAcaoAtual("entrar")}
-        >
-          {t("conta.entrar")}
+        <Botao type="submit" variante="primario" tamanho="compacto" disabled={ocupado}>
+          {t(acaoAtual === "criar" ? "conta.criar" : "conta.entrar")}
         </Botao>
         <Botao
           type="button"
           tamanho="compacto"
           disabled={ocupado}
-          onClick={() => {
-            setAcaoAtual("criar");
-            void tentar("criar");
-          }}
+          onClick={() => trocarModo(acaoAtual === "criar" ? "entrar" : "criar")}
         >
-          {t("conta.criar")}
+          {t(acaoAtual === "criar" ? "conta.jaTenhoConta" : "conta.criar")}
         </Botao>
       </div>
     </form>
