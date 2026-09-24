@@ -262,7 +262,10 @@ interface ServicoSync {
 }
 ```
 
-O servidor pode descartar lotes cobertos por um retrato. Um computador que manda um retrato
+O servidor pode descartar lotes cobertos por um retrato. Ele **recusa** (`fora-de-ordem`, sem
+mudar nada) um retrato cujo `ateSequencia` não seja maior que o do retrato atual, ou que passe
+da última sequência do diário: se um retrato mais antigo substituísse um mais novo, os lotes
+entre os dois — já descartados — nunca mais chegariam a um computador novo. Um computador que manda um retrato
 faz isso quando o diário passa de 200 lotes ou de 50 MiB desde o último retrato.
 
 ---
