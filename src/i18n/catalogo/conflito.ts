@@ -18,6 +18,7 @@ export const PT_BR_CONFLITO = {
   "conflito.manterAmbasExplicacao":
     "A outra versão é salva ao lado, com o nome marcado como conflito.",
   "conflito.semDiferenca": "As duas versões têm o mesmo conteúdo.",
+  "conflito.linhaAusente": "Não existe nesta versão",
   "conflito.erro.salvar":
     "Não foi possível salvar a versão escolhida. Nada foi apagado — as duas versões continuam aqui.",
   "conflito.desenho.titulo": "Duas versões de {nome}",
@@ -48,6 +49,7 @@ export const EN_CONFLITO: Partial<Record<keyof typeof PT_BR_CONFLITO, string>> =
   "conflito.manterAmbasExplicacao":
     "The other version is saved alongside, with the name marked as a conflict.",
   "conflito.semDiferenca": "Both versions have the same content.",
+  "conflito.linhaAusente": "Not in this version",
   "conflito.erro.salvar":
     "Could not save the chosen version. Nothing was deleted — both versions are still here.",
   "conflito.desenho.titulo": "Two versions of {nome}",

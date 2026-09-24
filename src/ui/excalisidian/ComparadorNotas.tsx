@@ -136,14 +136,16 @@ function FragmentoLinha({ linha }: { linha: LinhaComparacao }) {
 // Célula de PREENCHIMENTO de alinhamento (o lado mais curto de um par removido/adicionado,
 // completado só pra as duas colunas terem o mesmo número de linhas — `colunasComparacao.ts`)
 // leva o fundo `lavagem`, o mesmo token que este arquivo já usa pra "sem diferença" mais
-// abaixo: sólido e claramente diferente do fundo transparente de uma linha em branco de
-// verdade. Sem isto, as duas ficavam com a mesma cara e o dono do produto lia "linha em
-// branco" onde só havia espaço de alinhamento (achado 23/09). `aria-hidden`: não é conteúdo
-// da nota, um leitor de tela não deve anunciar esse espaço.
+// abaixo, MAIS o texto "Não existe nesta versão" no estilo `meta` (o mesmo rótulo discreto de
+// "EDITADO EM ..." no cabeçalho da coluna, `cabecalhoVersaoConflito.tsx`). Fundo sozinho não
+// bastava: no tema escuro o cinza quase não aparece e o dono do produto continuava lendo o
+// espaço como uma linha em branco que "sumiu" ao escolher a versão (achado 23/09, re-teste
+// 24/09). Sem `aria-hidden`: agora a célula tem um texto que informa algo real a quem usa
+// leitor de tela — esconder seria tirar informação, não ruído.
 function CelulaLinha({ celula, cor }: { celula: CelulaComparacao; cor: "bordo" | "cristal" }) {
+  const t = useTexto();
   return (
     <div
-      aria-hidden={celula.preenchimento || undefined}
       className={cn(
         "whitespace-pre-wrap px-2 py-0.5 text-tinta",
         celula.preenchimento && "bg-lavagem",
@@ -155,7 +157,11 @@ function CelulaLinha({ celula, cor }: { celula: CelulaComparacao; cor: "bordo" |
           "bg-[color-mix(in_srgb,var(--color-cristal)_16%,transparent)]",
       )}
     >
-      {celula.texto ?? " "}
+      {celula.preenchimento ? (
+        <span className="meta text-tinta-suave">{t("conflito.linhaAusente")}</span>
+      ) : (
+        (celula.texto ?? " ")
+      )}
     </div>
   );
 }
