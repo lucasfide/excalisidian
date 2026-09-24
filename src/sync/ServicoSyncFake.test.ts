@@ -178,6 +178,75 @@ describe("ServicoSyncFake", () => {
         expect.objectContaining({ codigo: "nao-encontrado" }),
       );
     });
+
+    it("enviarRetrato com ateSequencia igual ao retrato já guardado é recusado e não altera nada", async () => {
+      const s = new ServicoSyncFake();
+      const id = novoId();
+      await s.criarVault(id, bytes(1), bytes(2));
+      await s.enviarLote(id, 0, bytes(1)); // seq 1
+      await s.enviarLote(id, 1, bytes(2)); // seq 2
+      await s.enviarLote(id, 2, bytes(3)); // seq 3
+      await s.enviarRetrato(id, 2, [bytes(100)]);
+
+      await expect(s.enviarRetrato(id, 2, [bytes(200)])).rejects.toThrow(
+        expect.objectContaining({ codigo: "fora-de-ordem" }),
+      );
+
+      // nada mudou: o retrato continua o antigo, e os lotes que ele não cobre continuam lá
+      const { retrato, lotes } = await s.baixar(id, 0);
+      expect(retrato).toEqual({ ateSequencia: 2, partes: [bytes(100)] });
+      expect(lotes.map((l) => l.sequencia)).toEqual([3]);
+    });
+
+    it("enviarRetrato com ateSequencia menor que o retrato já guardado é recusado e não altera nada", async () => {
+      const s = new ServicoSyncFake();
+      const id = novoId();
+      await s.criarVault(id, bytes(1), bytes(2));
+      await s.enviarLote(id, 0, bytes(1)); // seq 1
+      await s.enviarLote(id, 1, bytes(2)); // seq 2
+      await s.enviarLote(id, 2, bytes(3)); // seq 3
+      await s.enviarRetrato(id, 2, [bytes(100)]);
+
+      await expect(s.enviarRetrato(id, 1, [bytes(200)])).rejects.toThrow(
+        expect.objectContaining({ codigo: "fora-de-ordem" }),
+      );
+
+      const { retrato, lotes } = await s.baixar(id, 0);
+      expect(retrato).toEqual({ ateSequencia: 2, partes: [bytes(100)] });
+      expect(lotes.map((l) => l.sequencia)).toEqual([3]);
+    });
+
+    it("enviarRetrato com ateSequencia além da última sequência do vault é recusado", async () => {
+      const s = new ServicoSyncFake();
+      const id = novoId();
+      await s.criarVault(id, bytes(1), bytes(2));
+      await s.enviarLote(id, 0, bytes(1)); // seq 1
+      await s.enviarLote(id, 1, bytes(2)); // seq 2
+
+      await expect(s.enviarRetrato(id, 5, [bytes(200)])).rejects.toThrow(
+        expect.objectContaining({ codigo: "fora-de-ordem" }),
+      );
+
+      const { retrato, lotes } = await s.baixar(id, 0);
+      expect(retrato).toBeUndefined();
+      expect(lotes.map((l) => l.sequencia)).toEqual([1, 2]);
+    });
+
+    it("enviarRetrato com ateSequencia maior que o anterior e dentro da sequência continua funcionando", async () => {
+      const s = new ServicoSyncFake();
+      const id = novoId();
+      await s.criarVault(id, bytes(1), bytes(2));
+      await s.enviarLote(id, 0, bytes(1)); // seq 1
+      await s.enviarLote(id, 1, bytes(2)); // seq 2
+      await s.enviarLote(id, 2, bytes(3)); // seq 3
+      await s.enviarRetrato(id, 1, [bytes(50)]);
+
+      await s.enviarRetrato(id, 3, [bytes(100)]);
+
+      const { retrato, lotes } = await s.baixar(id, 0);
+      expect(retrato).toEqual({ ateSequencia: 3, partes: [bytes(100)] });
+      expect(lotes).toEqual([]);
+    });
   });
 
   describe("cópias defensivas", () => {
@@ -260,6 +329,35 @@ describe("ServicoSyncFake", () => {
       await expect(comFalha.enviarLote(id, 0, bytes(1))).rejects.toThrow(
         expect.objectContaining({ codigo: "espaco" }),
       );
+    });
+
+    it("espaco: true faz enviarRetrato lançar FalhaSync('espaco')", async () => {
+      const s = new ServicoSyncFake();
+      const id = novoId();
+      await s.criarVault(id, bytes(1), bytes(2));
+      await s.enviarLote(id, 0, bytes(1));
+      const comFalha = new ServicoSyncFake({ falhar: "espaco" });
+      await expect(comFalha.enviarRetrato(id, 1, [bytes(1)])).rejects.toThrow(
+        expect.objectContaining({ codigo: "espaco" }),
+      );
+    });
+
+    it("simularFalha liga a falha em tempo de execução", async () => {
+      const s = new ServicoSyncFake();
+      await expect(s.listarVaults()).resolves.toEqual([]);
+      s.simularFalha("rede");
+      await expect(s.listarVaults()).rejects.toThrow(
+        expect.objectContaining({ codigo: "rede" }),
+      );
+    });
+
+    it("simularFalha(undefined) desliga a falha e o servidor volta a funcionar", async () => {
+      const s = new ServicoSyncFake({ falhar: "rede" });
+      await expect(s.listarVaults()).rejects.toThrow(
+        expect.objectContaining({ codigo: "rede" }),
+      );
+      s.simularFalha(undefined);
+      await expect(s.listarVaults()).resolves.toEqual([]);
     });
   });
 });

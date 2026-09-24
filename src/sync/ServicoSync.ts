@@ -17,7 +17,10 @@ export interface ServicoSync {
   /** Devolve a nova sequência. Lança `FalhaSync("fora-de-ordem")` — sem gravar nada — se
    * `esperoUltima` não for a última sequência atual do vault. */
   enviarLote(id: string, esperoUltima: number, bytes: Uint8Array): Promise<number>;
-  /** O servidor pode descartar lotes com sequência ≤ `ateSequencia` depois disso. */
+  /** O servidor pode descartar lotes com sequência ≤ `ateSequencia` depois disso. Lança
+   * `FalhaSync("fora-de-ordem")` — sem gravar nada — se `ateSequencia` for menor ou igual ao
+   * retrato já guardado (retrato mais velho não pode substituir o mais novo: perderia os
+   * lotes entre os dois, já descartados) ou maior que a última sequência do vault. */
   enviarRetrato(id: string, ateSequencia: number, partes: Uint8Array[]): Promise<void>;
   apagarVault(id: string): Promise<void>;
 }

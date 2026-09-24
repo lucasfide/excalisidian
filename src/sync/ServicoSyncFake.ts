@@ -44,10 +44,18 @@ const copiarPartes = (partes: Uint8Array[]): Uint8Array[] => partes.map(copiar);
 
 export class ServicoSyncFake implements ServicoSync {
   private vaults = new Map<string, VaultGuardado>();
-  private readonly falhar?: FalhaSimulada;
+  private falhar?: FalhaSimulada;
 
   constructor(opcoes: OpcoesServicoSyncFake = {}) {
     this.falhar = opcoes.falhar;
+  }
+
+  /** Só para teste: troca a falha simulada em tempo de execução, para os testes do motor
+   * (plano 09) exercitarem "caiu a rede" e depois "voltou" sem criar um servidor novo (o que
+   * perderia o estado em memória). `undefined` desliga a falha. Não faz parte de
+   * `ServicoSync`. */
+  simularFalha(falha: FalhaSimulada | undefined): void {
+    this.falhar = falha;
   }
 
   private garantirSemFalhaGeral(): void {
@@ -124,6 +132,12 @@ export class ServicoSyncFake implements ServicoSync {
     this.garantirSemFalhaGeral();
     if (this.falhar === "espaco") throw new FalhaSync("espaco");
     const vault = this.buscar(id);
+    // Um retrato mais velho (ou igual) que o já guardado não pode substituí-lo: os lotes
+    // entre os dois já foram descartados pelo retrato mais novo, e um computador novo nunca
+    // mais receberia essas mudanças. Também recusa um retrato além do que o vault tem —
+    // não há como cobrir sequências que não existem.
+    if (ateSequencia <= (vault.retrato?.ateSequencia ?? 0)) throw new FalhaSync("fora-de-ordem");
+    if (ateSequencia > this.ultimaSequencia(vault)) throw new FalhaSync("fora-de-ordem");
     vault.retrato = { ateSequencia, partes: copiarPartes(partes) };
     vault.lotes = vault.lotes.filter((l) => l.sequencia > ateSequencia);
   }
