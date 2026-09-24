@@ -23,7 +23,8 @@ Todas as versões abaixo foram verificadas no registry do npm em **28/08/2026**.
 | Compressão da cena | `lz-string` (`draw-json-lz`, doc 02 §3) | 1.5.0 |
 | Busca | `minisearch` | 7.2.0 |
 | Rede HTTP (agente de IA, conta, serviço online) | `@tauri-apps/plugin-http` + `tauri-plugin-http` (Rust) | 2.6.0 / 2.6.0 — verificado 13/09/2026 no install; único transporte de rede do app (agente, `src/conta/`, `src/servico/`), escopado por host em `capabilities/main.json` (doc 11, doc 09 ADR-31) |
-| Derivação da senha (conta, ADR-39) | `@noble/hashes` *(planejado)* | 2.4.0 |
+| Derivação da senha (conta, ADR-39) | `@noble/hashes` — HKDF e SHA-256 da derivação da senha | 2.4.0 |
+| Derivação da senha (conta, ADR-39) | `hash-wasm` — Argon2id da derivação da senha, ADR-39 | 4.12.0 |
 | Estado | `zustand` | 5.0.15 |
 | Estilo | Tailwind v4 com os tokens do design system | |
 | Ícones | `lucide-react` | |

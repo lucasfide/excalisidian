@@ -1446,10 +1446,11 @@ uma forma de recuperação sem reprocessar nada e sem afetar quem já usa. É a 
 decisão com prazo: precisa estar no desenho antes de o primeiro usuário sincronizar.
 
 **Quando a senha é pedida:** uma vez por computador, ao conectá-lo à sincronização. A chave
-derivada fica no cofre do sistema operacional. **Nunca na abertura do app.** A tela de criação
-de conta diz, sem eufemismo, que a senha não pode ser recuperada e que as notas locais
-continuam a salvo, e recomenda guardar a senha no gerenciador de senhas do navegador ou do
-sistema.
+derivada fica no cofre do sistema operacional. **Nunca na abertura do app.** **Implementado em
+23/09/2026 (commit `1bf3f83`, ver ADR-39):** a tela de criação de conta diz, sem eufemismo, que
+a senha não pode ser recuperada e que as notas locais continuam a salvo, e recomenda guardar a
+senha no gerenciador de senhas do navegador ou do sistema — o aviso aparece antes de a conta ser
+criada de fato.
 
 **Alternativas rejeitadas:**
 
@@ -1656,20 +1657,23 @@ computador se conecta à sincronização — e não a cada abertura do app.
 
 **Consequências:**
 
-1. **A senha nunca pode ir ao servidor do jeito que foi digitada — e isso ainda não está
-   implementado.** Hoje `ServicoContaHttp.entrar` e `ServicoContaHttp.criar`
-   (`src/conta/ServicoContaHttp.ts`) mandam a senha crua para o servidor, protegida só pela
-   conexão cifrada — o tratamento normal para uma senha de conta comum, redefinível por
-   e-mail. Mas como essa mesma senha agora também protege o vault, isso tem que mudar antes
-   de a sincronização existir: o app precisa derivar da senha, dentro do computador do
+1. **A senha nunca pode ir ao servidor do jeito que foi digitada.** **Implementado em
+   23/09/2026** (commits `3801410`, `58c9cad` e `1bf3f83`). Antes, `ServicoContaHttp.entrar` e
+   `ServicoContaHttp.criar` (`src/conta/ServicoContaHttp.ts`) mandavam a senha crua para o
+   servidor, protegida só pela conexão cifrada — o tratamento normal para uma senha de conta
+   comum, redefinível por e-mail. Como essa mesma senha também protege o vault, isso tinha que
+   mudar antes de a sincronização existir: o app agora deriva da senha, dentro do computador do
    usuário, duas chaves diferentes — uma que prova a identidade da pessoa para o servidor, e
    outra que cifra o vault e nunca sai do computador. É o mesmo modelo usado pelo Bitwarden e
    pelo 1Password (a técnica de derivar duas chaves de uma senha se chama, em termos
-   técnicos, *key stretching*/derivação de chave). Sem essa mudança, o servidor receberia a
-   mesma senha que abre as notas cifradas, o que quebraria a promessa do ADR-32 de que o
-   servidor não consegue ler nada. O plano de como fazer isso está escrito em
+   técnicos, *key stretching*/derivação de chave). Com essa mudança, o servidor deixa de
+   receber a mesma senha que abre as notas cifradas, cumprindo a promessa do ADR-32 de que o
+   servidor não consegue ler nada. O plano de como isso foi feito está escrito em
    `docs/superpowers/plans/2026-09-23-06-senha-nunca-sai.md` (seção "Como será implementado",
-   abaixo).
+   abaixo). **O que continua sem existir:** a sincronização de verdade, que é quem vai usar a
+   chave de envelope (`chaveDeEnvelope`) para proteger o vault — essa chave já é calculada e
+   testada, mas hoje ninguém a consome. Ela fica pronta, guardada em lugar nenhum, esperando a
+   sincronização chegar.
 2. **Esquecer a senha faz perder o acesso à conta e às cópias sincronizadas no servidor, ao
    mesmo tempo.** Os arquivos que já estão em cada computador continuam lá, intactos, porque
    o vault é uma pasta comum de arquivos — o que se perde é só a cópia cifrada guardada no
@@ -1693,6 +1697,21 @@ decisões desse plano, em linguagem simples:
    adivinhar a senha testando várias de uma vez. Um rótulo de versão desses parâmetros viaja
    junto para o servidor, para poder torná-los mais pesados no futuro sem travar quem já tem
    conta.
+
+   **Troca feita durante a implementação: quem faz esse cálculo pesado é a peça `hash-wasm`,
+   não a `@noble/hashes` da pesquisa inicial.** Motivo: medido nesta máquina, o cálculo
+   levava cerca de 3,8 segundos numa biblioteca (tempo alto demais — a pessoa ficaria olhando
+   para uma tela parada) e cerca de 0,3 segundo na outra, com exatamente os mesmos parâmetros
+   de segurança (nenhum parâmetro foi afrouxado para ganhar velocidade). A `hash-wasm` é uma
+   compilação, para rodar no navegador embutido do app, do próprio código de referência escrito
+   pelos autores do algoritmo Argon2 — não é uma reimplementação nossa. Para garantir que as
+   duas pecas concordam, a conferência ficou em dobro: primeiro, o resultado bate com o vetor de
+   teste oficial do padrão internacional do Argon2id (RFC 9106) calculado pela `@noble/hashes`;
+   segundo, as duas peças, calculando com os parâmetros reais do app, dão exatamente o mesmo
+   resultado, byte a byte. Ou seja: duas implementações independentes, escritas por equipes
+   diferentes, concordando — a garantia de que a peça mais rápida não introduziu erro nenhum. A
+   `@noble/hashes` continua no projeto, só que agora para as outras duas contas (HKDF e
+   SHA-256, explicadas na decisão 4) e para esse teste cruzado.
 2. **Sal.** Cada conta usa um ingrediente extra fixo, calculado a partir do e-mail (chamado
    "sal" em criptografia), para que a mesma senha não vire a mesma chave em contas diferentes.
    Esse ingrediente usa um texto fixo do próprio código — e não o nome do produto, que ainda
@@ -1724,10 +1743,19 @@ decisões desse plano, em linguagem simples:
    jeito que não congela a tela do app enquanto a pessoa espera.
 7. **Senha mínima de 12 caracteres, só para conta nova.** Quem já tem conta com senha menor
    continua conseguindo entrar normalmente — a regra nova não tranca ninguém que já existe.
-8. **Aviso na tela de criação de conta.** Um texto vai avisar, sem rodeios, que essa senha não
-   pode ser recuperada por ninguém (nem pela própria empresa), que as notas já salvas no
-   computador continuam seguras mesmo assim, e recomendando guardar a senha num gerenciador de
-   senhas. Isso cumpre um aviso que o ADR-33 já previa e que ainda não tinha sido colocado na
-   tela.
+8. **Aviso na tela de criação de conta.** **Implementado em 23/09/2026** (commit `1bf3f83`).
+   Um texto avisa, sem rodeios, que essa senha não pode ser recuperada por ninguém (nem pela
+   própria empresa), que as notas já salvas no computador continuam seguras mesmo assim, e
+   recomenda guardar a senha num gerenciador de senhas. Isso cumpre um aviso que o ADR-33 já
+   previa e que não estava colocado na tela.
 
-**Estado real: decidido; nada implementado.**
+   **O aviso acontece em dois passos, de propósito.** Clicar em "Criar conta" pela primeira vez
+   não cria conta nenhuma — só troca o formulário para o modo de criação, onde o aviso já
+   aparece visível. A conta só é criada de fato no segundo clique, depois de a pessoa ter visto
+   o aviso. Isso garante que ninguém cria uma conta sem passar pelo aviso antes — se o clique
+   único criasse a conta e mostrasse o aviso depois, o aviso chegaria tarde demais para servir
+   de alerta.
+
+**Estado real: a consequência 1 e o aviso da decisão 8 estão implementados (23/09/2026,
+commits `3801410`, `58c9cad` e `1bf3f83`). A sincronização — que é quem vai usar a chave de
+envelope de verdade — continua não implementada.**
