@@ -299,12 +299,17 @@ function SecaoConta() {
     if (!ok) setSenha("");
   }
 
-  // "credenciais" pertence ao campo senha, "emailEmUso" ao campo e-mail — usam o prop
-  // `erro` do Campo, que liga mensagem e borda ao input por `aria-describedby`. Os demais
-  // (rede, servidor, expirada) não pertencem a um campo específico: ficam no parágrafo.
+  // "credenciais" e "senhaCurta" pertencem ao campo senha, "emailEmUso" ao campo e-mail —
+  // usam o prop `erro` do Campo, que liga mensagem e borda ao input por `aria-describedby`.
+  // Os demais (rede, servidor, expirada) não pertencem a um campo específico: ficam no
+  // parágrafo.
   const erroEmail = erro === "emailEmUso" ? t(`conta.erro.${erro}`) : undefined;
-  const erroSenha = erro === "credenciais" ? t(`conta.erro.${erro}`) : undefined;
-  const erroGeral = erro && erro !== "emailEmUso" && erro !== "credenciais" ? erro : null;
+  const erroSenha =
+    erro === "credenciais" || erro === "senhaCurta" ? t(`conta.erro.${erro}`) : undefined;
+  const erroGeral =
+    erro && erro !== "emailEmUso" && erro !== "credenciais" && erro !== "senhaCurta"
+      ? erro
+      : null;
 
   return (
     <form
@@ -335,6 +340,11 @@ function SecaoConta() {
         erro={erroSenha}
       />
       {erroGeral && <p className="text-pequeno text-bordo">{t(`conta.erro.${erroGeral}`)}</p>}
+      {acaoAtual === "criar" && (
+        <p className="text-pequeno text-tinta-media [text-wrap:pretty]">
+          {t("conta.avisoCriar")}
+        </p>
+      )}
       <div className="flex flex-wrap gap-2">
         <Botao
           type="submit"

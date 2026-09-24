@@ -17,9 +17,13 @@ export const PT_BR_CONTA = {
   "conta.plano.premium": "Plano premium",
   "conta.erro.credenciais": "E-mail ou senha não conferem.",
   "conta.erro.emailEmUso": "Já existe uma conta com esse e-mail.",
+  "conta.erro.senhaCurta": "Use pelo menos 12 caracteres.",
   "conta.erro.rede": "Não foi possível falar com o servidor. Verifique a conexão.",
   "conta.erro.servidor": "O servidor respondeu de um jeito inesperado. Tente de novo.",
   "conta.erro.expirada": "Sua sessão expirou. Entre de novo.",
+  // Decisão 8 do plano ADR-39: visível só no modo "criar conta" (ADR-33).
+  "conta.avisoCriar":
+    "Sua senha também protege as notas sincronizadas e não pode ser recuperada — nem por nós. As notas neste computador continuam a salvo. Guarde a senha num gerenciador de senhas.",
 } as const;
 
 // Partial, como o EN geral em catalogo.ts: uma tradução faltando não trava a edição, cai no
@@ -39,7 +43,10 @@ export const EN_CONTA: Partial<Record<keyof typeof PT_BR_CONTA, string>> = {
   "conta.plano.premium": "Premium plan",
   "conta.erro.credenciais": "Email or password do not match.",
   "conta.erro.emailEmUso": "An account with this email already exists.",
+  "conta.erro.senhaCurta": "Use at least 12 characters.",
   "conta.erro.rede": "Could not reach the server. Check your connection.",
   "conta.erro.servidor": "The server responded unexpectedly. Try again.",
   "conta.erro.expirada": "Your session expired. Sign in again.",
+  "conta.avisoCriar":
+    "Your password also protects your synced notes and cannot be recovered — not even by us. Notes on this computer remain safe. Store your password in a password manager.",
 };

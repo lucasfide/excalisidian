@@ -3,7 +3,7 @@
 // exercitar todo o caminho de estado e de interface sem rede.
 
 import type { ServicoConta } from "./ServicoConta";
-import { FalhaConta, type PlanoAssinatura, type Sessao } from "./tipos";
+import { FalhaConta, SENHA_MINIMA, type PlanoAssinatura, type Sessao } from "./tipos";
 
 const DURACAO_SESSAO_MS = 30 * 24 * 60 * 60 * 1000; // 30 dias
 
@@ -56,6 +56,10 @@ export class ServicoContaFake implements ServicoConta {
   }
 
   async criar(email: string, senha: string): Promise<Sessao> {
+    // Mesma regra do ServicoContaHttp (decisão 7 do plano ADR-39), contando pontos de
+    // código depois de NFC — este fake é a implementação usada para desenvolver sem
+    // servidor, e o comportamento tem que bater com o real.
+    if ([...senha.normalize("NFC")].length < SENHA_MINIMA) throw new FalhaConta("senhaCurta");
     const chave = normalizar(email);
     if (this.contas.has(chave)) throw new FalhaConta("emailEmUso");
     this.contas.set(chave, { senha, plano: "gratis" });

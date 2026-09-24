@@ -34,12 +34,18 @@ describe("ServicoContaFake", () => {
   });
 
   it("criar conta nova devolve sessão no plano grátis", async () => {
-    const s = await fake().criar("nova@exemplo.com", "outrasenha");
+    const s = await fake().criar("nova@exemplo.com", "outrasenha12");
     expect(s.plano).toBe("gratis");
   });
 
+  it("criar conta com senha de 11 caracteres falha com senhaCurta", async () => {
+    await expect(fake().criar("nova@exemplo.com", "onzeletras1")).rejects.toThrow(
+      expect.objectContaining({ codigo: "senhaCurta" }),
+    );
+  });
+
   it("criar conta com email já usado falha", async () => {
-    await expect(fake().criar("ana@exemplo.com", "outrasenha")).rejects.toThrow(
+    await expect(fake().criar("ana@exemplo.com", "outrasenha12")).rejects.toThrow(
       expect.objectContaining({ codigo: "emailEmUso" }),
     );
   });
