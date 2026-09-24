@@ -1377,7 +1377,8 @@ aparecem como duas telas, lado a lado, não como um diff de linhas.
 O plano 04 (conflitos de sync) cobriu a tela inteira — faixa de aviso, comparador de notas
 lado a lado e comparador de desenhos — que opera sobre "duas versões do mesmo arquivo" sem
 depender de servidor. Falta só a sincronização de verdade: observar o vault, cifrar, subir,
-baixar, detectar conflito.
+baixar, detectar conflito. O desenho técnico de como isso será construído está em
+`docs/17-sincronizacao.md` e no ADR-40.
 
 **Decisões tomadas na execução (23/09/2026):**
 
@@ -1773,3 +1774,61 @@ decisões desse plano, em linguagem simples:
 **Estado real: a consequência 1 e o aviso da decisão 8 estão implementados (23/09/2026,
 commits `3801410`, `58c9cad` e `1bf3f83`). A sincronização — que é quem vai usar a chave de
 envelope de verdade — continua não implementada.**
+
+### ADR-40 · Sincronização como diário de pacotes lacrados
+
+**Contexto:** os ADR-32, ADR-33 e ADR-39 já tinham decidido *o quê* a sincronização promete
+(servidor cego, senha única, conflito nunca funde sozinho). Faltava decidir *como* isso é
+construído de verdade — o formato dos pacotes que viajam até o servidor e a chave que os tranca.
+Essas decisões técnicas estão detalhadas em `docs/17-sincronizacao.md` (normativo); este ADR
+resume o que foi decidido, em linguagem simples, e registra as alternativas que foram
+consideradas e descartadas.
+
+**Decisão:** o servidor guarda, por vault, um diário de pacotes numerados por ele mesmo, dois
+tipos: **lotes** (as mudanças que um computador fez desde a última vez) e **retratos** (o vault
+inteiro num ponto do diário, para um computador novo não precisar baixar tudo desde o início).
+Cada pacote é trancado com uma chave própria do vault (a `chaveDoVault`), gerada uma vez,
+aleatória, e guardada — também trancada — no servidor dentro de um "envelope" que só a chave da
+conta do usuário (a `chaveDeEnvelope` do ADR-39) consegue abrir. A cifra usada é a que já vem
+pronta no navegador embutido do app, sem precisar instalar nada a mais (o nome técnico é
+AES-256-GCM, da WebCrypto).
+
+Antes de trancar, cada pacote é preenchido até um dos tamanhos de uma escada fixa (16 KiB, 32
+KiB, 64 KiB... até 8 MiB), para o servidor não conseguir estimar o tamanho exato do que foi
+escrito só pelo tamanho do pacote. Um arquivo maior que 7 MiB fica de fora da sincronização —
+continua só no computador — porque o pacote inteiro (depois de compactado e cifrado) precisa
+caber no teto de 8 MiB; o app avisa quais arquivos ficaram de fora.
+
+Cada computador tem a própria lixeira: quando uma exclusão chega de outro computador, o arquivo
+não some — vai para a lixeira deste computador, recuperável aqui como qualquer exclusão. E, na
+regra de quem ganha quando os dois lados mexeram na mesma nota, **apagar nunca vence editar**: se
+um computador apagou e o outro editou, a versão editada volta; o que se perde, no pior caso, é um
+apagamento, nunca um texto. Um desenho ou uma imagem em conflito (arquivo binário, sem como
+comparar linha a linha) não abre a tela de comparação do ADR-32 — vira "manter as duas" cópias
+automaticamente.
+
+**Limite honesto desta promessa:** mesmo sem conseguir ler nada, o servidor vê quantos pacotes
+cada vault tem, o tamanho arredondado de cada um (por causa da escada) e quando chegaram. Isso
+deixa ele saber, **aproximadamente**, quanto a pessoa escreve e quando usa o app — mas nunca o
+quê, nunca o nome de um arquivo, nunca quantas notas existem. Esse resíduo é inerente a qualquer
+sincronização entre computadores e é aceito como parte do desenho (docs/17-sincronizacao.md §3).
+
+**Alternativas rejeitadas:**
+
+| Opção | Por que não |
+|---|---|
+| Um pacote cifrado por arquivo, em vez de agrupar mudanças num lote | O número de pacotes revelaria quantas notas existem, o que contraria diretamente a promessa do ADR-32 de que o servidor não sabe quantas notas a pessoa tem. |
+| Outra cifra (XChaCha20-Poly1305, por uma biblioteca externa, `@noble/ciphers`) em vez da cifra já embutida no navegador do app | Traria uma dependência a mais sem ganho de segurança sobre a cifra que já vem pronta (AES-256-GCM da WebCrypto), disponível tanto no app quanto nos testes automatizados. |
+| Sincronizar também a lixeira de cada computador | Uma exclusão viraria duas mudanças (o arquivo some de um lado, aparece na lixeira do outro) que se cruzariam de volta no computador que apagou — voltando a mostrar um arquivo que a pessoa já tinha decidido apagar. |
+
+**Estado real: o desenho está fechado (este ADR e o doc 17); a construção do núcleo técnico —
+cifra dos pacotes, formato de lote e retrato, as duas decisões de "o que mudou aqui" e "o que
+fazer com o que chegou", e um servidor de testes em memória — está em andamento
+(`docs/superpowers/plans/2026-09-24-08-nucleo-da-sincronizacao.md`). Nenhuma tela usa isso
+ainda; a tela de conflitos do ADR-32 continua operando só com o comando de simulação, sem
+servidor de verdade por trás.**
+
+**Consequências:** a Fatia 15 do roadmap passa a ter um desenho técnico completo para seguir,
+não só a decisão de produto. O plano citado acima constrói as peças isoladas, sem tela, sem
+disco e sem rede de verdade; um próximo plano monta o motor que as liga ao vault, e outro liga
+a interface.

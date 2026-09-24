@@ -113,6 +113,13 @@ src/
 │   ├── ServicoConta.ts       contrato: entrar, criar, renovar, sair
 │   ├── ServicoContaFake.ts   implementação em memória, para teste
 │   └── ServicoContaHttp.ts   implementação real
+├── sync/                    sincronização cifrada ponta a ponta — doc 17, ADR-32/40
+│   ├── tipos.ts, cenaDeConflito.ts, colunasComparacao.ts, diffLinhas.ts,
+│   │   nomeDeConflito.ts, resolucao.ts, simularConflito.ts   tela de conflitos (ADR-32), pronta
+│   ├── pacote.ts             cifra AES-256-GCM com AAD, preenchimento em escada (planejado, plano 08)
+│   ├── formato.ts            serialização de Lote e Retrato (planejado, plano 08)
+│   ├── decisoes.ts           mudança local e ação para mudança remota (planejado, plano 08)
+│   └── ServicoSync.ts, ServicoSyncFake.ts   contrato do servidor, igual padrão de ServicoConta (planejado, plano 08)
 ├── agente/                    agente de IA opcional (doc 11) — único outro código que fala com rede
 │   ├── tipos.ts
 │   ├── provedores.ts          catálogo de provedores, dialetos, base URLs, preços

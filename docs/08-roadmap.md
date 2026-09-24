@@ -311,9 +311,9 @@ devolvem o mesmo erro, para não revelar quem tem conta.
 
 - `src/conta/` (`ServicoConta.ts`, `ServicoContaFake.ts`, `ServicoContaHttp.ts`) e
   `src/estado/contaStore.ts`.
-- Só o token é persistido, em `settings.json`, texto puro (ver Fatia 14); carrega na abertura
-  sem bloquear a tela; só "sessão expirada" apaga o token — falha de rede ou de servidor
-  preserva a sessão.
+- O token fica persistido no cofre de senhas do Windows desde a Fatia 14 (ver ADR-34), não em
+  texto puro no `settings.json`; carrega na abertura sem bloquear a tela; só "sessão expirada"
+  apaga o token — falha de rede ou de servidor preserva a sessão.
 
 **Estado real:** pronta no cliente. As três pendências conhecidas da Fase B foram resolvidas:
 as telas passaram a usar o indicador de carregamento da conta, então quem já tem conta não vê
@@ -360,8 +360,10 @@ duas); desenho compara como duas telas lado a lado, não como texto.
 commits `fd9e4e9..3e0da31`) — faixa de aviso, comparador de notas lado a lado e comparador de
 desenhos, todos operando sobre "duas versões do mesmo arquivo", sem depender de servidor. Para
 ver a tela sem sincronização de verdade existir, há um comando só de desenvolvimento, "Simular
-conflito de sincronização", na paleta de comandos. A sincronização em si — observar o vault,
-cifrar, enviar e receber — ainda não começou.
+conflito de sincronização", na paleta de comandos. O desenho técnico da sincronização de verdade
+está fechado em `docs/17-sincronizacao.md` e no ADR-40; o núcleo (cifra, formato dos pacotes,
+decisões de conflito, servidor falso) está em construção
+(`docs/superpowers/plans/2026-09-24-08-nucleo-da-sincronizacao.md`).
 
 **Status:** tela de conflitos pronta; sincronização não começada.
 
