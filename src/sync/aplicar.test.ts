@@ -14,6 +14,31 @@ import type { EstadoSync } from "./estadoSync";
 import type { Conflito } from "./tipos";
 import type { EfeitosDeGravacao } from "../vault/efeitosDeGravacao";
 import { VaultAdapterMemoria } from "../vault/VaultAdapterMemoria";
+import type { VaultAdapter } from "../vault/VaultAdapter";
+
+/** Envolve um `VaultAdapterMemoria` real, delegando tudo, exceto `lerTexto` do caminho dado,
+ * que lança — simula uma falha de leitura (permissão, corrupção) só na leitura de texto,
+ * independente de `lerBinario` (usado por `hashLocalDe`) continuar funcionando normalmente. */
+function adaptadorComLerTextoQuebrado(base: VaultAdapterMemoria, caminhoQuebrado: string): VaultAdapter {
+  return {
+    raiz: () => base.raiz(),
+    listar: () => base.listar(),
+    lerTexto: async (path: string) => {
+      if (path === caminhoQuebrado) throw new Error("falha ao ler o arquivo local");
+      return base.lerTexto(path);
+    },
+    lerBinario: (path: string) => base.lerBinario(path),
+    escreverTexto: (path: string, conteudo: string) => base.escreverTexto(path, conteudo),
+    escreverBinario: (path: string, dados: Uint8Array) => base.escreverBinario(path, dados),
+    criarPasta: (path: string) => base.criarPasta(path),
+    mover: (de: string, para: string) => base.mover(de, para),
+    remover: (path: string) => base.remover(path),
+    listarPasta: (path: string) => base.listarPasta(path),
+    existe: (path: string) => base.existe(path),
+    observar: (cb) => base.observar(cb),
+    aoPerderSincronia: (cb) => base.aoPerderSincronia(cb),
+  };
+}
 
 const encoder = new TextEncoder();
 
@@ -66,7 +91,7 @@ function loteDe(mudancas: Mudanca[], overrides: Partial<Lote> = {}): Lote {
 }
 
 function contexto(
-  adaptador: VaultAdapterMemoria,
+  adaptador: VaultAdapter,
   estado: EstadoSync,
 ): ContextoAplicar & {
   efeitos: EfeitosDeGravacao & { chamadas: string[] };
@@ -297,6 +322,38 @@ describe("aplicarLote — conflito de texto", () => {
     ]));
 
     expect(ctx.conflitosRegistrados[0].tipo).toBe("desenho");
+  });
+});
+
+describe("aplicarLote — falha ao ler a versão local durante um conflito", () => {
+  it("lerTexto falhando no caminho em conflito faz aplicarLote rejeitar; nada é gravado nem registrado", async () => {
+    const base = new VaultAdapterMemoria();
+    await base.escreverTexto("nota.md", "local editado");
+    const adaptador = adaptadorComLerTextoQuebrado(base, "nota.md");
+    const estado = estadoVazio();
+    estado.bases["nota.md"] = "hash-base";
+    const ctx = contexto(adaptador, estado);
+
+    const conteudoRemoto = encoder.encode("remoto editado");
+    const hashRemoto = await hashDe(conteudoRemoto);
+
+    await expect(
+      aplicarLote(
+        ctx,
+        loteDe([
+          { tipo: "gravar", caminho: "nota.md", base: "hash-base", hash: hashRemoto, conteudo: conteudoRemoto },
+        ]),
+      ),
+    ).rejects.toThrow();
+
+    // Nada do conflito foi registrado — nem na fila da tela, nem em conflitosPendentes.
+    expect(estado.conflitosPendentes["nota.md"]).toBeUndefined();
+    expect(ctx.conflitosRegistrados).toHaveLength(0);
+    // O disco não foi tocado: continua com o conteúdo local de antes.
+    expect(await base.lerTexto("nota.md")).toBe("local editado");
+    expect(ctx.efeitos.chamadas).toEqual([]);
+    // bases não muda: a próxima tentativa (próximo ciclo) vê o mesmo estado de antes.
+    expect(estado.bases["nota.md"]).toBe("hash-base");
   });
 });
 

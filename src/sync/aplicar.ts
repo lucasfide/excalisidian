@@ -118,13 +118,14 @@ async function tratarConflito(
   }
 
   const remotoTexto = new TextDecoder().decode(mudanca.conteudo);
-  let localTexto = "";
-  try {
-    localTexto = await ctx.adaptador.lerTexto(mudanca.caminho);
-  } catch {
-    // Não deveria acontecer (conflito só existe quando a versão local mexeu, ou seja, existe),
-    // mas não é motivo pra `aplicarLote` inteiro lançar — segue com "" em vez de travar o ciclo.
-  }
+  // NÃO engolir uma falha aqui: se a leitura local falhar (permissão, disco removido no meio
+  // do ciclo…), não existe versão local nenhuma pra registrar. Continuar com "" registraria o
+  // conflito como se o usuário tivesse esvaziado o arquivo — e "Ficar com esta" do lado local
+  // gravaria essa string vazia por cima da nota de verdade (`conflitosStore.resolver`). Deixa
+  // propagar: `aplicarLote` lança, o lote inteiro não é dado como aplicado (o motor não avança
+  // o cursor, tenta de novo no próximo ciclo — ver aviso no JSDoc de `aplicarLote`), e nada
+  // deste conflito é gravado em `conflitosPendentes` nem na fila da tela.
+  const localTexto = await ctx.adaptador.lerTexto(mudanca.caminho);
   const entrada = entradas.get(mudanca.caminho);
 
   const conflito: Conflito = {
@@ -207,6 +208,17 @@ async function aplicarAcao(
  *
  * `estado` é mutado em memória (`bases`, `hashesConhecidos`, `conflitosPendentes`); persistir
  * é responsabilidade de quem chama.
+ *
+ * **Pode lançar** — de propósito, não é engolido em lugar nenhum: uma falha de leitura ou
+ * escrita no meio do lote (disco cheio, permissão, arquivo sumiu no meio do ciclo) faz
+ * `aplicarLote` rejeitar em vez de seguir com um estado inventado (ex.: registrar um conflito
+ * com a versão local "" porque não deu pra ler o disco — é exatamente o defeito que este
+ * comportamento evita). Quando lança, **as mudanças ANTERIORES do mesmo lote já podem ter sido
+ * aplicadas** (disco gravado, `estado.bases`/`hashesConhecidos`/`conflitosPendentes` mutados em
+ * memória) — o lote não é atômico. Quem chama (o motor, Task 4) não deve tratar o lote como
+ * aplicado nesse caso: não avança `cursor`, não persiste `estado`, e tenta de novo no próximo
+ * ciclo. Na prática isso significa o motor trabalhar sobre uma CÓPIA de `estado` e só adotá-la
+ * (persistir, avançar `cursor`) se `aplicarLote` resolver sem lançar para o lote inteiro.
  */
 export async function aplicarLote(ctx: ContextoAplicar, lote: Lote): Promise<void> {
   // O ciclo precisa ver o que está na tela, não só o que já foi salvo (doc 17 §5) — sem isto,
