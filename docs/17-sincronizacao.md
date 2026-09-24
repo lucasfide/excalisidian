@@ -150,8 +150,21 @@ interface EstadoSync {
   idDoVault: string;          // id no servidor
   cursor: number;             // última sequência aplicada
   bases: Record<string, string>; // caminho → hash do último estado sincronizado
+  /** caminho → { mtimeMs, size, hash } da última vez que o arquivo foi lido para hash.
+   * Um arquivo só é relido quando mtime ou tamanho mudam — sem isso, cada ciclo leria o
+   * vault inteiro. */
+  hashesConhecidos: Record<string, { mtimeMs: number; size: number; hash: string }>;
+  /** Conflitos que chegaram e ainda não foram resolvidos, com a versão remota inteira.
+   * Persistidos porque a fila da tela vive em memória: se o app fechar com um conflito
+   * aberto, ele é registrado de novo ao abrir o vault. Sem isso, o próximo ciclo veria a
+   * versão local como "editada aqui" e a enviaria por cima da remota, que se perderia. */
+  conflitosPendentes: Record<string, { hashRemoto: string; conteudo: string; dispositivo: string; criadoEm: string }>;
 }
 ```
+
+Enquanto um caminho está em `conflitosPendentes`, ele fica fora do passo 2. Quando o usuário
+resolve, `bases[caminho]` passa a ser o `hashRemoto` e o pendente sai: a versão escolhida é,
+a partir daí, uma edição local comum sobre a remota.
 
 **Quando roda:** ao abrir o vault, alguns segundos depois de cada lote de eventos do watcher, a
 cada 60 s com o app aberto, e no botão "Sincronizar agora". Um ciclo por vez.
