@@ -365,7 +365,7 @@ está fechado em `docs/17-sincronizacao.md` e no ADR-40; o núcleo (cifra, forma
 decisões de conflito, servidor falso) está em construção
 (`docs/superpowers/plans/2026-09-24-08-nucleo-da-sincronizacao.md`).
 
-**Status:** tela de conflitos pronta; sincronização não começada.
+**Status:** tela de conflitos pronta; núcleo da sincronização em construção.
 
 **Pronto quando:** existir um servidor de sincronização cifrada e a tela de conflitos
 estiver integrada a ele.

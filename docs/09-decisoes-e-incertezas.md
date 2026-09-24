@@ -1803,9 +1803,10 @@ Cada computador tem a própria lixeira: quando uma exclusão chega de outro comp
 não some — vai para a lixeira deste computador, recuperável aqui como qualquer exclusão. E, na
 regra de quem ganha quando os dois lados mexeram na mesma nota, **apagar nunca vence editar**: se
 um computador apagou e o outro editou, a versão editada volta; o que se perde, no pior caso, é um
-apagamento, nunca um texto. Um desenho ou uma imagem em conflito (arquivo binário, sem como
-comparar linha a linha) não abre a tela de comparação do ADR-32 — vira "manter as duas" cópias
-automaticamente.
+apagamento, nunca um texto. Um desenho (`.draw.md`) em conflito abre a tela de comparação do
+ADR-32 normalmente — duas telas lado a lado, como qualquer nota. Só um anexo que não é Markdown
+(imagem, PDF) — que não tem como comparar linha a linha — não abre tela nenhuma: vira "manter as
+duas" cópias automaticamente.
 
 **Limite honesto desta promessa:** mesmo sem conseguir ler nada, o servidor vê quantos pacotes
 cada vault tem, o tamanho arredondado de cada um (por causa da escada) e quando chegaram. Isso
