@@ -275,6 +275,25 @@ describe("aplicarLote — cuidados da revisão do plano 08", () => {
     expect(await adaptador.existe("fantasma.md")).toBe(false);
     expect(Object.prototype.hasOwnProperty.call(estado.bases, "fantasma.md")).toBe(false);
   });
+
+  it("mover-para-lixeira com ResultadoExclusao ok:false lança — o lote não pode ser dado como aplicado", async () => {
+    const adaptador = new VaultAdapterMemoria();
+    await adaptador.escreverTexto("nota.md", "conteúdo");
+    const hash = await hashDe(encoder.encode("conteúdo"));
+    const estado = estadoVazio();
+    estado.bases["nota.md"] = hash;
+    const ctx = contexto(adaptador, estado);
+    ctx.efeitos.moverParaLixeira = vi.fn(async () => ({ ok: false, motivo: "disco cheio" }) as const);
+
+    await expect(
+      aplicarLote(ctx, loteDe([{ tipo: "apagar", caminho: "nota.md", base: hash }])),
+    ).rejects.toThrow();
+
+    // Nada foi limpo: bases continua com o hash antigo, o arquivo continua no disco (a
+    // exclusão de verdade nunca terminou), e o próximo ciclo vai tentar de novo.
+    expect(estado.bases["nota.md"]).toBe(hash);
+    expect(await adaptador.existe("nota.md")).toBe(true);
+  });
 });
 
 describe("aplicarLote — conflito de texto", () => {

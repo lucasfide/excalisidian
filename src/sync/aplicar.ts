@@ -181,15 +181,25 @@ async function aplicarAcao(
       }
       return;
 
-    case "mover-para-lixeira":
+    case "mover-para-lixeira": {
       // Cuidado da revisão do plano 08: pode chegar para um arquivo que já não existe aqui
       // (local === null) — nesse caso não toca o disco, só limpa `bases`.
       if (local !== null) {
-        await ctx.efeitos.moverParaLixeira(mudanca.caminho);
+        // `moverParaLixeira` devolve `ResultadoExclusao` em vez de lançar (ex.: nenhum vault
+        // aberto). Se vier `ok: false`, NÃO seguimos como se tivesse dado certo — isso
+        // deixaria `bases` sem o hash remoto enquanto o arquivo continua no disco como se
+        // nada tivesse acontecido (o próximo ciclo trataria como "editado aqui" e reenviaria
+        // um arquivo que deveria ter sumido). Lança: o lote inteiro não é dado como aplicado
+        // (mesma regra do JSDoc de `aplicarLote`) e o motor tenta de novo no próximo ciclo.
+        const resultado = await ctx.efeitos.moverParaLixeira(mudanca.caminho);
+        if (!resultado.ok) {
+          throw new Error(`não foi possível mover para a lixeira: ${resultado.motivo}`);
+        }
       }
       delete ctx.estado.bases[mudanca.caminho];
       delete ctx.estado.hashesConhecidos[mudanca.caminho];
       return;
+    }
 
     case "manter-local-e-reenviar":
       // Não toca o disco, não muda `bases` — a versão local sobe de novo no próximo ciclo.
