@@ -90,7 +90,12 @@ comportamento — os testes existentes dele têm que passar sem afrouxar).
   `caminhoLivre`), a local fica, e `bases` passa a ser o hash remoto para o caminho original
   (o próximo ciclo reenvia a local por cima — é a regra "manter as duas"); só-atualizar-base;
   manter-local-e-reenviar (não toca o disco, não muda `bases`).
-- [ ] Atualiza `bases` e `hashesConhecidos` conforme cada ação.
+- [ ] Atualiza `bases` e `hashesConhecidos` conforme cada ação. Dois cuidados que vêm da
+  revisão do plano 08 (`decisoes.ts`): (a) `"so-atualizar-base"` vindo de uma mudança
+  `apagar` significa **remover** o caminho de `bases` (os dois lados apagaram), não gravar um
+  hash; (b) `"mover-para-lixeira"` pode chegar para um arquivo que não existe mais aqui (ex.:
+  `local` e `base` ambos `null`) — nesse caso não faz nada no disco, só limpa `bases`. Um teste
+  para cada.
 - [ ] Antes de aplicar, `documentosStore.flushTudo()` (via efeitos injetados) para o hash local
   refletir o que está na tela.
 - [ ] Testes com `VaultAdapterMemoria` e efeitos falsos que registram chamadas: **uma por
