@@ -19,33 +19,19 @@ import type { Conflito, Resolucao } from "../sync/tipos";
 import type { VaultAdapter } from "../vault/VaultAdapter";
 import { caminhoLivre } from "../vault/criar";
 import { dividirExtensao, nomeBase, pastaDe } from "../vault/caminhos";
-import { useVaultStore } from "./vaultStore";
-import { useDocumentosStore } from "./documentosStore";
+import { efeitosReais, type EfeitosDeGravacao } from "../vault/efeitosDeGravacao";
 
 /** Efeitos que `resolver` precisa disparar depois de gravar, além da própria escrita
  * (doc 02 §10: o watcher ignora a própria gravação atômica, então ninguém além de quem
  * gravou vai recarregar a árvore/índice — "demorou pra aparecer" era exatamente essa lacuna).
- * Por padrão aponta pro vaultStore/documentosStore reais; testes injetam versões falsas pra
- * não precisar montar os dois stores do zustand só pra testar `resolver`. */
-export interface DepsResolucao {
-  recarregarArvore(): Promise<void>;
-  reindexarArquivo(caminho: string): Promise<void>;
-  /** Cancela um autosave pendente da aba deste caminho, se houver. No-op se a aba não
-   * existir ou não tiver timer armado. */
-  cancelarAutosavePendente(caminho: string): void;
-  /** Relê o disco pra dentro da aba deste caminho, se ela estiver aberta. No-op se a aba
-   * não existir. */
-  recarregarDoDisco(caminho: string): Promise<void>;
-}
+ * Reexporta `EfeitosDeGravacao` (plano 09, `vault/efeitosDeGravacao.ts`): o motor de
+ * sincronização precisa exatamente da mesma sequência, então não existe mais uma cópia
+ * própria daqui — só o nome antigo, para quem já importa `DepsResolucao`. Por padrão aponta
+ * pro vaultStore/documentosStore reais; testes injetam versões falsas pra não precisar montar
+ * os dois stores do zustand só pra testar `resolver`. */
+export type DepsResolucao = EfeitosDeGravacao;
 
-function depsReais(): DepsResolucao {
-  return {
-    recarregarArvore: () => useVaultStore.getState().recarregarArvore(),
-    reindexarArquivo: (caminho) => useVaultStore.getState().reindexarArquivo(caminho),
-    cancelarAutosavePendente: (caminho) => useDocumentosStore.getState().cancelarAutosave(caminho),
-    recarregarDoDisco: (caminho) => useDocumentosStore.getState().recarregarDoDisco(caminho),
-  };
-}
+const depsReais = efeitosReais;
 
 interface ConflitosState {
   conflitos: Conflito[];

@@ -99,11 +99,18 @@ function depsFalso() {
   const recarregarDoDisco = vi.fn(async (caminho: string) => {
     chamadas.push(`recarregarDoDisco:${caminho}`);
   });
+  // Não usado por `resolver` (conflito nunca move pra lixeira), mas faz parte de
+  // `EfeitosDeGravacao`/`DepsResolucao` desde o plano 09 — precisa existir pro tipo bater.
+  const moverParaLixeira = vi.fn(async (caminho: string) => {
+    chamadas.push(`moverParaLixeira:${caminho}`);
+    return { ok: true } as const;
+  });
   return {
     recarregarArvore,
     reindexarArquivo,
     cancelarAutosavePendente,
     recarregarDoDisco,
+    moverParaLixeira,
     chamadas,
   } satisfies DepsResolucao & { chamadas: string[] };
 }
