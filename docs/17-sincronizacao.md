@@ -217,8 +217,9 @@ Seja `local` o hash atual do arquivo no disco (ou ausente) e `base` o hash em `b
 - **Ligar neste vault:** Configurações → Sincronização → "Sincronizar este vault". Exige
   conta premium. Se este computador ainda não tem a `chaveDeEnvelope`, pede a senha da conta
   (a mesma de entrar), confere com o servidor (entrar de novo com a prova) e guarda no cofre.
-  Gera a `chaveDoVault`, cria o vault no servidor com o nome cifrado e o envelope, e envia um
-  retrato inicial.
+  Gera a `chaveDoVault`, cria o vault no servidor com o nome cifrado e o envelope, e envia o
+  conteúdo atual como os primeiros lotes do diário (um retrato em zero seria recusado pela regra
+  do §9 e não teria utilidade: o diário ainda está vazio).
 - **Baixar um vault para este computador:** lista os vaults da conta (nomes abertos no
   computador), o usuário escolhe um e uma **pasta vazia**. Baixa o retrato mais recente e os
   lotes seguintes.
@@ -265,11 +266,25 @@ interface ServicoSync {
 }
 ```
 
+`baixar` sempre devolve também `ultimoRetrato` — a `ateSequencia` do retrato atual do vault,
+ou 0 se não houver — mesmo quando não manda o retrato (o cliente já está na frente dele). Sem
+isso o cliente não sabe há quantos lotes foi o último retrato.
+
+**Quando mandar retrato:** depois de um ciclo que enviou com sucesso, se `cursor − ultimoRetrato
+≥ 200`, **e** se o estado local estiver inteiramente sincronizado: nenhum conflito pendente, e
+todo arquivo sincronizável com hash no disco igual ao de `bases`, com o mesmo conjunto de
+caminhos. O retrato representa o diário na sequência `cursor`; se o disco tiver qualquer coisa
+que o diário ainda não tem (edição não enviada, versão local de um conflito aberto), o retrato
+mentiria para um computador novo — nesse caso não manda agora e tenta num ciclo seguinte.
+
 O servidor pode descartar lotes cobertos por um retrato. Ele **recusa** (`fora-de-ordem`, sem
 mudar nada) um retrato cujo `ateSequencia` não seja maior que o do retrato atual, ou que passe
 da última sequência do diário: se um retrato mais antigo substituísse um mais novo, os lotes
 entre os dois — já descartados — nunca mais chegariam a um computador novo. Um computador que manda um retrato
-faz isso quando o diário passa de 200 lotes ou de 50 MiB desde o último retrato.
+faz isso nas condições descritas acima (200 lotes desde o último retrato, estado local
+sincronizado). O critério de tamanho (50 MiB) foi retirado: o cliente não tem como medir bytes
+do diário desde o retrato, e medir o vault inteiro faria vaults grandes mandarem retrato em todo
+ciclo.
 
 ---
 
