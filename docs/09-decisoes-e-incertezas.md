@@ -1381,7 +1381,7 @@ baixar, detectar conflito.
 
 **Decisões tomadas na execução (23/09/2026):**
 
-Três pontos que a decisão acima não previa, resolvidos durante a construção da tela:
+Cinco pontos que a decisão acima não previa, resolvidos durante a construção da tela:
 
 - **Cópia duplicada numera em vez de sobrescrever.** Quando o usuário escolhe "manter as
   duas", a versão que perde o nome original vira uma cópia separada. Se isso acontecer duas
@@ -1399,6 +1399,20 @@ Três pontos que a decisão acima não previa, resolvidos durante a construção
   o app. Linhas iguais no começo e no fim do arquivo são descartadas da comparação antes desse
   cálculo, então um conflito de verdade — que normalmente muda só um trecho pequeno de uma
   nota — quase nunca chega perto desse teto.
+- **Resolver atualiza a lista lateral e a aba aberta na hora (achado do teste manual de
+  23/09).** Escolher uma versão gravava no disco, mas a nota só aparecia na lista de arquivos
+  e, se estivesse aberta numa aba, só mostrava a versão escolhida na próxima vez que alguma
+  outra ação recarregasse a tela — "demorou pra aparecer". Agora resolver sempre atualiza a
+  lista e o índice de busca/links na hora, e se a nota (ou desenho) escolhida estiver aberta
+  numa aba, a aba passa a mostrar a versão escolhida imediatamente, sem esperar. Um cuidado a
+  mais: se a aba tinha uma edição não salva ainda esperando pra gravar sozinha (autosave), essa
+  gravação pendente é cancelada antes de escrever a versão escolhida — senão ela poderia gravar
+  o conteúdo antigo por cima da escolha do usuário um instante depois.
+- **Simular conflito de teste numera em vez de recusar.** O comando de desenvolvimento que
+  cria um conflito de teste (só existe fora da versão publicada) recusava se já existisse um
+  arquivo com aquele nome exato, avisando o usuário. Ficou mais simples e mais parecido com o
+  resto do app numerar (`Nome (2)`, `Nome (3)`...) como qualquer criação de nota, em vez de
+  recusar — nunca sobrescreve nada e nunca precisa de aviso.
 
 **Alternativas rejeitadas:**
 
