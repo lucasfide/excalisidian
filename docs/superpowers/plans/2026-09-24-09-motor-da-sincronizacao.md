@@ -118,6 +118,11 @@ comportamento — os testes existentes dele têm que passar sem afrouxar).
   sem inventar protocolo: o AAD usa a sequência **esperada** (`esperoUltima + 1`), que é
   exatamente a que o servidor atribui quando aceita (e se recusar, o lote é refeito). Comente
   isso no código.
+  **Folga de tamanho (revisão do plano 08):** `dividirEmLotes` limita o conteúdo cru a 7 MiB,
+  mas o lote vira base64 antes do gzip; com arquivos já comprimidos (JPEG, PDF) o resultado
+  pode encostar nos 8 MiB e `lacrar` lançar. Se `lacrar` recusar por tamanho, divida o lote ao
+  meio e tente cada metade (recursivo; um lote de uma mudança só que não cabe = arquivo vai
+  para `foraDaSincronizacao`). Teste com bytes aleatórios (incompressíveis) perto do limite.
 - [ ] Conflitos resolvidos: no começo do ciclo, todo caminho de `conflitosPendentes` que não está
   mais na `conflitosStore` sai de lá e tem `bases[caminho] = hashRemoto`.
 - [ ] Retrato: depois de enviar, se o diário passou de 200 lotes ou 50 MiB desde o último
