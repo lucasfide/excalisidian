@@ -250,7 +250,9 @@ e do desenvolvimento) e uma HTTP (quando o servidor existir) — o mesmo padrão
 ```ts
 interface ServicoSync {
   listarVaults(): Promise<{ id: string; nomeCifrado: Uint8Array; envelope: Uint8Array }[]>;
-  criarVault(nomeCifrado: Uint8Array, envelope: Uint8Array): Promise<string>;
+  /** O id é gerado pelo cliente (UUID v4): o envelope e o nome cifrado usam o id no AAD,
+   * então ele precisa existir antes de o vault ser criado. FalhaSync("ja-existe") se repetir. */
+  criarVault(id: string, nomeCifrado: Uint8Array, envelope: Uint8Array): Promise<void>;
   baixar(id: string, aposSequencia: number): Promise<
     { retrato?: { ateSequencia: number; partes: Uint8Array[] }; lotes: { sequencia: number; bytes: Uint8Array }[] }
   >;
