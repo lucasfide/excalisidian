@@ -74,8 +74,9 @@ describe("VaultAdapterMemoria", () => {
     expect(segunda.mtimeMs).toBeGreaterThan(primeira.mtimeMs);
   });
 
-  it("listar: walk completo, inclui pastas criadas implicitamente pelo caminho do arquivo", async () => {
+  it("listar: walk completo, inclui pastas criadas por criarPasta antes da escrita", async () => {
     const vault = new VaultAdapterMemoria();
+    await vault.criarPasta("pasta/sub");
     await vault.escreverTexto("pasta/sub/nota.md", "x");
     const entradas = await vault.listar();
     const porPath = new Map(entradas.map((e) => [e.path, e]));
@@ -87,6 +88,7 @@ describe("VaultAdapterMemoria", () => {
   it("listar: pula pasta ponto e tudo dentro dela (igual walk_vault)", async () => {
     const vault = new VaultAdapterMemoria();
     await vault.escreverTexto("nota.md", "visível");
+    await vault.criarPasta(".trash");
     await vault.escreverTexto(".trash/apagado.md", "não deveria aparecer");
     const entradas = await vault.listar();
     expect(entradas.map((e) => e.path)).toEqual(["nota.md"]);
@@ -94,6 +96,7 @@ describe("VaultAdapterMemoria", () => {
 
   it("listarPasta: enxerga dentro de pasta ponto, diferente de listar()", async () => {
     const vault = new VaultAdapterMemoria();
+    await vault.criarPasta(".trash");
     await vault.escreverTexto(".trash/apagado.md", "x");
     const itens = await vault.listarPasta(".trash");
     expect(itens).toEqual([{ nome: "apagado.md", isDir: false }]);
@@ -106,6 +109,7 @@ describe("VaultAdapterMemoria", () => {
 
   it("listarPasta: só um nível, não desce em subpastas", async () => {
     const vault = new VaultAdapterMemoria();
+    await vault.criarPasta("a/c");
     await vault.escreverTexto("a/b.md", "x");
     await vault.escreverTexto("a/c/d.md", "y");
     const itens = await vault.listarPasta("a");
@@ -113,6 +117,27 @@ describe("VaultAdapterMemoria", () => {
       { nome: "b.md", isDir: false },
       { nome: "c", isDir: true },
     ]);
+  });
+
+  it("escrever em pasta inexistente lança, igual ao disco real (escritaAtomica.ts não cria pasta)", async () => {
+    const vault = new VaultAdapterMemoria();
+    await expect(vault.escreverTexto("pasta-nova/nota.md", "x")).rejects.toThrow();
+    await expect(vault.escreverBinario("pasta-nova/img.png", new Uint8Array([1]))).rejects.toThrow();
+    expect(await vault.existe("pasta-nova/nota.md")).toBe(false);
+  });
+
+  it("escrever em pasta inexistente funciona depois de criarPasta", async () => {
+    const vault = new VaultAdapterMemoria();
+    await vault.criarPasta("pasta-nova");
+    await vault.escreverTexto("pasta-nova/nota.md", "conteúdo");
+    expect(await vault.lerTexto("pasta-nova/nota.md")).toBe("conteúdo");
+  });
+
+  it("criarPasta é recursivo (mkdir -p): cria também os ancestrais que faltam", async () => {
+    const vault = new VaultAdapterMemoria();
+    await vault.criarPasta("a/b/c");
+    await vault.escreverTexto("a/b/c/nota.md", "x");
+    expect(await vault.lerTexto("a/b/c/nota.md")).toBe("x");
   });
 
   it("criarPasta: pasta vazia aparece em listar() e listarPasta() do pai", async () => {
@@ -132,6 +157,7 @@ describe("VaultAdapterMemoria", () => {
 
   it("mover pasta: filhos vão junto, com os caminhos reescritos", async () => {
     const vault = new VaultAdapterMemoria();
+    await vault.criarPasta("a/sub");
     await vault.escreverTexto("a/x.md", "1");
     await vault.escreverTexto("a/sub/y.md", "2");
     await vault.mover("a", "b");
@@ -146,6 +172,24 @@ describe("VaultAdapterMemoria", () => {
     await expect(vault.mover("fantasma.md", "novo.md")).rejects.toThrow();
   });
 
+  it("mover para pasta de destino inexistente lança, igual ao rename do plugin-fs", async () => {
+    const vault = new VaultAdapterMemoria();
+    await vault.escreverTexto("origem.md", "x");
+    await expect(vault.mover("origem.md", "pasta-nova/destino.md")).rejects.toThrow();
+    // nada mudou: a origem continua onde estava, o destino não existe.
+    expect(await vault.existe("origem.md")).toBe(true);
+    expect(await vault.existe("pasta-nova/destino.md")).toBe(false);
+  });
+
+  it("mover para pasta de destino existente funciona", async () => {
+    const vault = new VaultAdapterMemoria();
+    await vault.criarPasta("pasta-nova");
+    await vault.escreverTexto("origem.md", "conteúdo");
+    await vault.mover("origem.md", "pasta-nova/destino.md");
+    expect(await vault.existe("origem.md")).toBe(false);
+    expect(await vault.lerTexto("pasta-nova/destino.md")).toBe("conteúdo");
+  });
+
   it("remover: apaga o arquivo (permanente, sem lixeira)", async () => {
     const vault = new VaultAdapterMemoria();
     await vault.escreverTexto("a.md", "x");
@@ -155,6 +199,7 @@ describe("VaultAdapterMemoria", () => {
 
   it("remover pasta: recursivo, apaga tudo dentro", async () => {
     const vault = new VaultAdapterMemoria();
+    await vault.criarPasta("a/sub");
     await vault.escreverTexto("a/x.md", "1");
     await vault.escreverTexto("a/sub/y.md", "2");
     await vault.remover("a");

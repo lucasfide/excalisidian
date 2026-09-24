@@ -3,6 +3,14 @@
 // de sincronização (plano 09, Tasks 3-5): dois "computadores" simulados em teste, cada um com
 // o seu VaultAdapterMemoria, sincronizando pelo servidor falso pela mesma chave.
 //
+// Gravar (`escreverTexto`/`escreverBinario`) ou mover para dentro de uma pasta que não existe
+// FALHA, igual ao disco real: `escritaAtomica.ts` só faz `writeTextFile(tmp)` + `rename`, sem
+// `mkdir`, e o `rename` do plugin-fs também exige a pasta de destino já existente. Só
+// `criarPasta` cria pastas (recursivamente, como `mkdir(..., { recursive: true })`). Isso
+// importa: se este adaptador criasse pasta sozinho por baixo dos panos, um defeito real do
+// motor de sincronização (gravar um arquivo remoto numa pasta nova sem criar a pasta antes)
+// passaria limpo aqui e só quebraria no disco de verdade.
+//
 // `observar`/`aoPerderSincronia` existem só pra satisfazer a interface — não há watcher de
 // verdade aqui, então são no-op (a função de cancelar devolvida também não faz nada).
 
@@ -42,10 +50,15 @@ export class VaultAdapterMemoria implements VaultAdapter {
     return this.proximoMtime++;
   }
 
-  /** Cria (se preciso) todas as pastas ancestrais de `path`, pra `listar()`/`listarPasta()`
-   * enxergarem a árvore mesmo que ninguém tenha chamado `criarPasta` explicitamente — é o que
-   * `escreverTexto("a/b/c.md", …)` faz de verdade no disco. */
-  private garantirPastasAncestrais(path: string): void {
+  /** Cria (se preciso) todas as pastas ancestrais de `path`, recursivamente — só usado por
+   * `criarPasta`, que espelha `mkdir(..., { recursive: true })` do `TauriVaultAdapter`. NÃO é
+   * chamado por `escrever`/`mover`: o disco real não cria pasta sozinho (`escritaAtomica.ts`
+   * faz só `writeTextFile(tmp)` + `rename`, sem `mkdir`; o `rename` do plugin-fs também exige
+   * a pasta de destino já existir) — gravar em `a/b/c.md` com `a/b` inexistente FALHA de
+   * verdade. Se este adaptador criasse a pasta sozinho aqui, um defeito do motor de
+   * sincronização (esquecer de `criarPasta` antes de gravar um arquivo em pasta nova) passaria
+   * limpo no teste e quebraria só no disco de verdade. */
+  private criarPastasAncestrais(path: string): void {
     const pasta = pastaDe(path);
     if (!pasta) return;
     let acumulado = "";
@@ -56,6 +69,15 @@ export class VaultAdapterMemoria implements VaultAdapter {
         this.arquivos.set(acumulado, { isDir: true, mtimeMs: agora, birthtimeMs: agora });
       }
     }
+  }
+
+  /** True se a pasta-pai de `path` existe (raiz "" sempre existe) e é mesmo uma pasta —
+   * condição que `escrever`/`mover` exigem, espelhando o disco real (ver comentário de
+   * `criarPastasAncestrais`). */
+  private pastaPaiExiste(path: string): boolean {
+    const pasta = pastaDe(path);
+    if (!pasta) return true;
+    return this.arquivos.get(pasta)?.isDir === true;
   }
 
   /** True se algum segmento "de pasta" do caminho começa com ponto — pasta ponto nunca
@@ -98,7 +120,9 @@ export class VaultAdapterMemoria implements VaultAdapter {
 
   private async escrever(path: string, dados: Uint8Array): Promise<void> {
     const p = normalizarCaminho(path);
-    this.garantirPastasAncestrais(p);
+    if (!this.pastaPaiExiste(p)) {
+      throw erroNaoEncontrado(pastaDe(p));
+    }
     const anterior = this.arquivos.get(p);
     const agora = this.tocar();
     this.arquivos.set(p, {
@@ -120,7 +144,7 @@ export class VaultAdapterMemoria implements VaultAdapter {
   async criarPasta(path: string): Promise<void> {
     const p = normalizarCaminho(path);
     if (!p) return;
-    this.garantirPastasAncestrais(`${p}/_`);
+    this.criarPastasAncestrais(`${p}/_`);
     if (!this.arquivos.has(p)) {
       const agora = this.tocar();
       this.arquivos.set(p, { isDir: true, mtimeMs: agora, birthtimeMs: agora });
@@ -132,7 +156,12 @@ export class VaultAdapterMemoria implements VaultAdapter {
     const destino = normalizarCaminho(para);
     const reg = this.arquivos.get(origem);
     if (!reg) throw erroNaoEncontrado(origem);
-    this.garantirPastasAncestrais(destino);
+    // O `rename` do plugin-fs também exige a pasta de destino já existente — não cria
+    // nenhuma sozinho, então este adaptador não pode criar por baixo dos panos (mesmo
+    // motivo de `escrever` não chamar `criarPastasAncestrais`).
+    if (!this.pastaPaiExiste(destino)) {
+      throw erroNaoEncontrado(pastaDe(destino));
+    }
     const agora = this.tocar();
     if (reg.isDir) {
       const prefixo = `${origem}/`;
