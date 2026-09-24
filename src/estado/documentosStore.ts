@@ -56,6 +56,12 @@ interface DocumentosState {
    * feitas durante uma gravação lenta. Usado ao fechar aba e no flush de fechamento. */
   salvarAteDrenar(path: string): Promise<ResultadoDreno>;
   recarregarDoDisco(path: string): Promise<void>;
+  /** Cancela o timer de autosave pendente deste documento, sem gravar nem mudar o estado.
+   * Usado por quem vai gravar por fora do autosave (conflitosStore.resolver): sem isto, um
+   * timer já armado dispararia depois da resolução e regravaria o conteúdo antigo do editor
+   * por cima da versão que o usuário escolheu. No-op se não houver timer pendente ou a aba
+   * não estiver aberta. */
+  cancelarAutosave(path: string): void;
   /** Grava o conteúdo do editor por cima do disco, resolvendo um conflito. */
   manterMinhaVersao(path: string): Promise<void>;
   /** Recria no disco um arquivo apagado por fora, com o conteúdo desta aba. */
@@ -241,6 +247,10 @@ export const useDocumentosStore = create<DocumentosState>((set, get) => ({
     } catch (e) {
       patch(set, path, { estado: "orfao", erro: String(e) });
     }
+  },
+
+  cancelarAutosave(path) {
+    window.clearTimeout(timers.get(path));
   },
 
   async manterMinhaVersao(path) {

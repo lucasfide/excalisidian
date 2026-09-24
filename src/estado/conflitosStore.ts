@@ -4,6 +4,13 @@
 // A escrita sai pelo VaultAdapter, que já faz tmp + rename (doc 02 §10) — este store nunca
 // chama writeTextFile. E o conflito só sai da fila DEPOIS de a escrita terminar: sumir com
 // o aviso por causa de um disco cheio deixaria o usuário sem saber que houve conflito.
+//
+// `resolver` também recarrega a árvore e reindexa cada caminho gravado (mesmo motivo de
+// `vault/criar.ts`/`renomear.ts`: o watcher ignora o eco da própria gravação, então ninguém
+// além de quem gravou vai atualizar árvore/índice) e, se o caminho original estiver aberto
+// numa aba, recarrega a aba pro conteúdo escolhido — cancelando o autosave pendente ANTES de
+// escrever, pra não existir uma janela em que ele regrave o conteúdo antigo por cima
+// (ADR-32, "Decisões tomadas na execução").
 
 import { create } from "zustand";
 
@@ -12,6 +19,33 @@ import type { Conflito, Resolucao } from "../sync/tipos";
 import type { VaultAdapter } from "../vault/VaultAdapter";
 import { caminhoLivre } from "../vault/criar";
 import { dividirExtensao, nomeBase, pastaDe } from "../vault/caminhos";
+import { useVaultStore } from "./vaultStore";
+import { useDocumentosStore } from "./documentosStore";
+
+/** Efeitos que `resolver` precisa disparar depois de gravar, além da própria escrita
+ * (doc 02 §10: o watcher ignora a própria gravação atômica, então ninguém além de quem
+ * gravou vai recarregar a árvore/índice — "demorou pra aparecer" era exatamente essa lacuna).
+ * Por padrão aponta pro vaultStore/documentosStore reais; testes injetam versões falsas pra
+ * não precisar montar os dois stores do zustand só pra testar `resolver`. */
+export interface DepsResolucao {
+  recarregarArvore(): Promise<void>;
+  reindexarArquivo(caminho: string): Promise<void>;
+  /** Cancela um autosave pendente da aba deste caminho, se houver. No-op se a aba não
+   * existir ou não tiver timer armado. */
+  cancelarAutosavePendente(caminho: string): void;
+  /** Relê o disco pra dentro da aba deste caminho, se ela estiver aberta. No-op se a aba
+   * não existir. */
+  recarregarDoDisco(caminho: string): Promise<void>;
+}
+
+function depsReais(): DepsResolucao {
+  return {
+    recarregarArvore: () => useVaultStore.getState().recarregarArvore(),
+    reindexarArquivo: (caminho) => useVaultStore.getState().reindexarArquivo(caminho),
+    cancelarAutosavePendente: (caminho) => useDocumentosStore.getState().cancelarAutosave(caminho),
+    recarregarDoDisco: (caminho) => useDocumentosStore.getState().recarregarDoDisco(caminho),
+  };
+}
 
 interface ConflitosState {
   conflitos: Conflito[];
@@ -29,6 +63,7 @@ interface ConflitosState {
     resolucao: Resolucao,
     adaptador: VaultAdapter,
     quando?: Date,
+    deps?: DepsResolucao,
   ): Promise<void>;
 }
 
@@ -55,7 +90,7 @@ export const useConflitosStore = create<ConflitosState>((set, get) => ({
     set({ conflitos: [] });
   },
 
-  async resolver(caminho, resolucao, adaptador, quando = new Date()) {
+  async resolver(caminho, resolucao, adaptador, quando = new Date(), deps = depsReais()) {
     const conflito = get().conflitoDe(caminho);
     if (!conflito) return;
 
@@ -69,6 +104,7 @@ export const useConflitosStore = create<ConflitosState>((set, get) => ({
     set((estado) => ({ emResolucaoSet: new Set(estado.emResolucaoSet).add(caminho) }));
 
     try {
+      const caminhosGravados: string[] = [];
       for (const op of operacoesPara(conflito, resolucao, quando)) {
         // `nomeDaCopiaDeConflito` (usado por operacoesPara) não vê o disco: se a mesma nota
         // tiver dois conflitos no mesmo dia vindos do mesmo dispositivo, e o usuário escolher
@@ -85,7 +121,31 @@ export const useConflitosStore = create<ConflitosState>((set, get) => ({
           const baseComPasta = pasta ? `${pasta}/${base}` : base;
           caminhoFinal = await caminhoLivre(baseComPasta, ext, adaptador);
         }
+        if (caminhoFinal === caminho) {
+          // Vamos sobrescrever o caminho que pode estar aberto numa aba AGORA: cancela o
+          // autosave pendente ANTES de escrever. Sem isto, o timer da aba dispararia depois
+          // da nossa escrita e regravaria o conteúdo antigo do editor por cima da versão que
+          // o usuário acabou de escolher — não pode existir essa janela de tempo.
+          deps.cancelarAutosavePendente(caminho);
+        }
         await adaptador.escreverTexto(caminhoFinal, op.conteudo);
+        caminhosGravados.push(caminhoFinal);
+      }
+
+      if (caminhosGravados.length > 0) {
+        // Eco do watcher pra própria gravação atômica é ignorado de propósito (doc 02 §10):
+        // sem isto aqui, o arquivo só apareceria na árvore/índice quando outra ação
+        // qualquer recarregasse — "demorou pra aparecer" era exatamente esta lacuna.
+        await deps.recarregarArvore();
+        for (const c of caminhosGravados) {
+          await deps.reindexarArquivo(c);
+        }
+      }
+      if (caminhosGravados.includes(caminho)) {
+        // O caminho original foi sobrescrito ("ficar com a outra versão"): se ele estiver
+        // aberto numa aba, ela passa a mostrar a versão escolhida agora, não na próxima vez
+        // que algo tocar o disco. `recarregarDoDisco` não faz nada se a aba não existir.
+        await deps.recarregarDoDisco(caminho);
       }
 
       set((estado) => ({ conflitos: estado.conflitos.filter((c) => c.caminho !== caminho) }));

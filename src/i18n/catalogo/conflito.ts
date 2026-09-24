@@ -29,8 +29,6 @@ export const PT_BR_CONFLITO = {
   // segue a mesma regra de catálogo dos demais.
   "conflito.simular.nome": "Simular conflito de sincronização",
   "conflito.simular.semVault": "Abra um vault para simular um conflito.",
-  "conflito.simular.jaExiste":
-    "Já existe um arquivo chamado \"{caminho}\" que não foi criado pelo teste. Nada foi feito.",
 } as const;
 
 // Partial, como o EN geral em catalogo.ts: uma tradução faltando não trava a edição, cai no
@@ -59,6 +57,4 @@ export const EN_CONFLITO: Partial<Record<keyof typeof PT_BR_CONFLITO, string>> =
   "conflito.desenho.naoAbriu": "Could not render this version. It is still saved.",
   "conflito.simular.nome": "Simulate sync conflict",
   "conflito.simular.semVault": "Open a vault to simulate a conflict.",
-  "conflito.simular.jaExiste":
-    "A file named \"{caminho}\" already exists and wasn't created by the test. Nothing was done.",
 };

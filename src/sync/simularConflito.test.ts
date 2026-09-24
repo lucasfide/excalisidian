@@ -6,6 +6,7 @@ import {
   conflitosDeTeste,
   CAMINHO_NOTA_TESTE,
   CAMINHO_DESENHO_TESTE,
+  type DepsSimulacao,
 } from "./simularConflito";
 import { diffLinhas } from "./diffLinhas";
 import { lerCenaDeConflito } from "./cenaDeConflito";
@@ -15,7 +16,7 @@ import type { VaultAdapter } from "../vault/VaultAdapter";
 // Mesmo padrão do fake usado em conflitosStore.test.ts: guarda o que foi escrito num Map,
 // pra o teste conferir tanto o conjunto de caminhos tocados quanto o conteúdo exato.
 // `existe`/`lerTexto` lêem do mesmo Map, pra simular um arquivo já presente no vault antes
-// de `simularConflito` rodar (arquivo "estrangeiro" do usuário, ou de uma rodada anterior).
+// de `simularConflito` rodar (arquivo de verdade do usuário, ou de uma rodada anterior).
 function adaptadorFalso(preexistentes?: Record<string, string>) {
   const arquivos = new Map<string, string>(Object.entries(preexistentes ?? {}));
   const escreverTexto = vi.fn(async (caminho: string, conteudo: string) => {
@@ -38,6 +39,24 @@ function adaptadorFalso(preexistentes?: Record<string, string>) {
     lerTexto: typeof lerTexto;
     arquivos: Map<string, string>;
   };
+}
+
+// Deps falsas: registram árvore/índice sem tocar o vaultStore real.
+function depsFalso() {
+  const arvoreChamadas: string[] = [];
+  const reindexadas: string[] = [];
+  const recarregarArvore = vi.fn(async () => {
+    arvoreChamadas.push("recarregou");
+  });
+  const reindexarArquivo = vi.fn(async (caminho: string) => {
+    reindexadas.push(caminho);
+  });
+  return {
+    recarregarArvore,
+    reindexarArquivo,
+    arvoreChamadas,
+    reindexadas,
+  } satisfies DepsSimulacao & { arvoreChamadas: string[]; reindexadas: string[] };
 }
 
 describe("conflitosDeTeste", () => {
@@ -94,12 +113,19 @@ describe("conflitosDeTeste", () => {
 });
 
 describe("simularConflito", () => {
-  it("escreve só nos dois caminhos de teste, nenhum outro", async () => {
+  it("caminho inexistente: grava nos dois nomes-base, sem numerar", async () => {
     const adaptador = adaptadorFalso();
     const registrados: Conflito[] = [];
 
-    await simularConflito(adaptador, (c) => registrados.push(c));
+    const resultado = await simularConflito(
+      adaptador,
+      (c) => registrados.push(c),
+      new Date(),
+      depsFalso(),
+    );
 
+    expect(resultado.caminhoNota).toBe(CAMINHO_NOTA_TESTE);
+    expect(resultado.caminhoDesenho).toBe(CAMINHO_DESENHO_TESTE);
     expect([...adaptador.arquivos.keys()].sort()).toEqual(
       [CAMINHO_NOTA_TESTE, CAMINHO_DESENHO_TESTE].sort(),
     );
@@ -109,7 +135,7 @@ describe("simularConflito", () => {
     const adaptador = adaptadorFalso();
     const registrados: Conflito[] = [];
 
-    await simularConflito(adaptador, (c) => registrados.push(c));
+    await simularConflito(adaptador, (c) => registrados.push(c), new Date(), depsFalso());
 
     expect(registrados).toHaveLength(2);
     for (const conflito of registrados) {
@@ -117,91 +143,97 @@ describe("simularConflito", () => {
     }
   });
 
-  it("registra um conflito de nota e um de desenho", async () => {
+  it("registra um conflito de nota e um de desenho, cada um apontando pro caminho real gravado", async () => {
     const adaptador = adaptadorFalso();
     const registrados: Conflito[] = [];
 
-    await simularConflito(adaptador, (c) => registrados.push(c));
+    await simularConflito(adaptador, (c) => registrados.push(c), new Date(), depsFalso());
 
     expect(registrados.map((c) => c.tipo).sort()).toEqual(["desenho", "nota"]);
+    expect(registrados.map((c) => c.caminho).sort()).toEqual(
+      [CAMINHO_NOTA_TESTE, CAMINHO_DESENHO_TESTE].sort(),
+    );
   });
 
-  it("rodar duas vezes seguidas sobrescreve os mesmos dois arquivos, sem criar outros", async () => {
+  it("recarrega a árvore uma vez e reindexa os dois caminhos gravados", async () => {
+    const adaptador = adaptadorFalso();
+    const deps = depsFalso();
+
+    const resultado = await simularConflito(adaptador, () => {}, new Date(), deps);
+
+    expect(deps.arvoreChamadas).toEqual(["recarregou"]);
+    expect(deps.reindexadas.sort()).toEqual(
+      [resultado.caminhoNota, resultado.caminhoDesenho].sort(),
+    );
+  });
+
+  it("rodar duas vezes seguidas: a segunda rodada numera em vez de sobrescrever a primeira", async () => {
     const adaptador = adaptadorFalso();
     const registrados: Conflito[] = [];
 
-    await simularConflito(adaptador, (c) => registrados.push(c));
-    await simularConflito(adaptador, (c) => registrados.push(c));
-
-    expect(adaptador.arquivos.size).toBe(2);
-    expect([...adaptador.arquivos.keys()].sort()).toEqual(
-      [CAMINHO_NOTA_TESTE, CAMINHO_DESENHO_TESTE].sort(),
+    const r1 = await simularConflito(
+      adaptador,
+      (c) => registrados.push(c),
+      new Date(),
+      depsFalso(),
     );
-    expect(adaptador.escreverTexto).toHaveBeenCalledTimes(4);
+    const r2 = await simularConflito(
+      adaptador,
+      (c) => registrados.push(c),
+      new Date(),
+      depsFalso(),
+    );
+
+    expect(r1.caminhoNota).toBe(CAMINHO_NOTA_TESTE);
+    expect(r1.caminhoDesenho).toBe(CAMINHO_DESENHO_TESTE);
+    expect(r2.caminhoNota).toBe("Excalisidian - conflito de teste (2).md");
+    expect(r2.caminhoDesenho).toBe("Excalisidian - conflito de teste (2).draw.md");
+
+    // as quatro gravações convivem — nada foi sobrescrito.
+    expect(adaptador.arquivos.size).toBe(4);
     expect(registrados).toHaveLength(4);
   });
 
-  it("caminho inexistente: grava normalmente", async () => {
-    const adaptador = adaptadorFalso();
+  it("arquivo de verdade do usuário com o nome de teste: a simulação numera e o arquivo do usuário fica intacto byte a byte", async () => {
+    const conteudoDoUsuario =
+      "# Nota de verdade do usuário\n\nConteúdo importante, não gerado pelo teste.";
+    const adaptador = adaptadorFalso({ [CAMINHO_NOTA_TESTE]: conteudoDoUsuario });
     const registrados: Conflito[] = [];
 
-    const resultado = await simularConflito(adaptador, (c) => registrados.push(c));
+    const resultado = await simularConflito(
+      adaptador,
+      (c) => registrados.push(c),
+      new Date(),
+      depsFalso(),
+    );
 
-    expect(resultado.ok).toBe(true);
-    expect(resultado.bloqueios).toEqual([]);
-    expect(adaptador.arquivos.size).toBe(2);
-    expect(registrados).toHaveLength(2);
-  });
-
-  it("caminho existente COM a marca: sobrescreve normalmente", async () => {
-    const adaptadorPrimeiraRodada = adaptadorFalso();
-    await simularConflito(adaptadorPrimeiraRodada, () => {});
-    const conteudoNotaMarcada = adaptadorPrimeiraRodada.arquivos.get(CAMINHO_NOTA_TESTE)!;
-    const conteudoDesenhoMarcado = adaptadorPrimeiraRodada.arquivos.get(CAMINHO_DESENHO_TESTE)!;
-
-    const adaptador = adaptadorFalso({
-      [CAMINHO_NOTA_TESTE]: conteudoNotaMarcada,
-      [CAMINHO_DESENHO_TESTE]: conteudoDesenhoMarcado,
-    });
-    const registrados: Conflito[] = [];
-
-    const resultado = await simularConflito(adaptador, (c) => registrados.push(c));
-
-    expect(resultado.ok).toBe(true);
-    expect(resultado.bloqueios).toEqual([]);
+    // a nota do usuário nunca é tocada — a simulação nasce em "... (2).md".
+    expect(resultado.caminhoNota).toBe("Excalisidian - conflito de teste (2).md");
+    expect(adaptador.arquivos.get(CAMINHO_NOTA_TESTE)).toBe(conteudoDoUsuario);
+    // o desenho, sem conflito de nome, nasce no nome-base normal.
+    expect(resultado.caminhoDesenho).toBe(CAMINHO_DESENHO_TESTE);
+    // os dois conflitos foram registrados mesmo assim — a simulação nunca recusa.
     expect(registrados).toHaveLength(2);
     for (const conflito of registrados) {
       expect(adaptador.arquivos.get(conflito.caminho)).toBe(conflito.local.conteudo);
     }
   });
 
-  it("nota existente SEM a marca: não escreve em nenhum dos dois caminhos e não registra conflito", async () => {
-    const adaptador = adaptadorFalso({
-      [CAMINHO_NOTA_TESTE]: "# Nota de verdade do usuário\n\nConteúdo importante, não gerado pelo teste.",
-    });
+  it("desenho de verdade do usuário com o nome de teste: a simulação numera e o desenho do usuário fica intacto", async () => {
+    const conteudoDoUsuario = "---\nexcalisidian: drawing\n---\n%%\n# Excalisidian Drawing\n%%\n";
+    const adaptador = adaptadorFalso({ [CAMINHO_DESENHO_TESTE]: conteudoDoUsuario });
     const registrados: Conflito[] = [];
 
-    const resultado = await simularConflito(adaptador, (c) => registrados.push(c));
+    const resultado = await simularConflito(
+      adaptador,
+      (c) => registrados.push(c),
+      new Date(),
+      depsFalso(),
+    );
 
-    expect(resultado.ok).toBe(false);
-    expect(resultado.bloqueios).toEqual([{ tipo: "nota", caminho: CAMINHO_NOTA_TESTE }]);
-    expect(adaptador.escreverTexto).not.toHaveBeenCalled();
-    expect(adaptador.arquivos.has(CAMINHO_DESENHO_TESTE)).toBe(false);
-    expect(registrados).toHaveLength(0);
-  });
-
-  it("desenho existente SEM a marca: não escreve em nenhum dos dois caminhos e não registra conflito", async () => {
-    const adaptador = adaptadorFalso({
-      [CAMINHO_DESENHO_TESTE]: "---\nexcalisidian: drawing\n---\n%%\n# Excalisidian Drawing\n%%\n",
-    });
-    const registrados: Conflito[] = [];
-
-    const resultado = await simularConflito(adaptador, (c) => registrados.push(c));
-
-    expect(resultado.ok).toBe(false);
-    expect(resultado.bloqueios).toEqual([{ tipo: "desenho", caminho: CAMINHO_DESENHO_TESTE }]);
-    expect(adaptador.escreverTexto).not.toHaveBeenCalled();
-    expect(adaptador.arquivos.has(CAMINHO_NOTA_TESTE)).toBe(false);
-    expect(registrados).toHaveLength(0);
+    expect(resultado.caminhoDesenho).toBe("Excalisidian - conflito de teste (2).draw.md");
+    expect(adaptador.arquivos.get(CAMINHO_DESENHO_TESTE)).toBe(conteudoDoUsuario);
+    expect(resultado.caminhoNota).toBe(CAMINHO_NOTA_TESTE);
+    expect(registrados).toHaveLength(2);
   });
 });

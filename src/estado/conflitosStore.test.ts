@@ -1,7 +1,7 @@
 // src/estado/conflitosStore.test.ts
 import { describe, it, expect, beforeEach, vi } from "vitest";
 
-import { useConflitosStore } from "./conflitosStore";
+import { useConflitosStore, type DepsResolucao } from "./conflitosStore";
 import type { Conflito } from "../sync/tipos";
 import type { VaultAdapter } from "../vault/VaultAdapter";
 
@@ -81,6 +81,33 @@ function adaptadorControlado() {
   };
 }
 
+// Deps falsas para os testes que não precisam dos stores reais (a maioria): registram quem
+// foi chamado, na ordem, sem tocar vaultStore/documentosStore/window. Os testes de integração
+// com aba aberta e autosave real ficam em conflitosStoreAbaAberta.test.ts — ali sim entram os
+// stores de verdade, porque é o autosave de verdade que precisa não disparar.
+function depsFalso() {
+  const chamadas: string[] = [];
+  const recarregarArvore = vi.fn(async () => {
+    chamadas.push("recarregarArvore");
+  });
+  const reindexarArquivo = vi.fn(async (caminho: string) => {
+    chamadas.push(`reindexarArquivo:${caminho}`);
+  });
+  const cancelarAutosavePendente = vi.fn((caminho: string) => {
+    chamadas.push(`cancelarAutosavePendente:${caminho}`);
+  });
+  const recarregarDoDisco = vi.fn(async (caminho: string) => {
+    chamadas.push(`recarregarDoDisco:${caminho}`);
+  });
+  return {
+    recarregarArvore,
+    reindexarArquivo,
+    cancelarAutosavePendente,
+    recarregarDoDisco,
+    chamadas,
+  } satisfies DepsResolucao & { chamadas: string[] };
+}
+
 describe("conflitosStore", () => {
   beforeEach(() => useConflitosStore.setState({ conflitos: [] }));
 
@@ -106,11 +133,12 @@ describe("conflitosStore", () => {
 
   it("resolver com a local não escreve nada e tira da fila", async () => {
     const adaptador = adaptadorFalso();
+    const deps = depsFalso();
     useConflitosStore.getState().registrar(conflito());
 
     await useConflitosStore
       .getState()
-      .resolver("nota.md", { acao: "ficarCom", origem: "local" }, adaptador, quando);
+      .resolver("nota.md", { acao: "ficarCom", origem: "local" }, adaptador, quando, deps);
 
     expect(adaptador.escreverTexto).not.toHaveBeenCalled();
     expect(useConflitosStore.getState().conflitos).toEqual([]);
@@ -118,11 +146,12 @@ describe("conflitosStore", () => {
 
   it("resolver com a remota escreve pelo adaptador, nunca direto no disco", async () => {
     const adaptador = adaptadorFalso();
+    const deps = depsFalso();
     useConflitosStore.getState().registrar(conflito());
 
     await useConflitosStore
       .getState()
-      .resolver("nota.md", { acao: "ficarCom", origem: "remoto" }, adaptador, quando);
+      .resolver("nota.md", { acao: "ficarCom", origem: "remoto" }, adaptador, quando, deps);
 
     expect(adaptador.escreverTexto).toHaveBeenCalledWith("nota.md", "de lá");
     expect(useConflitosStore.getState().conflitos).toEqual([]);
@@ -130,11 +159,12 @@ describe("conflitosStore", () => {
 
   it("manter as duas grava a cópia carimbada", async () => {
     const adaptador = adaptadorFalso();
+    const deps = depsFalso();
     useConflitosStore.getState().registrar(conflito());
 
     await useConflitosStore
       .getState()
-      .resolver("nota.md", { acao: "manterAmbas" }, adaptador, quando);
+      .resolver("nota.md", { acao: "manterAmbas" }, adaptador, quando, deps);
 
     expect(adaptador.escreverTexto).toHaveBeenCalledWith(
       "nota (conflito de 21-09-2026, Notebook).md",
@@ -144,23 +174,29 @@ describe("conflitosStore", () => {
 
   it("escrita que falha mantém o conflito na fila", async () => {
     const adaptador = adaptadorFalhoQueEstoura();
+    const deps = depsFalso();
     useConflitosStore.getState().registrar(conflito());
 
     await expect(
       useConflitosStore
         .getState()
-        .resolver("nota.md", { acao: "ficarCom", origem: "remoto" }, adaptador, quando),
+        .resolver("nota.md", { acao: "ficarCom", origem: "remoto" }, adaptador, quando, deps),
     ).rejects.toThrow("disco cheio");
 
     expect(useConflitosStore.getState().conflitos).toHaveLength(1);
+    // A escrita falhou antes de qualquer efeito de árvore/índice/aba.
+    expect(deps.recarregarArvore).not.toHaveBeenCalled();
+    expect(deps.recarregarDoDisco).not.toHaveBeenCalled();
   });
 
   it("resolver caminho que não está em conflito não faz nada", async () => {
     const adaptador = adaptadorFalso();
+    const deps = depsFalso();
     await useConflitosStore
       .getState()
-      .resolver("outra.md", { acao: "manterAmbas" }, adaptador, quando);
+      .resolver("outra.md", { acao: "manterAmbas" }, adaptador, quando, deps);
     expect(adaptador.escreverTexto).not.toHaveBeenCalled();
+    expect(deps.recarregarArvore).not.toHaveBeenCalled();
   });
 
   it("limpar esvazia a fila — usado ao trocar de vault", () => {
@@ -172,16 +208,17 @@ describe("conflitosStore", () => {
 
   it("duas resoluções 'manter as duas' seguidas: a segunda cópia numera, a primeira não some", async () => {
     const adaptador = adaptadorFalso();
+    const deps = depsFalso();
 
     useConflitosStore.getState().registrar(conflito());
     await useConflitosStore
       .getState()
-      .resolver("nota.md", { acao: "manterAmbas" }, adaptador, quando);
+      .resolver("nota.md", { acao: "manterAmbas" }, adaptador, quando, deps);
 
     useConflitosStore.getState().registrar(conflito());
     await useConflitosStore
       .getState()
-      .resolver("nota.md", { acao: "manterAmbas" }, adaptador, quando);
+      .resolver("nota.md", { acao: "manterAmbas" }, adaptador, quando, deps);
 
     expect(adaptador.escreverTexto).toHaveBeenNthCalledWith(
       1,
@@ -199,6 +236,7 @@ describe("conflitosStore", () => {
 
   it("o mesmo vale para desenho: o (2) entra antes de .draw.md", async () => {
     const adaptador = adaptadorFalso();
+    const deps = depsFalso();
     const desenho = (): Conflito => ({
       caminho: "mapa.draw.md",
       tipo: "desenho",
@@ -209,12 +247,12 @@ describe("conflitosStore", () => {
     useConflitosStore.getState().registrar(desenho());
     await useConflitosStore
       .getState()
-      .resolver("mapa.draw.md", { acao: "manterAmbas" }, adaptador, quando);
+      .resolver("mapa.draw.md", { acao: "manterAmbas" }, adaptador, quando, deps);
 
     useConflitosStore.getState().registrar(desenho());
     await useConflitosStore
       .getState()
-      .resolver("mapa.draw.md", { acao: "manterAmbas" }, adaptador, quando);
+      .resolver("mapa.draw.md", { acao: "manterAmbas" }, adaptador, quando, deps);
 
     expect(adaptador.escreverTexto).toHaveBeenNthCalledWith(
       2,
@@ -225,31 +263,33 @@ describe("conflitosStore", () => {
 
   it("ficar com a remota continua escrevendo no caminho original, sem numeração, mesmo se já existir cópia de conflito", async () => {
     const adaptador = adaptadorFalso();
+    const deps = depsFalso();
     useConflitosStore.getState().registrar(conflito());
     await useConflitosStore
       .getState()
-      .resolver("nota.md", { acao: "manterAmbas" }, adaptador, quando);
+      .resolver("nota.md", { acao: "manterAmbas" }, adaptador, quando, deps);
 
     useConflitosStore.getState().registrar(conflito());
     await useConflitosStore
       .getState()
-      .resolver("nota.md", { acao: "ficarCom", origem: "remoto" }, adaptador, quando);
+      .resolver("nota.md", { acao: "ficarCom", origem: "remoto" }, adaptador, quando, deps);
 
     expect(adaptador.escreverTexto).toHaveBeenLastCalledWith("nota.md", "de lá");
   });
 
   it("duas chamadas de resolver concorrentes para o mesmo caminho: só uma escrita acontece", async () => {
     const adaptador = adaptadorControlado();
+    const deps = depsFalso();
     useConflitosStore.getState().registrar(conflito());
 
     // Dispara as duas SEM esperar a primeira — a segunda deve ver o caminho já "em
     // resolução" e retornar na hora, sem nem chamar escreverTexto.
     const p1 = useConflitosStore
       .getState()
-      .resolver("nota.md", { acao: "manterAmbas" }, adaptador, quando);
+      .resolver("nota.md", { acao: "manterAmbas" }, adaptador, quando, deps);
     const p2 = useConflitosStore
       .getState()
-      .resolver("nota.md", { acao: "manterAmbas" }, adaptador, quando);
+      .resolver("nota.md", { acao: "manterAmbas" }, adaptador, quando, deps);
 
     await adaptador.liberarProxima();
     await Promise.all([p1, p2]);
@@ -259,13 +299,14 @@ describe("conflitosStore", () => {
 
   it("emResolucao é verdadeiro durante a resolução e falso depois", async () => {
     const adaptador = adaptadorControlado();
+    const deps = depsFalso();
     useConflitosStore.getState().registrar(conflito());
 
     expect(useConflitosStore.getState().emResolucao("nota.md")).toBe(false);
 
     const p = useConflitosStore
       .getState()
-      .resolver("nota.md", { acao: "manterAmbas" }, adaptador, quando);
+      .resolver("nota.md", { acao: "manterAmbas" }, adaptador, quando, deps);
 
     expect(useConflitosStore.getState().emResolucao("nota.md")).toBe(true);
 
@@ -277,12 +318,13 @@ describe("conflitosStore", () => {
 
   it("depois de uma resolução que falha, o caminho sai do conjunto e aceita nova resolução", async () => {
     const adaptador = adaptadorFalhoQueEstoura();
+    const deps = depsFalso();
     useConflitosStore.getState().registrar(conflito());
 
     await expect(
       useConflitosStore
         .getState()
-        .resolver("nota.md", { acao: "ficarCom", origem: "remoto" }, adaptador, quando),
+        .resolver("nota.md", { acao: "ficarCom", origem: "remoto" }, adaptador, quando, deps),
     ).rejects.toThrow("disco cheio");
 
     expect(useConflitosStore.getState().emResolucao("nota.md")).toBe(false);
@@ -291,9 +333,91 @@ describe("conflitosStore", () => {
     const adaptadorOk = adaptadorFalso();
     await useConflitosStore
       .getState()
-      .resolver("nota.md", { acao: "ficarCom", origem: "remoto" }, adaptadorOk, quando);
+      .resolver("nota.md", { acao: "ficarCom", origem: "remoto" }, adaptadorOk, quando, deps);
 
     expect(adaptadorOk.escreverTexto).toHaveBeenCalledWith("nota.md", "de lá");
     expect(useConflitosStore.getState().conflitos).toEqual([]);
+  });
+
+  // --- efeito que o usuário vê: árvore, índice e aba (plano 07, task B) -------------------
+  //
+  // O plano 04 só provava "o disco recebeu X". O defeito real ("demorou pra aparecer") estava
+  // no passo seguinte — recarregar árvore/índice/aba — que nenhum teste cobria. Estes testes
+  // travam exatamente esse passo, com deps falsas (a integração com o autosave de verdade,
+  // que precisa de documentosStore real e timers falsos, está em
+  // conflitosStoreAbaAberta.test.ts).
+
+  it("ficar com a remota recarrega a árvore e reindexa o caminho gravado", async () => {
+    const adaptador = adaptadorFalso();
+    const deps = depsFalso();
+    useConflitosStore.getState().registrar(conflito());
+
+    await useConflitosStore
+      .getState()
+      .resolver("nota.md", { acao: "ficarCom", origem: "remoto" }, adaptador, quando, deps);
+
+    expect(deps.recarregarArvore).toHaveBeenCalledTimes(1);
+    expect(deps.reindexarArquivo).toHaveBeenCalledWith("nota.md");
+  });
+
+  it("ficar com a remota, com o original aberto, recarrega a aba pro conteúdo escolhido", async () => {
+    const adaptador = adaptadorFalso();
+    const deps = depsFalso();
+    useConflitosStore.getState().registrar(conflito());
+
+    await useConflitosStore
+      .getState()
+      .resolver("nota.md", { acao: "ficarCom", origem: "remoto" }, adaptador, quando, deps);
+
+    expect(deps.recarregarDoDisco).toHaveBeenCalledWith("nota.md");
+  });
+
+  it("ficar com a remota cancela o autosave pendente ANTES de escrever, não depois", async () => {
+    const adaptador = adaptadorFalso();
+    const deps = depsFalso();
+    useConflitosStore.getState().registrar(conflito());
+
+    await useConflitosStore
+      .getState()
+      .resolver("nota.md", { acao: "ficarCom", origem: "remoto" }, adaptador, quando, deps);
+
+    const iCancelou = deps.chamadas.indexOf("cancelarAutosavePendente:nota.md");
+    expect(iCancelou).toBeGreaterThanOrEqual(0);
+    expect(adaptador.escreverTexto.mock.invocationCallOrder[0]).toBeGreaterThan(
+      (deps.cancelarAutosavePendente as ReturnType<typeof vi.fn>).mock.invocationCallOrder[0],
+    );
+  });
+
+  it("manter as duas: a aba do original NÃO recarrega (o original nunca foi tocado)", async () => {
+    const adaptador = adaptadorFalso();
+    const deps = depsFalso();
+    useConflitosStore.getState().registrar(conflito());
+
+    await useConflitosStore
+      .getState()
+      .resolver("nota.md", { acao: "manterAmbas" }, adaptador, quando, deps);
+
+    expect(deps.recarregarDoDisco).not.toHaveBeenCalled();
+    expect(deps.cancelarAutosavePendente).not.toHaveBeenCalled();
+    // A cópia nova entra na árvore/índice mesmo assim.
+    expect(deps.recarregarArvore).toHaveBeenCalledTimes(1);
+    expect(deps.reindexarArquivo).toHaveBeenCalledWith(
+      "nota (conflito de 21-09-2026, Notebook).md",
+    );
+  });
+
+  it("ficar com esta (local): nenhum efeito de árvore/índice/aba — nada foi escrito", async () => {
+    const adaptador = adaptadorFalso();
+    const deps = depsFalso();
+    useConflitosStore.getState().registrar(conflito());
+
+    await useConflitosStore
+      .getState()
+      .resolver("nota.md", { acao: "ficarCom", origem: "local" }, adaptador, quando, deps);
+
+    expect(deps.recarregarArvore).not.toHaveBeenCalled();
+    expect(deps.reindexarArquivo).not.toHaveBeenCalled();
+    expect(deps.recarregarDoDisco).not.toHaveBeenCalled();
+    expect(deps.cancelarAutosavePendente).not.toHaveBeenCalled();
   });
 });

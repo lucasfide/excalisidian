@@ -6,23 +6,21 @@
 // e testável sem mock de ambiente.
 //
 // REGRA DE SEGURANÇA (task-7-brief): o vault é o vault REAL do usuário. Este módulo NUNCA
-// escreve nem registra conflito sobre um caminho que não seja um dos dois abaixo — são
-// constantes, nunca vêm de entrada do usuário nem da nota aberta. "Ficar com a versão do
-// outro computador" SOBRESCREVE o arquivo com a remota: se o caminho fosse de uma nota de
-// verdade, o teste apagaria trabalho do usuário.
+// escreve nem registra conflito sobre um caminho que não seja derivado dos dois nomes abaixo
+// — nunca vêm de entrada do usuário nem da nota aberta. "Ficar com a versão do outro
+// computador" SOBRESCREVE o arquivo com a remota: se o caminho fosse de uma nota de verdade,
+// o teste apagaria trabalho do usuário.
 //
 // SEGUNDA REGRA: "ficar com a desta máquina" (conflitosStore.resolver) não escreve nada —
 // assume que a versão local já está no disco. Por isso o conteúdo gravado aqui tem de ser
 // IDÊNTICO, caractere por caractere, ao `local.conteudo` de cada conflito registrado.
 //
-// TERCEIRA REGRA (achado 23/09): as duas constantes acima não bastam — se o usuário tiver,
-// por coincidência, um arquivo de verdade com um desses dois nomes exatos, "escrever só
-// nesses dois caminhos" ainda apagaria o arquivo dele. Por isso `simularConflito` nunca
-// sobrescreve um caminho existente sem antes confirmar que o conteúdo já lá foi gerado por
-// este mesmo comando (ver a marca em `temMarcaDeNotaTeste`/`temMarcaDeDesenhoTeste` abaixo).
-// Um caminho existente sem a marca bloqueia a simulação inteira: nada é escrito em nenhum dos
-// dois arquivos, nenhum conflito é registrado, e quem chamou recebe o bloqueio para avisar o
-// usuário.
+// TERCEIRA REGRA (decisão do dono do produto, achado 23/09): se já existir um arquivo com um
+// dos dois nomes de teste — de um usuário de verdade, por coincidência, ou de uma rodada
+// anterior deste mesmo comando — a simulação NUNCA recusa nem sobrescreve: numera, exatamente
+// como criar uma nota (`caminhoLivre`, doc 02 §"nomes"). Por isso não existe mais marca de
+// "gerado por este comando" nem bloqueio — o próprio nome numerado já evita colidir com
+// qualquer arquivo existente, do usuário ou de uma rodada anterior do teste.
 //
 // NADA neste módulo roda no carregamento (nenhuma chamada de função no nível do módulo — só
 // declarações e literais): quem chama `simularConflito`/`conflitosDeTeste` é sempre o comando
@@ -33,42 +31,32 @@
 
 import type { ExcalidrawElement } from "@excalidraw/excalidraw/element/types";
 
-import { serializarDesenho, parseDesenho, type CenaDesenho } from "../canvas/formatoDesenho";
+import { serializarDesenho, type CenaDesenho } from "../canvas/formatoDesenho";
 import type { Conflito } from "./tipos";
 import type { VaultAdapter } from "../vault/VaultAdapter";
+import { caminhoLivre } from "../vault/criar";
+import { dividirExtensao } from "../vault/caminhos";
+import { useVaultStore } from "../estado/vaultStore";
 
-/** Únicos dois caminhos que este módulo toca. Nome inconfundível de propósito: ninguém cria
- * sem querer uma nota de verdade com este título. */
+/** Nomes-base dos dois arquivos de teste. Inconfundíveis de propósito: ninguém cria sem
+ * querer uma nota de verdade com este título. Se já existir algo com este nome, `caminhoLivre`
+ * numera (`… (2).md`, `… (2).draw.md`…) — a simulação nunca recusa nem sobrescreve. */
 export const CAMINHO_NOTA_TESTE = "Excalisidian - conflito de teste.md";
 export const CAMINHO_DESENHO_TESTE = "Excalisidian - conflito de teste.draw.md";
 
-// --- marca de "gerado por este comando" ----------------------------------------------------
-//
-// O vault tocado é o REAL do usuário. Antes de escrever num dos dois caminhos acima, o
-// comando precisa provar que quem está lá — se algo estiver lá — foi ele mesmo quem escreveu,
-// nunca uma nota ou desenho de verdade que por coincidência tenha o mesmo nome. Cada tipo de
-// arquivo carrega sua marca de um jeito que sobrevive à leitura e gravação do formato:
-// - nota: uma linha fixa no corpo (comentário HTML, invisível na visualização).
-// - desenho: uma chave no frontmatter, que `parseDesenho`/`serializarDesenho` preservam
-//   byte a byte porque o frontmatter inteiro é copiado (`...fm`) e não filtrado.
-
-/** Linha inconfundível gravada como primeira linha da nota de teste. */
-export const MARCA_NOTA_TESTE = "<!-- excalisidian: conflito de teste gerado automaticamente -->";
-
-/** Chave de frontmatter gravada em `CAMINHO_DESENHO_TESTE`. */
-export const CHAVE_FRONTMATTER_MARCA_TESTE = "excalisidian-conflito-teste";
-
-function temMarcaDeNotaTeste(conteudo: string): boolean {
-  return conteudo.includes(MARCA_NOTA_TESTE);
+/** Efeitos que `simularConflito` precisa disparar depois de gravar (mesmo motivo de
+ * `conflitosStore.resolver`: o watcher ignora o eco da própria gravação atômica, doc 02
+ * §10). Injetável para teste; por padrão aponta pro vaultStore real. */
+export interface DepsSimulacao {
+  recarregarArvore(): Promise<void>;
+  reindexarArquivo(caminho: string): Promise<void>;
 }
 
-function temMarcaDeDesenhoTeste(conteudo: string): boolean {
-  try {
-    return parseDesenho(conteudo).frontmatter[CHAVE_FRONTMATTER_MARCA_TESTE] === true;
-  } catch {
-    // Conteúdo que nem chega a ter frontmatter reconhecível: definitivamente não é nosso.
-    return false;
-  }
+function depsReais(): DepsSimulacao {
+  return {
+    recarregarArvore: () => useVaultStore.getState().recarregarArvore(),
+    reindexarArquivo: (caminho) => useVaultStore.getState().reindexarArquivo(caminho),
+  };
 }
 
 const DISPOSITIVO_REMOTO_TESTE = "Notebook de teste";
@@ -82,16 +70,12 @@ const DISPOSITIVO_LOCAL_TESTE = "Esta máquina";
 // entre elas dão ao diff de LCS um ponto comum pra ancorar em cada lado — sem isso as três
 // diferenças colapsariam num bloco só de removido+adicionado.
 //
-// DENTRO de funções, não em consts de nível do módulo (achado 23/09): a marca precisa entrar
-// por interpolação (`${MARCA_NOTA_TESTE}`), e um template literal com expressão no nível do
-// módulo deixa de ser um literal puro aos olhos do tree-shaker — ele não consegue mais provar
-// que o `const` é seguro de descartar quando não usado, e o texto vaza pro build de produção
-// mesmo com o comando morto. Uma função não usada é sempre removível inteira, corpo incluído,
-// então a interpolação só pode morar aqui dentro.
+// Sem marca de "gerado por este comando" (decisão do dono do produto, achado 23/09): um nome
+// já existente é resolvido por `caminhoLivre` antes de chegar aqui, então o conteúdo em si
+// nunca precisa provar quem o escreveu.
 
 function conteudoNotaLocalDeTeste(): string {
-  return `${MARCA_NOTA_TESTE}
-# Excalisidian - conflito de teste
+  return `# Excalisidian - conflito de teste
 
 Este é um arquivo de teste gerado pelo Excalisidian. Pode apagar quando quiser.
 
@@ -105,8 +89,7 @@ Fim do arquivo de teste.
 }
 
 function conteudoNotaRemotaDeTeste(): string {
-  return `${MARCA_NOTA_TESTE}
-# Excalisidian - conflito de teste
+  return `# Excalisidian - conflito de teste
 
 Este é um arquivo de teste gerado pelo Excalisidian. Pode apagar quando quiser.
 
@@ -174,7 +157,7 @@ function cenaRemotaDeTeste(): CenaDesenho {
 
 function serializarCenaDeTeste(cena: CenaDesenho): string {
   return serializarDesenho({
-    frontmatter: { [CHAVE_FRONTMATTER_MARCA_TESTE]: true },
+    frontmatter: {},
     verso: "",
     textElements: new Map(),
     elementLinks: new Map(),
@@ -235,29 +218,23 @@ export function conflitosDeTeste(quando: Date = new Date()): [Conflito, Conflito
   return [conflitoNota, conflitoDesenho];
 }
 
-export interface BloqueioSimulacao {
-  tipo: "nota" | "desenho";
-  caminho: string;
-}
-
 export interface ResultadoSimulacao {
-  /** `false` quando algum dos dois caminhos já tinha um arquivo estranho ao comando — nesse
-   * caso NADA foi escrito e NENHUM conflito foi registrado, nos dois caminhos. */
-  ok: boolean;
-  bloqueios: BloqueioSimulacao[];
+  /** Caminho real onde a nota de teste foi gravada — igual a `CAMINHO_NOTA_TESTE` na primeira
+   * vez, numerado (`… (2).md`) se já existir algo lá. */
+  caminhoNota: string;
+  /** Caminho real onde o desenho de teste foi gravado — mesma numeração. */
+  caminhoDesenho: string;
 }
 
 /**
- * Grava os dois arquivos de teste pelo `VaultAdapter` — só nos dois caminhos acima, com o
- * conteúdo LOCAL (idêntico ao `local.conteudo` do conflito registrado, doc da regra no topo
- * do arquivo) — e registra os dois conflitos.
+ * Grava os dois arquivos de teste pelo `VaultAdapter`, com o conteúdo LOCAL (idêntico ao
+ * `local.conteudo` do conflito registrado, doc da regra no topo do arquivo), recarrega a
+ * árvore e reindexa os dois caminhos, e registra os dois conflitos.
  *
- * Antes de gravar, confere os dois caminhos: um caminho que não existe pode ser criado; um
- * caminho que existe só pode ser sobrescrito se o conteúdo já lá tiver a marca deste comando
- * (rodada anterior do próprio teste). Um caminho existente SEM a marca é um arquivo do
- * usuário (ou de outra coisa) que por coincidência tem esse nome — nesse caso o comando não
- * escreve em NENHUM dos dois caminhos nem registra conflito nenhum, e devolve o bloqueio para
- * quem chamou avisar o usuário.
+ * Se já existir um arquivo com um dos dois nomes de teste — do usuário, por coincidência, ou
+ * de uma rodada anterior deste mesmo comando — a simulação NUNCA recusa nem sobrescreve:
+ * `caminhoLivre` numera (`… (2).md`, `… (2).draw.md`…), o mesmo padrão de criar uma nota. O
+ * conflito registrado aponta pro caminho real escolhido, não pro nome-base.
  *
  * `registrar` é injetado (em vez de importar `useConflitosStore` direto) pra este módulo
  * continuar puro e testável com um adaptador falso, sem tocar o store do Zustand.
@@ -266,34 +243,24 @@ export async function simularConflito(
   adaptador: VaultAdapter,
   registrar: (conflito: Conflito) => void,
   quando: Date = new Date(),
+  deps: DepsSimulacao = depsReais(),
 ): Promise<ResultadoSimulacao> {
   const [conflitoNota, conflitoDesenho] = conflitosDeTeste(quando);
 
-  const bloqueios: BloqueioSimulacao[] = [];
+  const { base: baseNota, ext: extNota } = dividirExtensao(CAMINHO_NOTA_TESTE);
+  const caminhoNota = await caminhoLivre(baseNota, extNota, adaptador);
+  const { base: baseDesenho, ext: extDesenho } = dividirExtensao(CAMINHO_DESENHO_TESTE);
+  const caminhoDesenho = await caminhoLivre(baseDesenho, extDesenho, adaptador);
 
-  if (await adaptador.existe(CAMINHO_NOTA_TESTE)) {
-    const existente = await adaptador.lerTexto(CAMINHO_NOTA_TESTE);
-    if (!temMarcaDeNotaTeste(existente)) {
-      bloqueios.push({ tipo: "nota", caminho: CAMINHO_NOTA_TESTE });
-    }
-  }
+  await adaptador.escreverTexto(caminhoNota, conflitoNota.local.conteudo);
+  await adaptador.escreverTexto(caminhoDesenho, conflitoDesenho.local.conteudo);
 
-  if (await adaptador.existe(CAMINHO_DESENHO_TESTE)) {
-    const existente = await adaptador.lerTexto(CAMINHO_DESENHO_TESTE);
-    if (!temMarcaDeDesenhoTeste(existente)) {
-      bloqueios.push({ tipo: "desenho", caminho: CAMINHO_DESENHO_TESTE });
-    }
-  }
+  await deps.recarregarArvore();
+  await deps.reindexarArquivo(caminhoNota);
+  await deps.reindexarArquivo(caminhoDesenho);
 
-  if (bloqueios.length > 0) {
-    return { ok: false, bloqueios };
-  }
+  registrar({ ...conflitoNota, caminho: caminhoNota });
+  registrar({ ...conflitoDesenho, caminho: caminhoDesenho });
 
-  await adaptador.escreverTexto(CAMINHO_NOTA_TESTE, conflitoNota.local.conteudo);
-  await adaptador.escreverTexto(CAMINHO_DESENHO_TESTE, conflitoDesenho.local.conteudo);
-
-  registrar(conflitoNota);
-  registrar(conflitoDesenho);
-
-  return { ok: true, bloqueios: [] };
+  return { caminhoNota, caminhoDesenho };
 }
