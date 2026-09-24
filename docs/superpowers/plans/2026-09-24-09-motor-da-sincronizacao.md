@@ -128,6 +128,13 @@ comportamento — os testes existentes dele têm que passar sem afrouxar).
   pode encostar nos 8 MiB e `lacrar` lançar. Se `lacrar` recusar por tamanho, divida o lote ao
   meio e tente cada metade (recursivo; um lote de uma mudança só que não cabe = arquivo vai
   para `foraDaSincronizacao`). Teste com bytes aleatórios (incompressíveis) perto do limite.
+- [ ] **Falha no meio de um lote (revisão da Task 3):** `aplicarLote` pode lançar depois de ter
+  aplicado parte das mudanças. O motor trabalha sobre uma **cópia** do `EstadoSync` para cada
+  lote e só a adota (e avança o `cursor`) se o lote inteiro der certo; se falhar, descarta a
+  cópia e tenta o mesmo lote no próximo ciclo. Reaplicar as mudanças que já tinham ido para o
+  disco é seguro: o arquivo já tem o hash remoto, e a tabela do §6 dá "só atualizar base".
+  Teste: falha na terceira mudança de um lote → `cursor` não avança; no ciclo seguinte (sem a
+  falha) o lote é aplicado inteiro e o resultado é o mesmo de nunca ter falhado.
 - [ ] Conflitos resolvidos: no começo do ciclo, todo caminho de `conflitosPendentes` que não está
   mais na `conflitosStore` sai de lá e tem `bases[caminho] = hashRemoto`.
 - [ ] Retrato: depois de enviar, se o diário passou de 200 lotes ou 50 MiB desde o último
