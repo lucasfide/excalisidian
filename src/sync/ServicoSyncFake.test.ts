@@ -139,6 +139,16 @@ describe("ServicoSyncFake", () => {
         expect.objectContaining({ codigo: "nao-encontrado" }),
       );
     });
+
+    it("baixar sempre devolve ultimoRetrato: 0 quando nunca houve retrato", async () => {
+      const s = new ServicoSyncFake();
+      const id = novoId();
+      await s.criarVault(id, bytes(1), bytes(2));
+      await s.enviarLote(id, 0, bytes(1));
+
+      const { ultimoRetrato } = await s.baixar(id, 0);
+      expect(ultimoRetrato).toBe(0);
+    });
   });
 
   describe("retrato", () => {
@@ -246,6 +256,24 @@ describe("ServicoSyncFake", () => {
       const { retrato, lotes } = await s.baixar(id, 0);
       expect(retrato).toEqual({ ateSequencia: 3, partes: [bytes(100)] });
       expect(lotes).toEqual([]);
+    });
+
+    it("ultimoRetrato vem preenchido mesmo quando o cliente já está na frente do retrato (retrato ausente na resposta)", async () => {
+      const s = new ServicoSyncFake();
+      const id = novoId();
+      await s.criarVault(id, bytes(1), bytes(2));
+      await s.enviarLote(id, 0, bytes(1)); // seq 1
+      await s.enviarLote(id, 1, bytes(2)); // seq 2
+      await s.enviarRetrato(id, 2, [bytes(100)]);
+      await s.enviarLote(id, 2, bytes(3)); // seq 3, depois do retrato
+
+      // Cliente já baixou até a sequência 3 (na frente do retrato em 2): não recebe `retrato`
+      // de volta, mas `ultimoRetrato` continua informando onde ficou o retrato atual — sem
+      // isso o cliente não saberia "quantos lotes desde o último retrato" (doc 17 §9).
+      const { retrato, lotes, ultimoRetrato } = await s.baixar(id, 3);
+      expect(retrato).toBeUndefined();
+      expect(lotes).toEqual([]);
+      expect(ultimoRetrato).toBe(2);
     });
   });
 

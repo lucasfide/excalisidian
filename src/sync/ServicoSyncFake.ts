@@ -99,6 +99,9 @@ export class ServicoSyncFake implements ServicoSync {
     this.garantirSemFalhaGeral();
     const vault = this.buscar(id);
     const { retrato } = vault;
+    // `ultimoRetrato` vem sempre preenchido (doc 17 §9) — 0 se nunca houve retrato — mesmo
+    // quando a resposta não traz `retrato` porque o cliente já está na frente dele.
+    const ultimoRetrato = retrato?.ateSequencia ?? 0;
     // O cliente está atrás do que o retrato cobre: devolve o retrato e só os lotes depois
     // dele. Senão, o cliente já tem tudo até o retrato (ou não existe retrato) — só lotes
     // depois de aposSequencia.
@@ -108,12 +111,14 @@ export class ServicoSyncFake implements ServicoSync {
         lotes: vault.lotes
           .filter((l) => l.sequencia > retrato.ateSequencia)
           .map((l) => ({ sequencia: l.sequencia, bytes: copiar(l.bytes) })),
+        ultimoRetrato,
       };
     }
     return {
       lotes: vault.lotes
         .filter((l) => l.sequencia > aposSequencia)
         .map((l) => ({ sequencia: l.sequencia, bytes: copiar(l.bytes) })),
+      ultimoRetrato,
     };
   }
 

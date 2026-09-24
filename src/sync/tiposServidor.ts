@@ -45,9 +45,15 @@ export interface VaultSincronizado {
   envelope: Uint8Array;
 }
 
-/** Resultado de `baixar`: o retrato (se o cliente estiver atrás dele) e os lotes seguintes,
- * em ordem de sequência. */
+/** Resultado de `baixar`: o retrato (só quando o cliente está atrás dele) e os lotes
+ * seguintes, em ordem de sequência. `ultimoRetrato` vem SEMPRE preenchido (mesmo quando
+ * `retrato` está ausente porque o cliente já está na frente dele, ou quando nunca houve
+ * retrato — nesse caso é 0): é a `ateSequencia` do retrato atual do vault, do jeito que o
+ * servidor sabe. Sem isto (doc 17 §9), o cliente não tem como saber há quantos lotes foi o
+ * último retrato — e portanto não tem como decidir "passou de 200 lotes desde o último
+ * retrato" quando já baixou o retrato num ciclo anterior e não precisa baixá-lo de novo. */
 export interface ResultadoBaixar {
   retrato?: { ateSequencia: number; partes: Uint8Array[] };
   lotes: { sequencia: number; bytes: Uint8Array }[];
+  ultimoRetrato: number;
 }

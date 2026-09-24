@@ -12,7 +12,8 @@ export interface ServicoSync {
    * chamar `criarVault`. Lança `FalhaSync("ja-existe")` se o id já existir na conta. */
   criarVault(id: string, nomeCifrado: Uint8Array, envelope: Uint8Array): Promise<void>;
   /** Pacotes depois de `aposSequencia`: o retrato (se o cliente estiver atrás do que foi
-   * descartado) e os lotes seguintes, em ordem. */
+   * descartado) e os lotes seguintes, em ordem. `ResultadoBaixar.ultimoRetrato` vem sempre
+   * preenchido, mesmo sem `retrato` na resposta (doc 17 §9). */
   baixar(id: string, aposSequencia: number): Promise<ResultadoBaixar>;
   /** Devolve a nova sequência. Lança `FalhaSync("fora-de-ordem")` — sem gravar nada — se
    * `esperoUltima` não for a última sequência atual do vault. */
