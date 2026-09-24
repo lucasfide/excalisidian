@@ -59,12 +59,18 @@ export default function App() {
   const [preferenciasAbertas, setPreferenciasAbertas] = useState(false);
   // T4: o passo de conta do assistente do agente pode abrir as preferências na seção Conta,
   // por cima de si mesmo, sem se fechar (perder o que o usuário já preencheu no assistente).
-  // `secaoInicial` manda o dialog rolar até lá. Não precisa inverter ordem de montagem: Dialog
-  // renderiza por portal em document.body (Dialog.tsx), então quem abre por último já fica por
-  // cima, não importa a ordem no JSX.
+  // `secaoInicial` manda o dialog rolar até lá.
   const [secaoPreferenciasInicial, setSecaoPreferenciasInicial] = useState<"conta" | undefined>(
     undefined,
   );
+  // Se as Configurações já estavam abertas (usuário chegou ao assistente por "Configurar
+  // agente" dentro delas), `setPreferenciasAbertas(true)` no "Entrar na conta" não faz nada —
+  // já era `true`, React não remonta. O `DialogoPreferencias` continua com o portal anexado
+  // a `document.body` antes do assistente e fora do topo da `fila` de Esc (Dialog.tsx), então
+  // fica atrás dele. Esta chave força a remontagem sempre que "Entrar na conta" é usado: o
+  // portal é reanexado por último ao `body` e o Dialog volta ao topo da `fila`, na frente do
+  // assistente, mesmo quando já estava aberto.
+  const [chavePreferencias, setChavePreferencias] = useState(0);
   const [lixeiraAberta, setLixeiraAberta] = useState(false);
   const [painelFlutuanteAberto, setPainelFlutuanteAberto] = useState(false);
   const abrirPainelTimerRef = useRef<number | null>(null);
@@ -464,9 +470,11 @@ export default function App() {
       {/* Preferências e o assistente do agente dividem o mesmo z-[100], mas Dialog renderiza
           por portal em document.body (Dialog.tsx): o elemento de cada um entra no `body` no
           momento em que o diálogo abre, então quem abre por último fica por cima — a ordem
-          aqui no JSX não desempata nada. */}
+          aqui no JSX não desempata nada. `key={chavePreferencias}` força a remontagem quando
+          "Entrar na conta" é usado com as Configurações já abertas (ver comentário acima). */}
       {preferenciasAbertas && (
         <DialogoPreferencias
+          key={chavePreferencias}
           secaoInicial={secaoPreferenciasInicial}
           onFechar={() => {
             setPreferenciasAbertas(false);
@@ -479,6 +487,7 @@ export default function App() {
           key="agente"
           aoAbrirConta={() => {
             setSecaoPreferenciasInicial("conta");
+            setChavePreferencias((n) => n + 1);
             setPreferenciasAbertas(true);
           }}
         />
