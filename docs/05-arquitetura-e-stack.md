@@ -83,6 +83,8 @@ src/
 │   ├── configVault.ts       leitura/escrita de .excalisidian/vault.json (hoje só sortMode/customOrder — doc 02 §1)
 │   ├── criar.ts, mover.ts, renomear.ts, anexos.ts, arvore.ts, ordenacao.ts, customOrder.ts
 │   ├── vaultsRecentes.ts, janelas.ts, abrirNestaJanela.ts   múltiplos vaults (doc 12)
+│   ├── efeitosDeGravacao.ts sequência compartilhada "cancelar autosave → gravar → recarregar árvore/índice/aba", usada por conflitosStore e pelo motor de sync
+│   ├── VaultAdapterMemoria.ts implementação de VaultAdapter em memória, para teste (sync, conflitos)
 │   └── galeria-anexos.ts
 ├── indice/
 │   ├── parser.ts            markdown -> FileMeta
@@ -116,10 +118,14 @@ src/
 ├── sync/                    sincronização cifrada ponta a ponta — doc 17, ADR-32/40
 │   ├── tipos.ts, cenaDeConflito.ts, colunasComparacao.ts, diffLinhas.ts,
 │   │   nomeDeConflito.ts, resolucao.ts, simularConflito.ts   tela de conflitos (ADR-32), pronta
-│   ├── pacote.ts             cifra AES-256-GCM com AAD, preenchimento em escada (planejado, plano 08)
-│   ├── formato.ts            serialização de Lote e Retrato (planejado, plano 08)
-│   ├── decisoes.ts           mudança local e ação para mudança remota (planejado, plano 08)
-│   └── ServicoSync.ts, ServicoSyncFake.ts   contrato do servidor, igual padrão de ServicoConta (planejado, plano 08)
+│   ├── pacote.ts             cifra AES-256-GCM com AAD, preenchimento em escada
+│   ├── formato.ts            serialização de Lote e Retrato
+│   ├── decisoes.ts           mudança local e ação para mudança remota
+│   ├── tiposServidor.ts      tipos do contrato do servidor (Lote, Retrato, EnvelopeChave, códigos de falha)
+│   ├── ServicoSync.ts, ServicoSyncFake.ts   contrato do servidor, igual padrão de ServicoConta
+│   ├── estadoSync.ts         EstadoSync por computador, persistido em plugin-store; nome do computador
+│   ├── aplicar.ts            aplica um lote remoto no vault (grava, move para lixeira, resolve conflito)
+│   └── motor.ts              ciclo baixar → detectar → enviar → guardar, testável sem Tauri
 ├── agente/                    agente de IA opcional (doc 11) — único outro código que fala com rede
 │   ├── tipos.ts
 │   ├── provedores.ts          catálogo de provedores, dialetos, base URLs, preços
@@ -153,6 +159,7 @@ src/
 │   ├── vaultStore.ts, documentosStore.ts, workspaceStore.ts
 │   ├── prefsStore.ts, agenteStore.ts, atualizacaoStore.ts, tarefasStore.ts, contaStore.ts
 │   ├── dialogoStore.ts, sobreposicaoStore.ts, revelacaoStore.ts, papel-parede-home-store.ts
+│   ├── syncStore.ts          casca do motor de sync: carrega o estado, agenda ciclos (ao iniciar, 5s após mudança, 60s, sob pedido) e expõe status para a interface (plano 10)
 │   └── flushGeral.ts
 └── estilos/
     └── globals.css          tokens

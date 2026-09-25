@@ -362,10 +362,13 @@ desenhos, todos operando sobre "duas versões do mesmo arquivo", sem depender de
 ver a tela sem sincronização de verdade existir, há um comando só de desenvolvimento, "Simular
 conflito de sincronização", na paleta de comandos. O desenho técnico da sincronização de verdade
 está fechado em `docs/17-sincronizacao.md` e no ADR-40; o núcleo (cifra, formato dos pacotes,
-decisões de conflito, servidor falso) está em construção
-(`docs/superpowers/plans/2026-09-24-08-nucleo-da-sincronizacao.md`).
+decisões de conflito, servidor falso — `docs/superpowers/plans/2026-09-24-08-nucleo-da-sincronizacao.md`)
+está pronto. O motor da sincronização pronto e testado com servidor falso e dois computadores
+simulados; falta a tela, o cofre da chave e o servidor de verdade
+(plano `docs/superpowers/plans/2026-09-24-10-sincronizacao-na-tela.md`).
 
-**Status:** tela de conflitos pronta; núcleo da sincronização em construção.
+**Status:** tela de conflitos pronta; motor de sincronização pronto e testado; falta a tela, o
+cofre da chave e o servidor de verdade.
 
 **Pronto quando:** existir um servidor de sincronização cifrada e a tela de conflitos
 estiver integrada a ele.

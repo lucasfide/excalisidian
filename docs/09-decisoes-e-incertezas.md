@@ -1822,12 +1822,9 @@ sincronização entre computadores e é aceito como parte do desenho (docs/17-si
 | Outra cifra (XChaCha20-Poly1305, por uma biblioteca externa, `@noble/ciphers`) em vez da cifra já embutida no navegador do app | Traria uma dependência a mais sem ganho de segurança sobre a cifra que já vem pronta (AES-256-GCM da WebCrypto), disponível tanto no app quanto nos testes automatizados. |
 | Sincronizar também a lixeira de cada computador | Uma exclusão viraria duas mudanças (o arquivo some de um lado, aparece na lixeira do outro) que se cruzariam de volta no computador que apagou — voltando a mostrar um arquivo que a pessoa já tinha decidido apagar. |
 
-**Estado real: o desenho está fechado (este ADR e o doc 17); a construção do núcleo técnico —
-cifra dos pacotes, formato de lote e retrato, as duas decisões de "o que mudou aqui" e "o que
-fazer com o que chegou", e um servidor de testes em memória — está em andamento
-(`docs/superpowers/plans/2026-09-24-08-nucleo-da-sincronizacao.md`). Nenhuma tela usa isso
-ainda; a tela de conflitos do ADR-32 continua operando só com o comando de simulação, sem
-servidor de verdade por trás.**
+**Estado real: motor da sincronização pronto e testado com servidor falso e dois computadores
+simulados; falta a tela, o cofre da chave e o servidor de verdade
+(plano `docs/superpowers/plans/2026-09-24-10-sincronizacao-na-tela.md`).**
 
 **Consequências:** a Fatia 15 do roadmap passa a ter um desenho técnico completo para seguir,
 não só a decisão de produto. O plano citado acima constrói as peças isoladas, sem tela, sem
