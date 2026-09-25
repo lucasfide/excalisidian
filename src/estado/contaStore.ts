@@ -13,6 +13,8 @@ import type { ServicoConta } from "../conta/ServicoConta";
 import { ServicoContaHttp } from "../conta/ServicoContaHttp";
 import type { CofreToken } from "../conta/cofreToken";
 import { CofreTokenSistema } from "../conta/cofreToken";
+import type { CofreChaveDeEnvelope } from "../conta/cofreChaveDeEnvelope";
+import { CofreChaveDeEnvelopeSistema } from "../conta/cofreChaveDeEnvelope";
 import { lerTokenComMigracao, type TokenLegado } from "../conta/migracaoToken";
 import { FalhaConta, type ErroConta, type PlanoAssinatura, type Sessao } from "../conta/tipos";
 import { definirTokenDaSessao } from "../servico/sessao";
@@ -46,6 +48,12 @@ interface ContaState {
   definirServico(s: ServicoConta): void;
   cofre: CofreToken;
   definirCofre(c: CofreToken): void;
+  /** Chave de envelope da sincronização deste computador (doc 17 §2). O `contaStore` só
+   * precisa dela para apagá-la ao sair — quem grava é o fluxo de ligar a sincronização
+   * (plano 10). Injetado do mesmo jeito que `cofre` (`definirCofre`), para os testes usarem
+   * um fake em vez do cofre de verdade. */
+  cofreChaveDeEnvelope: CofreChaveDeEnvelope;
+  definirCofreChaveDeEnvelope(c: CofreChaveDeEnvelope): void;
   plano(): PlanoAssinatura;
   carregar(): Promise<void>;
   entrar(email: string, senha: string): Promise<boolean>;
@@ -78,6 +86,20 @@ export const useContaStore = create<ContaState>((set, get) => {
     }
   }
 
+  // Mesma postura de `gravarToken`: quem sai não deixa a chave das notas para trás (doc 17
+  // §2), mas uma falha no cofre não pode travar o `sair` — o usuário já está deslogado do
+  // lado da conta de qualquer jeito.
+  async function apagarChaveDeEnvelope(): Promise<void> {
+    try {
+      await get().cofreChaveDeEnvelope.apagar();
+    } catch (e) {
+      console.warn(
+        "Não foi possível apagar a chave de envelope da sincronização deste computador.",
+        e,
+      );
+    }
+  }
+
   return {
     sessao: null,
     carregado: false,
@@ -85,6 +107,7 @@ export const useContaStore = create<ContaState>((set, get) => {
     erro: null,
     servico: new ServicoContaHttp(),
     cofre: new CofreTokenSistema(),
+    cofreChaveDeEnvelope: new CofreChaveDeEnvelopeSistema(),
 
     definirServico(servico) {
       set({ servico });
@@ -92,6 +115,10 @@ export const useContaStore = create<ContaState>((set, get) => {
 
     definirCofre(cofre) {
       set({ cofre });
+    },
+
+    definirCofreChaveDeEnvelope(cofreChaveDeEnvelope) {
+      set({ cofreChaveDeEnvelope });
     },
 
     plano() {
@@ -184,6 +211,7 @@ export const useContaStore = create<ContaState>((set, get) => {
         set({ sessao: null });
         definirTokenDaSessao(null);
         await gravarToken(null);
+        await apagarChaveDeEnvelope();
         await emit(EVENTO_PREFS_MUDOU);
         // Melhor-esforço: `sair` do serviço nunca propaga erro (ver ServicoContaHttp), mas o
         // `finally` abaixo desmarca `ocupado` mesmo que uma implementação futura lance.

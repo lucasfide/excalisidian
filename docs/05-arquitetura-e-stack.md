@@ -221,9 +221,16 @@ updater e o cofre do token da conta (ADR-34), são dezesseis comandos registrado
 | `importar_papel_parede_home` | `(app, …) -> Result<..., String>` | idem |
 | `remover_papel_parede_home` | `(app) -> Result<(), String>` | idem |
 | `lixeira_sistema` | não implementado | só quando RF7.6 sair do P2 — ver a nota abaixo |
-| `ler_token_conta` | `(app) -> Result<Option<String>, String>` | token da conta no cofre de senhas do Windows, em vez de texto puro (doc 09, ADR-34) |
-| `gravar_token_conta` | `(app, token: String) -> Result<(), String>` | token da conta no cofre de senhas do Windows, em vez de texto puro (doc 09, ADR-34) |
-| `apagar_token_conta` | `(app) -> Result<(), String>` | token da conta no cofre de senhas do Windows, em vez de texto puro (doc 09, ADR-34) |
+| `ler_token_conta` | `(app, segredo: Segredo) -> Result<Option<String>, String>` | lê um segredo do cofre de senhas do Windows — token da conta ou `chaveDeEnvelope` da sincronização (doc 09 ADR-34; doc 17 §2) |
+| `gravar_token_conta` | `(app, segredo: Segredo, token: String) -> Result<(), String>` | grava um segredo no cofre de senhas do Windows, em vez de texto puro |
+| `apagar_token_conta` | `(app, segredo: Segredo) -> Result<(), String>` | apaga um segredo do cofre de senhas do Windows |
+
+`Segredo` é um enum serde (`rename_all = "kebab-case"`) com só duas variantes —
+`sessao-conta` e `chave-de-envelope` — fechado em `cofre.rs`: o nome de usuário da entrada no
+cofre vem sempre do enum, nunca de uma string livre vinda da tela (decisão 4 do plano
+`docs/superpowers/plans/2026-09-23-05-token-no-cofre.md`). Os três comandos continuam sendo a
+única superfície que conhece `keyring-core`, com persistência `Local` e inicialização
+preguiçosa da loja no primeiro uso.
 
 Sobre o `observar_vault`: o `@tauri-apps/plugin-fs` já expõe `watch` e `watchImmediate` com `delayMs`, e para um watcher simples isso bastaria. O comando próprio existe por um motivo específico — a seção Watcher abaixo exige processar **lotes** de eventos (um `git checkout` gera milhares em um segundo), e agrupar do lado Rust evita atravessar o IPC uma vez por arquivo. Se na Fatia 5 o `watch` do plugin se mostrar suficiente, use-o e apague este comando: um ponto de contato a menos com o Rust é ganho, não perda.
 

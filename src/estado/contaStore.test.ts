@@ -9,6 +9,7 @@ import { useContaStore } from "./contaStore";
 import { ServicoContaFake } from "../conta/ServicoContaFake";
 import type { ServicoConta } from "../conta/ServicoConta";
 import { CofreTokenFake } from "../conta/CofreTokenFake";
+import { CofreChaveDeEnvelopeFake } from "../conta/CofreChaveDeEnvelopeFake";
 import { FalhaConta, type Sessao } from "../conta/tipos";
 import { tokenDaSessaoAtual, definirTokenDaSessao } from "../servico/sessao";
 
@@ -91,6 +92,7 @@ const comConta = () =>
   new ServicoContaFake({ "ana@exemplo.com": { senha: "segredo123", plano: "premium" } });
 
 let cofre: CofreTokenFake;
+let cofreChaveDeEnvelope: CofreChaveDeEnvelopeFake;
 
 describe("contaStore", () => {
   beforeEach(() => {
@@ -101,6 +103,8 @@ describe("contaStore", () => {
     useContaStore.getState().definirServico(comConta());
     cofre = new CofreTokenFake();
     useContaStore.getState().definirCofre(cofre);
+    cofreChaveDeEnvelope = new CofreChaveDeEnvelopeFake();
+    useContaStore.getState().definirCofreChaveDeEnvelope(cofreChaveDeEnvelope);
   });
 
   it("entrar emite o evento de sincronização entre janelas depois de gravar o token", async () => {
@@ -169,6 +173,22 @@ describe("contaStore", () => {
     await useContaStore.getState().entrar("ana@exemplo.com", "segredo123");
     await useContaStore.getState().sair();
     expect(cofre.token).toBeNull();
+  });
+
+  it("sair apaga também a chave de envelope deste computador", async () => {
+    await useContaStore.getState().entrar("ana@exemplo.com", "segredo123");
+    cofreChaveDeEnvelope.chave = new Uint8Array([1, 2, 3]);
+    await useContaStore.getState().sair();
+    expect(cofreChaveDeEnvelope.chave).toBeNull();
+  });
+
+  it("sair não trava se apagar a chave de envelope falhar (mesma postura do token)", async () => {
+    await useContaStore.getState().entrar("ana@exemplo.com", "segredo123");
+    cofreChaveDeEnvelope.chave = new Uint8Array([1, 2, 3]);
+    cofreChaveDeEnvelope.falhar = true;
+    await useContaStore.getState().sair();
+    expect(useContaStore.getState().sessao).toBeNull();
+    expect(useContaStore.getState().ocupado).toBe(false);
   });
 
   it("sair marca ocupado enquanto o sair do serviço não resolve", async () => {
