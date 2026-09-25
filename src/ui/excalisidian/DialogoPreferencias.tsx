@@ -18,12 +18,14 @@ import { IDIOMAS, type Idioma } from "../../i18n/idioma";
 import type { ChaveTexto } from "../../i18n/catalogo";
 import { useTexto } from "../../i18n/useTexto";
 import DialogoGlossario from "./DialogoGlossario";
+import SecaoSincronizacao from "./SecaoSincronizacao";
 
 interface Props {
   onFechar(): void;
-  /** Rola até a seção Conta ao abrir — usado pelo botão do passo de conta do assistente do
-   * agente (T4), pra quem não tem sessão não precisar procurar a seção. */
-  secaoInicial?: "conta";
+  /** Rola até a seção ao abrir. "conta": usada pelo botão do passo de conta do assistente do
+   * agente (T4), pra quem não tem sessão não precisar procurar a seção. "sincronizacao": usada
+   * pelo ícone de estado da sincronização no rodapé da sidebar (plano 10 Task 5). */
+  secaoInicial?: "conta" | "sincronizacao";
 }
 
 const OPCOES_TEMA: OpcaoGrupo<Tema>[] = [
@@ -92,11 +94,13 @@ export default function DialogoPreferencias({ onFechar, secaoInicial }: Props) {
     };
   }, []);
 
-  // Rola até a seção Conta quando o assistente do agente abriu as preferências por esse
-  // caminho (T4) — o dialog é uma página só, sem abas, então "abrir na seção Conta" é isto.
+  // Rola até a seção pedida ao abrir — o dialog é uma página só, sem abas, então "abrir numa
+  // seção" é isto. "conta": botão do passo de conta do assistente do agente (T4).
+  // "sincronizacao": ícone de estado da sincronização no rodapé da sidebar (plano 10 Task 5).
   useEffect(() => {
-    if (secaoInicial !== "conta") return;
-    document.getElementById("secao-conta")?.scrollIntoView({ block: "start" });
+    if (!secaoInicial) return;
+    const id = secaoInicial === "conta" ? "secao-conta" : "secao-sincronizacao";
+    document.getElementById(id)?.scrollIntoView({ block: "start" });
   }, [secaoInicial]);
 
   return (
@@ -176,6 +180,9 @@ export default function DialogoPreferencias({ onFechar, secaoInicial }: Props) {
           </Secao>
           <Secao titulo={t("conta.titulo")} id="secao-conta">
             <SecaoConta />
+          </Secao>
+          <Secao titulo={t("sync.titulo")} id="secao-sincronizacao">
+            <SecaoSincronizacao />
           </Secao>
           <Secao titulo="Agente de IA">
             <SecaoAgente

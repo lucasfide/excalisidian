@@ -580,10 +580,13 @@ export interface ResultadoIniciar {
   foraDaSincronizacao: string[];
 }
 
-/** Efeitos que não fazem nada — usados só por `iniciarVault`, que nunca escreve no disco
- * DESTE computador (só lê, pra montar o que enviar): `enviarMudancas` não chama `ctx.efeitos`
- * (só `aplicarLote`, de quem baixa, chama), mas o tipo `ContextoCiclo` exige o campo. */
-function efeitosNulos(): EfeitosDeGravacao {
+/** Efeitos que não fazem nada — usados por `iniciarVault`, que nunca escreve no disco DESTE
+ * computador (só lê, pra montar o que enviar): `enviarMudancas` não chama `ctx.efeitos` (só
+ * `aplicarLote`, de quem baixa, chama), mas o tipo `ContextoCiclo` exige o campo. Exportada
+ * (plano 10 Task 4) para "Baixar um vault sincronizado para uma pasta vazia": a pasta de
+ * destino ainda não é o vault aberto NESTA janela (não há árvore, índice nem aba pra
+ * atualizar) — os efeitos reais (`efeitosReais()`) atualizariam o vault ERRADO. */
+export function efeitosNulos(): EfeitosDeGravacao {
   return {
     recarregarArvore: async () => {},
     reindexarArquivo: async () => {},

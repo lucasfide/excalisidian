@@ -21,6 +21,7 @@ import { PT_BR_PREFS, EN_PREFS } from "./catalogo/prefs";
 import { PT_BR_AGENTE, EN_AGENTE } from "./catalogo/agente";
 import { PT_BR_CONTA, EN_CONTA } from "./catalogo/conta";
 import { PT_BR_CONFLITO, EN_CONFLITO } from "./catalogo/conflito";
+import { PT_BR_SYNC, EN_SYNC } from "./catalogo/sync";
 
 export const PT_BR = {
   ...PT_BR_VAULT,
@@ -28,6 +29,7 @@ export const PT_BR = {
   ...PT_BR_AGENTE,
   ...PT_BR_CONTA,
   ...PT_BR_CONFLITO,
+  ...PT_BR_SYNC,
 } as const;
 
 export type ChaveTexto = keyof typeof PT_BR;
@@ -38,6 +40,7 @@ export const EN: Partial<Record<ChaveTexto, string>> = {
   ...EN_AGENTE,
   ...EN_CONTA,
   ...EN_CONFLITO,
+  ...EN_SYNC,
 };
 
 export const CATALOGOS: Record<Idioma, Record<string, string>> = {
