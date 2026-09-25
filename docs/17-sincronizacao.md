@@ -327,11 +327,17 @@ por baixo do mesmo contrato `ServicoSync` — nada disto existe fora de DEV.
   (`sync-teste/`), com escrita atômica (tmp + rename), em vez de falar HTTP com um servidor.
   Duas janelas do app rodando em DEV no mesmo computador enxergam a mesma pasta — é o
   "servidor" delas.
-- **Conta de teste em DEV:** o `contaStore` usa um `ServicoContaFake` com uma conta premium
-  conhecida, para dar para entrar sem servidor de conta também. **O e-mail e a senha desta
-  conta de teste ficam definidos na Task 6** (implementação do servidor de teste local) — não
-  são inventados aqui; quando a Task 6 terminar, este parágrafo é atualizado com os valores
-  reais.
+- **Conta de teste em DEV:** o `contaStore` usa um `ServicoContaFakeDev` (irmão do
+  `ServicoContaFake`, só em DEV) com uma conta premium conhecida, para dar para entrar sem
+  servidor de conta também:
+  - E-mail: `teste@excalisidian.local`
+  - Senha: `senha-de-teste-123`
+
+  O token desta conta é determinístico (derivado só do e-mail): qualquer janela do app em DEV
+  reconhece o token que outra janela gravou no cofre do Windows (compartilhado entre elas),
+  mesmo sendo cada uma um processo JS com sua própria instância do fake em memória. Sem isso,
+  a segunda janela veria o token da primeira como desconhecido, `renovar` recusaria como
+  "expirada", e o `contaStore` apagaria o token do cofre — deslogando a outra janela.
 - **Passo a passo, em alto nível**, para o dono do produto testar duas janelas sincronizando:
   1. Abrir duas janelas do app em DEV, cada uma com um vault diferente (pode ser duas pastas
      vazias).

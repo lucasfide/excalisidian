@@ -11,6 +11,11 @@ import { emit } from "@tauri-apps/api/event";
 
 import type { ServicoConta } from "../conta/ServicoConta";
 import { ServicoContaHttp } from "../conta/ServicoContaHttp";
+import {
+  ServicoContaFakeDev,
+  EMAIL_CONTA_TESTE_DEV,
+  SENHA_CONTA_TESTE_DEV,
+} from "../conta/ServicoContaFakeDev";
 import type { CofreToken } from "../conta/cofreToken";
 import { CofreTokenSistema } from "../conta/cofreToken";
 import type { CofreChaveDeEnvelope } from "../conta/cofreChaveDeEnvelope";
@@ -36,6 +41,22 @@ async function abrirStore() {
 
 function codigoDe(e: unknown): ErroConta {
   return e instanceof FalhaConta ? e.codigo : "servidor";
+}
+
+/** Em desenvolvimento (`npm run tauri dev`), a conta de teste premium fixa (doc 17 §10,
+ * plano 10 task-6) — dá para entrar sem servidor de conta, inclusive testar a sincronização
+ * entre duas janelas (ver ServicoContaFakeDev sobre o token determinístico). Em produção, o
+ * servidor de verdade. Mesmo mecanismo de eliminação de `simularConflito.ts`/
+ * `PaletaComandos.tsx`: `import.meta.env.DEV` vira uma constante literal no build e o ramo
+ * `ServicoContaFakeDev` — junto com o e-mail e a senha de teste — some do bundle de produção
+ * (confira com grep em dist/ depois de `npm run build`).
+ */
+function servicoContaPadrao(): ServicoConta {
+  return import.meta.env.DEV
+    ? new ServicoContaFakeDev({
+        [EMAIL_CONTA_TESTE_DEV]: { senha: SENHA_CONTA_TESTE_DEV, plano: "premium" },
+      })
+    : new ServicoContaHttp();
 }
 
 interface ContaState {
@@ -105,7 +126,7 @@ export const useContaStore = create<ContaState>((set, get) => {
     carregado: false,
     ocupado: false,
     erro: null,
-    servico: new ServicoContaHttp(),
+    servico: servicoContaPadrao(),
     cofre: new CofreTokenSistema(),
     cofreChaveDeEnvelope: new CofreChaveDeEnvelopeSistema(),
 
