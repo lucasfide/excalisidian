@@ -45,17 +45,23 @@ const REGEX_HASH_HEX = /^[0-9a-f]{64}$/;
 async function comprimir(bytes: Uint8Array): Promise<Uint8Array> {
   const fluxo = new CompressionStream("gzip");
   const escritor = fluxo.writable.getWriter();
-  escritor.write(bytes);
-  escritor.close();
-  return new Uint8Array(await new Response(fluxo.readable).arrayBuffer());
+  const escrita = (async () => {
+    await escritor.write(bytes);
+    await escritor.close();
+  })();
+  const [buffer] = await Promise.all([new Response(fluxo.readable).arrayBuffer(), escrita]);
+  return new Uint8Array(buffer);
 }
 
 async function descomprimir(bytes: Uint8Array): Promise<Uint8Array> {
   const fluxo = new DecompressionStream("gzip");
   const escritor = fluxo.writable.getWriter();
-  escritor.write(bytes);
-  escritor.close();
-  return new Uint8Array(await new Response(fluxo.readable).arrayBuffer());
+  const escrita = (async () => {
+    await escritor.write(bytes);
+    await escritor.close();
+  })();
+  const [buffer] = await Promise.all([new Response(fluxo.readable).arrayBuffer(), escrita]);
+  return new Uint8Array(buffer);
 }
 
 /** SHA-256 do conteúdo, em hex minúsculo. */

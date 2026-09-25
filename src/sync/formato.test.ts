@@ -164,6 +164,20 @@ describe("serializarLote / lerLote", () => {
     await expect(lerLote(lixo)).rejects.toBeInstanceOf(FormatoInvalido);
   });
 
+  it("lerLote recusa gzip corrompido sem deixar rejeição não tratada", async () => {
+    const rejeicoesNaoTratadas: unknown[] = [];
+    const ouvinte = (motivo: unknown) => rejeicoesNaoTratadas.push(motivo);
+    process.on("unhandledRejection", ouvinte);
+    try {
+      const lixo = new Uint8Array([9, 9, 9, 9, 9, 9, 9, 9]);
+      await expect(lerLote(lixo)).rejects.toBeInstanceOf(FormatoInvalido);
+      await new Promise((resolve) => setTimeout(resolve, 0));
+      expect(rejeicoesNaoTratadas).toHaveLength(0);
+    } finally {
+      process.off("unhandledRejection", ouvinte);
+    }
+  });
+
   it("o erro de lerLote não ecoa o conteúdo inválido", async () => {
     const segredo = "SENHA-SECRETA-NAO-PODE-APARECER";
     const lote: Lote = {
@@ -269,6 +283,20 @@ describe("serializarRetrato / lerRetrato", () => {
     const bytesAdulterados = await comprimirParaTeste(new TextEncoder().encode(adulterado));
 
     await expect(lerRetrato(bytesAdulterados)).rejects.toBeInstanceOf(FormatoInvalido);
+  });
+
+  it("lerRetrato recusa gzip corrompido sem deixar rejeição não tratada", async () => {
+    const rejeicoesNaoTratadas: unknown[] = [];
+    const ouvinte = (motivo: unknown) => rejeicoesNaoTratadas.push(motivo);
+    process.on("unhandledRejection", ouvinte);
+    try {
+      const lixo = new Uint8Array([9, 9, 9, 9, 9, 9, 9, 9]);
+      await expect(lerRetrato(lixo)).rejects.toBeInstanceOf(FormatoInvalido);
+      await new Promise((resolve) => setTimeout(resolve, 0));
+      expect(rejeicoesNaoTratadas).toHaveLength(0);
+    } finally {
+      process.off("unhandledRejection", ouvinte);
+    }
   });
 });
 
