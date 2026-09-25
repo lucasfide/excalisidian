@@ -509,6 +509,7 @@ Altura padrão 36px, compacto 30px, ícone 32×32.
 | `FaixaConflito` | faixa no topo do editor com as duas ações |
 | `BalaoAgente` | balão flutuante do agente de IA, canto inferior direito (doc 11 §6.1) — só existe com o agente habilitado |
 | `PainelAgente` | cartão flutuante do agente: convite, sugestões, conversa, medidor de uso (doc 11 §6.2) |
+| `IconeSincronizacao` | ícone de estado da sincronização no rodapé da sidebar (doc 17 §8) — ver "Ícone de sincronização no rodapé da sidebar", abaixo |
 | `DialogoAgente` | assistente de configuração do agente em etapas — provedor, chave, modelo da leitura inicial, modelo do acompanhamento, revisão (doc 11 §6.3); a seção "Agente de IA" das Configurações o abre |
 
 **Estado vazio** nunca é só texto centralizado: é um bloco com hairline superior e inferior, título em `titulo-2`, uma linha de apoio em `pequeno` e um botão primário.
@@ -590,6 +591,29 @@ agente está habilitado — o produto sem agente não tem nenhum destes elemento
   `color-mix(in srgb, var(--color-ocre) 30%, transparent)`, texto `tinta` — o mesmo realce
   do search do editor (`tokens-excalisidian.css`).
 
+### Ícone de sincronização no rodapé da sidebar
+
+Doc 17 §8: sem banner, sem aviso recorrente (ADR-31) — só um ícone discreto no rodapé da
+sidebar, ao lado do ícone de Configurações (engrenagem), e só quando o vault atual está
+sincronizado. Mesmo componente e mesma medida do ícone de Configurações: `BotaoIcone` do
+rodapé, `tamanho={32}` (alvo 32×32, ícone 18px, doc 06 "Inventário de componentes" e "Ícones").
+`title` do botão com o texto do `StatusSync` (catálogo, doc 04); clique abre as Configurações
+na seção Sincronização.
+
+Cor por estado — só tokens que já existem em `globals.css`, nenhum novo:
+
+| `StatusSync` | Cor | Por quê |
+|---|---|---|
+| `sincronizado` | `tinta-media` | repouso — a mesma cor do ícone de Configurações ao lado; nada chama atenção porque não há nada para o usuário fazer |
+| `sincronizando` | `tinta-media` | mesmo repouso; a tabela "Movimento" não define um spinner genérico fora do agente de IA, então esta task não inventa um — o ícone muda de forma (ver doc 04/catálogo), não de cor |
+| `sem-conexao` | `ocre` | é o token de "atenção" (doc 06, Paleta) — tenta de novo sozinho, não é erro que trava |
+| `pausado` | `tinta-media` a 50% de opacidade | mesmo padrão já usado no balão do agente pausado (acima, "Balão e painel do agente de IA") |
+| `{ erro: "sessao" \| "plano" \| "espaco" }` (doc 17 §8: erros que pedem ação) | `bordo` | é o token de "erro" (doc 06, Paleta) |
+
+Ícones (`lucide-react`, mesmo traço 1.5 da tabela "Ícones", abaixo): `cloud-check` (sincronizado),
+`refresh-cw` (sincronizando), `cloud-off` (sem conexão), `pause` (pausado), `alert-triangle`
+(erro que pede ação — o mesmo ícone já usado para "aviso").
+
 ---
 
 ## Ícones
@@ -638,6 +662,11 @@ agente está habilitado — o produto sem agente não tem nenhum destes elemento
 | remover da lista de recentes | `x` |
 | criar vault | `folder-plus` |
 | abrir pasta como vault | `folder-open` |
+| sincronização — sincronizado | `cloud-check` |
+| sincronização — sincronizando | `refresh-cw` |
+| sincronização — sem conexão | `cloud-off` |
+| sincronização — pausada | `pause` |
+| sincronização — erro que pede ação | `alert-triangle` |
 
 Ícones de ferramenta do canvas (seleção, formas, texto, alinhar/distribuir etc.) não aparecem
 aqui — vêm da UI nativa do Excalidraw, fora do controle do app (doc 09, ADR-20).

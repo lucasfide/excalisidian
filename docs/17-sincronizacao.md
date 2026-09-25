@@ -286,9 +286,69 @@ sincronizado). O critério de tamanho (50 MiB) foi retirado: o cliente não tem 
 do diário desde o retrato, e medir o vault inteiro faria vaults grandes mandarem retrato em todo
 ciclo.
 
+### 9.1 Mapeamento HTTP
+
+Quando o servidor existir, `ServicoSyncHttp` (plano de sincronização na tela, Task 3) fala com
+ele assim — mesmo padrão de `ServicoContaHttp`. Todo campo de bytes (`nomeCifrado`, `envelope`,
+`bytes`, `partes`) vai em base64 dentro do JSON. Autenticação: cabeçalho `Authorization: Bearer
+<token de sessão>`, o mesmo token do `ServicoConta`.
+
+| Método de `ServicoSync` | HTTP |
+|---|---|
+| `listarVaults()` | `GET /sync/vaults` → `{ id, nomeCifrado, envelope }[]` |
+| `criarVault(id, nomeCifrado, envelope)` | `POST /sync/vaults` com `{ "id": id, "nomeCifrado": base64, "envelope": base64 }` — `id` é gerado **pelo cliente** (UUID v4) e vai no corpo, nunca na URL: o AAD do envelope já usa esse id, então ele tem que existir antes da chamada |
+| `baixar(id, aposSequencia)` | `GET /sync/vaults/{id}/pacotes?apos={aposSequencia}` → `{ "retrato"?: { "ateSequencia": number, "partes": base64[] }, "lotes": { "sequencia": number, "bytes": base64 }[], "ultimoRetrato": number }` — `ultimoRetrato` vem **sempre** no corpo, mesmo quando `retrato` está ausente |
+| `enviarLote(id, esperoUltima, bytes)` | `POST /sync/vaults/{id}/lotes` com `{ "esperoUltima": esperoUltima, "bytes": base64 }` → `{ "sequencia": number }` |
+| `enviarRetrato(id, ateSequencia, partes)` | `POST /sync/vaults/{id}/retratos` com `{ "ateSequencia": ateSequencia, "partes": base64[] }` |
+| `apagarVault(id)` | `DELETE /sync/vaults/{id}` |
+
+Códigos de resposta HTTP → `ErroSync` (`FalhaSync.codigo`, `src/sync/tiposServidor.ts`):
+
+| HTTP | `ErroSync` |
+|---|---|
+| 401 | `sessao` |
+| 403 | `plano` |
+| 404 | `nao-encontrado` |
+| 409 com corpo `{ "codigo": "fora-de-ordem" }` | `fora-de-ordem` |
+| 409 com corpo `{ "codigo": "ja-existe" }` | `ja-existe` (só em `POST /sync/vaults`, id repetido) |
+| 413 ou 507 | `espaco` |
+| qualquer outro código | `servidor` |
+| falha de conexão (sem resposta do servidor) | `rede` |
+
 ---
 
-## 10. Testes que este documento exige
+## 10. Testar sem servidor (só desenvolvimento)
+
+Sem servidor de verdade ainda, o dono do produto não teria como ver a sincronização funcionando
+de ponta a ponta. Em modo de desenvolvimento (`npm run tauri dev`), o app troca de implementação
+por baixo do mesmo contrato `ServicoSync` — nada disto existe fora de DEV.
+
+- **`ServicoSyncLocal`** grava os pacotes em arquivos numa pasta de teste do app data
+  (`sync-teste/`), com escrita atômica (tmp + rename), em vez de falar HTTP com um servidor.
+  Duas janelas do app rodando em DEV no mesmo computador enxergam a mesma pasta — é o
+  "servidor" delas.
+- **Conta de teste em DEV:** o `contaStore` usa um `ServicoContaFake` com uma conta premium
+  conhecida, para dar para entrar sem servidor de conta também. **O e-mail e a senha desta
+  conta de teste ficam definidos na Task 6** (implementação do servidor de teste local) — não
+  são inventados aqui; quando a Task 6 terminar, este parágrafo é atualizado com os valores
+  reais.
+- **Passo a passo, em alto nível**, para o dono do produto testar duas janelas sincronizando:
+  1. Abrir duas janelas do app em DEV, cada uma com um vault diferente (pode ser duas pastas
+     vazias).
+  2. Entrar com a conta de teste em cada janela (Configurações → Conta).
+  3. Numa janela, Configurações → Sincronização → "Sincronizar este vault".
+  4. Na outra janela, Configurações → Sincronização → "Baixar um vault sincronizado para uma
+     pasta vazia", escolher o vault que apareceu e uma pasta vazia.
+  5. Editar uma nota numa janela e conferir que ela aparece (ou atualiza) na outra depois de um
+     ciclo.
+  6. Para ver a tela de conflito: editar a **mesma** nota nas duas janelas antes de qualquer
+     sincronizar de novo, depois deixar as duas sincronizarem.
+- Em produção, nada disso existe: depois de `npm run build`, `dist/` não pode conter a senha de
+  teste, o e-mail de teste, a string `sync-teste` nem `ServicoSyncLocal` — a Task 6 confere isso.
+
+---
+
+## 11. Testes que este documento exige
 
 - Cifra: ida e volta; pacote com um byte trocado não abre; pacote com AAD de outro vault ou
   outra sequência não abre; tamanhos saem sempre da escada.

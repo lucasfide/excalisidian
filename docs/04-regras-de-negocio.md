@@ -670,3 +670,53 @@ keymaps do editor e os símbolos contra o parser markdown do editor.
 | Separador de combos alternativos | "ou" |
 | **Grupos de atalhos** | "Geral", "Abas e divisões", "Nota: formatação", "Nota: edição", "Nota: localizar", "Desenho" |
 | **Grupos de símbolos** | "Texto", "Blocos", "Links e embeds", "Enquanto você digita" |
+
+## 17. Sincronização
+
+Contrato completo — chaves, o diário, o ciclo, o servidor — em `docs/17-sincronizacao.md`
+(fonte de tudo abaixo). Aqui ficam os textos de interface: a seção "Sincronização" das
+Configurações (doc 17 §7) e o `title` do ícone de estado no rodapé da sidebar (doc 17 §8,
+`StatusSync` em `src/estado/syncStore.ts`). Os textos entram no catálogo
+`src/i18n/catalogo/sync.ts` (pt-BR e inglês), no padrão de `src/i18n/catalogo/conta.ts`. Sentence
+case, sem emoji, sem os termos técnicos do doc 17 (nada de "envelope", "hash" ou "retrato" na
+tela — a pessoa não precisa saber como o diário funciona por dentro).
+
+A seção mostra um destes cinco estados por vez (doc 17 §7):
+
+1. Sem conta.
+2. Conta grátis.
+3. Premium, mas este computador ainda não tem a chave guardada — pede a senha da conta antes de
+   ligar ou baixar qualquer vault.
+4. Premium, vault atual não sincronizado.
+5. Vault sincronizado.
+
+### Textos de interface
+
+| Situação | Texto |
+|---|---|
+| Seção — sem conta | "Entre com uma conta premium para sincronizar este vault entre computadores." |
+| Seção — conta grátis | "A sincronização é um recurso do plano premium." |
+| Pedir senha (chave ainda não guardada neste computador) — título | "Confirme sua senha" |
+| Pedir senha — ajuda | "Guardamos uma chave neste computador para não pedir de novo." |
+| Pedir senha — campo | "Senha" (mesmo `Campo` da seção Conta) |
+| Senha errada | "Senha incorreta." |
+| Botão — ligar a sincronização deste vault | "Sincronizar este vault" |
+| Botão — baixar um vault existente | "Baixar um vault sincronizado para uma pasta vazia" |
+| Pasta escolhida não está vazia | "Escolha uma pasta vazia para baixar o vault." |
+| Botão — sincronizar agora | "Sincronizar agora" |
+| Botão — parar | "Parar de sincronizar este vault" |
+| Botão — apagar no servidor | "Apagar a cópia do servidor…" |
+| Confirmação de apagar no servidor — título | "Apagar a cópia de «{vault}» no servidor?" |
+| Confirmação de apagar no servidor — corpo | "Os arquivos deste e de qualquer outro computador continuam intactos. Só a cópia guardada no servidor é apagada." |
+| Confirmação de apagar no servidor — botão | "Apagar cópia do servidor" |
+| Campo — nome deste computador | "Nome deste computador" |
+| Lista de arquivos fora da sincronização — título | "Fora da sincronização" |
+| Lista de arquivos fora da sincronização — ajuda | "Estes arquivos passam de 7 MB e ficam só neste computador." |
+| Status (ícone e seção) — sincronizado | "Sincronizado" |
+| Status — sincronizando | "Sincronizando…" |
+| Status — sem conexão | "Sem conexão. Tentando de novo sozinho." |
+| Status — pausado | "Sincronização pausada." |
+| Erro — sessão expirada (`sessao`) | "Sua sessão expirou. Entre de novo para continuar sincronizando." |
+| Erro — plano sem sincronização (`plano`) | "Seu plano não inclui mais a sincronização." |
+| Erro — espaço esgotado (`espaco`) | "O espaço do seu plano acabou. Libere espaço ou amplie o plano para continuar sincronizando." |
+| Erro — genérico (demais códigos: falha ao aplicar um lote, erro do servidor, vault não encontrado, etc.) | "Não foi possível sincronizar agora. Tentando de novo sozinho." |
