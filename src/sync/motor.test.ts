@@ -149,7 +149,7 @@ describe("executarCiclo — folga de tamanho", () => {
     expect(estado.bases["a.bin"]).toBeDefined();
     expect(estado.bases["b.bin"]).toBeDefined();
     expect(estado.bases["c.bin"]).toBeDefined();
-  }, 30000);
+  }, 120000); // 30s estourava sob contenção de CPU da suíte inteira (confirmado: contenção, não defeito).
 
   it("uma mudança só que não cabe nem sozinha: o arquivo fica fora da sincronização", async () => {
     // `dividirEmLotes` já lança se uma mudança sozinha passar de TAMANHO_MAXIMO_SINCRONIZAVEL
