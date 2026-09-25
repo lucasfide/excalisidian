@@ -3,6 +3,8 @@
 // conteúdo em base64, comprimido com gzip (`CompressionStream`/`DecompressionStream`,
 // nativos no WebView2 e no node dos testes). Não cifra — isso é `pacote.ts`.
 
+import { deBase64, paraBase64 } from "./base64";
+
 /** Tamanho acima do qual um único arquivo não entra na sincronização (doc 17 §4.4). Usado
  * como limite conservador (não comprimido) para o tamanho de um lote ou parte de retrato. */
 export const TAMANHO_MAXIMO_SINCRONIZAVEL = 7 * 1024 * 1024;
@@ -37,32 +39,6 @@ export class FormatoInvalido extends Error {
 }
 
 const REGEX_HASH_HEX = /^[0-9a-f]{64}$/;
-
-// --- base64 em blocos, para não estourar a pilha com Uint8Array grande (imagens, PDFs) ---
-
-const TAMANHO_BLOCO_BASE64 = 8192;
-
-function paraBase64(bytes: Uint8Array): string {
-  const partes: string[] = [];
-  for (let i = 0; i < bytes.length; i += TAMANHO_BLOCO_BASE64) {
-    const bloco = bytes.subarray(i, i + TAMANHO_BLOCO_BASE64);
-    let binario = "";
-    for (let j = 0; j < bloco.length; j++) {
-      binario += String.fromCharCode(bloco[j]);
-    }
-    partes.push(binario);
-  }
-  return btoa(partes.join(""));
-}
-
-function deBase64(base64: string): Uint8Array {
-  const binario = atob(base64);
-  const bytes = new Uint8Array(binario.length);
-  for (let i = 0; i < binario.length; i++) {
-    bytes[i] = binario.charCodeAt(i);
-  }
-  return bytes;
-}
 
 // --- gzip via CompressionStream/DecompressionStream ---
 
