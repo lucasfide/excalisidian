@@ -176,34 +176,51 @@ export const useSyncStore = create<SyncStoreState>((set) => {
       agora: depsAtuais.agora,
     };
 
-    let resultado: ResultadoCiclo;
+    // `finally` cobre o ciclo INTEIRO, inclusive a persistência abaixo: uma falha em
+    // `salvarEstadoSync` (disco cheio, permissão) não pode deixar `cicloEmAndamento` travado
+    // em `true` para sempre — sem isto, todo gatilho seguinte só marcaria `pedidoDeNovo` e
+    // nenhum ciclo rodaria de novo até o app fechar, sem status de erro nenhum na tela (achado
+    // da revisão do plano 09, commit aae9361).
     try {
-      const executar = depsAtuais.executarCiclo ?? executarCicloPadrao;
-      resultado = await executar(ctx);
-    } catch {
-      resultado = { ok: false, erro: "servidor", foraDaSincronizacao: [] };
-    }
-
-    // Persiste o resultado (sucesso ou falha) SEMPRE — mas só se `parar()` não mudou a
-    // geração enquanto o ciclo estava em voo: um `iniciar()` seguinte pode já ter carregado
-    // (ou não) um `EstadoSync` diferente, e gravar por cima aqui apagaria isso.
-    if (minhaGeracao === geracao) {
-      await salvarEstadoSync(raiz, estado);
-    }
-
-    cicloEmAndamento = false;
-
-    if (minhaGeracao === geracao) {
-      if (resultado.ok) {
-        paradoPorErroPersistente = false;
-        set({
-          status: "sincronizado",
-          ultimoCiclo: new Date(),
-          foraDaSincronizacao: resultado.foraDaSincronizacao,
-        });
-      } else {
-        aplicarErro(resultado.erro, resultado.foraDaSincronizacao);
+      let resultado: ResultadoCiclo;
+      try {
+        const executar = depsAtuais.executarCiclo ?? executarCicloPadrao;
+        resultado = await executar(ctx);
+      } catch {
+        // Exceção inesperada do `executarCiclo` (não um `ResultadoCiclo` de erro): nunca
+        // derruba o app.
+        resultado = { ok: false, erro: "servidor", foraDaSincronizacao: [] };
       }
+
+      // Persiste o resultado (sucesso ou falha) SEMPRE — mas só se `parar()` não mudou a
+      // geração enquanto o ciclo estava em voo: um `iniciar()` seguinte pode já ter carregado
+      // (ou não) um `EstadoSync` diferente, e gravar por cima aqui apagaria isso.
+      if (minhaGeracao === geracao) {
+        try {
+          await salvarEstadoSync(raiz, estado);
+        } catch {
+          // Falha ao GRAVAR o estado (não ao sincronizar): o `estado` em memória continua
+          // valendo — nada foi perdido, só não foi pro disco ainda — e o próximo ciclo tenta
+          // salvar de novo. Nunca propaga: isto roda dentro de `void rodarCiclo()`, e uma
+          // rejeição não tratada aqui viraria um "unhandled rejection" global.
+          resultado = { ok: false, erro: "servidor", foraDaSincronizacao: [] };
+        }
+      }
+
+      if (minhaGeracao === geracao) {
+        if (resultado.ok) {
+          paradoPorErroPersistente = false;
+          set({
+            status: "sincronizado",
+            ultimoCiclo: new Date(),
+            foraDaSincronizacao: resultado.foraDaSincronizacao,
+          });
+        } else {
+          aplicarErro(resultado.erro, resultado.foraDaSincronizacao);
+        }
+      }
+    } finally {
+      cicloEmAndamento = false;
     }
 
     if (pedidoDeNovo) {

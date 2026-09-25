@@ -12,6 +12,9 @@ vi.mock("../estado/vaultStore", () => ({
 }));
 
 const guardados: Record<string, unknown> = {};
+/** Liga/desliga por teste — permite simular `salvarEstadoSync` lançando (disco cheio,
+ * permissão), sem precisar mockar `sync/estadoSync.ts` inteiro. */
+let salvarDeveFalhar = false;
 vi.mock("@tauri-apps/plugin-store", () => ({
   load: async () => ({
     get: async (k: string) => guardados[k],
@@ -21,7 +24,9 @@ vi.mock("@tauri-apps/plugin-store", () => ({
     clear: async () => {
       for (const k of Object.keys(guardados)) delete guardados[k];
     },
-    save: async () => {},
+    save: async () => {
+      if (salvarDeveFalhar) throw new Error("disco cheio");
+    },
   }),
 }));
 
@@ -159,6 +164,7 @@ function montarDeps(overrides: Partial<DepsSyncStore> = {}): Montagem {
 describe("syncStore", () => {
   beforeEach(() => {
     for (const k of Object.keys(guardados)) delete guardados[k];
+    salvarDeveFalhar = false;
     useSyncStore.getState().parar();
     vi.useFakeTimers();
   });
@@ -425,5 +431,48 @@ describe("syncStore", () => {
   it("sincronizarAgora() sem iniciar() antes não faz nada", async () => {
     await useSyncStore.getState().sincronizarAgora();
     expect(useSyncStore.getState().status).toBe("desligado");
+  });
+
+  it("falha ao salvar o EstadoSync (disco cheio) vira { erro: servidor } e não trava o agendador", async () => {
+    await salvarEstadoSync(RAIZ, estadoBase());
+    const { deps, exec } = montarDeps();
+    await useSyncStore.getState().iniciar(RAIZ, deps); // 1ª chamada, ainda pendente
+
+    salvarDeveFalhar = true;
+    exec.resolverProxima(OK); // o ciclo "deu certo", mas salvarEstadoSync vai lançar
+    await drenar();
+
+    expect(useSyncStore.getState().status).toEqual({ erro: "servidor" });
+
+    // O agendador NÃO pode ter ficado preso em "cicloEmAndamento": o próximo gatilho
+    // automático tem que disparar um ciclo de verdade, não só marcar `pedidoDeNovo` para
+    // sempre.
+    salvarDeveFalhar = false;
+    await vi.advanceTimersByTimeAsync(60_000);
+    expect(exec.chamadas).toHaveLength(2);
+
+    exec.resolverProxima(OK);
+    await drenar();
+    expect(useSyncStore.getState().status).toBe("sincronizado");
+  });
+
+  it("falha ao salvar o EstadoSync: sincronizarAgora() logo em seguida roda um ciclo de verdade, sem ficar preso", async () => {
+    await salvarEstadoSync(RAIZ, estadoBase());
+    const { deps, exec } = montarDeps();
+    await useSyncStore.getState().iniciar(RAIZ, deps);
+
+    salvarDeveFalhar = true;
+    exec.resolverProxima(OK);
+    await drenar();
+    expect(useSyncStore.getState().status).toEqual({ erro: "servidor" });
+
+    salvarDeveFalhar = false;
+    void useSyncStore.getState().sincronizarAgora();
+    await drenar();
+    expect(exec.chamadas).toHaveLength(2); // rodou de verdade, não ficou só "pedido pendente"
+
+    exec.resolverProxima(OK);
+    await drenar();
+    expect(useSyncStore.getState().status).toBe("sincronizado");
   });
 });
