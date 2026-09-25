@@ -363,12 +363,14 @@ ver a tela sem sincronização de verdade existir, há um comando só de desenvo
 conflito de sincronização", na paleta de comandos. O desenho técnico da sincronização de verdade
 está fechado em `docs/17-sincronizacao.md` e no ADR-40; o núcleo (cifra, formato dos pacotes,
 decisões de conflito, servidor falso — `docs/superpowers/plans/2026-09-24-08-nucleo-da-sincronizacao.md`)
-está pronto. O motor da sincronização pronto e testado com servidor falso e dois computadores
-simulados; falta a tela, o cofre da chave e o servidor de verdade
+está pronto. Sincronização pronta no cliente — tela nas Configurações, ícone de estado, chave
+no cofre do Windows — e testável em desenvolvimento com um servidor de teste local e uma conta
+de teste (doc 17 §10); falta o servidor de verdade
 (plano `docs/superpowers/plans/2026-09-24-10-sincronizacao-na-tela.md`).
 
-**Status:** tela de conflitos pronta; motor de sincronização pronto e testado; falta a tela, o
-cofre da chave e o servidor de verdade.
+**Status:** sincronização pronta no cliente — tela nas Configurações, ícone de estado, chave no
+cofre do Windows — e testável em desenvolvimento com um servidor de teste local e uma conta de
+teste (doc 17 §10); falta o servidor de verdade.
 
 **Pronto quando:** existir um servidor de sincronização cifrada e a tela de conflitos
 estiver integrada a ele.

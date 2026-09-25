@@ -102,7 +102,7 @@ src/
 │   ├── idioma.ts            tipo Idioma = "pt-BR" | "en", detecção pelo idioma do sistema
 │   ├── tradutor.ts          resolução chave -> idioma pedido -> português -> a própria chave
 │   ├── catalogo.ts          porta de entrada única; monta PT_BR e EN por espalhamento
-│   ├── catalogo/            textos por domínio: vault.ts, prefs.ts, agente.ts, conta.ts
+│   ├── catalogo/            textos por domínio: vault.ts, prefs.ts, agente.ts, conta.ts, sync.ts (seção Sincronização e ícone de status na sidebar — plano 10)
 │   ├── useTexto.ts          hook para componente React
 │   ├── traduzirAgora.ts     tradução fora de componente React (transporte, stores)
 │   └── cobertura.test.ts    trava: toda chave em português tem que ter inglês
@@ -114,18 +114,31 @@ src/
 │   ├── tipos.ts
 │   ├── ServicoConta.ts       contrato: entrar, criar, renovar, sair
 │   ├── ServicoContaFake.ts   implementação em memória, para teste
-│   └── ServicoContaHttp.ts   implementação real
+│   ├── ServicoContaFakeDev.ts conta de teste fixa em DEV, sem servidor de conta (doc 17 §10; plano 10)
+│   ├── ServicoContaHttp.ts   implementação real
+│   ├── cofreChaveDeEnvelope.ts guarda a `chaveDeEnvelope` da sincronização no cofre de senhas do Windows (doc 17 §2; plano 10)
+│   └── CofreChaveDeEnvelopeFake.ts implementação em memória de cofreChaveDeEnvelope, para teste (plano 10)
 ├── sync/                    sincronização cifrada ponta a ponta — doc 17, ADR-32/40
 │   ├── tipos.ts, cenaDeConflito.ts, colunasComparacao.ts, diffLinhas.ts,
 │   │   nomeDeConflito.ts, resolucao.ts, simularConflito.ts   tela de conflitos (ADR-32), pronta
 │   ├── pacote.ts             cifra AES-256-GCM com AAD, preenchimento em escada
 │   ├── formato.ts            serialização de Lote e Retrato
+│   ├── base64.ts             conversão bytes ↔ base64 em blocos, extraída de formato.ts para reuso em ServicoSyncHttp.ts (plano 10)
 │   ├── decisoes.ts           mudança local e ação para mudança remota
 │   ├── tiposServidor.ts      tipos do contrato do servidor (Lote, Retrato, EnvelopeChave, códigos de falha)
 │   ├── ServicoSync.ts, ServicoSyncFake.ts   contrato do servidor, igual padrão de ServicoConta
+│   ├── nucleoServidorSync.ts lógica do servidor (sequência, "fora-de-ordem", regra do retrato) compartilhada por ServicoSyncFake e ServicoSyncLocal (plano 10)
+│   ├── ServicoSyncHttp.ts    implementação real de ServicoSync sobre plugin-http, para o servidor de verdade (plano 10)
+│   ├── ServicoSyncLocal.ts   servidor de teste local em arquivos, só em desenvolvimento, para duas janelas do app enxergarem o mesmo "servidor" (doc 17 §10; plano 10)
+│   ├── servicoSyncAtual.ts   escolhe ServicoSyncLocal em dev ou ServicoSyncHttp em produção (doc 17 §10; plano 10)
 │   ├── estadoSync.ts         EstadoSync por computador, persistido em plugin-store; nome do computador
 │   ├── aplicar.ts            aplica um lote remoto no vault (grava, move para lixeira, resolve conflito)
-│   └── motor.ts              ciclo baixar → detectar → enviar → guardar, testável sem Tauri
+│   ├── motor.ts              ciclo baixar → detectar → enviar → guardar, testável sem Tauri
+│   ├── fluxoSecao.ts         decisões puras de qual estado mostrar na seção "Sincronização" das Configurações (plano 10)
+│   ├── decisaoLigar.ts       decisão pura de ligar (ou não, e por quê) a sincronização ao vault aberto nesta janela (plano 10)
+│   ├── ligarAoVault.ts       casca de I/O que reúne os booleanos (vault, conta, cofre) e chama decidirLigar (plano 10)
+│   ├── cicloDeVidaSync.ts    instala, uma vez por janela, o gatilho de ligarAoVault a cada abertura/troca de vault (plano 10)
+│   └── iconeStatus.ts        mapeia StatusSync para o nome do ícone e a cor do IconeSincronizacao na sidebar (doc 06; plano 10)
 ├── agente/                    agente de IA opcional (doc 11) — único outro código que fala com rede
 │   ├── tipos.ts
 │   ├── provedores.ts          catálogo de provedores, dialetos, base URLs, preços
@@ -155,6 +168,8 @@ src/
 ├── ui/                      componentes-base do design system (Botao, Campo, Dialog, Menu, Select, …)
 │   │                        Dialog renderiza por portal em document.body — ver nota abaixo (doc 09, ADR-37)
 │   └── excalisidian/        componentes específicos do produto (árvore, sidebar, diálogos, tarefas, agente, glossário, múltiplos vaults, …)
+│       ├── SecaoSincronizacao.tsx  seção "Sincronização" das Configurações, com os estados de fluxoSecao.ts (doc 17 §7-8; plano 10)
+│       └── IconeSincronizacao.tsx  ícone de estado da sincronização no rodapé da sidebar (doc 06; plano 10)
 ├── estado/
 │   ├── vaultStore.ts, documentosStore.ts, workspaceStore.ts
 │   ├── prefsStore.ts, agenteStore.ts, atualizacaoStore.ts, tarefasStore.ts, contaStore.ts

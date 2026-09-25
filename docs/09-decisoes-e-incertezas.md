@@ -1822,8 +1822,9 @@ sincronização entre computadores e é aceito como parte do desenho (docs/17-si
 | Outra cifra (XChaCha20-Poly1305, por uma biblioteca externa, `@noble/ciphers`) em vez da cifra já embutida no navegador do app | Traria uma dependência a mais sem ganho de segurança sobre a cifra que já vem pronta (AES-256-GCM da WebCrypto), disponível tanto no app quanto nos testes automatizados. |
 | Sincronizar também a lixeira de cada computador | Uma exclusão viraria duas mudanças (o arquivo some de um lado, aparece na lixeira do outro) que se cruzariam de volta no computador que apagou — voltando a mostrar um arquivo que a pessoa já tinha decidido apagar. |
 
-**Estado real: motor da sincronização pronto e testado com servidor falso e dois computadores
-simulados; falta a tela, o cofre da chave e o servidor de verdade
+**Estado real: sincronização pronta no cliente — tela nas Configurações, ícone de estado,
+chave no cofre do Windows — e testável em desenvolvimento com um servidor de teste local e uma
+conta de teste (doc 17 §10). Falta o servidor de verdade
 (plano `docs/superpowers/plans/2026-09-24-10-sincronizacao-na-tela.md`).**
 
 **Consequências:** a Fatia 15 do roadmap passa a ter um desenho técnico completo para seguir,
