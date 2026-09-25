@@ -475,4 +475,46 @@ describe("syncStore", () => {
     await drenar();
     expect(useSyncStore.getState().status).toBe("sincronizado");
   });
+
+  // `iniciarPendente` (plano 10 Task 5): `ligarAoVault.ts` chama isto quando `listarVaults()`
+  // falha com `rede` ANTES de conseguir montar os `DepsSyncStore` (não tem adaptador nem
+  // serviço prontos ainda) — sem isto, um vault já sincronizado neste computador, mas com o
+  // app offline no boot, ficaria mostrando "não sincronizado" em vez de "sem conexão", porque
+  // `raiz` nunca teria sido setado. Não agenda nada sozinho: quem tenta de novo é
+  // `ligarAoVault.ts` (temporizador próprio dele), não o agendador deste store.
+  it("iniciarPendente marca 'sem-conexao' e a raiz, sem chamar executarCiclo", () => {
+    useSyncStore.getState().iniciarPendente(RAIZ);
+    expect(useSyncStore.getState().status).toBe("sem-conexao");
+    expect(useSyncStore.getState().raiz).toBe(RAIZ);
+    expect(useSyncStore.getState().ultimoCiclo).toBeNull();
+    expect(useSyncStore.getState().foraDaSincronizacao).toEqual([]);
+  });
+
+  it("iniciarPendente não deixa o store operante: sincronizarAgora() é no-op sem deps", async () => {
+    useSyncStore.getState().iniciarPendente(RAIZ);
+    await useSyncStore.getState().sincronizarAgora();
+    // Continua "sem-conexao" — sincronizarAgora() não tinha deps pra rodar um ciclo de verdade.
+    expect(useSyncStore.getState().status).toBe("sem-conexao");
+  });
+
+  it("parar() depois de iniciarPendente volta a 'desligado' e zera a raiz", () => {
+    useSyncStore.getState().iniciarPendente(RAIZ);
+    useSyncStore.getState().parar();
+    expect(useSyncStore.getState().status).toBe("desligado");
+    expect(useSyncStore.getState().raiz).toBeNull();
+  });
+
+  it("iniciar() de verdade depois de iniciarPendente substitui o estado pendente normalmente", async () => {
+    await salvarEstadoSync(RAIZ, estadoBase());
+    useSyncStore.getState().iniciarPendente(RAIZ);
+    const { deps, exec } = montarDeps();
+
+    await useSyncStore.getState().iniciar(RAIZ, deps);
+    expect(exec.chamadas).toHaveLength(1);
+    expect(useSyncStore.getState().status).toBe("sincronizando");
+
+    exec.resolverProxima(OK);
+    await drenar();
+    expect(useSyncStore.getState().status).toBe("sincronizado");
+  });
 });

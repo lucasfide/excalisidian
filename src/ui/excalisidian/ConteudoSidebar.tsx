@@ -12,10 +12,13 @@ import BarraFerramentasSidebar from "./BarraFerramentasSidebar";
 import BotaoOrdenacao from "./BotaoOrdenacao";
 import CampoBuscaSidebar from "./CampoBuscaSidebar";
 import SeletorVault from "./SeletorVault";
+import IconeSincronizacao from "./IconeSincronizacao";
 
 interface Props {
   onAbrirLixeira(): void;
-  onAbrirPreferencias(): void;
+  /** Sem argumento: abre na primeira seção. "sincronizacao": usada pelo `IconeSincronizacao`
+   * do rodapé (plano 10 Task 5), mesmo mecanismo de `secaoInicial` da seção Conta. */
+  onAbrirPreferencias(secaoInicial?: "sincronizacao"): void;
 }
 
 export default function ConteudoSidebar({
@@ -72,10 +75,11 @@ export default function ConteudoSidebar({
             titulo="Galeria de anexos"
             onClick={() => useSobreposicaoStore.getState().abrir("galeria")}
           />
+          <IconeSincronizacao onAbrirConfiguracoes={() => onAbrirPreferencias("sincronizacao")} />
           <BotaoIcone
             Icone={Settings}
             titulo="Configurações"
-            onClick={onAbrirPreferencias}
+            onClick={() => onAbrirPreferencias()}
           />
         </div>
       </div>

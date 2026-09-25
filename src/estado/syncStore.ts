@@ -104,6 +104,16 @@ interface SyncStoreState {
    * `"desligado"`. Um ciclo já em andamento termina, mas seu resultado é ignorado (a geração
    * mudou) — nada é persistido nem aplicado ao estado de um `iniciar()` seguinte. */
   parar(): void;
+  /** Plano 10 Task 5: `ligarAoVault.ts` chama isto quando `listarVaults()` falhou com `rede`
+   * ANTES de conseguir montar os `DepsSyncStore` (adaptador, serviço, chave do vault — nada
+   * disso existe ainda sem uma resposta do servidor). Sem isto, um vault que JÁ está
+   * sincronizado neste computador (tem `EstadoSync` gravado), mas abriu com o app offline,
+   * ficaria com `raiz === null` — a seção Sincronização e o ícone do rodapé o veriam como "não
+   * sincronizado" em vez de "sincronizado, sem conexão agora". Não deixa o store operante:
+   * `deps`/`estadoEmMemoria` continuam `null`, então nenhum ciclo automático ou
+   * `sincronizarAgora()` roda — quem tenta de novo é o temporizador de `ligarAoVault.ts`,
+   * chamando `iniciar()` de verdade quando conseguir falar com o servidor. */
+  iniciarPendente(raiz: string): void;
   /** "Sincronizar agora" (doc 17 §7): força uma tentativa mesmo se o agendamento automático
    * estiver parado por causa de `sessao`/`plano`/`espaco` (doc 17 §5) — é o gatilho que "algo
    * mudou" descrito lá. Um ciclo já em andamento vira só mais um pedido de "rodar de novo ao
@@ -351,6 +361,21 @@ export const useSyncStore = create<SyncStoreState>((set) => {
       // "Ao abrir o vault" (doc 17 §5) — dispara já, sem esperar o debounce nem os 60 s.
       // Não é `await`ado: `iniciar()` não bloqueia a interface por um ciclo inteiro.
       agendarAutomatico();
+    },
+
+    iniciarPendente(raiz) {
+      // Mesma limpeza de `iniciar()`/`parar()`: qualquer agendamento ou ciclo em voo de uma
+      // ligação anterior (vault trocado, ou uma tentativa `iniciar()` real que não deu tempo de
+      // terminar) não pode continuar valendo depois disto.
+      limparAgendamento();
+      geracao += 1;
+      deps = null;
+      estadoEmMemoria = null;
+      raizAtual = null;
+      cicloEmAndamento = false;
+      pedidoDeNovo = false;
+      paradoPorErroPersistente = false;
+      set({ raiz, status: "sem-conexao", ultimoCiclo: null, foraDaSincronizacao: [] });
     },
 
     parar() {

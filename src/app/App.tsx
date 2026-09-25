@@ -24,12 +24,14 @@ import { comandoNovaNota, comandoNovoDesenho } from "./comandos/criacao";
 import { useAutosave } from "../editor/useAutosave";
 import { useRessincronizarAoVoltar } from "./useRessincronizarAoVoltar";
 import { instalarOuvintesEntreJanelas } from "./flushEntreJanelas";
+import { instalarCicloDeVidaSync } from "../sync/cicloDeVidaSync";
 import Workspace from "../layout/Workspace";
 import { BotaoIcone } from "../ui";
 import TelaBoasVindas from "../ui/excalisidian/TelaBoasVindas";
 import { criarConteudoInicial } from "../vault/conteudoInicial";
 import BarraStatus from "../ui/excalisidian/BarraStatus";
 import ConteudoSidebar from "../ui/excalisidian/ConteudoSidebar";
+import IconeSincronizacao from "../ui/excalisidian/IconeSincronizacao";
 import ArvoreEBacklinks from "../ui/excalisidian/ArvoreEBacklinks";
 import DialogoPreferencias from "../ui/excalisidian/DialogoPreferencias";
 import DialogoAtualizacao from "../ui/excalisidian/DialogoAtualizacao";
@@ -59,10 +61,11 @@ export default function App() {
   const [preferenciasAbertas, setPreferenciasAbertas] = useState(false);
   // T4: o passo de conta do assistente do agente pode abrir as preferências na seção Conta,
   // por cima de si mesmo, sem se fechar (perder o que o usuário já preencheu no assistente).
-  // `secaoInicial` manda o dialog rolar até lá.
-  const [secaoPreferenciasInicial, setSecaoPreferenciasInicial] = useState<"conta" | undefined>(
-    undefined,
-  );
+  // Plano 10 Task 5: o `IconeSincronizacao` do rodapé usa o mesmo mecanismo pra seção
+  // Sincronização. `secaoInicial` manda o dialog rolar até lá.
+  const [secaoPreferenciasInicial, setSecaoPreferenciasInicial] = useState<
+    "conta" | "sincronizacao" | undefined
+  >(undefined);
   // Se as Configurações já estavam abertas (usuário chegou ao assistente por "Configurar
   // agente" dentro delas), `setPreferenciasAbertas(true)` no "Entrar na conta" não faz nada —
   // já era `true`, React não remonta. O `DialogoPreferencias` continua com o portal anexado
@@ -71,6 +74,16 @@ export default function App() {
   // portal é reanexado por último ao `body` e o Dialog volta ao topo da `fila`, na frente do
   // assistente, mesmo quando já estava aberto.
   const [chavePreferencias, setChavePreferencias] = useState(0);
+  // Ponto único de "abrir as Configurações", com ou sem seção — usado pelos dois rodapés da
+  // sidebar (colapsado aqui, expandido em `ConteudoSidebar`), pelo atalho Ctrl+, e pelo
+  // `IconeSincronizacao`. Sempre bombeia `chavePreferencias`: mesmo mecanismo do "Entrar na
+  // conta" (comentário acima) — barato, e cobre o caso de as Configurações já estarem abertas
+  // noutra seção sem precisar de um caminho separado.
+  const abrirPreferencias = useCallback((secao?: "conta" | "sincronizacao") => {
+    setSecaoPreferenciasInicial(secao);
+    setChavePreferencias((n) => n + 1);
+    setPreferenciasAbertas(true);
+  }, []);
   const [lixeiraAberta, setLixeiraAberta] = useState(false);
   const [painelFlutuanteAberto, setPainelFlutuanteAberto] = useState(false);
   const abrirPainelTimerRef = useRef<number | null>(null);
@@ -125,6 +138,12 @@ export default function App() {
   // e propagação de preferências da máquina (doc 12 §6). Instalado uma vez por janela.
   useEffect(() => instalarOuvintesEntreJanelas(), []);
 
+  // Plano 10 Task 5: liga o `syncStore` ao vault aberto nesta janela (e à conta, "sessão
+  // chega tarde") — instalado uma vez por janela, como o efeito acima. Não depende da ordem
+  // de boot: os `subscribe` cobrem o vault abrindo e a conta carregando DEPOIS deste efeito
+  // (ver `cicloDeVidaSync.ts`).
+  useEffect(() => instalarCicloDeVidaSync(), []);
+
   useEffect(() => {
     void usePrefsStore.getState().carregar();
   }, []);
@@ -168,12 +187,12 @@ export default function App() {
     const onKey = (e: KeyboardEvent) => {
       if ((e.ctrlKey || e.metaKey) && e.key === ",") {
         e.preventDefault();
-        setPreferenciasAbertas(true);
+        abrirPreferencias();
       }
     };
     window.addEventListener("keydown", onKey, true);
     return () => window.removeEventListener("keydown", onKey, true);
-  }, []);
+  }, [abrirPreferencias]);
 
   // A aba ativa fica destacada na árvore (`ItemArvore.destacado`), mas isso só tem efeito se
   // a linha existir — abre as pastas ancestrais pra ela aparecer mesmo se estava fechada.
@@ -393,7 +412,7 @@ export default function App() {
             ) : (
               <ConteudoSidebar
                 onAbrirLixeira={() => setLixeiraAberta(true)}
-                onAbrirPreferencias={() => setPreferenciasAbertas(true)}
+                onAbrirPreferencias={abrirPreferencias}
               />
             )}
 
@@ -404,10 +423,13 @@ export default function App() {
                   titulo="Lixeira"
                   onClick={() => setLixeiraAberta(true)}
                 />
+                <IconeSincronizacao
+                  onAbrirConfiguracoes={() => abrirPreferencias("sincronizacao")}
+                />
                 <BotaoIcone
                   Icone={Settings}
                   titulo="Configurações"
-                  onClick={() => setPreferenciasAbertas(true)}
+                  onClick={() => abrirPreferencias()}
                 />
                 <BotaoIcone
                   Icone={Images}
@@ -483,14 +505,7 @@ export default function App() {
         />
       )}
       {agenteAssistenteAberto && (
-        <DialogoAgente
-          key="agente"
-          aoAbrirConta={() => {
-            setSecaoPreferenciasInicial("conta");
-            setChavePreferencias((n) => n + 1);
-            setPreferenciasAbertas(true);
-          }}
-        />
+        <DialogoAgente key="agente" aoAbrirConta={() => abrirPreferencias("conta")} />
       )}
       {lixeiraAberta && <PainelLixeira onFechar={() => setLixeiraAberta(false)} />}
       <Toaster
