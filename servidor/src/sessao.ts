@@ -41,6 +41,11 @@ export interface SessaoCriada {
 }
 
 export function criarSessao(banco: BancoSqlite, contaId: number): SessaoCriada {
+  // Barato e sem cron: toda vez que a conta entra ou renova, aproveita para apagar as
+  // sessões já vencidas dela mesma — nunca seriam usadas de novo (`resolverSessao` já as
+  // ignora), então não há motivo para deixá-las na tabela para sempre.
+  banco.prepare(`delete from sessoes where conta_id = ? and expira_em < ?`).run(contaId, Date.now());
+
   const token = gerarToken();
   const expiraEm = Date.now() + DURACAO_SESSAO_MS;
   banco

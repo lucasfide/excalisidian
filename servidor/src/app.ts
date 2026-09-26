@@ -16,7 +16,13 @@ declare module "fastify" {
 }
 
 export function criarApp(config: Config): FastifyInstance {
-  const app = Fastify({ logger: false });
+  // Na VPS o servidor escuta só em 127.0.0.1 (doc 18 §2) e toda requisição chega pelo
+  // Caddy — sem isto, `request.ip` seria sempre 127.0.0.1 e o limite de tentativas por IP
+  // (doc 18 §3) contaria todo mundo junto. `trustProxy: "127.0.0.1"` confia SÓ em quem
+  // conecta desse endereço para ler `X-Forwarded-For`; uma conexão de qualquer outro
+  // endereço (alguém que não passou pelo Caddy) não consegue forjar o próprio IP por esse
+  // cabeçalho — `request.ip` continua sendo o endereço real de quem conectou.
+  const app = Fastify({ logger: false, trustProxy: "127.0.0.1" });
 
   const banco = abrirBanco(config.pastaDados);
   app.decorate("banco", banco);

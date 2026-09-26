@@ -91,8 +91,12 @@ export async function rotasApi(app: FastifyInstance): Promise<void> {
           .run(emailNormalizado, sal, hash, criadaEm);
         contaId = Number(resultado.lastInsertRowid);
       } catch (erro) {
-        const mensagem = erro instanceof Error ? erro.message : String(erro);
-        if (mensagem.includes("UNIQUE")) return reply.code(409).send();
+        // `better-sqlite3` expõe o código da violação em `.code` (confirmado localmente:
+        // "SQLITE_CONSTRAINT_UNIQUE") — mais confiável do que checar a mensagem, que é
+        // texto livre e pode mudar entre versões da lib do SQLite.
+        if ((erro as { code?: string }).code === "SQLITE_CONSTRAINT_UNIQUE") {
+          return reply.code(409).send();
+        }
         throw erro;
       }
 
