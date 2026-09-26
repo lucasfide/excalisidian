@@ -116,6 +116,14 @@ function adotar(estado: EstadoSync, copia: EstadoSync): void {
 
 function codigoDeErro(erro: unknown): ErroSync {
   if (erro instanceof FalhaSync) return erro.codigo;
+  // Só em DEV: um erro que não é `FalhaSync` (ex.: o plugin-fs recusando um caminho fora do
+  // escopo, como a pasta `sync-teste/` de ServicoSyncLocal) virava "servidor" em silêncio — a
+  // UI mostra o erro genérico e não dá pra saber a causa real sem reproduzir manualmente. A
+  // mensagem aqui só tem o caminho da pasta de teste (nunca conteúdo de nota, chave ou nome de
+  // arquivo do vault do usuário).
+  if (import.meta.env.DEV) {
+    console.error("[sync] erro não classificado, mapeado para \"servidor\":", erro);
+  }
   return "servidor";
 }
 
