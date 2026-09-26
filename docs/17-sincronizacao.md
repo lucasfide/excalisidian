@@ -351,6 +351,8 @@ por baixo do mesmo contrato `ServicoSync` — nada disto existe fora de DEV.
      sincronizar de novo, depois deixar as duas sincronizarem.
 - Em produção, nada disso existe: depois de `npm run build`, `dist/` não pode conter a senha de
   teste, o e-mail de teste, a string `sync-teste` nem `ServicoSyncLocal` — a Task 6 confere isso.
+- `VITE_SERVIDOR=real` em desenvolvimento troca este padrão pelo servidor de verdade, para testar
+  contra o servidor de verdade em desenvolvimento (doc 18 §5).
 
 ---
 

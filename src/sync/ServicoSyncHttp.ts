@@ -5,7 +5,7 @@
 // fetch do Tauri). Mapeamento HTTP do doc 17 §9.1.
 //
 // Lembrete: o host precisa estar no escopo de http do src-tauri/capabilities/main.json
-// (já está: https://api.excalisidian.app/*), senão o reqwest recusa antes de sair da máquina.
+// (já está: https://api.excalisidian.com/*), senão o reqwest recusa antes de sair da máquina.
 
 import { fetch as fetchTauri } from "@tauri-apps/plugin-http";
 

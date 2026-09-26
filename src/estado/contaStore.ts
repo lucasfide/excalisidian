@@ -23,6 +23,7 @@ import { CofreChaveDeEnvelopeSistema } from "../conta/cofreChaveDeEnvelope";
 import { lerTokenComMigracao, type TokenLegado } from "../conta/migracaoToken";
 import { FalhaConta, type ErroConta, type PlanoAssinatura, type Sessao } from "../conta/tipos";
 import { definirTokenDaSessao } from "../servico/sessao";
+import { decidirModoServidor } from "../servico/modoServidor";
 
 // Legado, só para migração (ADR-34): antes do cofre do sistema, o token morava em texto puro
 // nesta chave do settings.json. `carregar()` lê essa chave uma vez, migra para o cofre e apaga
@@ -44,15 +45,22 @@ function codigoDe(e: unknown): ErroConta {
 }
 
 /** Em desenvolvimento (`npm run tauri dev`), a conta de teste premium fixa (doc 17 §10,
- * plano 10 task-6) — dá para entrar sem servidor de conta, inclusive testar a sincronização
+ * doc 18 §5) — dá para entrar sem servidor de conta, inclusive testar a sincronização
  * entre duas janelas (ver ServicoContaFakeDev sobre o token determinístico). Em produção, o
- * servidor de verdade. Mesmo mecanismo de eliminação de `simularConflito.ts`/
+ * servidor de verdade. Em DEV, `VITE_SERVIDOR=real` troca para o servidor de verdade também
+ * (`decidirModoServidor`). Mesmo mecanismo de eliminação de `simularConflito.ts`/
  * `PaletaComandos.tsx`: `import.meta.env.DEV` vira uma constante literal no build e o ramo
  * `ServicoContaFakeDev` — junto com o e-mail e a senha de teste — some do bundle de produção
- * (confira com grep em dist/ depois de `npm run build`).
+ * (confira com grep em dist/ depois de `npm run build`). Por isso `import.meta.env.DEV`
+ * continua literal aqui, e `decidirModoServidor` só entra como condição extra dentro do mesmo
+ * ramo — nunca no lugar dele.
  */
 function servicoContaPadrao(): ServicoConta {
-  return import.meta.env.DEV
+  const local =
+    import.meta.env.DEV &&
+    decidirModoServidor({ dev: import.meta.env.DEV, variavelServidor: import.meta.env.VITE_SERVIDOR }) ===
+      "local";
+  return local
     ? new ServicoContaFakeDev({
         [EMAIL_CONTA_TESTE_DEV]: { senha: SENHA_CONTA_TESTE_DEV, plano: "premium" },
       })
