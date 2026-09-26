@@ -1854,7 +1854,8 @@ aceitar conexão de fora, e só para este servidor novo.
 | Docker | Não está instalado na VPS, e seria mais uma camada para o dono do produto administrar sem necessidade. |
 | Postgres (banco de dados maior) | Mais um serviço rodando na VPS para uma quantidade de dados que o SQLite já atende sem problema. |
 
-**Estado: desenho fechado, em construção.**
+**Estado: instalado e no ar** em `https://api.excalisidian.com/v1/saude`, com certificado válido
+(26/09/2026). Falta o dono do produto testar entre dois computadores.
 
 **Consequência declarada:** o backup do servidor fica só no disco da própria VPS até existir
 uma cópia guardada fora dela.

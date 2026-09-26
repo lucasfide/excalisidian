@@ -61,6 +61,8 @@ Onde o servidor e esses contratos divergirem, o servidor está errado.
   `excalisidian-admin gratis <email>`, `excalisidian-admin contas`.
 - **Atualizar:** o app é empacotado nesta máquina, copiado pela rede privada (Tailscale) e o
   serviço é reiniciado. Passo a passo no `servidor/LEIAME.md`.
+- O `Caddyfile` padrão que veio com o Caddy foi guardado em
+  `/etc/caddy/Caddyfile.padrao-original` antes de ser substituído.
 
 ## 5. O que o app muda
 

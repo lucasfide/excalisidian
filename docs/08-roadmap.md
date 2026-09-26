@@ -366,7 +366,8 @@ decisões de conflito, servidor falso — `docs/superpowers/plans/2026-09-24-08-
 está pronto. Sincronização pronta no cliente — tela nas Configurações, ícone de estado, chave
 no cofre do Windows — e testável em desenvolvimento com um servidor de teste local e uma conta
 de teste (doc 17 §10); falta o servidor de verdade
-(plano `docs/superpowers/plans/2026-09-24-10-sincronizacao-na-tela.md`).
+(plano `docs/superpowers/plans/2026-09-24-10-sincronizacao-na-tela.md`). Já existe um servidor
+de verdade no ar (ver Fatia 16); falta ligar esta tela a ele e testar entre dois computadores.
 
 **Status:** sincronização pronta no cliente — tela nas Configurações, ícone de estado, chave no
 cofre do Windows — e testável em desenvolvimento com um servidor de teste local e uma conta de
@@ -384,7 +385,10 @@ O servidor de verdade para conta e sincronização, rodando na VPS do dono do pr
 `ServicoSyncHttp`, ADR-38, ADR-39, ADR-40, ADR-41). Desenho normativo em
 `docs/18-servidor.md`.
 
-**Estado:** em construção.
+**Estado real:** servidor de conta e sincronização instalado e no ar em
+`api.excalisidian.com` (26/09/2026) — certificado válido do Let's Encrypt via Caddy, serviços
+`excalisidian-api` e `excalisidian-backup.timer` ativos, portas 80/443 abertas no ufw. Falta o
+dono do produto testar entre dois computadores. A IA própria vem no próximo plano.
 
 **Pronto quando:** conta e sincronização funcionam entre dois computadores pelo
 `api.excalisidian.com`.
