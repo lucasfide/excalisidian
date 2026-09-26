@@ -107,3 +107,15 @@ export async function exigirSessao(request: FastifyRequest, reply: FastifyReply)
   request.conta = { id: linha.contaId, email: linha.email, plano: linha.plano };
   request.tokenSessao = token;
 }
+
+/**
+ * PreHandler "plano premium obrigatório" (doc 18 §3, Task 5): roda depois de `exigirSessao`
+ * (precisa de `request.conta` já preenchido) e responde 403 se a conta não é premium. As
+ * rotas de sincronização usam `preHandler: [exigirSessao, exigirPremium]`, nessa ordem — sem
+ * sessão é 401, com sessão mas sem o plano é 403 (doc 17 §9.1).
+ */
+export async function exigirPremium(request: FastifyRequest, reply: FastifyReply): Promise<void> {
+  if (request.conta!.plano !== "premium") {
+    await reply.code(403).send();
+  }
+}

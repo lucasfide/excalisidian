@@ -52,7 +52,7 @@ export function criarApp(config: Config): FastifyInstance {
     },
   );
 
-  app.register(rotasApi, { prefix: "/v1" });
+  app.register(rotasApi, { prefix: "/v1", pastaDados: config.pastaDados });
 
   return app;
 }

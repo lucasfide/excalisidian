@@ -9,11 +9,20 @@
 // Node puro); mudar a etiqueta aqui sem mudar lá quebraria o contrato de todas as contas.
 import { ETIQUETA_KDF, normalizarEmail } from "../../src/conta/derivacaoSenha";
 
-import type { FastifyInstance, FastifyRequest } from "fastify";
+import type { FastifyInstance, FastifyReply, FastifyRequest } from "fastify";
 import { LimiteDeTentativas } from "./limiteDeTentativas";
 import { gastarTempoDeEmailInexistente, gerarSal, provaConfere, derivarHashDaProva } from "./prova";
-import { criarSessao, exigirSessao, extrairBearer, revogarSessaoPorToken } from "./sessao";
+import { criarSessao, exigirPremium, exigirSessao, extrairBearer, revogarSessaoPorToken } from "./sessao";
 import type { SessaoResposta } from "./tipos";
+import { ArmazenamentoSqlite, bytesUsadosPelaConta, COTA_BYTES_POR_CONTA, TAMANHO_MAXIMO_PACOTE } from "./armazenamentoSync";
+
+// `NucleoServidorSync`/`FalhaSync` vêm do app por caminho relativo (mesmo padrão de
+// `ETIQUETA_KDF`/`normalizarEmail` acima): as regras do diário (sequência, "fora-de-ordem", a
+// regra do retrato, "ja-existe") moram num lugar só (src/sync/nucleoServidorSync.ts) e o
+// servidor real reaproveita — não reimplementa nada disso, só o armazenamento (SQLite +
+// arquivo) e a fronteira HTTP (doc 17 §9.1).
+import { NucleoServidorSync } from "../../src/sync/nucleoServidorSync";
+import { FalhaSync } from "../../src/sync/tiposServidor";
 
 interface CorpoContaOuSessao {
   email: string;
@@ -51,10 +60,14 @@ function decodificarProva(provaBase64: string): Buffer | undefined {
   return bytes.length === 32 ? bytes : undefined;
 }
 
-export async function rotasApi(app: FastifyInstance): Promise<void> {
+export async function rotasApi(
+  app: FastifyInstance,
+  opcoes: { pastaDados: string },
+): Promise<void> {
   app.get("/saude", async () => ({ ok: true }));
 
   const banco = app.banco;
+  const { pastaDados } = opcoes;
   const limiteEntrada = new LimiteDeTentativas();
   const limiteCriacao = new LimiteDeTentativas();
 
@@ -160,4 +173,197 @@ export async function rotasApi(app: FastifyInstance): Promise<void> {
     if (token) revogarSessaoPorToken(banco, token);
     return reply.code(204).send();
   });
+
+  // --- Sincronização (doc 17 §9.1, Task 5) --------------------------------------------------
+  //
+  // Toda rota exige sessão (401 sem Bearer válido) E plano premium (403 numa conta grátis —
+  // doc 18 §3). O armazenamento (`ArmazenamentoSqlite`) é criado por chamada, sempre escopado
+  // à conta autenticada — é isso que faz um vault de outra conta simplesmente não existir para
+  // quem pergunta (404, via FalhaSync("nao-encontrado") do núcleo). As regras do diário
+  // (sequência, "fora-de-ordem", a regra do retrato, "ja-existe") nunca são reimplementadas
+  // aqui — vêm todas de NucleoServidorSync.
+
+  registrarRotasSync(app, banco, pastaDados);
+}
+
+function decodificarBase64(valor: string): Uint8Array {
+  return new Uint8Array(Buffer.from(valor, "base64"));
+}
+
+/** Traduz uma `FalhaSync` do núcleo para a resposta HTTP do doc 17 §9.1. Qualquer outro erro
+ * (não deveria acontecer — o núcleo só lança estes três códigos) sobe e vira 500, sem mascarar
+ * um defeito real. */
+function tratarFalhaSync(erro: unknown, reply: FastifyReply): FastifyReply {
+  if (erro instanceof FalhaSync) {
+    if (erro.codigo === "nao-encontrado") return reply.code(404).send();
+    if (erro.codigo === "fora-de-ordem") return reply.code(409).send({ codigo: "fora-de-ordem" });
+    if (erro.codigo === "ja-existe") return reply.code(409).send({ codigo: "ja-existe" });
+  }
+  throw erro;
+}
+
+const SCHEMA_CRIAR_VAULT = {
+  type: "object",
+  additionalProperties: false,
+  required: ["id", "nomeCifrado", "envelope"],
+  properties: {
+    id: { type: "string", minLength: 1 },
+    nomeCifrado: { type: "string", minLength: 1 },
+    envelope: { type: "string", minLength: 1 },
+  },
+} as const;
+
+const SCHEMA_ENVIAR_LOTE = {
+  type: "object",
+  additionalProperties: false,
+  required: ["esperoUltima", "bytes"],
+  properties: {
+    esperoUltima: { type: "integer", minimum: 0 },
+    bytes: { type: "string", minLength: 1 },
+  },
+} as const;
+
+const SCHEMA_ENVIAR_RETRATO = {
+  type: "object",
+  additionalProperties: false,
+  required: ["ateSequencia", "partes"],
+  properties: {
+    ateSequencia: { type: "integer", minimum: 1 },
+    partes: { type: "array", items: { type: "string" } },
+  },
+} as const;
+
+/** `base64Len(n)` = tamanho de `n` bytes crus codificados em base64. `TAMANHO_MAXIMO_PACOTE`
+ * já inclui a folga de 28 bytes do envelope — aqui só se soma a folga do JSON em volta (chaves,
+ * aspas, o número de `esperoUltima`). */
+function tamanhoBase64(bytesCrus: number): number {
+  return Math.ceil(bytesCrus / 3) * 4;
+}
+
+const FOLGA_CORPO_JSON = 4096;
+/** `bodyLimit` da rota de lote: generoso o bastante pra qualquer lote dentro do limite
+ * declarado (doc 18 §3) passar pelo parser; o handler ainda confere o tamanho exato do
+ * conteúdo DECODIFICADO contra `TAMANHO_MAXIMO_PACOTE` — é essa checagem, não o `bodyLimit`
+ * do Fastify, que decide o 413 na fronteira exata. */
+const BODY_LIMIT_LOTE = tamanhoBase64(TAMANHO_MAXIMO_PACOTE) + FOLGA_CORPO_JSON;
+/** Retrato pode ter várias partes num corpo só — `bodyLimit` proporcionalmente maior (mesma
+ * lógica: só limita abuso grosseiro, o 413 exato vem da checagem por parte no handler). */
+const BODY_LIMIT_RETRATO = BODY_LIMIT_LOTE * 16;
+
+function registrarRotasSync(app: FastifyInstance, banco: FastifyInstance["banco"], pastaDados: string): void {
+  const preHandlerSync = [exigirSessao, exigirPremium];
+
+  app.get("/sync/vaults", { preHandler: preHandlerSync }, async (request, reply) => {
+    const nucleo = new NucleoServidorSync(new ArmazenamentoSqlite(banco, pastaDados, request.conta!.id));
+    const vaults = await nucleo.listarVaults();
+    return reply.code(200).send(
+      vaults.map((v) => ({
+        id: v.id,
+        nomeCifrado: Buffer.from(v.nomeCifrado).toString("base64"),
+        envelope: Buffer.from(v.envelope).toString("base64"),
+      })),
+    );
+  });
+
+  app.post<{ Body: { id: string; nomeCifrado: string; envelope: string } }>(
+    "/sync/vaults",
+    { preHandler: preHandlerSync, schema: { body: SCHEMA_CRIAR_VAULT } },
+    async (request, reply) => {
+      const nucleo = new NucleoServidorSync(new ArmazenamentoSqlite(banco, pastaDados, request.conta!.id));
+      try {
+        await nucleo.criarVault(
+          request.body.id,
+          decodificarBase64(request.body.nomeCifrado),
+          decodificarBase64(request.body.envelope),
+        );
+      } catch (erro) {
+        return tratarFalhaSync(erro, reply);
+      }
+      return reply.code(204).send();
+    },
+  );
+
+  app.get<{ Params: { id: string }; Querystring: { apos?: string } }>(
+    "/sync/vaults/:id/pacotes",
+    { preHandler: preHandlerSync },
+    async (request, reply) => {
+      const nucleo = new NucleoServidorSync(new ArmazenamentoSqlite(banco, pastaDados, request.conta!.id));
+      const apos = Number(request.query.apos ?? 0);
+      try {
+        const resultado = await nucleo.baixar(request.params.id, Number.isFinite(apos) ? apos : 0);
+        return reply.code(200).send({
+          retrato: resultado.retrato
+            ? {
+                ateSequencia: resultado.retrato.ateSequencia,
+                partes: resultado.retrato.partes.map((p) => Buffer.from(p).toString("base64")),
+              }
+            : undefined,
+          lotes: resultado.lotes.map((l) => ({
+            sequencia: l.sequencia,
+            bytes: Buffer.from(l.bytes).toString("base64"),
+          })),
+          ultimoRetrato: resultado.ultimoRetrato,
+        });
+      } catch (erro) {
+        return tratarFalhaSync(erro, reply);
+      }
+    },
+  );
+
+  app.post<{ Params: { id: string }; Body: { esperoUltima: number; bytes: string } }>(
+    "/sync/vaults/:id/lotes",
+    { preHandler: preHandlerSync, schema: { body: SCHEMA_ENVIAR_LOTE }, bodyLimit: BODY_LIMIT_LOTE },
+    async (request, reply) => {
+      const contaId = request.conta!.id;
+      const bytes = decodificarBase64(request.body.bytes);
+      if (bytes.length > TAMANHO_MAXIMO_PACOTE) return reply.code(413).send();
+
+      const usados = bytesUsadosPelaConta(banco, contaId);
+      if (usados + bytes.length > COTA_BYTES_POR_CONTA) return reply.code(507).send();
+
+      const nucleo = new NucleoServidorSync(new ArmazenamentoSqlite(banco, pastaDados, contaId));
+      try {
+        const sequencia = await nucleo.enviarLote(request.params.id, request.body.esperoUltima, bytes);
+        return reply.code(200).send({ sequencia });
+      } catch (erro) {
+        return tratarFalhaSync(erro, reply);
+      }
+    },
+  );
+
+  app.post<{ Params: { id: string }; Body: { ateSequencia: number; partes: string[] } }>(
+    "/sync/vaults/:id/retratos",
+    { preHandler: preHandlerSync, schema: { body: SCHEMA_ENVIAR_RETRATO }, bodyLimit: BODY_LIMIT_RETRATO },
+    async (request, reply) => {
+      const contaId = request.conta!.id;
+      const partes = request.body.partes.map(decodificarBase64);
+      if (partes.some((p) => p.length > TAMANHO_MAXIMO_PACOTE)) return reply.code(413).send();
+
+      const totalNovo = partes.reduce((soma, p) => soma + p.length, 0);
+      const usados = bytesUsadosPelaConta(banco, contaId);
+      // Conservador: confere contra o total ATUAL, antes de descontar os lotes que este
+      // retrato vai cobrir (o núcleo só os descarta depois de aceitar) — no pior caso recusa
+      // um retrato que na prática liberaria espaço, mas nunca deixa a conta passar da cota
+      // mesmo no instante em que o retrato novo e os lotes antigos ainda coexistem.
+      if (usados + totalNovo > COTA_BYTES_POR_CONTA) return reply.code(507).send();
+
+      const nucleo = new NucleoServidorSync(new ArmazenamentoSqlite(banco, pastaDados, contaId));
+      try {
+        await nucleo.enviarRetrato(request.params.id, request.body.ateSequencia, partes);
+      } catch (erro) {
+        return tratarFalhaSync(erro, reply);
+      }
+      return reply.code(204).send();
+    },
+  );
+
+  app.delete<{ Params: { id: string } }>(
+    "/sync/vaults/:id",
+    { preHandler: preHandlerSync },
+    async (request, reply) => {
+      const nucleo = new NucleoServidorSync(new ArmazenamentoSqlite(banco, pastaDados, request.conta!.id));
+      await nucleo.apagarVault(request.params.id);
+      return reply.code(204).send();
+    },
+  );
 }

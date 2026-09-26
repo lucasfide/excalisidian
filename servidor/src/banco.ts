@@ -43,6 +43,47 @@ const MIGRACOES: readonly Migracao[] = [
       create index idx_sessoes_conta_id on sessoes(conta_id);
     `);
   },
+  // Migração 3 (Task 5): sincronização. `vaults` pertence a uma conta (`conta_id`); um vault
+  // de outra conta simplesmente não aparece nas consultas escopadas por conta (nunca é 404
+  // por checagem explícita — é 404 porque a linha nunca é encontrada, doc 17 §9/18). Os bytes
+  // de cada pacote (lote ou parte de retrato) vivem em arquivo, sob
+  // `<dados>/pacotes/<vault>/…`; `tamanho` aqui é o tamanho em bytes do pacote (o que conta
+  // pra cota de 5 GiB, doc 18 §3) e `caminho_arquivo` é o caminho absoluto do arquivo no
+  // disco — nunca o conteúdo. `ultimo_retrato` é a `ateSequencia` do retrato atual do vault (0
+  // se nunca houve um) — o mesmo valor que `ResultadoBaixar.ultimoRetrato` expõe ao cliente.
+  (db) => {
+    db.exec(`
+      create table vaults (
+        id text primary key,
+        conta_id integer not null references contas(id) on delete cascade,
+        nome_cifrado blob not null,
+        envelope blob not null,
+        ultimo_retrato integer not null default 0
+      );
+      create index idx_vaults_conta_id on vaults(conta_id);
+
+      create table lotes (
+        id integer primary key autoincrement,
+        vault_id text not null references vaults(id) on delete cascade,
+        sequencia integer not null,
+        tamanho integer not null,
+        caminho_arquivo text not null,
+        unique(vault_id, sequencia)
+      );
+      create index idx_lotes_vault_id on lotes(vault_id);
+
+      create table retrato_partes (
+        id integer primary key autoincrement,
+        vault_id text not null references vaults(id) on delete cascade,
+        ate_sequencia integer not null,
+        indice integer not null,
+        tamanho integer not null,
+        caminho_arquivo text not null,
+        unique(vault_id, indice)
+      );
+      create index idx_retrato_partes_vault_id on retrato_partes(vault_id);
+    `);
+  },
 ];
 
 export function abrirBanco(pastaDados: string): BancoSqlite {

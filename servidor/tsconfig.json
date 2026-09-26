@@ -1,7 +1,12 @@
 {
   "compilerOptions": {
     "target": "ES2022",
-    "lib": ["ES2022"],
+    // "DOM"/"DOM.Iterable" só para o tsc conseguir checar tipos de arquivos da raiz que o
+    // servidor importa por caminho relativo (src/sync/motor.ts, src/vault/**) e que também
+    // são usados pelo app no navegador/WebView2 (window, CryptoKey, BufferSource…) — o
+    // servidor nunca executa esses trechos (roda em Node puro), isto é só para a checagem de
+    // tipos não quebrar por causa de código que este pacote nem alcança em runtime.
+    "lib": ["ES2022", "DOM", "DOM.Iterable"],
     "module": "ESNext",
     "moduleResolution": "bundler",
     "allowImportingTsExtensions": true,
