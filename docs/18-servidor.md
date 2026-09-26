@@ -14,7 +14,9 @@ Onde o servidor e esses contratos divergirem, o servidor está errado.
 
 ## 1. Em linguagem simples
 
-- O servidor roda na VPS do dono do produto, no endereço `https://api.excalisidian.com`.
+- O servidor roda na VPS do dono do produto, no endereço `https://api.excalisidian.com`. Todas
+  as rotas ficam sob `/v1` (o app usa `https://api.excalisidian.com/v1` como base, em
+  `src/servico/base.ts`): `/v1/contas`, `/v1/sessoes`, `/v1/sync/vaults`, `/v1/saude`.
 - Ele guarda três coisas: as contas (e-mail, plano e uma versão embaralhada da prova de
   identidade — nunca a senha), as sessões de quem está conectado, e os pacotes lacrados da
   sincronização. Nenhum desses pacotes ele consegue abrir.
