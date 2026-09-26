@@ -115,7 +115,22 @@ próprias unidades lá e não devem ser tocados.
 lucas@vps:~$ rm /tmp/excalisidian-api.service /tmp/excalisidian-backup.service /tmp/excalisidian-backup.timer /tmp/backup.sh /tmp/excalisidian-admin /tmp/Caddyfile
 ```
 
-### 7. Ativar os serviços **[muda a VPS]**
+### 7. Abrir 80/443 no firewall **[muda a VPS]**
+
+```
+lucas@vps:~$ sudo ufw allow 80/tcp
+lucas@vps:~$ sudo ufw allow 443/tcp
+lucas@vps:~$ sudo ufw status
+```
+
+**Não rode mais nenhum outro comando de `ufw`** — a interface `tailscale0` continua
+liberada como já estava; SSH (porta 22) continua só pelo Tailscale.
+
+Abra o firewall **antes** de ativar o Caddy com o nosso `Caddyfile` (passo 8): o Let's Encrypt
+confirma o domínio acessando a porta 80 de fora. Com a porta fechada, o primeiro pedido de
+certificado falha e o Caddy só tenta de novo mais tarde.
+
+### 8. Ativar os serviços **[muda a VPS]**
 
 ```
 lucas@vps:~$ sudo systemctl daemon-reload
@@ -127,17 +142,6 @@ lucas@vps:~$ sudo systemctl reload caddy
 Confere: `systemctl status excalisidian-api` mostra `active (running)`;
 `systemctl list-timers excalisidian-backup.timer` mostra a próxima execução às 03:00;
 `curl -s http://127.0.0.1:3100/v1/saude` (de dentro da VPS) responde `{"ok":true}`.
-
-### 8. Abrir 80/443 no firewall **[muda a VPS]**
-
-```
-lucas@vps:~$ sudo ufw allow 80/tcp
-lucas@vps:~$ sudo ufw allow 443/tcp
-lucas@vps:~$ sudo ufw status
-```
-
-**Não rode mais nenhum outro comando de `ufw`** — a interface `tailscale0` continua
-liberada como já estava; SSH (porta 22) continua só pelo Tailscale.
 
 ### 9. Confirmar que nada mais quebrou
 
