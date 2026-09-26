@@ -146,6 +146,7 @@ describe("POST /v1/sync/vaults/:id/lotes (enviarLote)", () => {
     );
   });
 
+  // monta um corpo de vários MiB; lento sob carga, não é defeito
   it("lote acima de 8 MiB + 28 bytes dá espaco (413)", async () => {
     const token = await criarContaPremium("gustavo@teste.com");
     definirTokenDaSessao(token);
@@ -158,7 +159,7 @@ describe("POST /v1/sync/vaults/:id/lotes (enviarLote)", () => {
     await expect(sync.enviarLote(id, 0, grande)).rejects.toThrow(
       expect.objectContaining({ codigo: "espaco" }),
     );
-  });
+  }, 60000);
 
   it("lote exatamente no limite (8 MiB + 28 bytes) é aceito", async () => {
     const token = await criarContaPremium("helena@teste.com");

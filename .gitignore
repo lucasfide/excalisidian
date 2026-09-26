@@ -6,6 +6,7 @@ dist-ssr
 
 # Servidor: dados locais de desenvolvimento (dist/ já cai na regra "dist" acima)
 servidor/.dados
+servidor/.vitest
 
 # Tauri / Rust
 src-tauri/target
