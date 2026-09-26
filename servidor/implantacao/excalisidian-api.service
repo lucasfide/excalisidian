@@ -1,0 +1,35 @@
+# servidor/implantacao/excalisidian-api.service
+# Serviço systemd do servidor HTTP (doc 18 §2/§4). Escuta só em 127.0.0.1:3100 — só o Caddy
+# (Caddyfile, neste diretório) fala com ele. Instalação: ver servidor/LEIAME.md.
+#
+# ExecStart usa /usr/bin/node porque é o caminho padrão do pacote oficial do NodeSource para
+# Node 22 no Ubuntu (o que a VPS já tem instalado). CONFIRA antes de instalar: `which node`
+# como o usuário `excalisidian` (ou como `lucas`, se o PATH for o mesmo) — se vier outro
+# caminho, ajuste a linha ExecStart abaixo antes de copiar este arquivo para
+# /etc/systemd/system/.
+
+[Unit]
+Description=Excalisidian - servidor de conta e sincronizacao
+After=network.target
+
+[Service]
+Type=simple
+User=excalisidian
+WorkingDirectory=/opt/excalisidian
+Environment=EXCALISIDIAN_DADOS=/var/lib/excalisidian
+Environment=EXCALISIDIAN_PORTA=3100
+Environment=NODE_ENV=production
+ExecStart=/usr/bin/node /opt/excalisidian/dist/servidor.js
+Restart=on-failure
+RestartSec=2
+
+# Endurecimento (doc 18 §2 "processo"): o serviço não precisa de privilégio nenhum além de
+# ler /opt/excalisidian e ler/escrever /var/lib/excalisidian.
+NoNewPrivileges=true
+ProtectSystem=strict
+ProtectHome=true
+PrivateTmp=true
+ReadWritePaths=/var/lib/excalisidian
+
+[Install]
+WantedBy=multi-user.target

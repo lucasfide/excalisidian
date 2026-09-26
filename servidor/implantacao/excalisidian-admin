@@ -1,0 +1,14 @@
+#!/usr/bin/env bash
+# servidor/implantacao/excalisidian-admin
+# Atalho para administrar contas na VPS (doc 18 §4): roda dist/admin.js como o usuário de
+# sistema `excalisidian`, com o mesmo ambiente do serviço (mesma pasta de dados). Instalação:
+# ver servidor/LEIAME.md ("comando que muda a VPS": copiar para /usr/local/bin e dar +x).
+#
+# Uso: excalisidian-admin premium <email>
+#      excalisidian-admin gratis <email>
+#      excalisidian-admin contas
+set -euo pipefail
+
+exec sudo --user=excalisidian --set-home \
+	env EXCALISIDIAN_DADOS=/var/lib/excalisidian NODE_ENV=production \
+	/usr/bin/node /opt/excalisidian/dist/admin.js "$@"

@@ -1,0 +1,14 @@
+# servidor/implantacao/excalisidian-backup.timer
+# Dispara excalisidian-backup.service todo dia às 03:00 (doc 18 §4). `Persistent=true`: se a
+# VPS estiver desligada/reiniciando às 03:00, o backup roda na próxima vez que o systemd
+# tiver chance, em vez de esperar até o dia seguinte.
+
+[Unit]
+Description=Excalisidian - horario do backup diario
+
+[Timer]
+OnCalendar=*-*-* 03:00:00
+Persistent=true
+
+[Install]
+WantedBy=timers.target

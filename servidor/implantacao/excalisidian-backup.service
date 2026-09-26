@@ -1,0 +1,13 @@
+# servidor/implantacao/excalisidian-backup.service
+# Disparado pelo timer excalisidian-backup.timer (03:00, neste diretório). Roda como o mesmo
+# usuário `excalisidian` do serviço principal — precisa só de leitura em /var/lib/excalisidian
+# e escrita em /var/backups/excalisidian (o LEIAME manda criar essa pasta já com o dono
+# certo). `Type=oneshot`: o timer só considera "rodou" depois que o script termina.
+
+[Unit]
+Description=Excalisidian - backup diario (sqlite + pacotes)
+
+[Service]
+Type=oneshot
+User=excalisidian
+ExecStart=/opt/excalisidian/backup.sh

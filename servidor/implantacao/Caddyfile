@@ -1,0 +1,18 @@
+# servidor/implantacao/Caddyfile
+# Só este bloco — nada mais na VPS deve mudar (doc 18 §2). Caddy termina TLS (certificado
+# automático via Let's Encrypt) e repassa para o servidor, que escuta só em 127.0.0.1:3100.
+#
+# `reverse_proxy` já define os cabeçalhos padrão (X-Forwarded-For, X-Forwarded-Proto,
+# X-Forwarded-Host) sem precisar declará-los à mão.
+#
+# `max_size` do corpo: a rota mais generosa do servidor é o envio de retrato
+# (servidor/src/rotas.ts, BODY_LIMIT_RETRATO = 16 × BODY_LIMIT_LOTE), que hoje calcula para
+# ~171 MiB (base64 de 8 MiB + 28 bytes por parte, vezes 16 partes, mais folga da moldura
+# JSON). 180 MB aqui é folga sobre esse valor — se BODY_LIMIT_RETRATO mudar no código, reveja
+# este número junto.
+api.excalisidian.com {
+	request_body {
+		max_size 180MB
+	}
+	reverse_proxy 127.0.0.1:3100
+}
