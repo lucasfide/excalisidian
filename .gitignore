@@ -4,6 +4,9 @@ dist
 dist-ssr
 *.local
 
+# Servidor: dados locais de desenvolvimento (dist/ já cai na regra "dist" acima)
+servidor/.dados
+
 # Tauri / Rust
 src-tauri/target
 src-tauri/gen/schemas
