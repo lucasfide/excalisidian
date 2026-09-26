@@ -27,7 +27,7 @@ describe("abrirBanco", () => {
     expect(modo).toBe("wal");
 
     const linhas = db.prepare("select versao from migracoes_versao order by versao").all();
-    expect(linhas).toEqual([{ versao: 1 }]);
+    expect(linhas).toEqual([{ versao: 1 }, { versao: 2 }]);
 
     db.close();
   });
@@ -38,7 +38,7 @@ describe("abrirBanco", () => {
     expect(() => migrar(db)).not.toThrow();
 
     const linhas = db.prepare("select versao from migracoes_versao order by versao").all();
-    expect(linhas).toEqual([{ versao: 1 }]);
+    expect(linhas).toEqual([{ versao: 1 }, { versao: 2 }]);
 
     db.close();
   });

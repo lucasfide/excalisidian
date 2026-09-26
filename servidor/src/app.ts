@@ -27,6 +27,25 @@ export function criarApp(config: Config): FastifyInstance {
 
   registrarLog(app);
 
+  // `ServicoContaHttp.renovar` manda `content-type: application/json` sem corpo (não há
+  // nada para enviar) — o parser padrão do Fastify recusa JSON vazio com
+  // FST_ERR_CTP_EMPTY_JSON_BODY (400). Corpo vazio aqui significa "nenhum campo", não erro.
+  app.addContentTypeParser(
+    "application/json",
+    { parseAs: "string" },
+    (_requisicao, corpo, concluido) => {
+      if (typeof corpo !== "string" || corpo.length === 0) {
+        concluido(null, {});
+        return;
+      }
+      try {
+        concluido(null, JSON.parse(corpo));
+      } catch (erro) {
+        concluido(erro as Error, undefined);
+      }
+    },
+  );
+
   app.register(rotasApi, { prefix: "/v1" });
 
   return app;
