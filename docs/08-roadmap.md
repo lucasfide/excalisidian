@@ -377,6 +377,20 @@ estiver integrada a ele.
 
 ---
 
+## Fatia 16 — Servidor
+
+O servidor de verdade para conta e sincronização, rodando na VPS do dono do produto em
+`https://api.excalisidian.com`, cumprindo os contratos que o app já tem (`ServicoContaHttp`,
+`ServicoSyncHttp`, ADR-38, ADR-39, ADR-40, ADR-41). Desenho normativo em
+`docs/18-servidor.md`.
+
+**Estado:** em construção.
+
+**Pronto quando:** conta e sincronização funcionam entre dois computadores pelo
+`api.excalisidian.com`.
+
+---
+
 ## Depois do MVP, em ordem de valor
 
 1. Transclusão de elemento do desenho na nota (`#^id`).

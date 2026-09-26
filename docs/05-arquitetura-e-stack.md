@@ -188,6 +188,11 @@ src-tauri/
 │   ├── sistema.rs           nome_usuario, revelar_pasta
 │   └── papel_parede.rs      papel de parede da Home (preparar/importar/remover)
 └── capabilities/
+
+servidor/                    servidor de conta e sincronização, pacote Node próprio — doc 18, ADR-41
+├── src/                     app.ts (fábrica do Fastify), config.ts, banco.ts (SQLite), log.ts, rotas de conta e sincronização
+├── scripts/                 empacotar.mjs (esbuild → servidor/dist/servidor.js)
+└── implantacao/             excalisidian-api.service, Caddyfile, backup.sh, LEIAME.md
 ```
 
 ### A interface `VaultAdapter`

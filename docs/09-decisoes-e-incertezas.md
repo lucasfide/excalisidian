@@ -1001,7 +1001,9 @@ Trate cada item abaixo como suposição a validar antes de depender dele.
 
 27. **Endpoint exato do "Alibaba token plan" do usuário.** O catálogo assume o DashScope compatible-mode (`https://dashscope.aliyuncs.com/compatible-mode/v1`); se a conta do usuário usar um gateway diferente, o campo de base URL editável cobre — mas a URL real precisa ser confirmada com o usuário antes da fase 1 (doc 11 §3).
 
-28. **Domínio placeholder.** `api.excalisidian.app` não está registrado, e já está no binário e na lista de permissões de rede do Tauri. Nenhum token real pode existir antes de registrá-lo.
+28. ~~**Domínio placeholder.**~~ **Resolvido:** o dono do produto registrou o domínio
+`excalisidian.com` em 26/09/2026. O servidor de verdade passa a viver em
+`https://api.excalisidian.com` (docs/18-servidor.md, ADR-41).
 29. **Plano da assinatura preso até reiniciar.** O plano só é lido na abertura do app. Quem assinar pelo site continua vendo "Plano grátis" até fechar e reabrir o Excalisidian. Resolver isso exige um endpoint que não existe; usar `renovar` só para checar o plano rotacionaria o token a cada verificação, o que não é aceitável.
 30. **Sem renovação automática de sessão.** Um token que expira durante o uso não é renovado sozinho; o usuário precisa entrar de novo.
 31. **Fornecedor de IA e GDPR.** O modelo previsto no estudo de viabilidade para a IA do Excalisidian é de um fornecedor chinês. Mandar notas de um usuário europeu para lá é transferência internacional de dados sob o GDPR. Verificar se existe hospedagem ocidental do mesmo modelo antes de anunciar preço para esse serviço.
@@ -1831,3 +1833,28 @@ conta de teste (doc 17 §10). Falta o servidor de verdade
 não só a decisão de produto. O plano citado acima constrói as peças isoladas, sem tela, sem
 disco e sem rede de verdade; um próximo plano monta o motor que as liga ao vault, e outro liga
 a interface.
+
+### ADR-41 · Servidor próprio numa VPS
+
+**Contexto:** o app já sabe conversar com um servidor de conta e sincronização (ADR-38, ADR-39,
+ADR-40), mas até aqui só existia um servidor de teste, no próprio computador. Faltava decidir
+onde e como o servidor de verdade roda. O desenho completo está em `docs/18-servidor.md`
+(normativo); este ADR resume a decisão em linguagem simples e registra o que foi descartado.
+
+**Decisão:** o servidor roda numa VPS que o dono do produto já tem, guardando as contas, as
+sessões e os pacotes cifrados da sincronização, no endereço `https://api.excalisidian.com`.
+Nenhum outro serviço que já roda nessa VPS é afetado — só as portas da internet passam a
+aceitar conexão de fora, e só para este servidor novo.
+
+**Alternativas rejeitadas:**
+
+| Opção | Por que não |
+|---|---|
+| Serviço gerenciado de backend (um provedor de nuvem cuidando do servidor) | Depender de um fornecedor externo e pagar por uso, num produto de uma pessoa só, sem ganho que justifique o custo. |
+| Docker | Não está instalado na VPS, e seria mais uma camada para o dono do produto administrar sem necessidade. |
+| Postgres (banco de dados maior) | Mais um serviço rodando na VPS para uma quantidade de dados que o SQLite já atende sem problema. |
+
+**Estado: desenho fechado, em construção.**
+
+**Consequência declarada:** o backup do servidor fica só no disco da própria VPS até existir
+uma cópia guardada fora dela.
