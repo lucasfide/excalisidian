@@ -22,7 +22,7 @@ interface Props {
 
 const ROTULO_TIPO: Record<ItemLixeira["kind"], string> = {
   note: "Nota",
-  drawing: "Desenho",
+    drawing: "Diagrama",
   attachment: "Anexo",
   folder: "Pasta",
 };

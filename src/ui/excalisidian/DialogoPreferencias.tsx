@@ -8,10 +8,12 @@ import { toast } from "sonner";
 
 import { Botao, Dialog, GrupoBotoes, cn, type OpcaoGrupo } from "../index";
 import { usePrefsStore, type Tema, type LarguraNota } from "../../estado/prefsStore";
+import { useWallpaperStore } from "../../estado/wallpaperStore";
 import { useAgenteStore } from "../../estado/agenteStore";
 import { confirmar } from "../../estado/dialogoStore";
 import { provedorDe } from "../../agente/provedores";
 import { verificarAtualizacao } from "../../app/atualizacao";
+import ControlesPapelParede from "./ControlesPapelParede";
 
 interface Props {
   onFechar(): void;
@@ -34,6 +36,11 @@ export default function DialogoPreferencias({ onFechar }: Props) {
   const larguraNota = usePrefsStore((s) => s.larguraNota);
   const definirTema = usePrefsStore((s) => s.definirTema);
   const definirLarguraNota = usePrefsStore((s) => s.definirLarguraNota);
+  const wallpaperAtual = useWallpaperStore((s) => s.wallpaperAtual);
+  const wallpaperPausado = useWallpaperStore((s) => s.pausado);
+  const wallpaperAnterior = useWallpaperStore((s) => s.anterior);
+  const wallpaperProximo = useWallpaperStore((s) => s.proximo);
+  const alternarPausaWallpaper = useWallpaperStore((s) => s.alternarPausa);
   const [versao, setVersao] = useState<string | null>(null);
   const [testando, setTestando] = useState(false);
   const [resultadoTeste, setResultadoTeste] = useState<string | null>(null);
@@ -69,6 +76,15 @@ export default function DialogoPreferencias({ onFechar }: Props) {
             opcoes={OPCOES_LARGURA}
             valor={larguraNota}
             onEscolher={definirLarguraNota}
+          />
+        </Secao>
+        <Secao titulo="Papel de parede">
+          <ControlesPapelParede
+            tituloAtivo={wallpaperAtual.titulo}
+            pausado={wallpaperPausado}
+            onAnterior={wallpaperAnterior}
+            onProximo={wallpaperProximo}
+            onAlternarPausa={alternarPausaWallpaper}
           />
         </Secao>
         <Secao titulo="Agente de IA">

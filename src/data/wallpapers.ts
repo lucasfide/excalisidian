@@ -1,0 +1,128 @@
+import type { Wallpaper } from "../types/wallpaper";
+
+/** Imagens locais escolhidas para a rotação de papéis de parede. */
+export const WALLPAPERS: readonly Wallpaper[] = [
+  {
+    id: "belisario",
+    titulo: "Belisário pedindo esmolas",
+    artista: "Jacques-Louis David",
+    src: "/wallpapers/belisario.jpg",
+    credito: "Musée du Louvre",
+    sourceUrl: "https://commons.wikimedia.org/wiki/File:David_-_Belisarius.jpg",
+    license: "Public Domain Mark 1.0 (PD-Art)",
+  },
+  {
+    id: "brutus",
+    titulo: "Os lictores trazem a Brutus os corpos de seus filhos",
+    artista: "Jacques-Louis David",
+    src: "/wallpapers/brutus.jpg",
+    credito: "Jacques-Louis David",
+    sourceUrl: "https://commons.wikimedia.org/wiki/File:Jacques-Louis_David_-_Les_licteurs_rapportent_%C3%A0_Brutus_les_corps_de_ses_fils_-_Brutus.jpg",
+    license: "Public Domain Mark 1.0 (PD-Art)",
+  },
+  {
+    id: "andromaca",
+    titulo: "A dor de Andrômaca",
+    artista: "Jacques-Louis David",
+    src: "/wallpapers/andromaca.jpg",
+    credito: "Musée du Louvre",
+    sourceUrl: "https://commons.wikimedia.org/wiki/File:Andromache_mourns_Hector.jpg",
+    license: "Public Domain Mark 1.0 (PD-Art)",
+  },
+  {
+    id: "juramento-horacios",
+    titulo: "O juramento dos Horácios",
+    artista: "Jacques-Louis David",
+    src: "/wallpapers/juramento-horacios.jpg",
+    credito: "Jacques-Louis David",
+    sourceUrl: "https://commons.wikimedia.org/wiki/File:David-Oath_of_the_Horatii-1784.jpg",
+    license: "Public Domain Mark 1.0 (PD-Art)",
+  },
+  {
+    id: "batalha-rio",
+    titulo: "Batalha junto a um rio",
+    artista: "Dirk Langendijk",
+    src: "/wallpapers/batalha-rio.jpg",
+    credito: "National Gallery of Art",
+    sourceUrl: "https://www.nga.gov/artworks/199111-battle-river",
+    license: "CC0 1.0",
+  },
+  {
+    id: "morte-marat",
+    titulo: "A morte de Marat",
+    artista: "Jacques-Louis David",
+    src: "/wallpapers/morte-marat.jpg",
+    credito: "Musée des Beaux-Arts de Reims",
+    sourceUrl: "https://commons.wikimedia.org/wiki/File:The_Death_of_Marat,_by_Jacques-Louis_David_(1793).jpg",
+    license: "CC BY-SA 3.0 (foto de Socket0)",
+  },
+  {
+    id: "leonidas-termopilas",
+    titulo: "Leônidas nas Termópilas",
+    artista: "Jacques-Louis David",
+    src: "/wallpapers/leonidas-termopilas.jpg",
+    credito: "Smithsonian American Art Museum",
+    sourceUrl: "https://commons.wikimedia.org/wiki/File:Jacques-Louis_David_-_Leonidas_at_Thermopylae_-_WGA6095.jpg",
+    license: "Public Domain Mark 1.0 (PD-Art)",
+  },
+  {
+    id: "sabinas-david",
+    titulo: "As sabinas",
+    artista: "Jacques-Louis David",
+    src: "/wallpapers/sabinas-david.jpg",
+    credito: "Musée du Louvre",
+    sourceUrl: "https://commons.wikimedia.org/wiki/File:The_Intervention_of_the_Sabine_Women-_Les_Sabines.jpg",
+    license: "CC BY-SA 4.0 (foto de Wilfredor)",
+  },
+  {
+    id: "pedro-joao",
+    titulo: "São Pedro e São João curando o paralítico",
+    artista: "Nicolas Poussin",
+    src: "/wallpapers/pedro-joao.jpg",
+    credito: "The Metropolitan Museum of Art",
+    sourceUrl: "https://www.metmuseum.org/art/collection/search/437330",
+    license: "Domínio público (Met Open Access)",
+  },
+  {
+    id: "rapto-sabinas-poussin",
+    titulo: "O rapto das sabinas",
+    artista: "Nicolas Poussin",
+    src: "/wallpapers/rapto-sabinas-poussin.jpg",
+    credito: "The Metropolitan Museum of Art",
+    sourceUrl: "https://www.metmuseum.org/art/collection/search/437329",
+    license: "Domínio público (Met Open Access)",
+  },
+  {
+    id: "morte-germanico",
+    titulo: "A morte de Germânico",
+    artista: "Nicolas Poussin",
+    src: "/wallpapers/morte-germanico.jpg",
+    credito: "Nationalmuseum",
+    sourceUrl: "https://commons.wikimedia.org/wiki/File:Nicolas_Poussin_-_La_Mort_de_Germanicus.jpg",
+    license: "Public Domain Mark 1.0 (PD-Art)",
+  },
+  {
+    id: "cegueira-elimas",
+    titulo: "A cegueira de Elimas",
+    artista: "Após Taddeo Zuccaro",
+    src: "/wallpapers/cegueira-elimas.jpg",
+    credito: "National Gallery of Art",
+    sourceUrl: "https://www.nga.gov/artworks/107104-blinding-elymas",
+    license: "CC0 1.0",
+  },
+  {
+    id: "sabinas-nga",
+    titulo: "O rapto das sabinas",
+    artista: "Pintor francês do século XVIII",
+    src: "/wallpapers/sabinas-nga.jpg",
+    credito: "National Gallery of Art",
+    sourceUrl: "https://www.nga.gov/artworks/1218-rape-sabine-women",
+    license: "CC0 1.0",
+  },
+];
+
+export const WALLPAPER_INTERVAL_MS = 10 * 60 * 1000;
+
+export function encontrarWallpaper(id: string | undefined): Wallpaper {
+  return WALLPAPERS.find((wallpaper) => wallpaper.id === id) ?? WALLPAPERS[0];
+}

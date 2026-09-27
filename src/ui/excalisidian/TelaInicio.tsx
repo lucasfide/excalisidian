@@ -44,7 +44,7 @@ export default function TelaInicio({
   onCriarPasta,
 }: Props) {
   return (
-    <div className="flex h-full justify-center overflow-y-auto bg-papel px-8 py-16">
+    <div className="flex h-full justify-center overflow-y-auto bg-transparent px-8 py-16">
       <div className="flex w-full max-w-2xl flex-col gap-8">
         <h1 className="font-display text-[44px] font-semibold leading-[1.05] tracking-[-0.02em] text-tinta">
           {saudacao}
@@ -53,13 +53,13 @@ export default function TelaInicio({
 
         <EstadoVazio
           titulo="Comece algo novo"
-          apoio="Crie uma nota, um desenho, ou organize com uma pasta nova."
+          apoio="Crie uma nota, um diagrama, ou organize com uma pasta nova."
         >
           <Botao variante="primario" Icone={FilePlus} onClick={onCriarNota}>
             Nova nota
           </Botao>
           <Botao Icone={SquarePen} onClick={onCriarDesenho}>
-            Novo desenho
+            Novo diagrama
           </Botao>
           <Botao Icone={FolderPlus} onClick={onCriarPasta}>
             Nova pasta

@@ -1,0 +1,35 @@
+.lp-header { position: sticky; top: 0; z-index: 30; display: flex; align-items: center; gap: 1rem; padding: 1.1rem clamp(1.25rem, 5vw, 5rem); border-bottom: 1px solid color-mix(in srgb, var(--border) 60%, transparent); background: color-mix(in srgb, var(--background) 88%, transparent); backdrop-filter: blur(18px); transition: opacity 240ms ease, transform 240ms ease; }
+.lp-header[data-hidden="true"] { pointer-events: none; opacity: 0; transform: translateY(-100%); }
+.lp-brand { display: inline-flex; align-items: center; gap: .65rem; font-family: var(--font-display); font-size: 1.2rem; color: var(--foreground); text-decoration: none; }
+.lp-brand-icon { width: 1.8rem; height: 1.8rem; object-fit: contain; }
+.lp-brand-lettering { width: auto; height: 1.1rem; }
+.lp-header-navigation { display: none; align-items: center; justify-content: center; gap: clamp(.75rem, 2vw, 1.75rem); margin-inline: auto; }
+.lp-header-navigation a { min-height: 44px; display: inline-flex; align-items: center; color: var(--muted-foreground); font-size: .8125rem; text-decoration: none; transition: color 180ms ease; }
+.lp-header-navigation a:hover, .lp-header-navigation a:focus-visible { color: var(--primary); }
+.lp-download-direct { display: inline-flex; gap: .6rem; align-items: center; margin-left: auto; padding: .6rem .9rem; min-height: 44px; border: 1px solid var(--primary); border-radius: .3rem; background: var(--primary); color: var(--primary-foreground); text-decoration: none; font-size: .875rem; font-weight: 600; }
+.lp-download-direct:hover { background: color-mix(in srgb, var(--primary) 88%, var(--primary-foreground)); }
+.lp-download-section { position: sticky; top: 0; display: grid; box-sizing: border-box; min-height: 100vh; min-height: 100svh; width: 100vw; align-items: center; isolation: isolate; overflow: hidden; padding: 4rem 1.25rem; background: url("/landing/a-morte-de-socrates.jpg") center / cover; }
+.lp-download-section::before { position: absolute; inset: 0; z-index: 0; content: ""; background: linear-gradient(to bottom, color-mix(in srgb, var(--background) 28%, transparent), color-mix(in srgb, var(--background) 48%, transparent)); }
+.lp-download-content { position: relative; z-index: 1; width: min(100%, 78rem); margin-inline: auto; }
+.lp-download-shader { position: absolute; inset: 0; z-index: 0; width: 100%; height: 100%; pointer-events: none; opacity: .38; }
+.lp-eyebrow { font: .68rem var(--font-mono); letter-spacing: .12em; color: var(--primary); }
+.lp-download-heading { text-align: center; margin-bottom: 3rem; }
+.lp-download-heading h2 { font-family: var(--font-display); font-size: clamp(2.2rem, 5vw, 4.5rem); line-height: 1.1; margin: 1rem 0; letter-spacing: -.045em; }
+.lp-download-heading p { color: var(--muted-foreground); }
+.lp-download-options { display: grid; gap: 1rem; }
+.lp-download-option { padding: 1.5rem; border: 1px solid color-mix(in srgb, var(--border) 84%, transparent); border-radius: .4rem; background: color-mix(in srgb, var(--card) 82%, transparent); backdrop-filter: blur(12px); }
+.lp-download-option[data-recommended="true"] { border-color: var(--primary); background: color-mix(in srgb, var(--primary) 12%, color-mix(in srgb, var(--card) 82%, transparent)); }
+.lp-download-option-top { display: flex; justify-content: space-between; color: var(--muted-foreground); }
+.lp-download-option-top span { font: .7rem var(--font-mono); }
+.lp-download-option[data-recommended="true"] .lp-download-option-top { color: var(--primary); }
+.lp-download-option h3 { font-size: 1.75rem; margin: 1.5rem 0 .35rem; font-family: var(--font-display); }
+.lp-download-option p { color: var(--muted-foreground); font-size: .875rem; }
+.lp-platform-download { display: flex; align-items: center; justify-content: space-between; margin-top: 2rem; padding: .7rem 1rem; min-height: 44px; border: 1px solid var(--border); border-radius: .2rem; text-decoration: none; transition: background 180ms; }
+.lp-platform-download:hover { background: var(--muted); }
+.lp-download-option[data-recommended="true"] .lp-platform-download { background: var(--primary); color: var(--primary-foreground); border-color: var(--primary); }
+.lp-release-note { display: flex; justify-content: center; gap: .7rem; color: var(--muted-foreground); font: .75rem var(--font-mono); margin-top: 1.5rem; }
+.lp-release-note a:hover { color: var(--foreground); }
+.lp-art-credit { display: block; width: fit-content; margin: 1rem auto 0; color: var(--muted-foreground); font: .64rem var(--font-mono); letter-spacing: .05em; text-align: center; text-decoration: none; text-transform: uppercase; }
+.lp-art-credit:hover, .lp-art-credit:focus-visible { color: var(--foreground); }
+@media (min-width: 768px) { .lp-header-navigation { display: flex; } .lp-download-options { grid-template-columns: repeat(3, minmax(0, 1fr)); } .lp-download-section { padding-block: 6rem; } }
+@media (prefers-reduced-motion: reduce) { .lp-header, .lp-platform-download { transition: none; } }

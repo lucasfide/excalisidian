@@ -283,7 +283,7 @@ export default function ArvoreArquivos({
           />
           <ItemMenu
             Icone={SquarePen}
-            rotulo="Novo desenho aqui"
+            rotulo="Novo diagrama aqui"
             onClick={comMenuFechado(() => onCriarDesenho(pastaDoNo(menu.no)))}
           />
           <ItemMenu

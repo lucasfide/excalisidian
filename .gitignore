@@ -1,6 +1,7 @@
 # Dependências
 node_modules
 dist
+dist-landing
 dist-ssr
 *.local
 

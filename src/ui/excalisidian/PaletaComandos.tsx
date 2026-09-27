@@ -27,7 +27,7 @@ function construirComandos(): Comando[] {
   const prefs = usePrefsStore.getState();
   return [
     { id: "nova-nota", rotulo: "Nova nota", Icone: FilePlus, executar: () => void comandoNovaNota() },
-    { id: "novo-desenho", rotulo: "Novo desenho", Icone: SquarePen, executar: () => void comandoNovoDesenho() },
+    { id: "novo-desenho", rotulo: "Novo diagrama", Icone: SquarePen, executar: () => void comandoNovoDesenho() },
     { id: "nova-pasta", rotulo: "Nova pasta", Icone: FolderPlus, executar: () => void comandoNovaPasta() },
     {
       id: "buscar-conteudo",

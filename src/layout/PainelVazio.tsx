@@ -8,11 +8,11 @@ import { Botao, EstadoVazio } from "../ui";
 
 export default function PainelVazio() {
   return (
-    <div className="flex h-full items-center justify-center bg-papel px-8">
+    <div className="flex h-full items-center justify-center bg-transparent px-8">
       <EstadoVazio
         className="w-full max-w-sm text-center"
         titulo="Aba em branco"
-        apoio="Crie uma nota ou um desenho, ou escolha um arquivo na barra lateral."
+        apoio="Crie uma nota ou um diagrama, ou escolha um arquivo na barra lateral."
       >
         <div className="flex w-full justify-center gap-2">
           <Botao
@@ -23,7 +23,7 @@ export default function PainelVazio() {
             Nova nota
           </Botao>
           <Botao Icone={SquarePen} onClick={() => void comandoNovoDesenho()}>
-            Novo desenho
+            Novo diagrama
           </Botao>
         </div>
       </EstadoVazio>

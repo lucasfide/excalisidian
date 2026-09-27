@@ -78,10 +78,10 @@ class EmbedDesenhoWidget extends WidgetType {
       return container;
     }
 
-    container.textContent = "Carregando desenho…";
+    container.textContent = "Carregando diagrama…";
     container.setAttribute("role", "button");
     container.tabIndex = 0;
-    container.title = "Clique para abrir o desenho";
+    container.title = "Clique para abrir o diagrama";
 
     void renderizarSvg(this.alvo)
       .then((svg) => {
@@ -90,7 +90,7 @@ class EmbedDesenhoWidget extends WidgetType {
         container.appendChild(svg);
       })
       .catch(() => {
-        container.textContent = "Não foi possível carregar o desenho.";
+        container.textContent = "Não foi possível carregar o diagrama.";
       });
 
     const abrir = (e: Event) => {

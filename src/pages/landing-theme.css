@@ -1,0 +1,19 @@
+/* Cristal design tokens from the current Excalisidian design system (main,
+ * src/estilos/globals.css, verified 2026-09-19). Scoped to the landing page:
+ * this older desktop checkout keeps its existing theme unchanged. */
+.landing-page {
+  --color-papel: #0d0c10;
+  --color-superficie: #161519;
+  --color-lavagem: #201e24;
+  --color-regua: #2f2d34;
+  --color-regua-forte: #686473;
+  --color-tinta: #eaeaec;
+  --color-tinta-media: #b6b4bb;
+  --color-tinta-suave: #928f99;
+  --color-cristal: #aa85cb;
+  --primary: var(--color-cristal);
+}
+
+.landing-page :focus-visible {
+  outline-color: var(--primary);
+}

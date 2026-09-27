@@ -30,6 +30,7 @@ import DialogoAgente from "../ui/excalisidian/DialogoAgente";
 import RaizDialogos from "../ui/excalisidian/RaizDialogos";
 import RaizSobreposicoes from "../ui/excalisidian/RaizSobreposicoes";
 import LimiteDeErro from "../ui/excalisidian/LimiteDeErro";
+import WallpaperLayer from "../layout/WallpaperLayer";
 
 function aplicarTema(tema: Tema) {
   const escuro =
@@ -226,7 +227,8 @@ export default function App() {
   }
 
   return (
-    <div className="flex h-screen flex-col bg-papel text-tinta">
+    <div className="relative isolate flex h-screen flex-col bg-transparent text-tinta">
+      <WallpaperLayer />
       <LimiteDeErro
         onFechar={() => window.location.reload()}
         rotuloFechar="Recarregar"
@@ -271,7 +273,7 @@ export default function App() {
                 />
                 <BotaoIcone
                   Icone={SquarePen}
-                  titulo="Novo desenho"
+                  titulo="Novo diagrama"
                   onClick={() => void comandoNovoDesenho("")}
                 />
               </div>

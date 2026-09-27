@@ -4,6 +4,9 @@
   "version": "0.4.0",
   "type": "module",
   "scripts": {
+    "dev:landing": "vite --config vite.landing.config.ts",
+    "build:landing": "tsc && vite build --config vite.landing.config.ts",
+    "preview:landing": "vite preview --config vite.landing.config.ts",
     "dev": "vite",
     "build": "tsc && vite build",
     "preview": "vite preview",

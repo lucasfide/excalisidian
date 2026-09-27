@@ -127,7 +127,7 @@ export default function PainelBusca() {
   };
 
   const mensagemVazio = !temConsulta
-    ? "Busque por conteúdo em notas e desenhos."
+    ? "Busque por conteúdo em notas e diagramas."
     : buscando
       ? "Buscando…"
       : `Nada encontrado para «${valor.trim()}».`;
@@ -186,7 +186,7 @@ export default function PainelBusca() {
                     {resultado.titulo}
                   </span>
                   {resultado.kind === "drawing" && (
-                    <span className="meta shrink-0 text-tinta-suave">desenho</span>
+                    <span className="meta shrink-0 text-tinta-suave">diagrama</span>
                   )}
                   <span className="meta ml-auto shrink-0 truncate text-tinta-suave">
                     {resultado.path}

@@ -75,7 +75,7 @@ export default function PainelDesenho(props: IDockviewPanelProps<Params>) {
         <div className="flex min-h-0 flex-1 items-center justify-center px-8">
           <div className="w-full max-w-sm rounded-ficha border border-regua bg-superficie p-5 shadow-ficha">
             <p className="text-corpo text-tinta">
-              Não foi possível ler o desenho deste arquivo.
+                Não foi possível ler o diagrama deste arquivo.
             </p>
             <p className="mt-1 text-pequeno text-tinta-media [text-wrap:pretty]">
               Nada será salvo aqui enquanto a cena estiver ilegível. Abra como texto para

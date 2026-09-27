@@ -22,7 +22,7 @@ export default function BarraFerramentasSidebar({
       <BotaoIcone Icone={FilePlus} titulo="Nova nota" onClick={onCriarNota} />
       <BotaoIcone
         Icone={SquarePen}
-        titulo="Novo desenho"
+        titulo="Novo diagrama"
         onClick={onCriarDesenho}
       />
       <BotaoIcone Icone={FolderPlus} titulo="Nova pasta" onClick={onCriarPasta} />

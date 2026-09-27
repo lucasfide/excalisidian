@@ -34,7 +34,7 @@ export default function QuickSwitcher() {
     <SobreposicaoBusca
       tituloAcessivel="Ir para"
       rotuloCampo="Ir para"
-      placeholder="Nome da nota ou do desenho…"
+      placeholder="Nome da nota ou do diagrama…"
       valor={valor}
       onValorMudar={setValor}
       itens={itens}

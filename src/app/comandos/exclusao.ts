@@ -13,7 +13,7 @@ const ROTULO_TIPO: Record<
   { nome: string; movido: string }
 > = {
   note: { nome: "Nota", movido: "movida" },
-  drawing: { nome: "Desenho", movido: "movido" },
+  drawing: { nome: "Diagrama", movido: "movido" },
   attachment: { nome: "Anexo", movido: "movido" },
   folder: { nome: "Pasta", movido: "movida" },
 };
