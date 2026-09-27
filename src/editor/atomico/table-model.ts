@@ -18,6 +18,31 @@ export interface TableModel {
   header: string[];
   aligns: ColumnAlign[];
   rows: string[][];
+  // [excalisidian] Column widths (doc 14 — resizable columns): fractions of the table's total
+  // width, one per column, summing to 1. `null`/`undefined` means automatic width — the browser
+  // sizes columns by content, same as before this field existed. Optional so code that still
+  // builds a bare `{ header, aligns, rows }` keeps compiling.
+  widths?: number[] | null;
+}
+
+// [excalisidian] Resizing a column persists to disk as extra dashes on its delimiter cell
+// (`MIN_WIDTH_DASHES`..`TOTAL_WIDTH_DASHES`) instead of a separate frontmatter/config field, so
+// widths survive copy-paste and editing outside the app. `MIN_WIDTH_DASHES` is the floor: a
+// delimiter cell that round-tripped down to 3 dashes or fewer would read back as "automatic"
+// (see `parseTableText`), silently discarding a width the user set on purpose.
+export const MIN_WIDTH_DASHES = 4;
+export const TOTAL_WIDTH_DASHES = 60;
+
+// [excalisidian] Turn arbitrary positive numbers into fractions that sum to 1. Used both to
+// derive `widths` from a delimiter row's dash counts on parse, and to renormalize after
+// insertColumn/deleteColumn change the number of columns. A zero (or empty) sum has no
+// meaningful ratio to preserve, so it falls back to equal fractions rather than dividing by 0.
+export function normalizeWidths(values: number[]): number[] {
+  const n = values.length;
+  if (n === 0) return [];
+  const sum = values.reduce((a, b) => a + b, 0);
+  if (sum === 0) return values.map(() => 1 / n);
+  return values.map((v) => v / sum);
 }
 
 // Split a raw GFM table row line on unescaped `|`. Doesn't rely on a lezer `TableCell` count —
@@ -73,6 +98,24 @@ function alignToDelimiterCell(align: ColumnAlign): string {
   return "---";
 }
 
+// [excalisidian] Dash count of a delimiter cell, `:` alignment markers excluded — this is the
+// on-disk encoding of a column's stored width (see `MIN_WIDTH_DASHES`/`TOTAL_WIDTH_DASHES`
+// above and `parseTableText` below).
+function countDelimiterDashes(cell: string): number {
+  return (cell.match(/-/g) ?? []).length;
+}
+
+// [excalisidian] Render one delimiter cell from a stored width fraction. The dash count scales
+// with the fraction of `TOTAL_WIDTH_DASHES`, floored at `MIN_WIDTH_DASHES` so a resized column
+// never rounds back down to a delimiter cell that reads as "automatic" on the next parse.
+function alignToDelimiterCellWithWidth(align: ColumnAlign, width: number): string {
+  const dashes = "-".repeat(Math.max(MIN_WIDTH_DASHES, Math.round(width * TOTAL_WIDTH_DASHES)));
+  if (align === "left") return ":" + dashes;
+  if (align === "center") return ":" + dashes + ":";
+  if (align === "right") return dashes + ":";
+  return dashes;
+}
+
 // Escape cell content so it can't break the row's GFM structure: an unescaped `|` would split
 // the cell into two columns, and a stray newline would terminate the table. A pipe that's
 // already escaped (`\|` — e.g. round-tripping content the parser handed us) is left alone so
@@ -104,7 +147,13 @@ export function parseTableText(text: string): TableModel | null {
   );
   const rows = lines.slice(2).map(splitRowCells);
 
-  return { header, aligns, rows };
+  // [excalisidian] A delimiter cell missing for one of the header's columns counts as 3 dashes
+  // — same "no width info here" default used for alignment above — so a short/malformed
+  // delimiter row never accidentally reads as a stored width.
+  const dashCounts = header.map((_, i) => countDelimiterDashes(delimiterCells[i] ?? "---"));
+  const widths = dashCounts.some((d) => d > 3) ? normalizeWidths(dashCounts) : null;
+
+  return { header, aligns, rows, widths };
 }
 
 export function serializeTable(model: TableModel): string {
@@ -113,9 +162,14 @@ export function serializeTable(model: TableModel): string {
   lines.push("| " + model.header.map(escapeCell).join(" | ") + " |");
   lines.push(
     "| " +
-      Array.from({ length: columnCount }, (_, i) =>
-        alignToDelimiterCell(model.aligns[i] ?? null),
-      ).join(" | ") +
+      Array.from({ length: columnCount }, (_, i) => {
+        const align = model.aligns[i] ?? null;
+        // [excalisidian] `widths` present → proportional delimiter (stores the resized width);
+        // otherwise the original fixed `---`/`:---`/`:---:`/`---:` markers, unchanged.
+        return model.widths
+          ? alignToDelimiterCellWithWidth(align, model.widths[i] ?? 1 / columnCount)
+          : alignToDelimiterCell(align);
+      }).join(" | ") +
       " |",
   );
   for (const row of model.rows) {
@@ -174,7 +228,16 @@ export function insertColumn(m: TableModel, index: number): TableModel {
     next.splice(at, 0, "");
     return next;
   });
-  return { header, aligns, rows };
+  const result: TableModel = { header, aligns, rows };
+  // [excalisidian] The new column starts at "one column's worth" of the old table, then
+  // everything renormalizes back to summing to 1 — matches how a real column would eat into
+  // its siblings' space if it had been there from the start.
+  if (m.widths) {
+    const widths = m.widths.slice();
+    widths.splice(at, 0, 1 / columnCount);
+    result.widths = normalizeWidths(widths);
+  }
+  return result;
 }
 
 // No-op when the table only has one column left — a zero-column table isn't representable as
@@ -190,7 +253,13 @@ export function deleteColumn(m: TableModel, index: number): TableModel {
     next.splice(index, 1);
     return next;
   });
-  return { header, aligns, rows };
+  const result: TableModel = { header, aligns, rows };
+  if (m.widths) {
+    const widths = m.widths.slice();
+    widths.splice(index, 1);
+    result.widths = normalizeWidths(widths);
+  }
+  return result;
 }
 
 // Moves a column, carrying its header cell, its alignment, and every row's cell at that index
@@ -200,7 +269,14 @@ export function moveColumn(m: TableModel, from: number, to: number): TableModel 
   if (from < 0 || from >= columnCount) return m;
   const target = clamp(to, 0, columnCount - 1);
   if (target === from) {
-    return { header: m.header.slice(), aligns: m.aligns.slice(), rows: m.rows.map((r) => r.slice()) };
+    return {
+      header: m.header.slice(),
+      aligns: m.aligns.slice(),
+      rows: m.rows.map((r) => r.slice()),
+      // [excalisidian] This same-position path used to reconstruct the model by hand and drop
+      // `widths` on the floor — fixed so a no-op move never silently clears a resized column.
+      ...(m.widths ? { widths: m.widths.slice() } : {}),
+    };
   }
   const header = m.header.slice();
   const [movedHeader] = header.splice(from, 1);
@@ -217,7 +293,15 @@ export function moveColumn(m: TableModel, from: number, to: number): TableModel 
     return next;
   });
 
-  return { header, aligns, rows };
+  const result: TableModel = { header, aligns, rows };
+  // [excalisidian] The width fraction travels with the column, same as header/align/cells.
+  if (m.widths) {
+    const widths = m.widths.slice();
+    const [movedWidth] = widths.splice(from, 1);
+    widths.splice(target, 0, movedWidth);
+    result.widths = widths;
+  }
+  return result;
 }
 
 export function setAlign(m: TableModel, col: number, align: ColumnAlign): TableModel {
@@ -225,4 +309,41 @@ export function setAlign(m: TableModel, col: number, align: ColumnAlign): TableM
   const aligns = m.aligns.slice();
   aligns[col] = align;
   return { ...m, aligns };
+}
+
+// [excalisidian] Drag the border between column `border` and `border + 1` by `delta` (a
+// fraction of the table's total width). Grows the left column and shrinks the right one by the
+// same amount so the total stays 1 — every other column is untouched. `minFraction` is the
+// floor for both sides; if they can't each keep at least `minFraction` even split evenly, the
+// drag is refused outright rather than producing a column that's already below the floor.
+// No-op when widths are automatic (`null`/`undefined`) — the widget is expected to convert a
+// pixel delta into a fraction via `normalizeWidths` before calling this, which needs `widths`
+// to already exist to normalize against.
+export function resizeColumns(
+  m: TableModel,
+  border: number,
+  delta: number,
+  minFraction: number,
+): TableModel {
+  if (!m.widths) return m;
+  const columnCount = m.header.length;
+  if (border < 0 || border >= columnCount - 1) return m;
+
+  const widths = m.widths.slice();
+  const left = widths[border] ?? 0;
+  const right = widths[border + 1] ?? 0;
+  const total = left + right;
+  if (total < minFraction * 2) return m;
+
+  const newLeft = clamp(left + delta, minFraction, total - minFraction);
+  widths[border] = newLeft;
+  widths[border + 1] = total - newLeft;
+  return { ...m, widths };
+}
+
+// [excalisidian] Drop back to automatic (content-based) width. Kept as its own function, rather
+// than callers writing `{ ...m, widths: null }` themselves, so "clear the resize" has one name
+// to search for.
+export function clearWidths(m: TableModel): TableModel {
+  return { ...m, widths: null };
 }

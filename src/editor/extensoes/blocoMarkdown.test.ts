@@ -17,11 +17,28 @@ describe("blocoEm", () => {
     expect(b).toEqual({ de: 0, ate: 10, tipo: "Paragraph" });
   });
 
-  it("parágrafo de várias linhas (Shift+Enter): o bloco inteiro, não só a linha", () => {
-    const texto = "linha um\nlinha dois\nlinha três";
+  it("linhas ligadas por Shift+Enter (hard break `  \\n`): o bloco inteiro, não só a linha", () => {
+    const texto = "linha um  \nlinha dois  \nlinha três";
     const { arvore, doc } = arvoreDe(texto);
     const b = blocoEm(arvore, doc, texto.indexOf("dois"));
     expect(b).toEqual({ de: 0, ate: texto.length, tipo: "Paragraph" });
+  });
+
+  it("linhas separadas por Enter (`\\n` simples): cada linha é um bloco", () => {
+    const texto = "S2M:\nAlinhamento\nEscopo";
+    const { arvore, doc } = arvoreDe(texto);
+    const b = blocoEm(arvore, doc, texto.indexOf("Alinhamento") + 3);
+    expect(doc.sliceString(b!.de, b!.ate)).toBe("Alinhamento");
+    expect(doc.sliceString(blocoEm(arvore, doc, 1)!.de, blocoEm(arvore, doc, 1)!.ate)).toBe("S2M:");
+  });
+
+  it("mistura: Enter separa, Shift+Enter junta", () => {
+    const texto = "um\ndois  \ntrês\nquatro";
+    const { arvore, doc } = arvoreDe(texto);
+    const b = blocoEm(arvore, doc, texto.indexOf("três"));
+    expect(doc.sliceString(b!.de, b!.ate)).toBe("dois  \ntrês");
+    const irmaos = blocosIrmaos(arvore, doc, b!);
+    expect(irmaos.map((x) => doc.sliceString(x.de, x.ate))).toEqual(["um", "dois  \ntrês", "quatro"]);
   });
 
   it("dois parágrafos separados por linha em branco são blocos diferentes", () => {

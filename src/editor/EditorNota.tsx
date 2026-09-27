@@ -4,7 +4,7 @@
 // (ver o LEIA-ME de lá). Desde a Fatia 4 o conteúdo por aba vive no documentosStore e a aba
 // ativa no workspaceStore.
 
-import { useEffect, useRef, type CSSProperties } from "react";
+import { useEffect, useMemo, useRef, type CSSProperties } from "react";
 import type { Extension } from "@codemirror/state";
 import { EditorView } from "@codemirror/view";
 import {
@@ -31,6 +31,7 @@ import { quebraDeBloco } from "./extensoes/quebraDeBloco";
 import { moverBloco } from "./extensoes/moverBloco";
 import { menuTabela } from "./extensoes/menuTabela";
 import { diagnosticoEmoji } from "./extensoes/diagnosticoEmoji";
+import { caminhoDaNota } from "./extensoes/caminhoDaNota";
 import { rastrearEditorAtivo } from "./editorAtivo";
 import "./extensoes/embedDesenho.css";
 import "./extensoes/embedImagem.css";
@@ -91,6 +92,9 @@ export default function EditorNota({
   aoMontarView,
 }: Props) {
   const handleRef = useRef<AtomicCodeMirrorEditorHandle | null>(null);
+  // O pacote só relê `extensions` quando `documentId` (= caminho) muda, e é exatamente quando
+  // este memo muda — então o caminho acima do título acompanha renomear/mover.
+  const extensoes = useMemo(() => [...EXTENSOES, caminhoDaNota(caminho)], [caminho]);
 
   // Revelação de trecho vinda da busca (doc 13 §2.2/§1.5): não usa `initialRevealText` —
   // este efeito cobre os dois casos (nota montando e nota já montada) com o mesmo código,
@@ -132,7 +136,7 @@ export default function EditorNota({
         onMarkdownChange={onEditar}
         editorHandleRef={handleRef}
         codeLanguages={ATOMIC_CODE_LANGUAGES}
-        extensions={EXTENSOES}
+        extensions={extensoes}
         readOnly={somenteLeitura}
       />
     </div>

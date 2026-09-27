@@ -29,6 +29,7 @@ import {
   BetweenVerticalEnd,
   BetweenVerticalStart,
   Check,
+  MoveHorizontal,
   Trash2,
   type LucideIcon,
 } from "lucide-react";
@@ -40,6 +41,7 @@ import {
   type TableMenuRequest,
 } from "../atomico/table-widget";
 import {
+  clearWidths,
   deleteColumn,
   deleteRow,
   insertColumn,
@@ -166,6 +168,13 @@ function MenuTabela({ requisicao, onFechar }: PropsMenuTabela) {
             rotulo="Alinhar à direita"
             onClick={executar(() => requisicao.apply(setAlign(model, col, "right")))}
           />
+          {model.widths && (
+            <ItemMenu
+              Icone={MoveHorizontal}
+              rotulo="Largura automática"
+              onClick={executar(() => requisicao.apply(clearWidths(model)))}
+            />
+          )}
           <ItemMenu
             Icone={Trash2}
             rotulo="Excluir coluna"
@@ -220,5 +229,6 @@ export const menuTabela: Extension = [
     addRow: "Adicionar linha",
     rowHandle: "Arraste para mover a linha. Clique para mais opções.",
     columnHandle: "Arraste para mover a coluna. Clique para mais opções.",
+    resizeHandle: "Arraste para ajustar a largura. Clique duas vezes para largura automática.",
   }),
 ];

@@ -3,7 +3,7 @@
  * `document.body` — ver o comentário no topo de moverBloco.ts sobre por que não dá pra
  * posicionar dentro do view.dom (o overflow-hidden de EditorNota.tsx cortaria). */
 
-/* O container é invisível e tem a largura do respiro (encosta na borda do view.dom, sem vão morto)
+/* O container é invisível, tem 24px e encosta no começo da linha do texto (sem vão morto até ele)
  * e a altura do bloco inteiro, definida em moverBloco.ts — é ele que faz a alça cobrir todas as
  * linhas do bloco. O botão de 16px fica alinhado ao topo, então o visual é o mesmo de sempre.
  * `display` alterna entre `none` e `flex` pelo JS. */
@@ -24,4 +24,22 @@
   border-radius: 1px;
   pointer-events: none;
   z-index: 40;
+}
+
+/* Realce do bloco sob a alça (hover): fundo `lavagem`, o "hover de linha" do doc 06. Decoração de
+ * linha do CodeMirror (moverBloco.ts, campoRealce), então fica atrás do texto. As pontas do bloco
+ * ganham o raio de ficha pra ele ler como uma peça só. */
+.cm-line.cm-bloco-realcado {
+  background-color: var(--color-lavagem);
+  transition: background-color 140ms var(--ease-caderno);
+}
+
+.cm-line.cm-bloco-realcado-topo {
+  border-top-left-radius: var(--radius-ficha);
+  border-top-right-radius: var(--radius-ficha);
+}
+
+.cm-line.cm-bloco-realcado-base {
+  border-bottom-left-radius: var(--radius-ficha);
+  border-bottom-right-radius: var(--radius-ficha);
 }

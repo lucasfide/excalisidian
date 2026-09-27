@@ -1,6 +1,6 @@
 import { describe, it, expect } from "vitest";
 
-import { gapToMoveTarget, isNoopGap, nearestGapIndex } from "./table-widget";
+import { gapToMoveTarget, isNoopGap, nearestGapIndex, nearestResizeBorder } from "./table-widget";
 
 // Pure geometry helpers behind the row/column drag handles (doc 14 §1.3/§2.3): given the
 // screen-space boundaries between rows (or columns) and a pointer position, which "gap" does a
@@ -65,5 +65,38 @@ describe("gapToMoveTarget", () => {
   it("mover a primeira linha para o fim (caso do teste manual do doc 14)", () => {
     // 4 linhas (origem 0), soltar depois da última -> gap 4 -> índice final 3.
     expect(gapToMoveTarget(0, 4)).toBe(3);
+  });
+});
+
+// Pure hit-testing behind the column-resize handle (doc 14 §1.5): given the screen-space X of
+// every INTERNAL column border (never the table's outer edges — those belong to the add-column
+// strip, not to resizing) and a pointer position, which border (if any) is close enough to grab.
+describe("nearestResizeBorder", () => {
+  // Three columns -> two internal borders, at x = 100 and x = 220.
+  const borders = [100, 220];
+
+  it("acha a borda quando o ponteiro está em cima dela", () => {
+    expect(nearestResizeBorder(borders, 100, 4)).toBe(0);
+    expect(nearestResizeBorder(borders, 220, 4)).toBe(1);
+  });
+
+  it("acha a borda dentro da tolerância", () => {
+    expect(nearestResizeBorder(borders, 103, 4)).toBe(0);
+    expect(nearestResizeBorder(borders, 217, 4)).toBe(1);
+  });
+
+  it("nenhuma borda fora da tolerância — não é a borda externa", () => {
+    expect(nearestResizeBorder(borders, 90, 4)).toBeNull();
+    expect(nearestResizeBorder(borders, 230, 4)).toBeNull();
+    expect(nearestResizeBorder(borders, 160, 4)).toBeNull();
+  });
+
+  it("sem bordas internas (tabela de uma coluna) nunca acha nada", () => {
+    expect(nearestResizeBorder([], 100, 4)).toBeNull();
+  });
+
+  it("escolhe a mais próxima quando duas estão dentro da tolerância", () => {
+    expect(nearestResizeBorder([100, 103], 101, 4)).toBe(0);
+    expect(nearestResizeBorder([100, 103], 102, 4)).toBe(1);
   });
 });

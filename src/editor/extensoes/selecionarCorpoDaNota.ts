@@ -33,6 +33,9 @@ const selecionarCorpo: Command = (view) => {
   return true;
 };
 
+/** Tecla deste keymap — lida pelo teste de deriva do glossário (catalogoAtalhos.test.ts). */
+export const TECLAS_SELECIONAR_CORPO: readonly string[] = ["Mod-a"];
+
 export const selecionarCorpoDaNota = Prec.high(
   keymap.of([{ key: "Mod-a", run: selecionarCorpo, preventDefault: true }]),
 );

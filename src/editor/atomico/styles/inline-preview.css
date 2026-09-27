@@ -611,6 +611,63 @@
   z-index: 1;
 }
 
+/* [excalisidian] Column-resize handle (doc 14 §1.5). Positioned by JS (`table-widget.ts`'s
+ * `reposition`/`startColumnResizeDrag`) over the internal border between two header cells —
+ * `top`/`bottom: 16px` matches the table's own height inside the padded surface, same as
+ * `.cm-atomic-table-add-col`'s reasoning above. The zone is 8px wide (4/8 spacing scale, doc 06)
+ * so there's real tolerance to grab it, but only its `::after` — a 2px `cristal` line, same
+ * visual language as the drop indicator — actually paints, and only on hover or while dragging;
+ * at rest the zone is present (for the cursor to flip to `col-resize`) but invisible. */
+.cm-atomic-table-resize-handle {
+  position: absolute;
+  display: none;
+  top: 16px;
+  bottom: 16px;
+  width: 8px;
+  cursor: col-resize;
+  z-index: 3;
+}
+
+.cm-atomic-table-resize-handle.is-visible {
+  display: block;
+}
+
+.cm-atomic-table-resize-handle::after {
+  content: "";
+  position: absolute;
+  left: calc(50% - 1px); /* centers the 2px line on the border */
+  top: 0;
+  bottom: 0;
+  width: 2px;
+  background: var(--atomic-editor-accent); /* cristal */
+  opacity: 0;
+  transition: opacity 120ms ease;
+}
+
+.cm-atomic-table-resize-handle:hover::after,
+.cm-atomic-table-resize-handle.is-dragging::after {
+  opacity: 1;
+}
+
+/* While a column-resize drag is in progress, lock the whole document's cursor to `col-resize` —
+ * otherwise it flickers back to the cell caret/text cursor every time the pointer crosses a cell
+ * boundary mid-drag (the same reason `moverBloco.ts` locks `cursor: grabbing` during a block
+ * drag). */
+body.cm-atomic-table-resizing,
+body.cm-atomic-table-resizing * {
+  cursor: col-resize !important;
+}
+
+/* [excalisidian] Fixed column widths (doc 14 §1.5): once a table has stored widths, its
+ * `<colgroup>` — not content — decides each column's share, and the table itself takes the full
+ * width of the reading column instead of sizing to content (`width: max-content` below, the
+ * automatic-table default). Cells must still wrap instead of forcing the table wider —
+ * `.cm-atomic-table-cell-source` already sets `word-break: break-word` for exactly this. */
+.cm-atomic-table table.cm-atomic-table-fixed {
+  table-layout: fixed;
+  width: 100%;
+}
+
 .cm-atomic-table table {
   border-collapse: collapse;
   width: max-content;

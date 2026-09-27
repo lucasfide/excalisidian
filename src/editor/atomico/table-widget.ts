@@ -25,11 +25,14 @@ import { readOnlyFacet } from './read-only';
 // that file's header comment. This widget only deals with the syntax tree, the DOM and CM6
 // transactions.
 import {
+  clearWidths,
   insertColumn,
   insertRow,
   moveColumn,
   moveRow,
+  normalizeWidths,
   parseTableText,
+  resizeColumns,
   serializeTable,
   type ColumnAlign,
   type TableModel,
@@ -89,7 +92,15 @@ function readModelFromDom(wrap: HTMLElement): TableModel {
   const rows = Array.from(wrap.querySelectorAll<HTMLElement>('tbody tr')).map(
     (tr) => Array.from(tr.querySelectorAll<HTMLElement>('td')).map(readCellSource),
   );
-  return { header, aligns, rows };
+  // [excalisidian] Column widths (doc 14 §1.5) live in `data-width` on each header cell, same
+  // pattern as `data-align` above — critical because every menu action and drag gesture reads
+  // its base model FROM the DOM via this function, so skipping this would silently drop a
+  // resized table's widths the next time any other action ran. `undefined` on ANY header cell
+  // (a table that was never resized) means "automatic": `null`, not a partial array.
+  const widths: number[] | null = headerCells.every((th) => th.dataset.width !== undefined)
+    ? headerCells.map((th) => Number(th.dataset.width))
+    : null;
+  return { header, aligns, rows, widths };
 }
 
 // A cell's raw markdown lives in `dataset.raw` — the source of truth
@@ -672,6 +683,18 @@ function getAllCells(wrap: HTMLElement): HTMLElement[] {
   return Array.from(wrap.querySelectorAll<HTMLElement>('th, td'));
 }
 
+// [excalisidian] `widths` equality with `null`/`undefined` treated as the same "automatic"
+// state — plain `===` on the two arrays would always be false (different array instances) and
+// comparing by reference would defeat the point of an `eq` check.
+function widthsEqual(a: number[] | null | undefined, b: number[] | null | undefined): boolean {
+  const an = a ?? null;
+  const bn = b ?? null;
+  if (an === null || bn === null) return an === bn;
+  if (an.length !== bn.length) return false;
+  for (let i = 0; i < an.length; i++) if (an[i] !== bn[i]) return false;
+  return true;
+}
+
 // ---- widget ---------------------------------------------------------
 
 class TableWidget extends WidgetType {
@@ -710,6 +733,12 @@ class TableWidget extends WidgetType {
     if (other.readOnly !== this.readOnly) return false;
     if (other.model.header.length !== this.model.header.length) return false;
     if (other.model.rows.length !== this.model.rows.length) return false;
+    // [excalisidian] Widths are part of the widget's identity too (doc 14 §1.5) — same reasoning
+    // as the header/row text comparison below: a resize dispatches its serialized model without
+    // touching the DOM first (the live drag already showed the change; the dispatch is just
+    // persistence), so without this a structure-only `eq` would keep the DOM at its pre-resize
+    // widths until the next unrelated edit forced a rebuild.
+    if (!widthsEqual(this.model.widths, other.model.widths)) return false;
     for (let i = 0; i < this.model.aligns.length; i++) {
       if (other.model.aligns[i] !== this.model.aligns[i]) return false;
     }
@@ -782,10 +811,22 @@ class TableWidget extends WidgetType {
 function buildTableElement(model: TableModel, view: EditorView): HTMLTableElement {
   const table = document.createElement('table');
 
+  // [excalisidian] Column widths (doc 14 §1.5): a `<colgroup>` with one `<col>` per column,
+  // width in percent, plus `cm-atomic-table-fixed` to switch the table from content-sized
+  // (`width: max-content`) to `table-layout: fixed` — see `inline-preview.css`. `null`/
+  // `undefined` widths (never resized, or reset via "Largura automática") skip this entirely
+  // and the table falls back to its original automatic sizing.
+  if (model.widths) {
+    table.appendChild(buildColgroup(model.widths));
+    table.classList.add('cm-atomic-table-fixed');
+  }
+
   const thead = document.createElement('thead');
   const headerRow = document.createElement('tr');
   for (let c = 0; c < model.header.length; c++) {
-    headerRow.appendChild(makeCell('th', model.header[c], model.aligns[c] ?? null, view));
+    headerRow.appendChild(
+      makeCell('th', model.header[c], model.aligns[c] ?? null, model.widths?.[c] ?? null, view),
+    );
   }
   thead.appendChild(headerRow);
   table.appendChild(thead);
@@ -795,7 +836,7 @@ function buildTableElement(model: TableModel, view: EditorView): HTMLTableElemen
   for (const row of model.rows) {
     const tr = document.createElement('tr');
     for (let c = 0; c < colCount; c++) {
-      tr.appendChild(makeCell('td', row[c] ?? '', model.aligns[c] ?? null, view));
+      tr.appendChild(makeCell('td', row[c] ?? '', model.aligns[c] ?? null, null, view));
     }
     tbody.appendChild(tr);
   }
@@ -804,10 +845,24 @@ function buildTableElement(model: TableModel, view: EditorView): HTMLTableElemen
   return table;
 }
 
+// [excalisidian] Builds the `<colgroup>` for a table with stored widths (doc 14 §1.5). Shared by
+// `buildTableElement` (source → DOM) and the resize drag's live conversion of an automatic table
+// to a fixed one (`applyFixedDomWidths` below) so both paths produce identical markup.
+function buildColgroup(widths: number[]): HTMLTableColElement {
+  const colgroup = document.createElement('colgroup');
+  for (const w of widths) {
+    const col = document.createElement('col');
+    col.style.width = `${w * 100}%`;
+    colgroup.appendChild(col);
+  }
+  return colgroup;
+}
+
 function makeCell(
   tag: 'th' | 'td',
   text: string,
   align: ColumnAlign,
+  width: number | null,
   view: EditorView,
 ): HTMLElement {
   const cell = document.createElement(tag);
@@ -816,7 +871,12 @@ function makeCell(
   // the column; `data-align` is stored only on the header cell — `readModelFromDom` reads the
   // column's alignment back from there (see that function's comment).
   cell.style.textAlign = align ?? 'left';
-  if (tag === 'th') cell.dataset.align = align ?? '';
+  if (tag === 'th') {
+    cell.dataset.align = align ?? '';
+    // [excalisidian] Column width (doc 14 §1.5), same "only on the header cell" pattern as
+    // `data-align` — `readModelFromDom` reads it back from there.
+    if (width != null) cell.dataset.width = String(width);
+  }
 
   // The cell itself is not contenteditable — only the inner source
   // element is. This keeps the image preview strictly visual (no
@@ -1015,6 +1075,7 @@ export interface TableLabels {
   addRow: string;
   rowHandle: string;
   columnHandle: string;
+  resizeHandle: string;
 }
 
 const defaultTableLabels: TableLabels = {
@@ -1022,6 +1083,7 @@ const defaultTableLabels: TableLabels = {
   addRow: 'Add row',
   rowHandle: 'Drag to move the row. Click for more options.',
   columnHandle: 'Drag to move the column. Click for more options.',
+  resizeHandle: 'Drag to resize. Double-click for automatic width.',
 };
 
 export const tableLabelsFacet = Facet.define<TableLabels, TableLabels>({
@@ -1093,6 +1155,37 @@ const DRAG_THRESHOLD_PX = 4; // same threshold `moverBloco.ts` uses to tell a cl
 // How far outside the table a pointer may stray and still count as "still over the table" (doc
 // 14 §1.3 "soltar fora cancela" — a release further than this away is "outside").
 const DROP_SLACK_PX = 24;
+
+// [excalisidian] Column-resize constants (doc 14 §1.5). `RESIZE_HOVER_RANGE_PX` is how close the
+// pointer must be to an internal column border for the resize handle to appear — the same 4px
+// figure the doc gives for the hit zone's tolerance. `MIN_COLUMN_WIDTH_PX` is the product's
+// stated floor for a single column.
+const RESIZE_HOVER_RANGE_PX = 4;
+const MIN_COLUMN_WIDTH_PX = 64;
+
+// [excalisidian] Given the screen-space X positions of every INTERNAL column border (length =
+// column count - 1; never the table's outer edges — those aren't resize targets, doc 14 §1.5),
+// which one (if any) is within `thresholdPx` of `pos`. Pure and DOM-free like `nearestGapIndex`
+// above, for the same reason: the geometry is gathered by the caller from `getBoundingClientRect`,
+// this only picks the closest border and decides if it's close enough. `null` means "no border is
+// close enough — hide the handle."
+export function nearestResizeBorder(
+  borders: readonly number[],
+  pos: number,
+  thresholdPx: number,
+): number | null {
+  let best: number | null = null;
+  let bestDist = Infinity;
+  for (let i = 0; i < borders.length; i++) {
+    const dist = Math.abs(borders[i] - pos);
+    if (dist < bestDist) {
+      bestDist = dist;
+      best = i;
+    }
+  }
+  if (best === null || bestDist > thresholdPx) return null;
+  return best;
+}
 
 interface HandleDragConfig {
   /** Screen-space (clientX/clientY) boundary positions, N+1 of them for N items. */
@@ -1170,6 +1263,175 @@ function runHandleDrag(startEvent: PointerEvent, cfg: HandleDragConfig): void {
   window.addEventListener('keydown', onKeyDown, true);
 }
 
+// [excalisidian] Column-resize DOM helpers (doc 14 §1.5). The drag needs to mutate the live
+// `<colgroup>`/`cm-atomic-table-fixed`/`data-width` state WITHOUT dispatching (§1.5 "durante o
+// arrasto, só a tela muda"), and to put it back exactly as it was on `Escape` or a no-op click —
+// including reverting an automatic table's live conversion into a fixed one if the drag never
+// actually moved anything. A snapshot of the three pieces that change is enough to restore.
+interface FixedWidthSnapshot {
+  hadFixedClass: boolean;
+  colgroupHTML: string | null;
+  thWidths: (string | undefined)[];
+}
+
+function captureFixedWidthSnapshot(table: HTMLTableElement): FixedWidthSnapshot {
+  const colgroup = table.querySelector('colgroup');
+  const ths = Array.from(table.querySelectorAll<HTMLTableCellElement>('thead th'));
+  return {
+    hadFixedClass: table.classList.contains('cm-atomic-table-fixed'),
+    colgroupHTML: colgroup ? colgroup.outerHTML : null,
+    thWidths: ths.map((th) => th.dataset.width),
+  };
+}
+
+function restoreFixedWidthSnapshot(table: HTMLTableElement, snapshot: FixedWidthSnapshot): void {
+  table.querySelector('colgroup')?.remove();
+  if (snapshot.colgroupHTML) table.insertAdjacentHTML('afterbegin', snapshot.colgroupHTML);
+  table.classList.toggle('cm-atomic-table-fixed', snapshot.hadFixedClass);
+  const ths = Array.from(table.querySelectorAll<HTMLTableCellElement>('thead th'));
+  ths.forEach((th, i) => {
+    const w = snapshot.thWidths[i];
+    if (w === undefined) delete th.dataset.width;
+    else th.dataset.width = w;
+  });
+}
+
+// Applies `widths` to the live DOM: rebuilds the `<colgroup>`, sets the fixed-layout class, and
+// stamps `data-width` on every header cell (so a later `readModelFromDom` — e.g. from another
+// menu action mid-drag-unrelated-editor-event — sees the same widths this function just painted).
+function applyFixedWidthDom(table: HTMLTableElement, widths: number[]): void {
+  table.querySelector('colgroup')?.remove();
+  table.insertBefore(buildColgroup(widths), table.firstChild);
+  table.classList.add('cm-atomic-table-fixed');
+  const ths = Array.from(table.querySelectorAll<HTMLTableCellElement>('thead th'));
+  ths.forEach((th, i) => {
+    th.dataset.width = String(widths[i] ?? '');
+  });
+}
+
+// Pointermove-only update: just the `<col>` percentages (doc 14 §1.5 "durante o arrasto, só a
+// tela muda") — `data-width` stays at its pre-drag value until `applyFixedWidthDom`/the eventual
+// dispatch rewrites it, matching the task's explicit instruction to touch only `<col>` here.
+function updateColgroupWidths(table: HTMLTableElement, widths: number[]): void {
+  const cols = table.querySelectorAll<HTMLTableColElement>('colgroup > col');
+  cols.forEach((col, i) => {
+    col.style.width = `${(widths[i] ?? 0) * 100}%`;
+  });
+}
+
+// [excalisidian] Column-resize drag (doc 14 §1.5): pointer events only (never HTML5 DnD — same
+// WebView2 constraint documented at this file's top). Mirrors `runHandleDrag`'s click-vs-drag
+// threshold and cleanup discipline, but resizing has no "gap" to land on — the border moves
+// continuously with the pointer via `resizeColumns`, and the only terminal states are "commit
+// the final model" (moved past the threshold) or "put everything back" (never moved, `Escape`,
+// or `pointercancel`).
+function startColumnResizeDrag(
+  startEvent: PointerEvent,
+  view: EditorView,
+  wrap: HTMLElement,
+  surface: HTMLElement,
+  table: HTMLTableElement,
+  handle: HTMLElement,
+  border: number,
+  onDragChange: (dragging: boolean) => void,
+): void {
+  const startModel = readModelFromDom(wrap);
+  const referenceWidth = table.getBoundingClientRect().width;
+  const columnCount = startModel.header.length;
+  const snapshot = captureFixedWidthSnapshot(table);
+
+  // First resize of an automatic table (doc 14 §1.5): today's on-screen pixel widths become the
+  // stored fractions, and the DOM switches to fixed layout right away so the drag has something
+  // live to manipulate — even before the pointer has moved past the click/drag threshold.
+  let base = startModel;
+  if (!base.widths) {
+    const headerCells = Array.from(table.querySelectorAll<HTMLTableCellElement>('thead th'));
+    const pxWidths = headerCells.map((th) => th.getBoundingClientRect().width);
+    const initialWidths = normalizeWidths(pxWidths);
+    base = { ...base, widths: initialWidths };
+    applyFixedWidthDom(table, initialWidths);
+  }
+  const baseWidths = base.widths as number[];
+
+  const minFraction = Math.min(MIN_COLUMN_WIDTH_PX / referenceWidth, 1 / columnCount);
+  const startX = startEvent.clientX;
+  const headerCells = Array.from(table.querySelectorAll<HTMLTableCellElement>('thead th'));
+
+  let engaged = false;
+  let current = base;
+
+  const repositionHandleToBorder = () => {
+    const leftRect = headerCells[border]?.getBoundingClientRect();
+    const rightRect = headerCells[border + 1]?.getBoundingClientRect();
+    if (!leftRect || !rightRect) return;
+    const surfaceRect = surface.getBoundingClientRect();
+    const borderX = (leftRect.right + rightRect.left) / 2;
+    handle.style.left = `${borderX - surfaceRect.left - RESIZE_HOVER_RANGE_PX}px`;
+  };
+
+  const cleanup = () => {
+    window.removeEventListener('pointermove', onMove);
+    window.removeEventListener('pointerup', onUp);
+    window.removeEventListener('pointercancel', onCancel);
+    window.removeEventListener('keydown', onKeyDown, true);
+    document.body.classList.remove('cm-atomic-table-resizing');
+    handle.classList.remove('is-dragging');
+    try {
+      handle.releasePointerCapture(startEvent.pointerId);
+    } catch {
+      // Not captured, or already released — nothing to clean up.
+    }
+    onDragChange(false);
+  };
+
+  const onMove = (event: PointerEvent) => {
+    const dx = event.clientX - startX;
+    if (!engaged) {
+      if (Math.abs(dx) < DRAG_THRESHOLD_PX) return;
+      engaged = true;
+    }
+    const delta = dx / referenceWidth;
+    current = resizeColumns(base, border, delta, minFraction);
+    updateColgroupWidths(table, current.widths ?? baseWidths);
+    repositionHandleToBorder();
+  };
+
+  const onUp = () => {
+    cleanup();
+    if (!engaged) {
+      restoreFixedWidthSnapshot(table, snapshot);
+      return;
+    }
+    dispatchModel(view, wrap, current);
+  };
+
+  const onCancel = () => {
+    cleanup();
+    restoreFixedWidthSnapshot(table, snapshot);
+  };
+
+  const onKeyDown = (event: KeyboardEvent) => {
+    if (event.key !== 'Escape') return;
+    cleanup();
+    restoreFixedWidthSnapshot(table, snapshot);
+  };
+
+  document.body.classList.add('cm-atomic-table-resizing');
+  handle.classList.add('is-dragging');
+  onDragChange(true);
+  try {
+    handle.setPointerCapture(startEvent.pointerId);
+  } catch {
+    // Pointer capture is a nice-to-have (keeps the resize responsive if the cursor slips off the
+    // 8px zone); its absence doesn't break the drag since the listeners are on `window`.
+  }
+
+  window.addEventListener('pointermove', onMove);
+  window.addEventListener('pointerup', onUp);
+  window.addEventListener('pointercancel', onCancel);
+  window.addEventListener('keydown', onKeyDown, true);
+}
+
 // [excalisidian] Builds every hover control for one table widget instance: the "+" strips, both
 // drag handles, and the drop indicator (doc 14 §1.3/§2.3). Called once from `toDOM`, skipped
 // entirely in read-only mode. All positioning is absolute inside `surface`
@@ -1235,8 +1497,19 @@ function attachTableControls(
   dropIndicator.className = 'cm-atomic-table-drop-indicator';
   surface.appendChild(dropIndicator);
 
+  // [excalisidian] Column-resize handle (doc 14 §1.5): one instance, repositioned in `reposition`
+  // below like the row/col drag handles above, but shown by PROXIMITY to an internal border
+  // instead of by being "over" a row/column — see `nearestResizeBorder`.
+  const resizeHandle = document.createElement('div');
+  resizeHandle.className = 'cm-atomic-table-resize-handle';
+  resizeHandle.title = labels.resizeHandle;
+  resizeHandle.setAttribute('aria-label', labels.resizeHandle);
+  surface.appendChild(resizeHandle);
+
   let hoveredRow = -1;
   let hoveredCol = -1;
+  let hoveredBorder = -1;
+  let resizing = false;
 
   const hideRowHandle = () => {
     hoveredRow = -1;
@@ -1245,6 +1518,10 @@ function attachTableControls(
   const hideColHandle = () => {
     hoveredCol = -1;
     colHandle.classList.remove('is-visible');
+  };
+  const hideResizeHandle = () => {
+    hoveredBorder = -1;
+    resizeHandle.classList.remove('is-visible');
   };
 
   // Reads geometry fresh on every call rather than caching it: table hover is a short-lived,
@@ -1282,12 +1559,38 @@ function attachTableControls(
     } else {
       hideColHandle();
     }
+
+    // Resize handle: skipped while a drag is in progress — its position is driven by the drag
+    // itself (`startColumnResizeDrag`'s `repositionHandleToBorder`), and re-deriving it here from
+    // raw pointer proximity would fight that (a drag routinely moves the pointer several table
+    // rows away from the border it's resizing, which would otherwise read as "not close enough,
+    // hide the handle" mid-drag).
+    if (!resizing) {
+      const tableRect = table.getBoundingClientRect();
+      const withinTableHeight = clientY >= tableRect.top && clientY <= tableRect.bottom;
+      if (withinTableHeight && headerCells.length > 1) {
+        const borders = headerCells
+          .slice(0, -1)
+          .map((th, i) => (th.getBoundingClientRect().right + headerCells[i + 1].getBoundingClientRect().left) / 2);
+        const border = nearestResizeBorder(borders, clientX, RESIZE_HOVER_RANGE_PX);
+        if (border !== null) {
+          hoveredBorder = border;
+          resizeHandle.style.left = `${borders[border] - surfaceRect.left - RESIZE_HOVER_RANGE_PX}px`;
+          resizeHandle.classList.add('is-visible');
+        } else {
+          hideResizeHandle();
+        }
+      } else {
+        hideResizeHandle();
+      }
+    }
   };
 
   surface.addEventListener('pointermove', (event) => reposition(event.clientX, event.clientY));
   surface.addEventListener('pointerleave', () => {
     hideRowHandle();
     hideColHandle();
+    if (!resizing) hideResizeHandle();
   });
 
   const cellsInRow = (rowIndex: number): HTMLElement[] => {
@@ -1363,6 +1666,35 @@ function attachTableControls(
       openMenu: (e) =>
         dispatchTableMenu(view, wrap, 'column-handle', -1, colIndex, e.clientX, e.clientY),
     });
+  });
+
+  // Column resize (doc 14 §1.5). `resizing` gates `reposition`'s own border-proximity check
+  // above so the two don't fight over the handle's position while a drag is live.
+  resizeHandle.addEventListener('pointerdown', (event) => {
+    if (event.button !== 0 || hoveredBorder < 0) return;
+    event.preventDefault();
+    startColumnResizeDrag(
+      event,
+      view,
+      wrap,
+      surface,
+      table,
+      resizeHandle,
+      hoveredBorder,
+      (dragging) => {
+        resizing = dragging;
+      },
+    );
+  });
+
+  // Double-click resets to automatic width — a no-op when the table has none (doc 14 §1.5:
+  // "senão é no-op"). Goes through `dispatchModel` (one transaction, one `Ctrl+Z`) like every
+  // other menu-equivalent action in this file.
+  resizeHandle.addEventListener('dblclick', (event) => {
+    event.preventDefault();
+    const model = readModelFromDom(wrap);
+    if (!model.widths) return;
+    dispatchModel(view, wrap, clearWidths(model));
   });
 }
 

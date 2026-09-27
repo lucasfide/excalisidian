@@ -1,16 +1,21 @@
 import { describe, it, expect } from "vitest";
 
 import {
+  clearWidths,
   deleteColumn,
   deleteRow,
   insertColumn,
   insertRow,
+  MIN_WIDTH_DASHES,
   moveColumn,
   moveRow,
+  normalizeWidths,
   parseTableText,
+  resizeColumns,
   serializeTable,
   setAlign,
   splitRowCells,
+  TOTAL_WIDTH_DASHES,
   type TableModel,
 } from "./table-model";
 
@@ -197,5 +202,293 @@ describe("setAlign", () => {
   it("índice fora do alcance é no-op", () => {
     const base: TableModel = { header: ["A"], aligns: [null], rows: [] };
     expect(setAlign(base, 5, "left")).toEqual(base);
+  });
+});
+
+// [excalisidian] Column widths: a delimiter cell with more than 3 dashes stores a fraction of
+// the table's total width instead of just marking the column as present, so the widget can
+// persist a resized column to disk (doc 14 — resizable columns).
+describe("parseTableText: largura de coluna", () => {
+  it("delimitador --- puro continua largura automática (widths null)", () => {
+    const text = ["| A | B |", "| --- | --- |", "| 1 | 2 |"].join("\n");
+    const model = parseTableText(text);
+    expect(model!.widths).toBeNull();
+  });
+
+  it("delimitador de um único traço continua largura automática", () => {
+    const text = ["| A | B |", "| - | - |", "| 1 | 2 |"].join("\n");
+    const model = parseTableText(text);
+    expect(model!.widths).toBeNull();
+  });
+
+  it("mistura de delimitadores com no máximo 3 traços continua automática", () => {
+    const text = ["| A | B | C |", "| :---: | -- | - |", "| 1 | 2 | 3 |"].join("\n");
+    const model = parseTableText(text);
+    expect(model!.widths).toBeNull();
+  });
+
+  it("delimitador com mais de 3 traços em qualquer coluna vira largura proporcional", () => {
+    const text = ["| A | B |", "| ------ | --- |", "| 1 | 2 |"].join("\n");
+    const model = parseTableText(text);
+    expect(model!.widths).not.toBeNull();
+    expect(model!.widths![0]).toBeCloseTo(2 / 3);
+    expect(model!.widths![1]).toBeCloseTo(1 / 3);
+  });
+
+  it("os ':' de alinhamento não contam como traço", () => {
+    const text = ["| A | B |", "| :--------: | --- |", "| 1 | 2 |"].join("\n");
+    const model = parseTableText(text);
+    // ":--------:" tem 8 traços, "---" tem 3 → proporcional 8/11 e 3/11.
+    expect(model!.widths).not.toBeNull();
+    expect(model!.widths![0]).toBeCloseTo(8 / 11);
+    expect(model!.widths![1]).toBeCloseTo(3 / 11);
+  });
+
+  it("célula delimitadora ausente para uma coluna do cabeçalho conta como 3 traços", () => {
+    const text = ["| A | B | C |", "| -------- |", "| 1 | 2 | 3 |"].join("\n");
+    const model = parseTableText(text);
+    // "--------" = 8 traços; colunas B e C sem delimitador contam como 3 cada → soma 14.
+    expect(model!.widths).not.toBeNull();
+    expect(model!.widths![0]).toBeCloseTo(8 / 14);
+    expect(model!.widths![1]).toBeCloseTo(3 / 14);
+    expect(model!.widths![2]).toBeCloseTo(3 / 14);
+  });
+});
+
+describe("serializeTable: largura de coluna", () => {
+  it("widths null/undefined serializa exatamente como hoje", () => {
+    const text = [
+      "| Nome | Idade | Cidade | Nota |",
+      "| :--- | :---: | ---: | --- |",
+      "| Ana | 30 | SP | ok |",
+    ].join("\n");
+    const model = parseTableText(text);
+    expect(serializeTable({ ...model!, widths: undefined })).toBe(text);
+    expect(serializeTable({ ...model!, widths: null })).toBe(text);
+  });
+
+  it("widths presentes geram traços proporcionais preservando os ':' de alinhamento", () => {
+    const model: TableModel = {
+      header: ["A", "B"],
+      aligns: ["left", "right"],
+      rows: [["1", "2"]],
+      widths: [0.5, 0.5],
+    };
+    const text = serializeTable(model);
+    const lines = text.split("\n");
+    const expectedDashes = 0.5 * TOTAL_WIDTH_DASHES;
+    expect(lines[1]).toBe(
+      "| :" + "-".repeat(expectedDashes) + " | " + "-".repeat(expectedDashes) + ": |",
+    );
+  });
+
+  it("nunca serializa menos que MIN_WIDTH_DASHES traços mesmo com fração minúscula", () => {
+    const model: TableModel = {
+      header: ["A", "B"],
+      aligns: [null, null],
+      rows: [],
+      widths: [0.01, 0.99],
+    };
+    const text = serializeTable(model);
+    const delimiterCells = splitRowCells(text.split("\n")[1]);
+    const dashCount = delimiterCells[0].replace(/:/g, "").length;
+    expect(dashCount).toBe(MIN_WIDTH_DASHES);
+  });
+});
+
+describe("round-trip de largura", () => {
+  it("parse(serialize(m)) preserva frações aproximadamente", () => {
+    const model: TableModel = {
+      header: ["A", "B", "C"],
+      aligns: [null, "center", null],
+      rows: [["1", "2", "3"]],
+      widths: [0.5, 0.2, 0.3],
+    };
+    const text = serializeTable(model);
+    const reparsed = parseTableText(text);
+    expect(reparsed!.widths).not.toBeNull();
+    reparsed!.widths!.forEach((w, i) => {
+      expect(w).toBeCloseTo(model.widths![i], 1);
+    });
+  });
+
+  it("serialize(parse(texto)) é idempotente para texto já serializado com largura", () => {
+    const model: TableModel = {
+      header: ["A", "B"],
+      aligns: [null, null],
+      rows: [["1", "2"]],
+      widths: [0.6, 0.4],
+    };
+    const once = serializeTable(model);
+    const reparsed = parseTableText(once);
+    const twice = serializeTable(reparsed!);
+    expect(twice).toBe(once);
+  });
+});
+
+describe("normalizeWidths", () => {
+  it("divide pela soma", () => {
+    expect(normalizeWidths([1, 1, 2])).toEqual([0.25, 0.25, 0.5]);
+  });
+
+  it("soma zero vira frações iguais", () => {
+    expect(normalizeWidths([0, 0, 0])).toEqual([1 / 3, 1 / 3, 1 / 3]);
+  });
+
+  it("array vazio retorna array vazio", () => {
+    expect(normalizeWidths([])).toEqual([]);
+  });
+});
+
+describe("resizeColumns", () => {
+  const base: TableModel = {
+    header: ["A", "B", "C"],
+    aligns: [null, null, null],
+    rows: [],
+    widths: [1 / 3, 1 / 3, 1 / 3],
+  };
+
+  it("delta positivo cresce a coluna da esquerda e encolhe a da direita, soma zero", () => {
+    const next = resizeColumns(base, 0, 0.1, 0.1);
+    expect(next.widths![0]).toBeCloseTo(1 / 3 + 0.1);
+    expect(next.widths![1]).toBeCloseTo(1 / 3 - 0.1);
+    expect(next.widths![2]).toBeCloseTo(1 / 3);
+  });
+
+  it("delta negativo encolhe a esquerda e cresce a direita", () => {
+    const next = resizeColumns(base, 1, -0.1, 0.1);
+    expect(next.widths![1]).toBeCloseTo(1 / 3 - 0.1);
+    expect(next.widths![2]).toBeCloseTo(1 / 3 + 0.1);
+    expect(next.widths![0]).toBeCloseTo(1 / 3);
+  });
+
+  it("clampa para não deixar nenhuma coluna abaixo de minFraction", () => {
+    const next = resizeColumns(base, 0, 10, 0.1);
+    expect(next.widths![0]).toBeCloseTo(2 / 3 - 0.1);
+    expect(next.widths![1]).toBeCloseTo(0.1);
+    const sum = next.widths![0] + next.widths![1];
+    expect(sum).toBeCloseTo(2 / 3);
+  });
+
+  it("se as duas colunas juntas não comportam 2×minFraction, é no-op", () => {
+    const tight: TableModel = {
+      header: ["A", "B"],
+      aligns: [null, null],
+      rows: [],
+      widths: [0.05, 0.05],
+    };
+    expect(resizeColumns(tight, 0, 0.01, 0.1)).toEqual(tight);
+  });
+
+  it("border inválido (negativo ou último) é no-op", () => {
+    expect(resizeColumns(base, -1, 0.1, 0.1)).toEqual(base);
+    expect(resizeColumns(base, 2, 0.1, 0.1)).toEqual(base);
+  });
+
+  it("widths null é no-op", () => {
+    const automatic: TableModel = { header: ["A", "B"], aligns: [null, null], rows: [] };
+    expect(resizeColumns(automatic, 0, 0.1, 0.1)).toEqual(automatic);
+  });
+
+  it("é imutável: não muda o array widths original", () => {
+    const original = base.widths!.slice();
+    resizeColumns(base, 0, 0.1, 0.1);
+    expect(base.widths).toEqual(original);
+  });
+});
+
+describe("clearWidths", () => {
+  it("define widths como null sem alterar o resto", () => {
+    const model: TableModel = {
+      header: ["A", "B"],
+      aligns: ["left", null],
+      rows: [["1", "2"]],
+      widths: [0.5, 0.5],
+    };
+    const next = clearWidths(model);
+    expect(next.widths).toBeNull();
+    expect(next.header).toEqual(model.header);
+    expect(next.aligns).toEqual(model.aligns);
+    expect(next.rows).toEqual(model.rows);
+  });
+});
+
+describe("operações de coluna preservam widths", () => {
+  it("insertColumn: nova coluna recebe 1/nAntigo e tudo é renormalizado", () => {
+    const base: TableModel = {
+      header: ["A", "B"],
+      aligns: [null, null],
+      rows: [["1", "2"]],
+      widths: [0.5, 0.5],
+    };
+    const next = insertColumn(base, 1);
+    // fração bruta antes de renormalizar: [0.5, 0.5(=1/2), 0.5] soma 1.5 → normaliza /1.5
+    expect(next.widths).not.toBeNull();
+    expect(next.widths!.length).toBe(3);
+    expect(next.widths![0]).toBeCloseTo(0.5 / 1.5);
+    expect(next.widths![1]).toBeCloseTo(0.5 / 1.5);
+    expect(next.widths![2]).toBeCloseTo(0.5 / 1.5);
+    const sum = next.widths!.reduce((a, b) => a + b, 0);
+    expect(sum).toBeCloseTo(1);
+  });
+
+  it("insertColumn sem widths continua sem widths", () => {
+    const base: TableModel = { header: ["A", "B"], aligns: [null, null], rows: [["1", "2"]] };
+    const next = insertColumn(base, 1);
+    expect(next.widths).toBeUndefined();
+  });
+
+  it("deleteColumn: remove a fração e renormaliza", () => {
+    const base: TableModel = {
+      header: ["A", "B", "C"],
+      aligns: [null, null, null],
+      rows: [["1", "2", "3"]],
+      widths: [0.5, 0.3, 0.2],
+    };
+    const next = deleteColumn(base, 0);
+    expect(next.widths!.length).toBe(2);
+    expect(next.widths![0]).toBeCloseTo(0.3 / 0.5);
+    expect(next.widths![1]).toBeCloseTo(0.2 / 0.5);
+  });
+
+  it("deleteColumn com 1 coluna continua no-op mesmo com widths", () => {
+    const oneColumn: TableModel = { header: ["A"], aligns: ["left"], rows: [["1"]], widths: [1] };
+    expect(deleteColumn(oneColumn, 0)).toEqual(oneColumn);
+  });
+
+  it("moveColumn: a fração anda junto com a coluna", () => {
+    const base: TableModel = {
+      header: ["A", "B", "C"],
+      aligns: [null, null, null],
+      rows: [["1", "2", "3"]],
+      widths: [0.5, 0.3, 0.2],
+    };
+    const next = moveColumn(base, 0, 2);
+    expect(next.header).toEqual(["B", "C", "A"]);
+    expect(next.widths).toEqual([0.3, 0.2, 0.5]);
+  });
+
+  it("moveColumn para a mesma posição preserva widths (caminho antes reconstruía sem widths)", () => {
+    const base: TableModel = {
+      header: ["A", "B", "C"],
+      aligns: [null, null, null],
+      rows: [["1", "2", "3"]],
+      widths: [0.5, 0.3, 0.2],
+    };
+    const next = moveColumn(base, 1, 1);
+    expect(next.widths).toEqual(base.widths);
+  });
+
+  it("insertRow/deleteRow/moveRow/setAlign preservam widths", () => {
+    const base: TableModel = {
+      header: ["A", "B"],
+      aligns: [null, null],
+      rows: [["1", "2"]],
+      widths: [0.5, 0.5],
+    };
+    expect(insertRow(base, 0).widths).toEqual(base.widths);
+    expect(deleteRow(base, 0).widths).toEqual(base.widths);
+    expect(moveRow({ ...base, rows: [["1", "2"], ["3", "4"]] }, 0, 1).widths).toEqual(base.widths);
+    expect(setAlign(base, 0, "center").widths).toEqual(base.widths);
   });
 });
