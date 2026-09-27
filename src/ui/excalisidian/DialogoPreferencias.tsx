@@ -142,6 +142,27 @@ export default function DialogoPreferencias({ onFechar }: Props) {
             </Botao>
           </div>
         </Secao>
+        {/* Atribuição de terceiros (ADR-29). O MIT exige o aviso de copyright e o texto da
+            licença junto das cópias distribuídas — o instalador já leva LICENSE e
+            THIRD_PARTY_LICENSES.md (bundle.resources); isto aqui é a versão curta, visível. */}
+        <Secao titulo="Licenças e créditos">
+          <div className="flex flex-col gap-1.5 text-pequeno text-tinta-media [text-wrap:pretty]">
+            <p>Excalisidian — MIT · © 2026 Lucas Fidelis de Cristo</p>
+            <p>
+              Diagramas: Excalidraw embutido via @excalidraw/excalidraw — MIT · © 2020
+              Excalidraw.
+            </p>
+            <p>
+              Editor de notas: @atomic-editor/editor — MIT · © 2026 Kenny Bergquist.
+            </p>
+            <p>Tipografia: fontes sob SIL Open Font License 1.1.</p>
+            <p className="text-tinta-suave">
+              Excalidraw é marca dos seus titulares; este app não é afiliado nem endossado
+              por ele. Textos completos das licenças em THIRD_PARTY_LICENSES.md, distribuído
+              com o app.
+            </p>
+          </div>
+        </Secao>
       </div>
     </Dialog>
   );

@@ -1205,3 +1205,62 @@ sozinho não bastava — subir só a vida do ponto sem subir o limite de pontos 
 `RASTRO_MAX`) deixaria o rastro mais esparso, não mais longo (pontos antigos descartados pelo
 limite de contagem antes de sumirem de verdade pela idade). Os dois subiram juntos de novo:
 vida 2200→3400ms, limite 48→72 pontos.
+
+### ADR-29 · Planos pagos sobre código open source: pode, desde que os avisos viajem junto
+
+**Contexto:** decisão do usuário (24/09/2026) de passar a cobrar pelo app (planos pagos), com
+a dúvida de se isso conflita com o uso de código open source — o Excalidraw, em especial.
+
+**Achado — o dinheiro não muda nada, o aviso muda.** A licença do `@excalidraw/excalidraw` é
+MIT (confirmado no registry do npm para a 0.18.1: campo `"license": "MIT"`, e no `LICENSE` do
+repositório: `Copyright (c) 2020 Excalidraw`). MIT concede explicitamente "use, copy, modify,
+merge, publish, distribute, sublicense, and/or sell" — **vender, cobrar e ter plano pago é
+permitido**, e MIT não é copyleft: nada obriga a abrir o código do Excalisidian. A única
+obrigação é manter "the above copyright notice and this permission notice" **junto das cópias
+distribuídas**. Não existe exigência de crédito visível na interface nem de "powered by". O
+mesmo vale para as demais dependências (React, CodeMirror, plugins do Tauri, dockview,
+zustand…): todas permissivas (MIT/ISC/Apache-2.0). As fontes embutidas são OFL-1.1, que
+permite redistribuição embutida em software vendido, desde que a fonte não seja vendida
+sozinha.
+
+**Achado — onde estava o furo.** O `THIRD_PARTY_LICENSES.md` existia, mas (1) citava o MIT do
+Excalidraw por link, sem reproduzir o aviso de copyright + texto que a licença exige, e (2)
+não era distribuído: o `bundle` do `tauri.conf.json` não tinha `resources`, então o instalador
+saía só com o binário. (O `LICENSE` do editor vendorizado em `src/editor/atomico/` já estava
+no lugar — checado, sem pendência.)
+
+**Decisão:**
+1. `THIRD_PARTY_LICENSES.md` passou a reproduzir o texto MIT e o aviso de copyright de cada
+   componente (Excalidraw, editor vendorizado, ruído do shader) e o texto da OFL-1.1, com uma
+   seção "Marcas" separando o que a licença cobre do que ela não cobre.
+2. `src-tauri/tauri.conf.json` ganhou `bundle.resources`, que leva `LICENSE` e
+   `THIRD_PARTY_LICENSES.md` para `licenses/` dentro do app instalado — cumprindo o "incluído
+   nas cópias distribuídas".
+3. Configurações → "Licenças e créditos": a versão curta, visível, com o aviso de que
+   Excalidraw não endossa o app. Isto é boa prática, não exigência da licença.
+
+**Consequência ruim / risco que continua aberto:** **marca não é licença.** MIT não dá nem
+tira direito sobre o nome "Excalidraw" — o ADR-9 já registrava que "Excalisidian" é a maior
+exposição de marca do produto. Cobrar aumenta o perfil comercial e, com ele, o risco de uma
+reclamação de marca que hoje, num app pessoal, provavelmente não viria. Nada aqui renomeia o
+produto; o que fica recomendado é não usar "Excalidraw" como nome do produto em marketing,
+manter o uso só referencial ("diagramas no estilo do Excalidraw") e, se o produto crescer,
+levar o nome a uma revisão jurídica. Nada disto é conselho jurídico — é leitura do que está
+publicado.
+
+**Segundo risco, tão relevante quanto — a licença do próprio app.** O `LICENSE` do Excalisidian
+também é MIT, e quem detém o copyright (o usuário) é quem pode relicenciar. MIT no próprio
+código significa que qualquer um pode copiar, modificar e **revender o app** — inclusive as
+funcionalidades que se pretende cobrar. Isso não é erro de terceiros: é escolha de licença
+própria. Se a intenção é cobrar e proteger o produto, o caminho é trocar a licença do app para
+proprietária (ou source-available com restrição de revenda) — as versões já publicadas sob MIT
+continuam MIT para quem as baixou, então a mudança só vale de uma versão para frente. Decisão
+do usuário, não tomada aqui; nenhuma ação foi feita sobre o `LICENSE`.
+
+**Pendência registrada:** a lista de avisos cobre Excalidraw, o editor vendorizado e as
+fontes, mas não reproduz o texto de cada um dos demais pacotes npm (todos permissivos). Montar
+a lista completa antes de um lançamento público que não seja beta.
+
+**Condição de reversão:** se o produto voltar a ser distribuído só como uso pessoal, nada
+disso precisa ser desfeito — manter os avisos não custa nada e já está no lugar. Só o item 3
+(a seção de créditos na interface) seria dispensável, e mesmo assim é inofensivo.

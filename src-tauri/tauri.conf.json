@@ -28,6 +28,10 @@
     "active": true,
     "targets": "nsis",
     "createUpdaterArtifacts": true,
+    "resources": {
+      "../LICENSE": "licenses/LICENSE",
+      "../THIRD_PARTY_LICENSES.md": "licenses/THIRD_PARTY_LICENSES.md"
+    },
     "windows": {
       "nsis": {
         "installMode": "currentUser"
