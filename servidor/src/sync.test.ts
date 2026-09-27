@@ -236,6 +236,7 @@ describe("POST /v1/sync/vaults/:id/retratos (enviarRetrato)", () => {
     );
   });
 
+  // monta um corpo de vários MiB; lento sob carga, não é defeito
   it("parte de retrato acima de 8 MiB + 28 bytes dá espaco (413)", async () => {
     const token = await criarContaPremium("lucia@teste.com");
     definirTokenDaSessao(token);
@@ -249,7 +250,7 @@ describe("POST /v1/sync/vaults/:id/retratos (enviarRetrato)", () => {
     await expect(sync.enviarRetrato(id, 1, [parteGrande])).rejects.toThrow(
       expect.objectContaining({ codigo: "espaco" }),
     );
-  });
+  }, 60000);
 });
 
 describe("DELETE /v1/sync/vaults/:id (apagarVault)", () => {

@@ -8,7 +8,7 @@ Todas as licenças listadas aqui são permissivas — nenhuma é copyleft, nenhu
 código do Excalisidian e **nenhuma proíbe cobrar pelo app ou oferecer planos pagos**. O que
 elas exigem é manter o aviso de copyright e o texto da licença junto das cópias
 distribuídas. Isto não é conselho jurídico: é a leitura do que cada licença publica. Ver
-`docs/09-decisoes-e-incertezas.md`, ADR-29.
+`docs/09-decisoes-e-incertezas.md`, ADR-42.
 
 ## MIT
 
