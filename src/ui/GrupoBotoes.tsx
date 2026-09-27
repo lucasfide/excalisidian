@@ -9,6 +9,8 @@ export interface OpcaoGrupo<T> {
   valor: T;
 }
 
+export type VarianteGrupoBotoes = "solto" | "segmentado";
+
 interface Props<T extends string | number> {
   opcoes: ReadonlyArray<OpcaoGrupo<T>>;
   valor: T | undefined;
@@ -16,6 +18,10 @@ interface Props<T extends string | number> {
   /** Rótulo acessível do grupo, já que os botões são só abreviações. */
   rotuloGrupo?: string;
   className?: string;
+  /** `solto` (padrão) é o visual original: botões soltos com borda própria, usado no painel de
+   * propriedades do canvas. `segmentado` é um único controle com trilho — usado nas
+   * Configurações (tema, largura da nota, idioma). */
+  variante?: VarianteGrupoBotoes;
 }
 
 export default function GrupoBotoes<T extends string | number>({
@@ -24,12 +30,19 @@ export default function GrupoBotoes<T extends string | number>({
   onEscolher,
   rotuloGrupo,
   className,
+  variante = "solto",
 }: Props<T>) {
+  const segmentado = variante === "segmentado";
   return (
     <div
       role="group"
       aria-label={rotuloGrupo}
-      className={cn("flex flex-wrap gap-1", className)}
+      className={cn(
+        segmentado
+          ? "inline-flex gap-1 rounded-controle border border-regua-forte p-1"
+          : "flex flex-wrap gap-1",
+        className,
+      )}
     >
       {opcoes.map((opcao) => {
         const ativo = valor === opcao.valor;
@@ -39,11 +52,20 @@ export default function GrupoBotoes<T extends string | number>({
             aria-pressed={ativo}
             onClick={() => onEscolher(opcao.valor)}
             className={cn(
-              "rounded-controle border px-2 py-1 text-[11px]",
               "transition-colors duration-[140ms] ease-caderno",
-              ativo
-                ? "border-cristal bg-cristal text-superficie"
-                : "border-regua-forte text-tinta hover:bg-lavagem",
+              segmentado
+                ? cn(
+                    "h-[26px] rounded-controle px-3 text-pequeno",
+                    ativo
+                      ? "bg-cristal text-superficie"
+                      : "text-tinta-media hover:bg-lavagem hover:text-tinta",
+                  )
+                : cn(
+                    "rounded-controle border px-2 py-1 text-[11px]",
+                    ativo
+                      ? "border-cristal bg-cristal text-superficie"
+                      : "border-regua-forte text-tinta hover:bg-lavagem",
+                  ),
             )}
           >
             {opcao.rotulo}

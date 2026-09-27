@@ -14,12 +14,25 @@ interface Props extends Omit<InputHTMLAttributes<HTMLInputElement>, "id"> {
   /** Conteúdo fixo no fim do campo, por dentro da borda (ex.: dica "↵ ENTER"). Decorativo:
    * não recebe clique, o texto digitado nunca passa por baixo dele. */
   sufixo?: ReactNode;
+  /** Conteúdo fixo no início do campo, por dentro da borda (ex.: ícone de busca). Decorativo,
+   * simétrico a `sufixo` — o input ganha `pl-7` para o texto não passar por baixo. */
+  prefixo?: ReactNode;
+  /** O `<label>` continua no DOM (o `id` liga os dois, leitor de tela anuncia o rótulo) mas
+   * fica `sr-only` — para telas cujo layout já deixa o rótulo óbvio visualmente (ex.: uma
+   * `LinhaConfig` com título próprio) e um rótulo duplicado visível seria ruído. */
+  rotuloOculto?: boolean;
+  /** Ver `Dialog.tsx`: quando presente e o campo tem texto, Esc limpa o campo em vez de fechar
+   * o diálogo que o contém (a busca das Configurações). */
+  "data-esc-limpa"?: boolean;
+  /** Ver `Dialog.tsx`: o campo recebe o foco ao abrir o diálogo, antes do primeiro focável
+   * genérico. */
+  "data-foco-inicial"?: boolean;
 }
 
 // Ref encaminhada pro <input>: o PainelBusca/PaletaComandos precisam focar o campo na
 // hora de abrir sem depender de autoFocus (que não refoca se o componente já está montado).
 const Campo = forwardRef<HTMLInputElement, Props>(function Campo(
-  { rotulo, erro, grande = false, sufixo, className, ...resto },
+  { rotulo, erro, grande = false, sufixo, prefixo, rotuloOculto = false, className, ...resto },
   ref,
 ) {
   const id = useId();
@@ -27,10 +40,18 @@ const Campo = forwardRef<HTMLInputElement, Props>(function Campo(
 
   return (
     <div className="flex flex-col gap-1">
-      <label htmlFor={id} className="meta text-tinta-suave">
+      <label htmlFor={id} className={cn("meta text-tinta-suave", rotuloOculto && "sr-only")}>
         {rotulo}
       </label>
       <div className="relative">
+      {prefixo && (
+        <span
+          aria-hidden
+          className="pointer-events-none absolute inset-y-0 left-2 flex items-center text-tinta-suave"
+        >
+          {prefixo}
+        </span>
+      )}
       <input
         {...resto}
         ref={ref}
@@ -45,6 +66,7 @@ const Campo = forwardRef<HTMLInputElement, Props>(function Campo(
           erro ? "border-bordo" : "border-regua-forte",
           grande ? "h-11 px-3 text-[17px]" : "h-9 px-2 text-corpo",
           sufixo && "pr-16",
+          prefixo && "pl-7",
           className,
         )}
       />

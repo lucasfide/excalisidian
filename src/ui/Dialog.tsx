@@ -34,6 +34,12 @@ interface Props {
   /** Botões do rodapé. Convenção: cancelar à esquerda, confirmar à direita. */
   acoes?: ReactNode;
   className?: string;
+  /** Diálogo "cru": a `Superficie` não recebe o padding padrão, e nada além de `children` é
+   * renderizado dentro dela — sem `h2`, descrição ou rodapé de ações. Para diálogos que
+   * desenham o próprio layout interno de ponta a ponta (ex.: `DialogoPreferencias`, com
+   * navegação e cabeçalho próprios). `aria-label={titulo}` continua saindo, então o diálogo
+   * tem nome acessível mesmo sem `h2` visível. */
+  cru?: boolean;
 }
 
 export default function Dialog({
@@ -43,6 +49,7 @@ export default function Dialog({
   children,
   acoes,
   className,
+  cru = false,
 }: Props) {
   const caixaRef = useRef<HTMLDivElement | null>(null);
   const anteriorRef = useRef<HTMLElement | null>(null);
@@ -52,7 +59,12 @@ export default function Dialog({
   useEffect(() => {
     anteriorRef.current = document.activeElement as HTMLElement | null;
     const caixa = caixaRef.current;
-    caixa?.querySelector<HTMLElement>(FOCAVEIS)?.focus();
+    // Este efeito roda DEPOIS dos efeitos dos filhos (ordem de montagem React), então um filho
+    // não consegue focar a si mesmo a tempo — o foco automático abaixo o atropelaria. Um filho
+    // que precisa do foco inicial (ex.: o campo de busca de `DialogoPreferencias`) marca o
+    // elemento com `data-foco-inicial`, e é nele que o foco cai primeiro.
+    const focoInicial = caixa?.querySelector<HTMLElement>("[data-foco-inicial]");
+    (focoInicial ?? caixa?.querySelector<HTMLElement>(FOCAVEIS))?.focus();
 
     const id = proximoId++;
     fila.push(id);
@@ -62,6 +74,18 @@ export default function Dialog({
         // Só o diálogo do topo da pilha fecha — com a Configurações embaixo do
         // assistente, um Esc não pode fechar os dois.
         if (fila[fila.length - 1] !== id) return;
+        // Um campo com `data-esc-limpa` (a busca das Configurações) trata o próprio Esc: limpa
+        // o texto em vez de fechar o diálogo. Sem `preventDefault`/`stopPropagation` aqui, o
+        // evento segue seu curso normal (este handler está na fase de captura) e chega ao
+        // `onKeyDown` do campo, que é quem limpa.
+        const alvo = e.target;
+        if (
+          alvo instanceof HTMLInputElement &&
+          alvo.hasAttribute("data-esc-limpa") &&
+          alvo.value !== ""
+        ) {
+          return;
+        }
         e.preventDefault();
         e.stopPropagation();
         fecharRef.current();
@@ -107,21 +131,28 @@ export default function Dialog({
         aria-modal
         aria-label={titulo}
         className={cn(
-          "w-full max-w-md p-5",
+          "w-full max-w-md",
+          !cru && "p-5",
           "motion-safe:animate-[surgir_160ms_var(--ease-caderno)]",
           className,
         )}
       >
-        <h2 className="font-display text-[19px] font-medium leading-[1.3] text-tinta">
-          {titulo}
-        </h2>
-        {descricao && (
-          <p className="mt-1 text-pequeno text-tinta-media [text-wrap:pretty]">
-            {descricao}
-          </p>
+        {cru ? (
+          children
+        ) : (
+          <>
+            <h2 className="font-display text-[19px] font-medium leading-[1.3] text-tinta">
+              {titulo}
+            </h2>
+            {descricao && (
+              <p className="mt-1 text-pequeno text-tinta-media [text-wrap:pretty]">
+                {descricao}
+              </p>
+            )}
+            {children && <div className="mt-4">{children}</div>}
+            {acoes && <div className="mt-5 flex justify-end gap-2">{acoes}</div>}
+          </>
         )}
-        {children && <div className="mt-4">{children}</div>}
-        {acoes && <div className="mt-5 flex justify-end gap-2">{acoes}</div>}
       </Superficie>
     </div>,
     document.body,
