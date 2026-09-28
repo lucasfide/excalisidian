@@ -212,10 +212,14 @@ Seja `local` o hash atual do arquivo no disco (ou ausente) e `base` o hash em `b
 
 ---
 
-## 7. Ligar, baixar, parar
+## 7. Ligar, baixar, apagar
 
 As ações abaixo são as ações da lista "Seus vaults" (§8), uma por estado do vault na lista —
-não existe mais uma tela separada de "escolher um vault para sincronizar".
+não existe mais uma tela separada de "escolher um vault para sincronizar". Decisão do dono do
+produto (29/09/2026, teste da lista): "o usuário só precisa acessar os seus vaults: se já tem
+sincronizado no PC, aparece que está sincronizado. Ele pode apagar o vault e forçar a
+sincronização. Se não tem no PC, pode baixar, definir onde vai ficar, e pronto." Não existem mais
+as ações "Abrir", "Parar neste computador" nem "Esquecer neste computador".
 
 - **Ligar (ação "Sincronizar", vault só neste computador):** exige conta premium. Se este
   computador ainda não tem a `chaveDeEnvelope`, pede a senha da conta (a mesma de entrar),
@@ -223,18 +227,27 @@ não existe mais uma tela separada de "escolher um vault para sincronizar".
   cria o vault no servidor com o nome cifrado e o envelope, e envia o conteúdo atual como os
   primeiros lotes do diário (um retrato em zero seria recusado pela regra do §9 e não teria
   utilidade: o diário ainda está vazio).
-- **Baixar (ação "Baixar para este computador…", vault só na nuvem):** o diálogo nativo do
-  sistema escolhe a **pasta onde colocar** o vault — não mais uma pasta vazia previamente
-  escolhida entre os vaults da conta. O app cria, dentro da pasta escolhida, uma pasta nova com
-  o nome do vault (numerada, `Nome (2)`, `Nome (3)`…, se já existir uma pasta com esse nome —
-  padrão ADR-15; nunca mistura com uma pasta existente), baixa o retrato mais recente e os
-  lotes seguintes, e abre o vault numa janela.
-- **Parar de sincronizar (ação "Parar neste computador", vault sincronizado) ou esquecer (ação
-  "Esquecer neste computador", pasta não encontrada):** esquece o `EstadoSync` deste
-  computador. Os arquivos que ainda existem no disco ficam intactos.
-- **Apagar a cópia do servidor (ação "Apagar da nuvem…"):** diálogo de confirmação que diz o
-  nome do vault e que os arquivos em todos os computadores continuam intactos; só apaga no
-  botão de confirmar. Depois de apagar, o vault também é esquecido neste computador.
+- **Baixar (ação "Baixar…", vault na nuvem):** o diálogo nativo do sistema escolhe a **pasta
+  onde colocar** o vault. O app cria, dentro da pasta escolhida, uma pasta nova com o nome do
+  vault (numerada, `Nome (2)`, `Nome (3)`…, se já existir uma pasta com esse nome — padrão
+  ADR-15; nunca mistura com uma pasta existente), baixa o retrato mais recente e os lotes
+  seguintes, e abre o vault numa janela.
+- **Pasta sumida (vault sincronizado cuja pasta foi apagada ou movida):** não é mais um estado
+  próprio da lista nem uma ação manual — ao montar a lista, o `EstadoSync` deste computador para
+  aquele vault é esquecido sozinho (`esquecer(caminho)`), sem aviso, e o vault volta a aparecer
+  como "Na nuvem" (se ainda estiver lá).
+- **Envelope que não abre com a chave desta conta:** hoje a `chaveDeEnvelope` pertence à CONTA
+  (§2), não a um vault — um envelope que não abre significa "este vault foi criado com a senha
+  de outra conta", nunca "a chave está errada". Por isso a chave NUNCA é apagada do cofre por
+  causa disto (nem em `ligarAoVault.ts`, nem no segundo plano, §8.1): o vault fica marcado com
+  `ultimoErro: "outra-senha"` no seu próprio `EstadoSync` (se local) e a lista mostra o aviso
+  (§8) com só a ação Apagar.
+- **Apagar (ação "Apagar", qualquer vault sincronizado ou na nuvem):** remove só a cópia da
+  nuvem — os arquivos continuam intactos em todos os computadores. Diálogo de confirmação:
+  "Apagar «{vault}» da nuvem? Os arquivos continuam em todos os computadores; só a cópia da
+  nuvem e a sincronização são removidas." `nao-encontrado` do servidor conta como sucesso (a
+  cópia já não estava lá). Depois de apagar, o vínculo local (se houver) é esquecido, e o
+  `syncStore` desta janela para se era o vault aberto nela.
 - **Nome do computador:** Configurações → Sincronização, editável. Padrão: o nome de usuário
   do Windows seguido de "(este computador)" até alguém mudar. Aparece na tela de conflito
   ("Em Notebook do Lucas").
@@ -249,15 +262,19 @@ mostra a lista "Seus vaults": cada vault do usuário, uma única vez, juntando t
 vaults recentes deste computador (caminho), estados de sincronização deste computador
 (`EstadoSync` por caminho → id no servidor) e vaults da conta no servidor (nome decifrado).
 
-A lista tem cinco estados possíveis, um por vault:
+A lista tem três estados possíveis, um por vault (decisão do dono do produto, 29/09/2026):
 
 | Estado | Mostra | Ações |
 |---|---|---|
-| Sincronizado | nome, caminho, "Sincronizado há X min" / "Sincronizando…" / o erro do status; "N conflitos — abra o vault para resolver" se houver | Abrir · Sincronizar agora · Parar neste computador · Apagar da nuvem… |
+| Sincronizado | nome, caminho, "Sincronizado há X min" / "Sincronizando…" / o erro do status; "N conflitos — abra o vault para resolver" se houver | Sincronizar agora · Apagar |
 | Só neste computador | nome, caminho | Sincronizar |
-| Só na nuvem | nome | Baixar para este computador… |
-| Pasta não encontrada | nome, caminho antigo | Esquecer neste computador |
-| Criado com outra senha | "Vault sem nome" (o envelope não abre com a chave desta conta) | Apagar da nuvem… |
+| Na nuvem | nome | Baixar… |
+
+Um vault que não abre com a chave desta conta (criado com a senha de outra conta, §7) não tem
+estado próprio: aparece dentro de "Sincronizado" (local, `EstadoSync.ultimoErro === "outra-senha"`)
+ou "Na nuvem" (nome que não decifrou), com o texto "Este vault foi criado com outra senha e não
+abre com esta conta." no lugar do status normal, e só a ação Apagar — nenhuma outra ação da
+lista funciona sem abrir o envelope.
 
 O rodapé da lista diz: "Os vaults sincronizados atualizam sozinhos enquanto o app está aberto."
 
@@ -289,8 +306,12 @@ mostrando ele):
   abrir numa janela espera o ciclo em segundo plano terminar antes de começar o seu, por uma
   trava por vault (em memória do processo Rust).
 - Um vault cuja pasta não existe mais (apagada ou movida pelo Explorer) não é sincronizado em
-  segundo plano, e o segundo plano nunca recria a pasta nem baixa o vault num lugar
-  inesperado — a lista mostra "Pasta não encontrada" e a única ação é esquecer.
+  segundo plano, e o segundo plano nunca recria a pasta nem baixa o vault num lugar inesperado —
+  ao montar a lista "Seus vaults" (§8), o vínculo local é esquecido sozinho e o vault volta a
+  aparecer como "Na nuvem".
+- Um vault cujo envelope não abre com a chave desta conta (§7, "criado com outra senha") é
+  pulado, sem sincronizar: o ciclo grava `ultimoErro: "outra-senha"` no `EstadoSync` do vault e
+  a chave no cofre não é tocada.
 - Com o app fechado, nada sincroniza — é um programa de computador, não um serviço rodando
   sozinho; isso está dito na lista.
 

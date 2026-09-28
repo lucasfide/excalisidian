@@ -16,9 +16,13 @@
 //       `syncStore.iniciarPendente(raiz)` (mostra "sem conexão" sem ter deps prontos ainda —
 //       ver o JSDoc do método) e tenta de novo sozinho a cada 60 s até conseguir, com um
 //       temporizador só deste módulo (não é o agendador do `syncStore`, que exige deps).
-//   (b) `abrirEnvelope()` pode lançar se a senha da conta mudou em outro computador — a
-//       `chaveDeEnvelope` DESTE computador não serve mais para abrir o envelope do vault.
-//       Apaga do cofre (melhor esforço) e deixa a seção pedir a senha de novo — sem erro solto.
+//   (b) `abrirEnvelope()` pode lançar — a `chaveDeEnvelope` DESTE computador não abre o
+//       envelope deste vault. Plano 13 Task 2 (revisão da regra antiga): hoje a chave pertence
+//       à CONTA (plano 12), não a um vault — a explicação é sempre "este vault foi criado com a
+//       senha de outra conta", nunca "a chave está errada". Por isso NÃO apaga mais a chave do
+//       cofre (ela continua valendo para os demais vaults desta conta): grava
+//       `ultimoErro: "outra-senha"` no `EstadoSync` deste vault (a lista "Seus vaults" mostra o
+//       texto e só a ação Apagar) e não liga a sincronização dele.
 //   (c) `iniciarSincronizacaoDoVaultAberto()` nunca rejeita: qualquer exceção inesperada em
 //       qualquer passo (inclusive falhas de disco/rede que não sejam as duas de cima) vira
 //       no-op silencioso — nunca chega ao tratador global de promises não tratadas.
@@ -34,7 +38,7 @@ import { useDocumentosStore } from "../estado/documentosStore";
 import { useContaStore } from "../estado/contaStore";
 import { efeitosReais } from "../vault/efeitosDeGravacao";
 import { servicoSyncAtual } from "./servicoSyncAtual";
-import { carregarEstadoSync, lerNomeDoComputador } from "./estadoSync";
+import { carregarEstadoSync, salvarEstadoSync, lerNomeDoComputador } from "./estadoSync";
 import { abrirEnvelope } from "./pacote";
 import { FalhaSync } from "./tiposServidor";
 import { decidirLigar } from "./decisaoLigar";
@@ -126,12 +130,13 @@ async function tentar(): Promise<void> {
   try {
     chaveDoVault = await abrirEnvelope(chaveDeEnvelope!, registro.envelope, registro.id);
   } catch {
-    // (b) A `chaveDeEnvelope` deste computador não abre mais o envelope deste vault — a
-    // explicação mais provável é a senha da conta ter mudado em outro computador. Ela não
-    // serve para NENHUM vault daqui em diante (é uma chave por computador, não por vault —
-    // doc 17 §2), então apaga do cofre e deixa a seção pedir a senha de novo. Melhor esforço:
-    // uma falha ao apagar não pode transformar isto num erro solto.
-    await conta.cofreChaveDeEnvelope.apagar().catch(() => {});
+    // (b) A `chaveDeEnvelope` desta conta não abre o envelope deste vault — este vault foi
+    // criado com a senha de outra conta (plano 13 Task 2). A chave continua valendo para os
+    // demais vaults, então NÃO apaga do cofre: grava `ultimoErro: "outra-senha"` no
+    // `EstadoSync` deste vault (melhor esforço — uma falha ao gravar não pode virar erro
+    // solto) e não liga a sincronização dele.
+    estadoSalvo!.ultimoErro = "outra-senha";
+    await salvarEstadoSync(raiz, estadoSalvo!).catch(() => {});
     return;
   }
 

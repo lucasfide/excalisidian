@@ -352,6 +352,34 @@ describe("rodarVault", () => {
     expect(liberarTravaSync).toHaveBeenCalledWith("C:/Vaults/Casa", expect.any(String));
   });
 
+  it("abrirEnvelope falha (vault criado com outra senha): marca ultimoErro 'outra-senha', não roda o ciclo", async () => {
+    const estado = estadoBase("vault-1");
+    const executarCiclo = vi.fn(async () => ({ ok: true, foraDaSincronizacao: [] }) as ResultadoCiclo);
+    const salvarEstadoSync = vi.fn(async (_raiz: string, _estado: EstadoSync) => {});
+    const deps = depsBase({
+      carregarEstadoSync: async () => estado,
+      abrirEnvelope: async () => {
+        throw new Error("envelope inválido");
+      },
+      executarCiclo,
+      salvarEstadoSync,
+    });
+
+    await rodarVault(
+      deps,
+      "C:/Vaults/Casa",
+      [{ id: "vault-1", envelope: new Uint8Array() }],
+      new Uint8Array([1]),
+      "Notebook do Lucas (este computador)",
+      () => new Date("2026-09-28T12:00:00.000Z"),
+    );
+
+    expect(executarCiclo).not.toHaveBeenCalled();
+    expect(salvarEstadoSync).toHaveBeenCalledTimes(1);
+    const [, estadoSalvo] = salvarEstadoSync.mock.calls[0];
+    expect(estadoSalvo.ultimoErro).toBe("outra-senha");
+  });
+
   it("pasta inexistente: pula sem travar nem sincronizar", async () => {
     const estado = estadoBase("vault-1");
     const tentarTravarSync = vi.fn(async () => "dono-1");

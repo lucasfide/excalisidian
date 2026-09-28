@@ -84,8 +84,12 @@ export interface ContextoCiclo {
 
 /** Código de falha do ciclo: os do servidor (`ErroSync`), mais `"aplicar-lote"` — uma mudança
  * que chegou de fora não pôde ser aplicada (disco cheio, permissão…; ver JSDoc de
- * `aplicarLote`). Nos dois casos o `cursor` não avança e o próximo ciclo tenta de novo. */
-export type ErroCiclo = ErroSync | "aplicar-lote";
+ * `aplicarLote`) — e `"outra-senha"` — a `chaveDeEnvelope` desta conta não abre o envelope
+ * deste vault (plano 13 Task 2): o vault foi criado com a senha de outra conta. Não é um erro
+ * de ciclo de verdade (o ciclo nem chega a rodar — `ligarAoVault.ts`/`segundoPlano.ts` gravam
+ * este código ANTES de tentar `executarCiclo`), mas mora no mesmo tipo porque é o mesmo campo
+ * (`EstadoSync.ultimoErro`) que os dois módulos gravam. Nos três casos o `cursor` não avança. */
+export type ErroCiclo = ErroSync | "aplicar-lote" | "outra-senha";
 
 export type ResultadoCiclo =
   | { ok: true; foraDaSincronizacao: string[] }

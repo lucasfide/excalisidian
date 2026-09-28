@@ -1,19 +1,21 @@
 // Textos do domínio "sincronização": a lista "Seus vaults" em `DialogoPreferencias`
-// (`SecaoSincronizacao.tsx`, doc 17 §7-8, spec 2026-09-27 §2, plano 12 Task 6) e o `title` do
-// ícone de estado no rodapé da sidebar (`StatusSync` em `src/estado/syncStore.ts`). Fatia de
-// `catalogo.ts` — ver o comentário de topo dele para as regras gerais (fonte da verdade, queda
-// pro português, redação).
+// (`SecaoSincronizacao.tsx`, doc 17 §7-8, plano 13 Task 2) e o `title` do ícone de estado no
+// rodapé da sidebar (`StatusSync` em `src/estado/syncStore.ts`). Fatia de `catalogo.ts` — ver o
+// comentário de topo dele para as regras gerais (fonte da verdade, queda pro português,
+// redação).
 //
 // Fonte dos textos: doc 04 §17 — cópia literal. Sentence case, sem emoji, sem os termos
 // técnicos do doc 17 ("envelope", "hash", "retrato"): a pessoa não precisa saber como o
 // diário funciona por dentro. Chaves que doc 04 não lista (título da seção, o texto de cada
 // unidade de "{tempo}") seguem a mesma redação, mas não são cópia de uma linha do doc.
 //
-// Revisão do plano 12 Task 6: a seção deixou de ter os fluxos "Sincronizar este vault" /
-// "Baixar um vault sincronizado para uma pasta vazia" — virou a lista "Seus vaults" (doc 17
-// §8). As chaves antigas desses dois fluxos saíram (nunca mais referenciadas no código);
-// `sync.senha.*` e `sync.erro.senhaIncorreta` continuam, agora usadas pelo bloco "Confirme sua
-// senha" inline (não mais um `Dialog` por cima de um botão de ação).
+// Plano 13 Task 2 (pedido do dono do produto no teste de 29/09/2026): a lista "Seus vaults"
+// perdeu as ações "Abrir", "Parar neste computador" e "Esquecer neste computador", e os estados
+// "Pasta não encontrada"/"Criado com outra senha" pararam de ter texto de estado próprio (a
+// pasta sumida esquece o vínculo e vira "Na nuvem" sem aviso; "outra senha" é um aviso sobre o
+// estado sincronizado/na nuvem, não um estado à parte). As chaves correspondentes saíram do
+// catálogo; `sync.senha.*` e `sync.erro.senhaIncorreta` continuam, usadas pelo bloco "Confirme
+// sua senha" inline.
 
 export const PT_BR_SYNC = {
   "sync.titulo": "Sincronização",
@@ -30,11 +32,7 @@ export const PT_BR_SYNC = {
     "Os vaults sincronizados atualizam sozinhos enquanto o app está aberto.",
   "sync.lista.vazio": "Nenhum vault ainda.",
   "sync.item.sincronizadoHa": "Sincronizado há {tempo}",
-  "sync.item.soLocal": "Só neste computador",
-  "sync.item.soNuvem": "Só na nuvem",
-  "sync.item.pastaNaoEncontrada": "Pasta não encontrada",
-  "sync.item.outraSenha":
-    "Criado com outra senha. Não é possível abrir com a senha desta conta.",
+  "sync.item.outraSenha": "Este vault foi criado com outra senha e não abre com esta conta.",
   "sync.item.semNome": "Vault sem nome",
   "sync.item.conflito": "1 conflito — abra o vault para resolver",
   "sync.item.conflitos": "{n} conflitos — abra o vault para resolver",
@@ -42,17 +40,14 @@ export const PT_BR_SYNC = {
   "sync.tempo.minutos": "{n} min",
   "sync.tempo.horas": "{n} h",
   "sync.tempo.dias": "{n} d",
-  "sync.acao.abrir": "Abrir",
   "sync.acao.sincronizarAgora": "Sincronizar agora",
   "sync.acao.sincronizar": "Sincronizar",
-  "sync.acao.baixarParaEsteComputador": "Baixar para este computador…",
-  "sync.acao.pararNesteComputador": "Parar neste computador",
-  "sync.acao.apagarDaNuvem": "Apagar da nuvem…",
-  "sync.acao.esquecerNesteComputador": "Esquecer neste computador",
-  "sync.confirmarApagar.titulo": "Apagar a cópia de «{vault}» no servidor?",
+  "sync.acao.baixarParaEsteComputador": "Baixar…",
+  "sync.acao.apagarDaNuvem": "Apagar",
+  "sync.confirmarApagar.titulo": "Apagar «{vault}» da nuvem?",
   "sync.confirmarApagar.corpo":
-    "Os arquivos deste e de qualquer outro computador continuam intactos. Só a cópia guardada no servidor é apagada.",
-  "sync.confirmarApagar.botao": "Apagar cópia do servidor",
+    "Os arquivos continuam em todos os computadores; só a cópia da nuvem e a sincronização são removidas.",
+  "sync.confirmarApagar.botao": "Apagar",
   "sync.foraDaSincronizacao.titulo": "Fora da sincronização",
   "sync.foraDaSincronizacao.ajuda": "Estes arquivos passam de 7 MB e ficam só neste computador.",
   "sync.status.sincronizado": "Sincronizado",
@@ -82,10 +77,7 @@ export const EN_SYNC: Partial<Record<keyof typeof PT_BR_SYNC, string>> = {
   "sync.lista.rodape": "Synced vaults update on their own while the app is open.",
   "sync.lista.vazio": "No vaults yet.",
   "sync.item.sincronizadoHa": "Synced {tempo} ago",
-  "sync.item.soLocal": "Only on this computer",
-  "sync.item.soNuvem": "Only in the cloud",
-  "sync.item.pastaNaoEncontrada": "Folder not found",
-  "sync.item.outraSenha": "Created with another password. Can't open it with this account's password.",
+  "sync.item.outraSenha": "This vault was created with another password and can't be opened with this account.",
   "sync.item.semNome": "Unnamed vault",
   "sync.item.conflito": "1 conflict — open the vault to resolve it",
   "sync.item.conflitos": "{n} conflicts — open the vault to resolve them",
@@ -93,17 +85,14 @@ export const EN_SYNC: Partial<Record<keyof typeof PT_BR_SYNC, string>> = {
   "sync.tempo.minutos": "{n} min",
   "sync.tempo.horas": "{n} h",
   "sync.tempo.dias": "{n} d",
-  "sync.acao.abrir": "Open",
   "sync.acao.sincronizarAgora": "Sync now",
   "sync.acao.sincronizar": "Sync",
-  "sync.acao.baixarParaEsteComputador": "Download to this computer…",
-  "sync.acao.pararNesteComputador": "Stop on this computer",
-  "sync.acao.apagarDaNuvem": "Delete from the cloud…",
-  "sync.acao.esquecerNesteComputador": "Forget on this computer",
-  "sync.confirmarApagar.titulo": "Delete the copy of «{vault}» on the server?",
+  "sync.acao.baixarParaEsteComputador": "Download…",
+  "sync.acao.apagarDaNuvem": "Delete",
+  "sync.confirmarApagar.titulo": "Delete «{vault}» from the cloud?",
   "sync.confirmarApagar.corpo":
-    "The files on this and any other computer stay intact. Only the copy stored on the server is deleted.",
-  "sync.confirmarApagar.botao": "Delete server copy",
+    "The files stay on every computer; only the cloud copy and its sync are removed.",
+  "sync.confirmarApagar.botao": "Delete",
   "sync.foraDaSincronizacao.titulo": "Not synced",
   "sync.foraDaSincronizacao.ajuda": "These files are over 7 MB and stay only on this computer.",
   "sync.status.sincronizado": "Synced",

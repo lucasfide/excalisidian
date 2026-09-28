@@ -1,12 +1,14 @@
 // src/sync/fluxoSecao.ts
 // Módulo PURO (sem disco, sem rede, sem zustand) com as decisões de fluxo da seção
-// "Sincronização" das Configurações (plano 12 Task 6, doc 04 §17, doc 17 §7-8, spec
-// 2026-09-27 §2):
+// "Sincronização" das Configurações (plano 13 Task 2, doc 04 §17, doc 17 §7-8, decisão do dono
+// do produto 29/09/2026):
 //
 //   - qual dos quatro estados da seção mostrar (sem conta / grátis / premium sem chave / lista
 //     "Seus vaults" — ver `estadoDaSecaoSincronizacao`);
 //   - se é preciso pedir a senha da conta antes de mostrar a lista (`precisaConfirmarSenha`);
-//   - quais ações aparecem para cada estado de um item da lista (`acoesDoEstado`, doc 17 §8);
+//   - quais ações aparecem para cada estado de um item da lista (`acoesDoEstado`, doc 17 §8) —
+//     só três estados agora, mais a flag `outraSenha` (`listaDeVaults.ts#ItemVault`), que
+//     restringe a lista a só "Apagar";
 //   - o texto de "N conflitos" de um item (`chaveDeConflitos` — singular/plural, doc 04 §17);
 //   - qual chave do catálogo (`src/i18n/catalogo/sync.ts`) corresponde a um código de erro do
 //     ciclo (`ErroCiclo`, `sync/motor.ts`) ou a um `StatusSync` (`estado/syncStore.ts`).
@@ -14,13 +16,11 @@
 // A UI (`SecaoSincronizacao.tsx`) só chama estas funções e traduz a chave devolvida com
 // `useTexto()` — nenhuma decisão de "o que mostrar" mora no componente.
 //
-// Revisão do plano 12 Task 6 (achado de code review da Task 4): a tela deixou de ter dois
-// ramos — "não sincronizado" (com botões de ligar/baixar) e "sincronizado" (com status de UM
-// vault) — e virou uma lista única "Seus vaults" (doc 17 §8). O estado da SEÇÃO agora só
-// decide "o que mostrar no lugar da lista" (nada, grátis, pedir senha) ou "mostrar a lista";
-// quem decide o que cada VAULT da lista mostra é `montarListaDeVaults` (`listaDeVaults.ts`,
-// Task 4) + `acoesDoEstado` (aqui). `pastaEstaVazia` saiu: "Baixar para este computador…" não
-// exige mais pasta vazia — cria uma pasta NOVA, numerada se precisar (`pastaDeDownload.ts`).
+// Plano 13 Task 2 (pedido do dono do produto no teste de 29/09): a lista "Seus vaults" perdeu
+// as ações "Abrir", "Parar neste computador" e "Esquecer neste computador" — sobrou
+// "Sincronizar agora"/"Apagar" (sincronizado), "Sincronizar" (só local) e "Baixar…" (só nuvem).
+// "Pasta não encontrada" e "Criado com outra senha" deixaram de ser estados próprios da lista
+// (ver `listaDeVaults.ts`).
 
 import type { PlanoAssinatura } from "../conta/tipos";
 import type { ErroCiclo } from "./motor";
@@ -56,28 +56,20 @@ export function precisaConfirmarSenha(chaveDeEnvelope: Uint8Array | null): boole
 }
 
 /** Uma ação de item da lista "Seus vaults" (doc 17 §8, tabela; doc 04 §17, linha "Ação"). */
-export type AcaoItem =
-  | "abrir"
-  | "sincronizarAgora"
-  | "pararNesteComputador"
-  | "apagarDaNuvem"
-  | "sincronizar"
-  | "baixarParaEsteComputador"
-  | "esquecerNesteComputador";
+export type AcaoItem = "sincronizarAgora" | "apagarDaNuvem" | "sincronizar" | "baixarParaEsteComputador";
 
-/** Doc 17 §8 (tabela) / spec §2: quais ações aparecem para cada estado de um item. */
-export function acoesDoEstado(estado: EstadoItem): AcaoItem[] {
+/** Doc 17 §8 (tabela): quais ações aparecem para cada estado de um item. `outraSenha` (true
+ * para um vault que não abre com a chave desta conta — `ItemVault.outraSenha`) restringe
+ * qualquer estado a só "Apagar", não importa se é "sincronizado" ou "so-nuvem". */
+export function acoesDoEstado(estado: EstadoItem, outraSenha: boolean): AcaoItem[] {
+  if (outraSenha) return ["apagarDaNuvem"];
   switch (estado) {
     case "sincronizado":
-      return ["abrir", "sincronizarAgora", "pararNesteComputador", "apagarDaNuvem"];
+      return ["sincronizarAgora", "apagarDaNuvem"];
     case "so-local":
       return ["sincronizar"];
     case "so-nuvem":
       return ["baixarParaEsteComputador"];
-    case "pasta-nao-encontrada":
-      return ["esquecerNesteComputador"];
-    case "outra-senha":
-      return ["apagarDaNuvem"];
   }
 }
 
@@ -93,9 +85,10 @@ export function chaveDeConflitos(
 }
 
 /** Doc 04 §17: `sessao`, `plano` e `espaco` têm texto próprio; todo outro código do ciclo
- * (`rede`, `servidor`, `nao-encontrado`, `ja-existe`, `fora-de-ordem` esgotado, ou
- * `aplicar-lote` — uma mudança vinda de fora que não pôde ser aplicada) cai no genérico "não
- * foi possível sincronizar agora". */
+ * (`rede`, `servidor`, `nao-encontrado`, `ja-existe`, `fora-de-ordem` esgotado, `aplicar-lote` —
+ * uma mudança vinda de fora que não pôde ser aplicada — ou `outra-senha`, que na lista "Seus
+ * vaults" nunca chega a esta função: `ItemVault.outraSenha` já mostra o texto próprio) cai no
+ * genérico "não foi possível sincronizar agora". */
 export function chaveDeErroCiclo(erro: ErroCiclo): ChaveTexto {
   switch (erro) {
     case "sessao":

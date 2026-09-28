@@ -33,9 +33,11 @@ vi.mock("../estado/documentosStore", () => ({
 }));
 
 const carregarEstadoSyncMock = vi.fn<(raiz: string) => Promise<unknown>>();
+const salvarEstadoSyncMock = vi.fn<(raiz: string, estado: unknown) => Promise<void>>();
 const lerNomeDoComputadorMock = vi.fn(async () => "Notebook do Lucas (este computador)");
 vi.mock("./estadoSync", () => ({
   carregarEstadoSync: (raiz: string) => carregarEstadoSyncMock(raiz),
+  salvarEstadoSync: (raiz: string, estado: unknown) => salvarEstadoSyncMock(raiz, estado),
   lerNomeDoComputador: () => lerNomeDoComputadorMock(),
 }));
 
@@ -84,6 +86,7 @@ describe("iniciarSincronizacaoDoVaultAberto", () => {
     syncStoreMock.iniciarPendente.mockClear();
     syncStoreMock.parar.mockClear();
     carregarEstadoSyncMock.mockReset();
+    salvarEstadoSyncMock.mockReset();
     lerNomeDoComputadorMock.mockClear();
     listarVaultsMock.mockReset();
     abrirEnvelopeMock.mockReset();
@@ -241,13 +244,14 @@ describe("iniciarSincronizacaoDoVaultAberto", () => {
     expect(listarVaultsMock).toHaveBeenCalledTimes(1); // nenhum retry sozinho
   });
 
-  describe("(b) abrirEnvelope lança (senha mudou em outro computador)", () => {
-    it("apaga a chaveDeEnvelope do cofre deste computador e não chama syncStore.iniciar", async () => {
+  describe("(b) abrirEnvelope lança (vault criado com outra senha)", () => {
+    it("NÃO apaga a chaveDeEnvelope do cofre (é a chave da conta); grava ultimoErro 'outra-senha' e não liga", async () => {
       vaultStoreState.adapter = ADAPTER_FAKE;
-      carregarEstadoSyncMock.mockResolvedValue(ESTADO_SALVO);
+      carregarEstadoSyncMock.mockResolvedValue({ ...ESTADO_SALVO });
       useContaStore.setState({ carregado: true, sessao: SESSAO_PREMIUM });
       const cofre = useContaStore.getState().cofreChaveDeEnvelope;
-      await cofre.gravar(SESSAO_PREMIUM.email, new Uint8Array([1]));
+      const chave = new Uint8Array([1]);
+      await cofre.gravar(SESSAO_PREMIUM.email, chave);
       listarVaultsMock.mockResolvedValue([
         { id: "vault-1", nomeCifrado: new Uint8Array(), envelope: new Uint8Array([9]) },
       ]);
@@ -255,8 +259,14 @@ describe("iniciarSincronizacaoDoVaultAberto", () => {
 
       await expect(iniciarSincronizacaoDoVaultAberto()).resolves.toBeUndefined();
 
-      expect(await cofre.ler(SESSAO_PREMIUM.email)).toBeNull();
+      // A chave continua no cofre: ela é da CONTA (plano 12), não deste vault — um envelope que
+      // não abre significa "vault criado com outra senha", não "chave errada" (plano 13 Task 2).
+      expect(await cofre.ler(SESSAO_PREMIUM.email)).toEqual(chave);
       expect(syncStoreMock.iniciar).not.toHaveBeenCalled();
+      expect(salvarEstadoSyncMock).toHaveBeenCalledWith(
+        "C:/vault-teste",
+        expect.objectContaining({ ultimoErro: "outra-senha" }),
+      );
     });
   });
 

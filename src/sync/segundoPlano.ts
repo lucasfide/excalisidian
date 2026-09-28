@@ -146,9 +146,10 @@ async function sincronizarUmVault(
     try {
       chaveDoVault = await deps.abrirEnvelope(chaveDeEnvelope, registro.envelope, registro.id);
     } catch {
-      // Envelope que não abre com a chave desta conta (doc 17 §8, "Criado com outra senha") —
-      // pulado com `ultimoErro` apropriado, não derruba a rodada.
-      estado.ultimoErro = "servidor";
+      // Envelope que não abre com a chave desta conta — este vault foi criado com a senha de
+      // outra conta (plano 13 Task 2, doc 17 §8). Pulado com `ultimoErro: "outra-senha"`, não
+      // derruba a rodada; a chave no cofre não é tocada aqui (o segundo plano nunca mexeu nela).
+      estado.ultimoErro = "outra-senha";
       estado.ultimoCicloEm = agora().toISOString();
       await gravarComSilencio(deps, caminho, estado);
       return;

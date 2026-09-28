@@ -56,23 +56,17 @@ function codigoDeErroSync(e: unknown): ErroCiclo {
 }
 
 const VARIANTE_DA_ACAO: Record<AcaoItem, VarianteBotao> = {
-  abrir: "primario",
   sincronizarAgora: "secundario",
-  pararNesteComputador: "secundario",
   apagarDaNuvem: "destrutivo",
   sincronizar: "primario",
   baixarParaEsteComputador: "primario",
-  esquecerNesteComputador: "secundario",
 };
 
 const CHAVE_DA_ACAO: Record<AcaoItem, ChaveTexto> = {
-  abrir: "sync.acao.abrir",
   sincronizarAgora: "sync.acao.sincronizarAgora",
-  pararNesteComputador: "sync.acao.pararNesteComputador",
   apagarDaNuvem: "sync.acao.apagarDaNuvem",
   sincronizar: "sync.acao.sincronizar",
   baixarParaEsteComputador: "sync.acao.baixarParaEsteComputador",
-  esquecerNesteComputador: "sync.acao.esquecerNesteComputador",
 };
 
 export default function SecaoSincronizacao() {
@@ -172,11 +166,16 @@ export default function SecaoSincronizacao() {
     try {
       const recentesBrutos = await listarRecentes();
       const recentes = await Promise.all(
-        recentesBrutos.map(async (r) => ({
-          caminho: r.caminho,
-          existe: await existePasta(r.caminho),
-          estado: await carregarEstadoSync(r.caminho),
-        })),
+        recentesBrutos.map(async (r) => {
+          const existe = await existePasta(r.caminho);
+          const estado = await carregarEstadoSync(r.caminho);
+          // Pasta de um vault sincronizado que não existe mais (apagada/movida): esquece o
+          // vínculo local — o vault volta a aparecer como "Na nuvem" (via a entrada de nuvem
+          // abaixo), nunca como um estado próprio de "pasta não encontrada" (doc 17 §8, plano
+          // 13 Task 2). Melhor esforço: uma falha ao esquecer não pode travar a lista.
+          if (!existe && estado) await esquecer(r.caminho).catch(() => {});
+          return { caminho: r.caminho, existe, estado };
+        }),
       );
 
       let nuvem: { id: string; nome: string | null }[] = [];
@@ -230,12 +229,6 @@ export default function SecaoSincronizacao() {
   }, [estadoSecao, carregarLista]);
 
   // --- ações da lista (doc 17 §7-8, spec §2) ---
-
-  async function aoAbrir(item: ItemVault): Promise<void> {
-    if (!item.caminho) return;
-    await abrirVaultEmJanela(item.caminho);
-    await carregarLista();
-  }
 
   /** "Sincronizar agora" num item que está sincronizado mas FECHADO nesta janela: reaproveita
    * `rodarVault` (`sync/segundoPlano.ts`), a MESMA função que o segundo plano automático chama
@@ -321,24 +314,10 @@ export default function SecaoSincronizacao() {
     }
   }
 
-  /** "Parar neste computador" (vault sincronizado) e "Esquecer neste computador" (pasta não
-   * encontrada) são a mesma operação (doc 17 §7): esquece o `EstadoSync` deste computador; se
-   * era o vault aberto NESTA janela, para o agendador dela também. */
-  async function aoEsquecer(item: ItemVault): Promise<void> {
-    if (!item.caminho) return;
-    marcarOcupado(item.chave, true);
-    limparErroItem(item.chave);
-    try {
-      if (item.caminho === raizAberta) useSyncStore.getState().parar();
-      await esquecer(item.caminho);
-    } catch (e) {
-      setErroPorItem((m) => ({ ...m, [item.chave]: chaveDeErroCiclo(codigoDeErroSync(e)) }));
-    } finally {
-      marcarOcupado(item.chave, false);
-      await carregarLista();
-    }
-  }
-
+  /** "Apagar" (doc 17 §7-8, decisão do dono do produto 29/09): apaga só a cópia da nuvem — os
+   * arquivos continuam em todos os computadores. `nao-encontrado` do servidor é sucesso (a
+   * cópia já não está lá). Depois, esquece o vínculo local (se houver um) e para o `syncStore`
+   * se era o vault aberto NESTA janela — mesma operação de sempre, sem ação própria na lista. */
   async function aoApagarDaNuvem(item: ItemVault): Promise<void> {
     if (!item.idNaNuvem) return;
     const nomeVault = item.nome || t("sync.item.semNome");
@@ -356,9 +335,8 @@ export default function SecaoSincronizacao() {
       try {
         await servicoSyncAtual().apagarVault(item.idNaNuvem);
       } catch (e) {
-        // Nota da revisão da Task 4: um id que o servidor já não conhece ("nao-encontrado") é
-        // sucesso para a pessoa — a cópia já não está lá; qualquer outro código é erro de
-        // verdade.
+        // Um id que o servidor já não conhece ("nao-encontrado") é sucesso para a pessoa — a
+        // cópia já não está lá; qualquer outro código é erro de verdade.
         if (!(e instanceof FalhaSync && e.codigo === "nao-encontrado")) throw e;
       }
       if (item.caminho) {
@@ -428,15 +406,8 @@ export default function SecaoSincronizacao() {
 
   function acionar(item: ItemVault, acao: AcaoItem): void {
     switch (acao) {
-      case "abrir":
-        void aoAbrir(item);
-        return;
       case "sincronizarAgora":
         void aoSincronizarAgora(item);
-        return;
-      case "pararNesteComputador":
-      case "esquecerNesteComputador":
-        void aoEsquecer(item);
         return;
       case "apagarDaNuvem":
         void aoApagarDaNuvem(item);
@@ -583,7 +554,7 @@ function ItemDaLista({
   t: TradutorDoApp;
   onAcionar(acao: AcaoItem): void;
 }) {
-  const acoes = acoesDoEstado(item.estado);
+  const acoes = acoesDoEstado(item.estado, item.outraSenha);
   const nomeExibido = item.nome !== "" ? item.nome : t("sync.item.semNome");
   const conflitos = chaveDeConflitos(item.conflitosPendentes);
 
@@ -638,13 +609,17 @@ function ItemDaLista({
  * aberto NESTA janela: usa o status ao vivo do `syncStore` (mais preciso que `ultimoCicloEm`,
  * que só é gravado ao FIM de um ciclo). Para os demais itens "sincronizado" (fechados, ou
  * sincronizados por outra janela / segundo plano), usa `ultimoErro`/`ultimoCicloEm` do próprio
- * `ItemVault` (Task 4). Os demais estados têm texto fixo. */
+ * `ItemVault`. `outraSenha` (plano 13 Task 2) troca qualquer um desses textos pelo aviso de
+ * outra senha — nome e caminho continuam vindo do estado normal do item. "Só neste computador"
+ * e "Na nuvem" não têm mais texto de status próprio: nome, caminho (se houver) e o grupo na
+ * lista já dizem tudo (doc 17 §8, tabela). */
 function textoDeEstado(
   item: ItemVault,
   aberto: boolean,
   statusAberto: StatusSync,
   t: TradutorDoApp,
 ): string | null {
+  if (item.outraSenha) return t("sync.item.outraSenha");
   switch (item.estado) {
     case "sincronizado": {
       if (aberto) {
@@ -661,12 +636,7 @@ function textoDeEstado(
       return null;
     }
     case "so-local":
-      return t("sync.item.soLocal");
     case "so-nuvem":
-      return t("sync.item.soNuvem");
-    case "pasta-nao-encontrada":
-      return t("sync.item.pastaNaoEncontrada");
-    case "outra-senha":
-      return t("sync.item.outraSenha");
+      return null;
   }
 }

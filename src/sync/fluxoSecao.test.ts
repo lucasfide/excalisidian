@@ -1,11 +1,13 @@
 // src/sync/fluxoSecao.test.ts
 // Testes do módulo puro que decide o que a seção "Sincronização" das Configurações mostra
-// (plano 12 Task 6, doc 04 §17, doc 17 §7-8): qual dos quatro estados exibir, quais ações
-// aparecem para cada estado de item da lista, o texto de contagem de conflitos, e qual chave do
-// catálogo corresponde a um código de erro do ciclo ou a um `StatusSync`. Reescrito para a
-// lista "Seus vaults" (plano 10 tinha dois ramos — "não sincronizado"/"sincronizado" — que a
-// Task 6 substitui por uma lista única); `pastaEstaVazia` saiu (baixar não exige mais pasta
-// vazia). Escrito ANTES da implementação (visto falhando).
+// (plano 13 Task 2, doc 04 §17, doc 17 §7-8, decisão do dono do produto 29/09/2026): qual dos
+// quatro estados da SEÇÃO exibir, quais ações aparecem para cada estado de item da lista (agora
+// só três: sincronizado, so-local, so-nuvem — mais a flag `outraSenha`, que restringe a lista a
+// só "Apagar"), o texto de contagem de conflitos, e qual chave do catálogo corresponde a um
+// código de erro do ciclo ou a um `StatusSync`. Saíram "abrir", "pararNesteComputador" e
+// "esquecerNesteComputador" — a lista não tem mais essas ações, nem os estados
+// "pasta-nao-encontrada"/"outra-senha" como estados próprios. Escrito ANTES da implementação
+// (visto falhando).
 
 import { describe, it, expect } from "vitest";
 
@@ -59,29 +61,21 @@ describe("precisaConfirmarSenha", () => {
 });
 
 describe("acoesDoEstado", () => {
-  it("sincronizado: abrir, sincronizar agora, parar neste computador, apagar da nuvem", () => {
-    expect(acoesDoEstado("sincronizado")).toEqual([
-      "abrir",
-      "sincronizarAgora",
-      "pararNesteComputador",
-      "apagarDaNuvem",
-    ]);
+  it("sincronizado: sincronizar agora, apagar", () => {
+    expect(acoesDoEstado("sincronizado", false)).toEqual(["sincronizarAgora", "apagarDaNuvem"]);
   });
 
   it("so-local: sincronizar", () => {
-    expect(acoesDoEstado("so-local")).toEqual(["sincronizar"]);
+    expect(acoesDoEstado("so-local", false)).toEqual(["sincronizar"]);
   });
 
-  it("so-nuvem: baixar para este computador", () => {
-    expect(acoesDoEstado("so-nuvem")).toEqual(["baixarParaEsteComputador"]);
+  it("so-nuvem: baixar", () => {
+    expect(acoesDoEstado("so-nuvem", false)).toEqual(["baixarParaEsteComputador"]);
   });
 
-  it("pasta-nao-encontrada: esquecer neste computador", () => {
-    expect(acoesDoEstado("pasta-nao-encontrada")).toEqual(["esquecerNesteComputador"]);
-  });
-
-  it("outra-senha: apagar da nuvem", () => {
-    expect(acoesDoEstado("outra-senha")).toEqual(["apagarDaNuvem"]);
+  it("outraSenha true (sincronizado ou so-nuvem): só apagar", () => {
+    expect(acoesDoEstado("sincronizado", true)).toEqual(["apagarDaNuvem"]);
+    expect(acoesDoEstado("so-nuvem", true)).toEqual(["apagarDaNuvem"]);
   });
 });
 
@@ -113,6 +107,7 @@ describe("chaveDeErroCiclo", () => {
     expect(chaveDeErroCiclo("ja-existe")).toBe("sync.erro.generico");
     expect(chaveDeErroCiclo("fora-de-ordem")).toBe("sync.erro.generico");
     expect(chaveDeErroCiclo("aplicar-lote")).toBe("sync.erro.generico");
+    expect(chaveDeErroCiclo("outra-senha")).toBe("sync.erro.generico");
   });
 });
 

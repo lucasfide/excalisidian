@@ -684,14 +684,34 @@ Configurações (doc 17 §7) e o `title` do ícone de estado no rodapé da sideb
 case, sem emoji, sem os termos técnicos do doc 17 (nada de "envelope", "hash" ou "retrato" na
 tela — a pessoa não precisa saber como o diário funciona por dentro).
 
-A seção mostra um destes cinco estados por vez (doc 17 §7):
+A seção mostra um destes quatro estados por vez (doc 17 §7):
 
 1. Sem conta.
 2. Conta grátis.
 3. Premium, mas este computador ainda não tem a chave guardada — pede a senha da conta antes de
-   ligar ou baixar qualquer vault.
-4. Premium, vault atual não sincronizado.
-5. Vault sincronizado.
+   mostrar a lista.
+4. Premium com chave: a lista "Seus vaults".
+
+A lista tem três situações (decisão do dono do produto, 29/09/2026: "o usuário só precisa
+acessar os seus vaults"):
+
+| Situação | Mostra | Ações |
+|---|---|---|
+| Sincronizado | nome, caminho, "Sincronizado há…" / o erro do status | Sincronizar agora · Apagar |
+| Só neste computador | nome, caminho | Sincronizar |
+| Na nuvem | nome | Baixar… |
+
+- Uma pasta de um vault sincronizado que não existe mais (apagada ou movida) esquece o vínculo
+  local sozinha, sem aviso — o vault volta a aparecer como "Na nuvem".
+- Um vault que não abre com a chave desta conta (criado com a senha de outra conta) aparece
+  dentro de "Sincronizado" ou "Na nuvem" com o texto "Este vault foi criado com outra senha e
+  não abre com esta conta." e só a ação Apagar.
+- **Apagar** remove só a cópia da nuvem — os arquivos continuam em todos os computadores. O
+  diálogo diz: "Apagar «{vault}» da nuvem? Os arquivos continuam em todos os computadores; só a
+  cópia da nuvem e a sincronização são removidas." Depois de apagar, o vínculo local (se houver)
+  também é esquecido.
+- **Baixar…** deixa escolher onde colocar o vault; o app cria a pasta com o nome do vault
+  (numerada se já existir uma com esse nome), baixa e abre.
 
 ## 18. Busca nas Configurações
 

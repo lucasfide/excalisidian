@@ -1,22 +1,26 @@
 // src/sync/listaDeVaults.ts
-// O modelo puro da lista "Seus vaults" (doc 17 §8, spec 2026-09-27 §2, plano 12 Task 4): junta
-// as três fontes — vaults recentes deste computador (caminho), `EstadoSync` por caminho (id no
-// servidor) e vaults da conta no servidor (nome decifrado) — num item por vault, sem tocar
-// Tauri, servidor nem zustand. Quem monta as três fontes (Task 6) é a "casca"; este módulo só
-// decide o estado e a ordenação.
+// O modelo puro da lista "Seus vaults" (doc 17 §8, decisão do dono do produto 29/09/2026, plano
+// 13 Task 2): junta as três fontes — vaults recentes deste computador (caminho), `EstadoSync`
+// por caminho (id no servidor) e vaults da conta no servidor (nome decifrado) — num item por
+// vault, sem tocar Tauri, servidor nem zustand. Quem monta as três fontes é a "casca"
+// (`SecaoSincronizacao.tsx`); este módulo só decide o estado e a ordenação.
+//
+// Plano 13 Task 2 (simplificação pedida pelo dono do produto): só três situações —
+// "sincronizado", "so-local", "so-nuvem". "Pasta não encontrada" deixou de ser estado próprio:
+// uma pasta local sumida não aparece mais como item local (a casca já esqueceu o vínculo antes
+// de montar a lista, com `esquecer(caminho)` — o vault volta a aparecer como "so-nuvem", se
+// ainda estiver na nuvem). "Criado com outra senha" também deixou de ser estado próprio: virou a
+// flag `outraSenha` sobre "sincronizado" (local, via `EstadoSync.ultimoErro === "outra-senha"`)
+// ou "so-nuvem" (nome que não decifrou) — só a ação Apagar aparece nesse caso
+// (`fluxoSecao.ts#acoesDoEstado`).
 
 import { chaveDeVault } from "./coordenacao";
 import { nomeDoVault } from "../vault/vaultsRecentes";
 import type { EstadoSync } from "./estadoSync";
 import type { ErroCiclo } from "./motor";
 
-/** Um dos cinco estados da lista (doc 17 §8, tabela). */
-export type EstadoItem =
-  | "sincronizado"
-  | "so-local"
-  | "so-nuvem"
-  | "pasta-nao-encontrada"
-  | "outra-senha";
+/** Um dos três estados da lista (doc 17 §8, tabela). */
+export type EstadoItem = "sincronizado" | "so-local" | "so-nuvem";
 
 export interface ItemVault {
   /** `chaveDeVault(caminho)` para itens locais; `"nuvem:" + id` para itens só da nuvem — nunca
@@ -26,8 +30,8 @@ export interface ItemVault {
   chave: string;
   /** Nome do vault: o nome da PASTA para itens locais (mesmo se o nome decifrado na nuvem for
    * diferente — é o que a pessoa reconhece no computador), o nome decifrado para "só na
-   * nuvem". Para "outra-senha" (nome decifrado null), fica como string vazia — a tela mostra
-   * "Vault sem nome" olhando para `estado`, não para este campo. */
+   * nuvem". Quando `outraSenha` é true por um nome que não decifrou, fica como string vazia — a
+   * tela mostra "Vault sem nome". */
   nome: string;
   caminho: string | null;
   idNaNuvem: string | null;
@@ -35,6 +39,10 @@ export interface ItemVault {
   ultimoCicloEm: string | null;
   ultimoErro: ErroCiclo | null;
   conflitosPendentes: number;
+  /** true quando este vault não abre com a chave desta conta: local sincronizado com
+   * `ultimoErro === "outra-senha"`, ou da nuvem cujo nome não decifrou. Restringe as ações a só
+   * "Apagar" e troca o texto normal pelo aviso de outra senha (`fluxoSecao.ts`). */
+  outraSenha: boolean;
 }
 
 /** Uma entrada de vault recente, cruzada com a existência da pasta e o `EstadoSync` deste
@@ -72,8 +80,7 @@ function dedupRecentes(recentes: EntradaRecente[]): EntradaRecente[] {
   return [...porChave.values()];
 }
 
-/** Ordem dos grupos (doc 17 §8 / plano 12 Task 4): sincronizados, só local, só nuvem, os
- * demais (pasta não encontrada e outra senha, juntos). */
+/** Ordem dos grupos (doc 17 §8 / plano 13 Task 2): sincronizados, só local, só nuvem. */
 function grupoDoEstado(estado: EstadoItem): number {
   switch (estado) {
     case "sincronizado":
@@ -82,23 +89,25 @@ function grupoDoEstado(estado: EstadoItem): number {
       return 1;
     case "so-nuvem":
       return 2;
-    case "pasta-nao-encontrada":
-    case "outra-senha":
-      return 3;
   }
 }
 
 /**
- * Monta a lista "Seus vaults" a partir das três fontes. Regras (doc 17 §8, spec §2):
+ * Monta a lista "Seus vaults" a partir das três fontes. Regras (doc 17 §8, decisão do dono do
+ * produto 29/09/2026):
  *
- * - local com `EstadoSync` cujo `idDoVault` está na nuvem → "sincronizado" (pasta existe) ou
- *   "pasta-nao-encontrada" (não existe).
+ * - local com `EstadoSync` e pasta existente → "sincronizado"; `outraSenha` é true quando
+ *   `EstadoSync.ultimoErro === "outra-senha"`.
  * - local com `EstadoSync` cujo id NÃO está na nuvem → continua "sincronizado" — a lista não
  *   conclui sozinha que o vault foi apagado do servidor (podia ser falha de rede, lista ainda
  *   não chegou); `ultimoCicloEm`/`ultimoErro` são preservados do `EstadoSync`.
+ * - local com `EstadoSync` cuja pasta NÃO existe mais → não aparece como item local (a casca já
+ *   esqueceu o vínculo com `esquecer(caminho)` antes de montar a lista — doc 17 §8); se ainda
+ *   está na nuvem, a entrada de nuvem abaixo cobre o vault como "so-nuvem".
  * - local sem `EstadoSync`, pasta existe → "so-local"; pasta não existe → não aparece (nada a
  *   fazer com um caminho recente que não é vault nem nunca sincronizou).
- * - nuvem sem local correspondente → "so-nuvem", ou "outra-senha" se o nome não decifrou.
+ * - nuvem sem local correspondente → "so-nuvem"; `outraSenha` é true quando o nome não decifrou
+ *   (`nome: null`).
  *
  * Cada vault aparece uma vez (mesmo se `recentes` tiver duas entradas para a mesma pasta em
  * grafias diferentes — `mesmoVault`) e um vault que é local E está na nuvem também aparece uma
@@ -110,8 +119,9 @@ export function montarListaDeVaults(entrada: EntradaListaDeVaults): ItemVault[] 
   const idsCobertosPeloLocal = new Set<string>();
 
   for (const r of recentes) {
+    if (!r.existe) continue; // pasta inexistente: não aparece como item local (doc 17 §8)
+
     if (!r.estado) {
-      if (!r.existe) continue; // pasta inexistente sem estado: não aparece (doc 17 §8, Review Focus 3)
       itens.push({
         chave: chaveDeVault(r.caminho),
         nome: nomeDoVault(r.caminho),
@@ -121,6 +131,7 @@ export function montarListaDeVaults(entrada: EntradaListaDeVaults): ItemVault[] 
         ultimoCicloEm: null,
         ultimoErro: null,
         conflitosPendentes: 0,
+        outraSenha: false,
       });
       continue;
     }
@@ -133,10 +144,11 @@ export function montarListaDeVaults(entrada: EntradaListaDeVaults): ItemVault[] 
       nome: nomeDoVault(r.caminho),
       caminho: r.caminho,
       idNaNuvem: r.estado.idDoVault,
-      estado: r.existe ? "sincronizado" : "pasta-nao-encontrada",
+      estado: "sincronizado",
       ultimoCicloEm: r.estado.ultimoCicloEm ?? null,
       ultimoErro: r.estado.ultimoErro ?? null,
       conflitosPendentes: Object.keys(r.estado.conflitosPendentes).length,
+      outraSenha: r.estado.ultimoErro === "outra-senha",
     });
   }
 
@@ -147,10 +159,11 @@ export function montarListaDeVaults(entrada: EntradaListaDeVaults): ItemVault[] 
       nome: v.nome ?? "",
       caminho: null,
       idNaNuvem: v.id,
-      estado: v.nome === null ? "outra-senha" : "so-nuvem",
+      estado: "so-nuvem",
       ultimoCicloEm: null,
       ultimoErro: null,
       conflitosPendentes: 0,
+      outraSenha: v.nome === null,
     });
   }
 
