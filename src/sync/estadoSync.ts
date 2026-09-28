@@ -6,6 +6,7 @@ import { load } from "@tauri-apps/plugin-store";
 import { invoke } from "@tauri-apps/api/core";
 
 import { hashVault } from "../indice/cache";
+import type { ErroCiclo } from "./motor";
 
 const VERSAO_ESTADO_SYNC = 1;
 
@@ -24,6 +25,13 @@ export interface EstadoSync {
     string,
     { hashRemoto: string; conteudo: string; dispositivo: string; criadoEm: string }
   >;
+  /** Fim do último ciclo (ISO 8601), doc 17 §8. OPCIONAL — mesma versão de formato
+   * (`VERSAO_ESTADO_SYNC` não muda): um `EstadoSync` gravado antes desta task não tem este
+   * campo, e continua lendo normalmente (plano 12 Task 4). Ausente = nunca rodou um ciclo. */
+  ultimoCicloEm?: string;
+  /** Código do erro do último ciclo, ou `null` se o último ciclo deu certo (doc 17 §8: "o erro
+   * do status" no lugar de "Sincronizado há X min"). Também opcional pela mesma razão acima. */
+  ultimoErro?: ErroCiclo | null;
 }
 
 interface FormatoEstadoSync {

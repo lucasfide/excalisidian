@@ -357,6 +357,37 @@ describe("syncStore", () => {
     expect(salvo.estado.cursor).toBe(7);
   });
 
+  it("grava ultimoCicloEm (ISO do fim do ciclo) e ultimoErro=null no EstadoSync depois de um ciclo com sucesso", async () => {
+    await salvarEstadoSync(RAIZ, estadoBase());
+    const chaveArquivo = Object.keys(guardados)[0]!;
+    const fimDoCiclo = new Date("2026-09-28T15:30:00.000Z");
+    const { deps } = montarDeps({ agora: () => fimDoCiclo, executarCiclo: async () => OK });
+
+    await useSyncStore.getState().iniciar(RAIZ, deps);
+    await drenar();
+
+    const salvo = guardados[chaveArquivo] as { estado: EstadoSync };
+    expect(salvo.estado.ultimoCicloEm).toBe("2026-09-28T15:30:00.000Z");
+    expect(salvo.estado.ultimoErro).toBeNull();
+  });
+
+  it("grava ultimoErro com o código do erro (e ultimoCicloEm) depois de um ciclo que falha", async () => {
+    await salvarEstadoSync(RAIZ, estadoBase());
+    const chaveArquivo = Object.keys(guardados)[0]!;
+    const fimDoCiclo = new Date("2026-09-28T16:00:00.000Z");
+    const { deps } = montarDeps({
+      agora: () => fimDoCiclo,
+      executarCiclo: async () => ({ ok: false, erro: "espaco", foraDaSincronizacao: [] }),
+    });
+
+    await useSyncStore.getState().iniciar(RAIZ, deps);
+    await drenar();
+
+    const salvo = guardados[chaveArquivo] as { estado: EstadoSync };
+    expect(salvo.estado.ultimoCicloEm).toBe("2026-09-28T16:00:00.000Z");
+    expect(salvo.estado.ultimoErro).toBe("espaco");
+  });
+
   it("persiste o EstadoSync mesmo quando o ciclo falha", async () => {
     await salvarEstadoSync(RAIZ, estadoBase());
     const chaveArquivo = Object.keys(guardados)[0]!;

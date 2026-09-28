@@ -101,6 +101,41 @@ describe("estadoSync", () => {
     expect(await carregarEstadoSync(RAIZ)).toBeNull();
   });
 
+  it("campos opcionais ultimoCicloEm/ultimoErro: arquivo antigo sem eles continua lendo (mesma versão de formato)", async () => {
+    // Grava um EstadoSync "antigo" (sem os campos novos) escrevendo direto no disco falso,
+    // simulando um arquivo gravado por uma versão anterior desta task.
+    const estadoAntigo = {
+      idDoVault: "vault-antigo",
+      cursor: 3,
+      bases: {},
+      hashesConhecidos: {},
+      conflitosPendentes: {},
+    };
+    await salvarEstadoSync(RAIZ, estadoAntigo as EstadoSync);
+    const caminho = Object.keys(discos).find((c) => c.startsWith("sync-"))!;
+    // Confirma que o disco falso realmente não tem os campos novos (o teste provaria falso
+    // positivo se `estadoDeExemplo()`/`salvarEstadoSync` já os incluísse por padrão).
+    const bruto = discos[caminho]!.estado as { estado: Record<string, unknown> };
+    expect(bruto.estado.ultimoCicloEm).toBeUndefined();
+    expect(bruto.estado.ultimoErro).toBeUndefined();
+
+    const lido = await carregarEstadoSync(RAIZ);
+    expect(lido).not.toBeNull();
+    expect(lido!.idDoVault).toBe("vault-antigo");
+    expect(lido!.ultimoCicloEm).toBeUndefined();
+    expect(lido!.ultimoErro).toBeUndefined();
+  });
+
+  it("ida e volta com ultimoCicloEm e ultimoErro preenchidos", async () => {
+    const estado: EstadoSync = {
+      ...estadoDeExemplo(),
+      ultimoCicloEm: "2026-09-28T12:00:00.000Z",
+      ultimoErro: null,
+    };
+    await salvarEstadoSync(RAIZ, estado);
+    expect(await carregarEstadoSync(RAIZ)).toEqual(estado);
+  });
+
   it("esquecer não afeta o estado de outro vault", async () => {
     const estadoB = { ...estadoDeExemplo(), idDoVault: "vault-456" };
     await salvarEstadoSync("C:/vaults/pessoal", estadoDeExemplo());

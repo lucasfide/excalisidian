@@ -259,6 +259,13 @@ export const useSyncStore = create<SyncStoreState>((set) => {
       // geração enquanto o ciclo estava em voo: um `iniciar()` seguinte pode já ter carregado
       // (ou não) um `EstadoSync` diferente, e gravar por cima aqui apagaria isso.
       if (minhaGeracao === geracao) {
+        // Doc 17 §8 / plano 12 Task 4: a lista "Seus vaults" mostra "Sincronizado há X min" (a
+        // partir de `ultimoCicloEm`) ou o erro do status (`ultimoErro`) — gravados no
+        // `EstadoSync` ANTES de persistir, sucesso ou falha, sempre que o fim do ciclo ainda
+        // vale para esta geração (mesma condição da persistência abaixo).
+        const fimDoCiclo = depsAtuais.agora ? depsAtuais.agora() : new Date();
+        estado.ultimoCicloEm = fimDoCiclo.toISOString();
+        estado.ultimoErro = resultado.ok ? null : resultado.erro;
         try {
           await salvarEstadoSync(raiz, estado);
         } catch {
