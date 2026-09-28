@@ -18,6 +18,9 @@ import { exigirPremium, exigirSessao } from "./sessao";
 
 const LIMITE_CORPO_BYTES = 256 * 1024;
 const PEDIDOS_POR_MINUTO = 30;
+// A checagem de créditos vem antes da chamada ao fornecedor (até 90 s) e o débito depois;
+// sem este teto, pedidos em paralelo passariam todos pela checagem e estourariam a cota.
+const PEDIDOS_SIMULTANEOS_POR_CONTA = 3;
 
 interface CorpoChat {
   model: string;
@@ -56,6 +59,7 @@ export function registrarRotasIa(
   opcoes: { ia?: ConfigIa; fetchFornecedor: typeof fetch; agora: () => number },
 ): void {
   const limite = new LimiteDeTentativas(PEDIDOS_POR_MINUTO);
+  const emAndamento = new Map<number, number>();
 
   app.post<{ Body: CorpoChat }>(
     "/chat/completions",
@@ -76,20 +80,32 @@ export function registrarRotasIa(
 
       if (!opcoes.ia?.chave) return reply.code(503).send();
 
+      if ((emAndamento.get(conta.id) ?? 0) >= PEDIDOS_SIMULTANEOS_POR_CONTA) {
+        return reply.code(429).send({ codigo: "limite" });
+      }
+      emAndamento.set(conta.id, (emAndamento.get(conta.id) ?? 0) + 1);
+
       let resposta;
       try {
-        resposta = await chamarFornecedor({
-          ia: opcoes.ia,
-          fetchImpl: opcoes.fetchFornecedor,
-          mensagens: messages.map((m) => ({ role: m.role, content: m.content })),
-          maxTokens: tetoDeSaida(max_completion_tokens),
-        });
-      } catch (erro) {
-        if (erro instanceof FalhaFornecedor) return reply.code(502).send();
-        throw erro;
-      }
+        const inicio = opcoes.agora();
+        try {
+          resposta = await chamarFornecedor({
+            ia: opcoes.ia,
+            fetchImpl: opcoes.fetchFornecedor,
+            mensagens: messages.map((m) => ({ role: m.role, content: m.content })),
+            maxTokens: tetoDeSaida(max_completion_tokens),
+          });
+        } catch (erro) {
+          if (erro instanceof FalhaFornecedor) return reply.code(502).send();
+          throw erro;
+        }
 
-      debitar(banco, conta.id, opcoes.agora(), resposta.uso);
+        debitar(banco, conta.id, opcoes.agora(), resposta.uso, inicio);
+      } finally {
+        const restante = (emAndamento.get(conta.id) ?? 1) - 1;
+        if (restante <= 0) emAndamento.delete(conta.id);
+        else emAndamento.set(conta.id, restante);
+      }
 
       return reply.code(200).send({
         object: "chat.completion",

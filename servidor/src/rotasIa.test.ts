@@ -185,6 +185,61 @@ describe("POST /v1/chat/completions — sucesso e falha do fornecedor", () => {
   });
 });
 
+describe("POST /v1/chat/completions — pedidos simultâneos por conta", () => {
+  // Fornecedor dublê que só responde quando o teste libera.
+  function fornecedorTravado() {
+    const liberar: Array<(r: Response | Error) => void> = [];
+    fornecedor.mockImplementation(
+      () =>
+        new Promise<Response>((resolve, reject) => {
+          liberar.push((r) => (r instanceof Error ? reject(r) : resolve(r)));
+        }),
+    );
+    return liberar;
+  }
+
+  it("4 pedidos ao mesmo tempo → um 429 limite; liberados, os 3 passam e a vaga volta", async () => {
+    const { token } = criarConta("a@x.com");
+    const liberar = fornecedorTravado();
+    const pedidos = [1, 2, 3, 4].map(() => pedir(token, CORPO));
+    await vi.waitFor(() => expect(liberar.length).toBe(3));
+    liberar.forEach((l) => l(respostaFornecedor()));
+    const respostas = await Promise.all(pedidos);
+    const codigos = respostas.map((r) => r.statusCode).sort();
+    expect(codigos).toEqual([200, 200, 200, 429]);
+    expect(respostas.find((r) => r.statusCode === 429)!.json()).toEqual({ codigo: "limite" });
+    expect(fornecedor).toHaveBeenCalledTimes(3);
+
+    fornecedor.mockImplementation(async () => respostaFornecedor());
+    expect((await pedir(token, CORPO)).statusCode).toBe(200);
+  });
+
+  it("falha do fornecedor (502) também libera a vaga", async () => {
+    const { token } = criarConta("a@x.com");
+    const liberar = fornecedorTravado();
+    const pedidos = [1, 2, 3].map(() => pedir(token, CORPO));
+    await vi.waitFor(() => expect(liberar.length).toBe(3));
+    liberar.forEach((l) => l(new TypeError("fetch failed")));
+    expect((await Promise.all(pedidos)).map((r) => r.statusCode)).toEqual([502, 502, 502]);
+
+    fornecedor.mockImplementation(async () => respostaFornecedor());
+    for (let i = 0; i < 4; i++) expect((await pedir(token, CORPO)).statusCode).toBe(200);
+  });
+
+  it("o limite é por conta: outra conta não é afetada", async () => {
+    const a = criarConta("a@x.com");
+    const b = criarConta("b@x.com");
+    const liberar = fornecedorTravado();
+    const pedidosA = [1, 2, 3].map(() => pedir(a.token, CORPO));
+    await vi.waitFor(() => expect(liberar.length).toBe(3));
+    const pedidoB = pedir(b.token, CORPO);
+    await vi.waitFor(() => expect(liberar.length).toBe(4));
+    liberar.forEach((l) => l(respostaFornecedor()));
+    const todos = await Promise.all([...pedidosA, pedidoB]);
+    expect(todos.map((r) => r.statusCode)).toEqual([200, 200, 200, 200]);
+  });
+});
+
 describe("GET /v1/creditos", () => {
   it("401 sem sessão, 403 conta grátis", async () => {
     expect((await app.inject({ method: "GET", url: "/v1/creditos" })).statusCode).toBe(401);

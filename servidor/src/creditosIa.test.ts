@@ -56,6 +56,16 @@ describe("custoMicroUsd", () => {
     ).toBe(426);
   });
 
+  it("pedido que começa no pico e termina fora dele (03:59 → 04:01) paga o preço de pico", () => {
+    const inicio = Date.UTC(2026, 8, 28, 3, 59, 0);
+    const fim = Date.UTC(2026, 8, 28, 4, 1, 0);
+    const uso = { entradaSemCache: 1000, entradaComCache: 1000, saida: 100 };
+    expect(custoMicroUsd(uso, fim, inicio)).toBe(426);
+    expect(custoMicroUsd(uso, fim)).toBe(213);
+    // começa fora e termina no pico (00:59 → 01:01): também pico
+    expect(custoMicroUsd(uso, Date.UTC(2026, 8, 28, 1, 1, 0), Date.UTC(2026, 8, 28, 0, 59, 0))).toBe(426);
+  });
+
   it("arredonda para cima, nunca para baixo", () => {
     // 1 token com cache fora de pico = 0,003 micro-dólar → 1
     expect(custoMicroUsd({ entradaSemCache: 0, entradaComCache: 1, saida: 0 }, SEGUNDA_12H_UTC)).toBe(1);
@@ -142,6 +152,12 @@ describe("saldo e débito no banco", () => {
   it("uso de um mês não conta no mês seguinte", () => {
     debitar(banco, contaId, SEGUNDA_12H_UTC, { entradaSemCache: 10_000, entradaComCache: 0, saida: 0 });
     expect(saldoDaConta(banco, contaId, Date.UTC(2026, 9, 5, 12, 0, 0)).usados).toBe(0);
+  });
+
+  it("debitar com início no pico cobra pico", () => {
+    const inicio = Date.UTC(2026, 8, 28, 3, 59, 0);
+    const fim = Date.UTC(2026, 8, 28, 4, 1, 0);
+    expect(debitar(banco, contaId, fim, { entradaSemCache: 1000, entradaComCache: 0, saida: 0 }, inicio)).toBe(300);
   });
 
   it("debitar devolve o custo do pedido em micro-dólares", () => {

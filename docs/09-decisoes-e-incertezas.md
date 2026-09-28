@@ -2015,8 +2015,9 @@ intensa com acompanhamento no pior horário, ~300 h de dia.
 | Streaming | O cliente não usa; fica fora. |
 
 **Consequências:** o texto das notas passa pelo servidor, sem ser guardado; a transferência a um
-fornecedor chinês segue pendente de GDPR (Parte 3, item 31), sem bloquear o uso no Brasil. O
-último pedido do mês pode passar um pouco do total (checagem antes, débito depois); o corpo
-limitado a 256 KiB limita o excesso a poucas dezenas de créditos. Sem chave do fornecedor na VPS,
+fornecedor chinês segue pendente de GDPR (Parte 3, item 31), sem bloquear o uso no Brasil. A
+checagem é antes e o débito depois; no máximo 3 pedidos em andamento por conta (o 4º recebe 429
+`limite`) limitam o excesso do fim do mês a 3 pedidos — até ~250 créditos no pior caso
+fabricado (corpo de 256 KiB no pico), poucos no uso normal. Sem chave do fornecedor na VPS,
 só a IA responde 503. Mudar cotas ou preços é atualizar o servidor, não o app. Fica pendente
 confirmar o lugar do detalhe de cache com uma chamada real (Parte 3, item 33).

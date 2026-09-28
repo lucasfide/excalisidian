@@ -113,6 +113,7 @@ das rotas de sincronização):
 | 4 | Conta grátis | 403 |
 | 5 | `model` fora de `leitura-rapida` e `acompanhamento` | 404 |
 | 6 | Mais de 30 pedidos por minuto na conta | 429, corpo `{"codigo":"limite"}` |
+| 6b | Mais de 3 pedidos em andamento na conta (checado logo antes de chamar o fornecedor, depois dos créditos e da chave) | 429, corpo `{"codigo":"limite"}` |
 | 7 | Créditos do mês esgotados (usados ≥ total) | 429, corpo `{"codigo":"creditos"}` |
 | 8 | Chave do fornecedor não configurada | 503 |
 | 9 | Fornecedor falhou (rede, mais de 90 s, status não-2xx, resposta sem texto) | 502, nada é cobrado |
@@ -128,9 +129,11 @@ message: {role: "assistant", content}, finish_reason}], usage: {prompt_tokens,
 completion_tokens, total_tokens}}`. Nunca traz o nome do modelo real, o raciocínio interno nem
 qualquer outro campo do fornecedor.
 
-O último pedido do mês pode passar um pouco do total: a checagem é antes, o débito é depois; o
-pedido seguinte é barrado. Aceito — o corpo limitado a 256 KiB limita esse excesso a poucas
-dezenas de créditos.
+A checagem de créditos é antes da chamada ao fornecedor e o débito é depois. Para o excesso no fim
+do mês não crescer, cada conta tem no máximo 3 pedidos em andamento (o 4º recebe 429
+`{"codigo":"limite"}`); o excesso fica limitado a 3 pedidos — até ~250 créditos no pior caso
+fabricado (corpo de 256 KiB no pico), poucos créditos no uso normal do app. O preço de pico vale
+se o início ou o fim do pedido caiu no pico.
 
 **`GET /v1/creditos`** → 200 `{usados, total, renovaEm}`, inteiros, `renovaEm` em milissegundos.
 401 sem sessão; 403 conta grátis.

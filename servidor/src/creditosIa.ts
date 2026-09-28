@@ -38,9 +38,11 @@ export function ehHorarioDePico(agoraMs: number): boolean {
   return (hora >= 1 && hora < 4) || (hora >= 6 && hora < 10);
 }
 
-/** Custo do pedido em micro-dólares, arredondado para cima. */
-export function custoMicroUsd(uso: UsoFornecedor, agoraMs: number): number {
-  const p = ehHorarioDePico(agoraMs) ? PRECOS_NANO_USD.pico : PRECOS_NANO_USD.foraDePico;
+/** Custo do pedido em micro-dólares, arredondado para cima. Um pedido demora até 90 s: vale o
+ * preço de pico se o início OU o fim caiu no pico (nunca cobra menos que o real). */
+export function custoMicroUsd(uso: UsoFornecedor, agoraMs: number, inicioMs?: number): number {
+  const pico = ehHorarioDePico(agoraMs) || (inicioMs !== undefined && ehHorarioDePico(inicioMs));
+  const p = pico ? PRECOS_NANO_USD.pico : PRECOS_NANO_USD.foraDePico;
   const nano =
     uso.entradaComCache * p.entradaComCache +
     uso.entradaSemCache * p.entradaSemCache +
@@ -87,9 +89,16 @@ export function saldoDaConta(banco: BancoSqlite, contaId: number, agoraMs: numbe
   };
 }
 
-/** Soma o pedido ao mês corrente da conta. Devolve o custo do pedido em micro-dólares. */
-export function debitar(banco: BancoSqlite, contaId: number, agoraMs: number, uso: UsoFornecedor): number {
-  const micro = custoMicroUsd(uso, agoraMs);
+/** Soma o pedido ao mês corrente da conta (período e saldo pelo fim do pedido, `agoraMs`).
+ * Devolve o custo do pedido em micro-dólares. */
+export function debitar(
+  banco: BancoSqlite,
+  contaId: number,
+  agoraMs: number,
+  uso: UsoFornecedor,
+  inicioMs?: number,
+): number {
+  const micro = custoMicroUsd(uso, agoraMs, inicioMs);
   banco
     .prepare(
       `insert into uso_ia (conta_id, periodo, custo_micro_usd, pedidos, tokens_entrada, tokens_saida)
