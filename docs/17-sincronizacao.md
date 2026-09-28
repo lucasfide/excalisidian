@@ -214,34 +214,85 @@ Seja `local` o hash atual do arquivo no disco (ou ausente) e `base` o hash em `b
 
 ## 7. Ligar, baixar, parar
 
-- **Ligar neste vault:** Configurações → Sincronização → "Sincronizar este vault". Exige
-  conta premium. Se este computador ainda não tem a `chaveDeEnvelope`, pede a senha da conta
-  (a mesma de entrar), confere com o servidor (entrar de novo com a prova) e guarda no cofre.
-  Gera a `chaveDoVault`, cria o vault no servidor com o nome cifrado e o envelope, e envia o
-  conteúdo atual como os primeiros lotes do diário (um retrato em zero seria recusado pela regra
-  do §9 e não teria utilidade: o diário ainda está vazio).
-- **Baixar um vault para este computador:** lista os vaults da conta (nomes abertos no
-  computador), o usuário escolhe um e uma **pasta vazia**. Baixa o retrato mais recente e os
-  lotes seguintes.
-- **Parar de sincronizar:** esquece o `EstadoSync` deste computador. Os arquivos ficam.
-- **Apagar a cópia do servidor:** botão separado, com confirmação que diz o nome do vault e
-  que os arquivos em todos os computadores continuam intactos.
+As ações abaixo são as ações da lista "Seus vaults" (§8), uma por estado do vault na lista —
+não existe mais uma tela separada de "escolher um vault para sincronizar".
+
+- **Ligar (ação "Sincronizar", vault só neste computador):** exige conta premium. Se este
+  computador ainda não tem a `chaveDeEnvelope`, pede a senha da conta (a mesma de entrar),
+  confere com o servidor (entrar de novo com a prova) e guarda no cofre. Gera a `chaveDoVault`,
+  cria o vault no servidor com o nome cifrado e o envelope, e envia o conteúdo atual como os
+  primeiros lotes do diário (um retrato em zero seria recusado pela regra do §9 e não teria
+  utilidade: o diário ainda está vazio).
+- **Baixar (ação "Baixar para este computador…", vault só na nuvem):** o diálogo nativo do
+  sistema escolhe a **pasta onde colocar** o vault — não mais uma pasta vazia previamente
+  escolhida entre os vaults da conta. O app cria, dentro da pasta escolhida, uma pasta nova com
+  o nome do vault (numerada, `Nome (2)`, `Nome (3)`…, se já existir uma pasta com esse nome —
+  padrão ADR-15; nunca mistura com uma pasta existente), baixa o retrato mais recente e os
+  lotes seguintes, e abre o vault numa janela.
+- **Parar de sincronizar (ação "Parar neste computador", vault sincronizado) ou esquecer (ação
+  "Esquecer neste computador", pasta não encontrada):** esquece o `EstadoSync` deste
+  computador. Os arquivos que ainda existem no disco ficam intactos.
+- **Apagar a cópia do servidor (ação "Apagar da nuvem…"):** diálogo de confirmação que diz o
+  nome do vault e que os arquivos em todos os computadores continuam intactos; só apaga no
+  botão de confirmar. Depois de apagar, o vault também é esquecido neste computador.
 - **Nome do computador:** Configurações → Sincronização, editável. Padrão: o nome de usuário
   do Windows seguido de "(este computador)" até alguém mudar. Aparece na tela de conflito
   ("Em Notebook do Lucas").
 
 ---
 
-## 8. Estado na interface
+## 8. A lista "Seus vaults"
 
 Sem banner, sem aviso recorrente (ADR-31). Um ícone discreto no rodapé da barra lateral, ao
-lado das Configurações, com texto no `title` e na seção de Configurações:
+lado das Configurações, com texto no `title`, leva à seção Sincronização das Configurações, que
+mostra a lista "Seus vaults": cada vault do usuário, uma única vez, juntando três fontes —
+vaults recentes deste computador (caminho), estados de sincronização deste computador
+(`EstadoSync` por caminho → id no servidor) e vaults da conta no servidor (nome decifrado).
 
-- Sincronizado · Sincronizando… · Sem conexão (tenta de novo sozinho) · Pausado
-- Erros que pedem ação (plano venceu, espaço do plano acabou, sessão expirou) aparecem só na
-  seção Sincronização e no `title` do ícone, com o texto do catálogo.
+A lista tem cinco estados possíveis, um por vault:
 
-Os textos entram no catálogo `src/i18n/catalogo/sync.ts`, pt-BR e inglês.
+| Estado | Mostra | Ações |
+|---|---|---|
+| Sincronizado | nome, caminho, "Sincronizado há X min" / "Sincronizando…" / o erro do status; "N conflitos — abra o vault para resolver" se houver | Abrir · Sincronizar agora · Parar neste computador · Apagar da nuvem… |
+| Só neste computador | nome, caminho | Sincronizar |
+| Só na nuvem | nome | Baixar para este computador… |
+| Pasta não encontrada | nome, caminho antigo | Esquecer neste computador |
+| Criado com outra senha | "Vault sem nome" (o envelope não abre com a chave desta conta) | Apagar da nuvem… |
+
+O rodapé da lista diz: "Os vaults sincronizados atualizam sozinhos enquanto o app está aberto."
+
+Erros que pedem ação (plano venceu, espaço do plano acabou, sessão expirou) aparecem no lugar
+do "Sincronizado há X min" daquele vault, e também no `title` do ícone do rodapé, com o texto
+do catálogo. Os textos entram no catálogo `src/i18n/catalogo/sync.ts`, pt-BR e inglês, sem os
+termos técnicos deste documento (nada de "envelope", "hash" ou "retrato" na tela).
+
+### 8.1 Sincronização em segundo plano
+
+Hoje só o vault aberto numa janela sincroniza. A partir desta versão, todo vault sincronizado
+deste computador sincroniza sozinho enquanto o app está aberto, mesmo fechado (sem janela
+mostrando ele):
+
+- **Vault aberto numa janela:** sincroniza como hoje, pela janela dele (efeitos na tela, fila
+  de conflitos).
+- **Vault sincronizado e fechado:** sincroniza em segundo plano, a cada 60 s e ao abrir o app,
+  por **uma única janela designada** (a primeira janela aberta). Em segundo plano:
+  - os efeitos de tela são nulos — não há árvore nem aba desse vault nesta janela para
+    atualizar;
+  - um conflito não entra na fila da tela — fica só em `conflitosPendentes` (persistido, §5) e
+    aparece na lista como "N conflitos — abra o vault para resolver"; ao abrir o vault, a
+    janela dele registra os pendentes de novo (já é assim hoje);
+  - o escopo de arquivo do vault é concedido pelo mesmo comando que já concede ao abrir
+    (`permitir_vault`).
+- **Nunca dois ciclos no mesmo vault ao mesmo tempo.** Antes de cada ciclo em segundo plano, a
+  janela designada confere, no registro de janelas do Rust (doc 12 §2), se o vault está aberto
+  em alguma janela; se estiver, pula — a janela dele sincroniza sozinha. Um vault que acabou de
+  abrir numa janela espera o ciclo em segundo plano terminar antes de começar o seu, por uma
+  trava por vault (em memória do processo Rust).
+- Um vault cuja pasta não existe mais (apagada ou movida pelo Explorer) não é sincronizado em
+  segundo plano, e o segundo plano nunca recria a pasta nem baixa o vault num lugar
+  inesperado — a lista mostra "Pasta não encontrada" e a única ação é esquecer.
+- Com o app fechado, nada sincroniza — é um programa de computador, não um serviço rodando
+  sozinho; isso está dito na lista.
 
 ---
 

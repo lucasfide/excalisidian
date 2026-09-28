@@ -1777,6 +1777,15 @@ decisões desse plano, em linguagem simples:
 commits `3801410`, `58c9cad` e `1bf3f83`). A sincronização — que é quem vai usar a chave de
 envelope de verdade — continua não implementada.**
 
+**Mudança de 27/09/2026.** Um vault de teste tinha subido para o servidor trancado com a chave
+da conta de teste, em vez da chave da conta de verdade — a chave certa e a errada moravam no
+mesmo lugar do cofre do computador, e uma tinha sobrado da outra. Para isso nunca mais
+acontecer, a chave de envelope passou a nascer no momento de entrar ou criar a conta — quando a
+senha digitada ainda está em mãos — e não mais só quando a pessoa liga a sincronização de um
+vault. A chave fica guardada no cofre do computador junto com o e-mail da conta dona dela;
+trocar de conta neste mesmo computador, sem sair da anterior, descarta a chave errada e passa a
+usar a certa. Sair da conta continua apagando a chave, como antes.
+
 ### ADR-40 · Sincronização como diário de pacotes lacrados
 
 **Contexto:** os ADR-32, ADR-33 e ADR-39 já tinham decidido *o quê* a sincronização promete
@@ -1824,9 +1833,13 @@ sincronização entre computadores e é aceito como parte do desenho (docs/17-si
 | Outra cifra (XChaCha20-Poly1305, por uma biblioteca externa, `@noble/ciphers`) em vez da cifra já embutida no navegador do app | Traria uma dependência a mais sem ganho de segurança sobre a cifra que já vem pronta (AES-256-GCM da WebCrypto), disponível tanto no app quanto nos testes automatizados. |
 | Sincronizar também a lixeira de cada computador | Uma exclusão viraria duas mudanças (o arquivo some de um lado, aparece na lixeira do outro) que se cruzariam de volta no computador que apagou — voltando a mostrar um arquivo que a pessoa já tinha decidido apagar. |
 
-**Estado real: sincronização pronta no cliente — tela nas Configurações, ícone de estado,
-chave no cofre do Windows — e testável em desenvolvimento com um servidor de teste local e uma
-conta de teste (doc 17 §10). Falta o servidor de verdade
+**Estado real: sincronização pronta no cliente — a lista "Seus vaults" nas Configurações, ícone
+de estado, chave no cofre do Windows — e testável em desenvolvimento com um servidor de teste
+local e uma conta de teste (doc 17 §10). Todo vault sincronizado deste computador sincroniza
+sozinho enquanto o app está aberto, mesmo fechado numa janela: uma janela designada roda os
+ciclos dos vaults fechados a cada 60 s, e uma trava por vault (guardada no processo do Rust,
+doc 17 §8.1) garante que o mesmo vault nunca sincroniza duas vezes ao mesmo tempo — nem por duas
+janelas, nem pela janela e pelo segundo plano juntos. Falta o servidor de verdade
 (plano `docs/superpowers/plans/2026-09-24-10-sincronizacao-na-tela.md`).**
 
 **Consequências:** a Fatia 15 do roadmap passa a ter um desenho técnico completo para seguir,

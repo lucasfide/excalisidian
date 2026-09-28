@@ -244,6 +244,9 @@ updater e o cofre do token da conta (ADR-34), são dezesseis comandos registrado
 | `ler_token_conta` | `(app, segredo: Segredo) -> Result<Option<String>, String>` | lê um segredo do cofre de senhas do Windows — token da conta ou `chaveDeEnvelope` da sincronização (doc 09 ADR-34; doc 17 §2) |
 | `gravar_token_conta` | `(app, segredo: Segredo, token: String) -> Result<(), String>` | grava um segredo no cofre de senhas do Windows, em vez de texto puro |
 | `apagar_token_conta` | `(app, segredo: Segredo) -> Result<(), String>` | apaga um segredo do cofre de senhas do Windows |
+| `vaults_abertos` | `() -> Vec<String>` | chaves normalizadas dos vaults abertos em alguma janela (planejado, plano 12; doc 17 §8.1) |
+| `tentar_travar_sync` | `(path: String) -> bool` | trava um vault para a janela chamadora, para nenhuma outra sincronizar o mesmo vault ao mesmo tempo; `false` se já travado por outra janela (planejado, plano 12; doc 17 §8.1) |
+| `liberar_trava_sync` | `(path: String)` | libera a trava, só se o dono for a janela chamadora (planejado, plano 12; doc 17 §8.1) |
 
 `Segredo` é um enum serde (`rename_all = "kebab-case"`) com só duas variantes —
 `sessao-conta` e `chave-de-envelope` — fechado em `cofre.rs`: o nome de usuário da entrada no

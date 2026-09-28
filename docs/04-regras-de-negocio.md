@@ -717,16 +717,22 @@ como em qualquer diálogo; Esc com texto no campo só limpa o campo.
 |---|---|
 | Seção — sem conta | "Entre com uma conta premium para sincronizar este vault entre computadores." |
 | Seção — conta grátis | "A sincronização é um recurso do plano premium." |
-| Pedir senha (chave ainda não guardada neste computador) — título | "Confirme sua senha" |
+| Título da lista | "Seus vaults" |
+| Estado — sincronizado | "Sincronizado há {tempo}" / "Sincronizando…" / o erro do status |
+| Estado — conflitos em vault fechado | "{n} conflitos — abra o vault para resolver" (1: "1 conflito — abra o vault para resolver") |
+| Estado — só neste computador | "Só neste computador" |
+| Estado — só na nuvem | "Só na nuvem" |
+| Estado — pasta não encontrada | "Pasta não encontrada" |
+| Estado — criado com outra senha | "Criado com outra senha. Não é possível abrir com a senha desta conta." |
+| Nome desconhecido | "Vault sem nome" |
+| Ação | "Abrir" · "Sincronizar agora" · "Sincronizar" · "Baixar para este computador…" · "Parar neste computador" · "Apagar da nuvem…" · "Esquecer neste computador" |
+| Rodapé da lista | "Os vaults sincronizados atualizam sozinhos enquanto o app está aberto." |
+| Pedir senha (sessão sem chave) | "Confirme sua senha para sincronizar neste computador." |
+| Nenhum vault | "Nenhum vault ainda." |
+| Pedir senha — título | "Confirme sua senha" |
 | Pedir senha — ajuda | "Guardamos uma chave neste computador para não pedir de novo." |
 | Pedir senha — campo | "Senha" (mesmo `Campo` da seção Conta) |
 | Senha errada | "Senha incorreta." |
-| Botão — ligar a sincronização deste vault | "Sincronizar este vault" |
-| Botão — baixar um vault existente | "Baixar um vault sincronizado para uma pasta vazia" |
-| Pasta escolhida não está vazia | "Escolha uma pasta vazia para baixar o vault." |
-| Botão — sincronizar agora | "Sincronizar agora" |
-| Botão — parar | "Parar de sincronizar este vault" |
-| Botão — apagar no servidor | "Apagar a cópia do servidor…" |
 | Confirmação de apagar no servidor — título | "Apagar a cópia de «{vault}» no servidor?" |
 | Confirmação de apagar no servidor — corpo | "Os arquivos deste e de qualquer outro computador continuam intactos. Só a cópia guardada no servidor é apagada." |
 | Confirmação de apagar no servidor — botão | "Apagar cópia do servidor" |
