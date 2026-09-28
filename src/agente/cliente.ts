@@ -94,7 +94,13 @@ function erroDeStatus(status: number, corpo: unknown, ctx: ContextoChamada): Fal
     }
     return new FalhaAgente("chave", detalhe);
   }
-  if (status === 429) return new FalhaAgente("cota", detalhe);
+  if (status === 429) {
+    // Provedor próprio: créditos do mês esgotados têm mensagem própria (doc 11 §7). Qualquer
+    // outro 429 (inclusive o limite por minuto do nosso servidor) é "cota" momentânea.
+    const codigo = corpo && typeof corpo === "object" ? (corpo as { codigo?: unknown }).codigo : undefined;
+    if (ctx.provedor.exigeConta && codigo === "creditos") return new FalhaAgente("creditos", detalhe);
+    return new FalhaAgente("cota", detalhe);
+  }
   if (status === 404) return new FalhaAgente("modelo", detalhe);
   if (status >= 500) return new FalhaAgente("provedor", detalhe);
   return new FalhaAgente("provedor", detalhe);
@@ -273,6 +279,8 @@ export function textoDoErro(
       return traduzirAgora("agente.erro.plano");
     case "cota":
       return traduzirAgora("agente.erro.cota");
+    case "creditos":
+      return traduzirAgora("agente.erro.creditos");
     case "modelo":
       return traduzirAgora("agente.erro.modelo", { modelo: fmt.modelo ?? "?" });
     case "escopo":

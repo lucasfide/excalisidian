@@ -7,6 +7,7 @@ export const PT_BR_AGENTE = {
   "agente.erro.sessao": "Entre na sua conta do Excalisidian para usar a IA incluída no plano.",
   "agente.erro.plano": "A IA do Excalisidian faz parte do plano premium. Sua conta está no plano grátis.",
   "agente.erro.cota": "O provedor limitou as chamadas agora. Tente de novo em instantes.",
+  "agente.erro.creditos": "Seus créditos de IA deste mês acabaram.",
   "agente.erro.modelo":
     "O provedor não conhece o modelo «{modelo}». Confira o nome nas configurações.",
   "agente.erro.escopo":
@@ -36,6 +37,7 @@ export const EN_AGENTE: Partial<Record<keyof typeof PT_BR_AGENTE, string>> = {
   "agente.erro.sessao": "Sign in to your Excalisidian account to use the AI included in your plan.",
   "agente.erro.plano": "Excalisidian AI is part of the premium plan. Your account is on the free plan.",
   "agente.erro.cota": "The provider is rate-limiting calls right now. Try again in a moment.",
+  "agente.erro.creditos": "You are out of AI credits for this month.",
   "agente.erro.modelo":
     "The provider does not recognize the model \"{modelo}\". Check the name in settings.",
   "agente.erro.escopo":

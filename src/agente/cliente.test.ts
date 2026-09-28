@@ -315,3 +315,45 @@ describe("autenticação por sessão", () => {
     expect(fetchMock).not.toHaveBeenCalled();
   });
 });
+
+describe("provedor próprio — créditos esgotados", () => {
+  afterEach(() => definirTokenDaSessao(null));
+
+  const pedidoProprio = () => ({
+    provedor: provedorDe("excalisidian"),
+    baseUrl: BASE_URL_SERVICO,
+    modelo: MODELO_LEITURA,
+    thinking: "padrao" as const,
+    system: "sys",
+    mensagens: [{ papel: "usuario" as const, texto: "oi" }],
+  });
+
+  it("429 com codigo creditos vira FalhaAgente('creditos') com mensagem própria", async () => {
+    definirTokenDaSessao("tok");
+    fetchMock.mockResolvedValue(respostaHTTP(429, { codigo: "creditos" }));
+    const erro = await completar(pedidoProprio()).catch((e) => e);
+    expect(erro).toMatchObject({ codigo: "creditos" });
+    expect(textoDoErro(erro)).toBe("Seus créditos de IA deste mês acabaram.");
+  });
+
+  it("429 sem esse corpo continua sendo cota", async () => {
+    definirTokenDaSessao("tok");
+    fetchMock.mockResolvedValue(respostaHTTP(429, { codigo: "limite" }));
+    await expect(completar(pedidoProprio())).rejects.toMatchObject({ codigo: "cota" });
+  });
+
+  it("provedor de chave própria nunca vira creditos, mesmo com o corpo", async () => {
+    fetchMock.mockResolvedValue(respostaHTTP(429, { codigo: "creditos" }));
+    await expect(
+      completar({
+        provedor: provedorDe("openai"),
+        chave: "sk",
+        baseUrl: "https://api.openai.com/v1",
+        modelo: "gpt-5.4-mini",
+        thinking: "padrao",
+        system: "sys",
+        mensagens: [{ papel: "usuario", texto: "oi" }],
+      }),
+    ).rejects.toMatchObject({ codigo: "cota" });
+  });
+});

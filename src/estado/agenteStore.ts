@@ -23,6 +23,9 @@ import { FalhaAgente } from "../agente/tipos";
 import { baseUrlEfetiva, provedorDe, PROVEDORES } from "../agente/provedores";
 import { completar, listarModelos, textoDoErro } from "../agente/cliente";
 import { tokenDaSessaoAtual } from "../servico/sessao";
+import { buscarSaldoCreditos } from "../servico/saldoCreditos";
+import type { SaldoCreditos } from "../servico/creditos";
+import { decidirModoServidor } from "../servico/modoServidor";
 import { somarUso, usoVazio } from "../agente/orcamento";
 import {
   SYSTEM_GATEIRO,
@@ -122,6 +125,10 @@ interface AgenteState {
   /** Conversas manuais por nota (chave: caminho; "" = sem nota aberta). */
   conversas: Record<string, MensagemChat[]>;
   usoSessao: UsoSimples;
+  /** Saldo da IA do Excalisidian vindo do servidor; null = desconhecido, medidor oculto. */
+  saldoCreditos: SaldoCreditos | null;
+  /** Busca o saldo no servidor (só provedor próprio, com sessão, fora do modo local de DEV). */
+  atualizarSaldo: () => Promise<void>;
 
   raiz: string | null;
   participacao: Record<string, Participacao>;
@@ -504,6 +511,22 @@ export const useAgenteStore = create<AgenteState>((set, get) => {
     assistenteAberto: false,
     conversas: {},
     usoSessao: usoVazio(),
+    saldoCreditos: null,
+    atualizarSaldo: async () => {
+      const cfg = get().config;
+      // Mesmo padrão de contaStore: `import.meta.env.DEV` literal para o ramo sumir do build de
+      // produção. Com a conta de teste do DEV (servidor local), não há saldo real para buscar.
+      const modoLocal =
+        import.meta.env.DEV &&
+        decidirModoServidor({ dev: import.meta.env.DEV, variavelServidor: import.meta.env.VITE_SERVIDOR }) ===
+          "local";
+      const token = tokenDaSessaoAtual();
+      if (!cfg || !provedorDe(cfg.provedor).exigeConta || modoLocal || !token) {
+        set({ saldoCreditos: null });
+        return;
+      }
+      set({ saldoCreditos: await buscarSaldoCreditos(token) });
+    },
 
     raiz: null,
     participacao: {},

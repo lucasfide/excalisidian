@@ -103,11 +103,16 @@ export default function PainelAgente() {
   const textoMedidor = useMemo(() => formatarUso(uso, null), [uso]);
 
   // Provedor próprio: o medidor de tokens (doc 11 §5.6) cede lugar a créditos — quem paga é
-  // o plano, não o usuário direto (src/servico/creditos.ts). O saldo vem do servidor; o
-  // endpoint ainda não existe, então fica `null` até lá e o medidor de créditos não aparece
-  // — nunca um número inventado no lugar.
+  // o plano, não o usuário direto (src/servico/creditos.ts). O saldo vem do servidor (store) e
+  // fica `null` quando a busca falha — o medidor some, nunca um número inventado no lugar.
   const usaCreditos = provedorId ? provedorDe(provedorId).exigeConta : false;
-  const saldo: SaldoCreditos | null = null;
+  const saldo = useAgenteStore((s) => s.saldoCreditos);
+
+  // Atualiza o saldo ao abrir o painel e depois de cada resposta (o `uso` da sessão muda a cada
+  // resposta bem-sucedida) ou erro (créditos esgotados mudam o medidor para "esgotado").
+  useEffect(() => {
+    if (aberto && usaCreditos) void useAgenteStore.getState().atualizarSaldo();
+  }, [aberto, usaCreditos, uso, erroAtual]);
 
   if (!habilitado || !aberto) return null;
 

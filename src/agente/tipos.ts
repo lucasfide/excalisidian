@@ -47,6 +47,7 @@ export type ErroAgente =
   | "sessao" // provedor exige conta e não há sessão ativa
   | "plano" // provedor próprio: conta autenticada sem direito à IA (403)
   | "cota" // 429
+  | "creditos" // provedor próprio: créditos do mês esgotados (429 {"codigo":"creditos"})
   | "modelo" // 404
   | "rede" // exceção de conexão
   | "escopo" // base URL fora do escopo permitido pelo capability
