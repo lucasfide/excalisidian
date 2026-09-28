@@ -36,15 +36,27 @@ describe("tentarTravarSync", () => {
     invokeMock.mockReset();
   });
 
-  it("chama tentar_travar_sync com path e devolve o booleano", async () => {
+  it("gera um dono novo, manda path e dono, e devolve o dono quando trava", async () => {
     invokeMock.mockResolvedValueOnce(true);
-    expect(await tentarTravarSync("C:\\Vaults\\Casa")).toBe(true);
-    expect(invokeMock).toHaveBeenCalledWith("tentar_travar_sync", { path: "C:\\Vaults\\Casa" });
+    const dono = await tentarTravarSync("C:\\Vaults\\Casa");
+    expect(typeof dono).toBe("string");
+    expect(dono).not.toBeNull();
+    expect(invokeMock).toHaveBeenCalledWith("tentar_travar_sync", {
+      path: "C:\\Vaults\\Casa",
+      dono,
+    });
   });
 
-  it("devolve false quando o Rust recusa a trava", async () => {
+  it("devolve null quando o Rust recusa a trava", async () => {
     invokeMock.mockResolvedValueOnce(false);
-    expect(await tentarTravarSync("C:\\Vaults\\Casa")).toBe(false);
+    expect(await tentarTravarSync("C:\\Vaults\\Casa")).toBeNull();
+  });
+
+  it("duas chamadas seguidas (mesma janela) geram donos diferentes — não reentrante do lado TS", async () => {
+    invokeMock.mockResolvedValueOnce(true).mockResolvedValueOnce(true);
+    const primeiro = await tentarTravarSync("C:\\Vaults\\Casa");
+    const segundo = await tentarTravarSync("C:\\Vaults\\Casa");
+    expect(primeiro).not.toBe(segundo);
   });
 });
 
@@ -53,9 +65,12 @@ describe("liberarTravaSync", () => {
     invokeMock.mockReset();
   });
 
-  it("chama liberar_trava_sync com path", async () => {
+  it("chama liberar_trava_sync com path e o dono certo", async () => {
     invokeMock.mockResolvedValueOnce(undefined);
-    await liberarTravaSync("C:\\Vaults\\Casa");
-    expect(invokeMock).toHaveBeenCalledWith("liberar_trava_sync", { path: "C:\\Vaults\\Casa" });
+    await liberarTravaSync("C:\\Vaults\\Casa", "token-do-ciclo");
+    expect(invokeMock).toHaveBeenCalledWith("liberar_trava_sync", {
+      path: "C:\\Vaults\\Casa",
+      dono: "token-do-ciclo",
+    });
   });
 });

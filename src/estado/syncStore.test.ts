@@ -128,20 +128,29 @@ function estadoBase(overrides: Partial<EstadoSync> = {}): EstadoSync {
 
 const RAIZ = "C:/vault-teste";
 
-/** Dublê de `CoordenacaoSync` (plano 12 Task 3): concede a trava por padrão, e registra cada
- * chamada — os testes de trava trocam `concedida` ou leem `tentativas`/`liberacoes`. */
+/** Dublê de `CoordenacaoSync` (plano 12 Task 3): concede a trava por padrão, com um `dono` novo
+ * a cada concessão (não reentrante, como o Rust de verdade) — os testes de trava trocam
+ * `concedida` ou leem `tentativas`/`liberacoes`/`donosConcedidos`/`donosLiberados`. */
 class CoordenacaoControlavel implements CoordenacaoSync {
   concedida = true;
   tentativas: string[] = [];
   liberacoes: string[] = [];
+  donosConcedidos: string[] = [];
+  donosLiberados: string[] = [];
+  private contador = 0;
 
-  tentarTravarSync = async (caminho: string): Promise<boolean> => {
+  tentarTravarSync = async (caminho: string): Promise<string | null> => {
     this.tentativas.push(caminho);
-    return this.concedida;
+    if (!this.concedida) return null;
+    this.contador += 1;
+    const dono = `dono-${this.contador}`;
+    this.donosConcedidos.push(dono);
+    return dono;
   };
 
-  liberarTravaSync = async (caminho: string): Promise<void> => {
+  liberarTravaSync = async (caminho: string, dono: string): Promise<void> => {
     this.liberacoes.push(caminho);
+    this.donosLiberados.push(dono);
   };
 }
 
@@ -553,6 +562,18 @@ describe("syncStore", () => {
       exec.resolverProxima(OK);
       await drenar();
       expect(coordenacao.liberacoes).toEqual([RAIZ]);
+    });
+
+    it("libera com exatamente o dono devolvido por tentarTravarSync, nunca outro", async () => {
+      await salvarEstadoSync(RAIZ, estadoBase());
+      const { deps, exec, coordenacao } = montarDeps();
+
+      await useSyncStore.getState().iniciar(RAIZ, deps);
+      exec.resolverProxima(OK);
+      await drenar();
+
+      expect(coordenacao.donosConcedidos).toHaveLength(1);
+      expect(coordenacao.donosLiberados).toEqual(coordenacao.donosConcedidos);
     });
 
     it("trava negada: o ciclo não roda (executarCiclo não é chamado), status fica inalterado, não é erro", async () => {

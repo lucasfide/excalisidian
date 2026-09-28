@@ -58,8 +58,12 @@ const NOVA_TENTATIVA_TRAVA_MS = 2000;
  * métodos usados, não o módulo `sync/coordenacao.ts` inteiro, para o teste poder injetar uma
  * trava falsa sem mockar `@tauri-apps/api/core`. */
 export interface CoordenacaoSync {
-  tentarTravarSync: (caminho: string) => Promise<boolean>;
-  liberarTravaSync: (caminho: string) => Promise<void>;
+  /** Devolve o token `dono` quando travou, `null` se já estava travado (doc 17 §8.1) — NÃO
+   * reentrante: chamar de novo pela mesma janela devolve um `dono` novo ou `null`, nunca
+   * reaproveita uma trava já concedida a esta janela (ver `trava_sync.rs`). */
+  tentarTravarSync: (caminho: string) => Promise<string | null>;
+  /** Só libera se `dono` for exatamente o token devolvido por `tentarTravarSync`. */
+  liberarTravaSync: (caminho: string, dono: string) => Promise<void>;
 }
 
 /** Implementação real, sobre os comandos Rust (`sync/coordenacao.ts`) — o padrão quando
@@ -205,9 +209,11 @@ export const useSyncStore = create<SyncStoreState>((set) => {
     // Trava por vault (doc 17 §8.1, Review Focus 2): antes de rodar, garante que nenhuma outra
     // janela (nem o segundo plano) está sincronizando este vault agora. Negada = não é erro:
     // status fica como estava, e uma nova tentativa é agendada em 2 s — o dono atual deve
-    // terminar logo.
-    const travado = await coordenacao.tentarTravarSync(raiz);
-    if (!travado) {
+    // terminar logo. `dono` é um token novo por tentativa (não reentrante do lado Rust — ver
+    // `trava_sync.rs`): a janela designada do segundo plano pode ser a MESMA janela de um vault
+    // aberto, então o label sozinho não diferenciaria os dois ciclos.
+    const dono = await coordenacao.tentarTravarSync(raiz);
+    if (dono === null) {
       if (minhaGeracao === geracao && timerNovaTentativaTrava === undefined) {
         timerNovaTentativaTrava = setTimeout(() => {
           timerNovaTentativaTrava = undefined;
@@ -279,7 +285,7 @@ export const useSyncStore = create<SyncStoreState>((set) => {
     } finally {
       cicloEmAndamento = false;
       try {
-        await coordenacao.liberarTravaSync(raiz);
+        await coordenacao.liberarTravaSync(raiz, dono);
       } catch {
         // Falha ao liberar (IPC caiu, app fechando): não propaga — nunca derruba o app nem
         // trava o agendador. Uma trava presa a um label morto é limpa por

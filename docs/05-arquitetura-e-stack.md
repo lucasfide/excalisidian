@@ -248,8 +248,8 @@ plano 12), são dezenove comandos registrados em `lib.rs`:
 | `gravar_token_conta` | `(app, segredo: Segredo, token: String) -> Result<(), String>` | grava um segredo no cofre de senhas do Windows, em vez de texto puro |
 | `apagar_token_conta` | `(app, segredo: Segredo) -> Result<(), String>` | apaga um segredo do cofre de senhas do Windows |
 | `vaults_abertos` | `(estado) -> Vec<String>` | chaves normalizadas dos vaults abertos em alguma janela (doc 17 §8.1) |
-| `tentar_travar_sync` | `(window, path: String) -> bool` | trava um vault para a janela chamadora, para nenhuma outra sincronizar o mesmo vault ao mesmo tempo; `false` se já travado por outra janela (doc 17 §8.1) |
-| `liberar_trava_sync` | `(window, path: String)` | libera a trava, só se o dono for a janela chamadora (doc 17 §8.1) |
+| `tentar_travar_sync` | `(window, path: String, dono: String) -> bool` | trava um vault para `dono` (token aleatório gerado no TS a cada tentativa, `crypto.randomUUID()`); `false` se a chave já está travada por qualquer dono — NÃO reentrante, nem para a mesma janela/dono de antes (correção pós-revisão do commit 104fb5e: a janela designada do segundo plano, plano 12 Task 5, pode ser a mesma janela de um vault aberto, então o `label` sozinho não bastava — doc 17 §8.1) |
+| `liberar_trava_sync` | `(window, path: String, dono: String)` | libera a trava, só se `dono` for exatamente quem a tem (doc 17 §8.1) |
 
 `Segredo` é um enum serde (`rename_all = "kebab-case"`) com só duas variantes —
 `sessao-conta` e `chave-de-envelope` — fechado em `cofre.rs`: o nome de usuário da entrada no

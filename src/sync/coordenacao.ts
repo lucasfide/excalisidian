@@ -21,14 +21,20 @@ export async function vaultsAbertos(): Promise<string[]> {
   return invoke<string[]>("vaults_abertos");
 }
 
-/** Tenta travar `caminho` para esta janela (`tentar_travar_sync`). `false` se já travado por
- * outra janela. Reentrante: chamar de novo pela mesma janela continua devolvendo `true`. */
-export async function tentarTravarSync(caminho: string): Promise<boolean> {
-  return invoke<boolean>("tentar_travar_sync", { path: caminho });
+/** Tenta travar `caminho` (`tentar_travar_sync`) para um dono novo, gerado aqui a cada chamada
+ * (`crypto.randomUUID()`) — NÃO reentrante: mesmo esta janela já sendo dona de uma trava
+ * anterior na mesma chave, uma nova tentativa é recusada (doc 17 §8.1; a janela designada do
+ * segundo plano pode ser a mesma janela de um vault aberto, então o `label` sozinho não bastava
+ * para diferenciar "meu ciclo de segundo plano" de "o ciclo desta janela"). Devolve o token
+ * `dono` (para passar a `liberarTravaSync`) quando travou, `null` se já estava travado. */
+export async function tentarTravarSync(caminho: string): Promise<string | null> {
+  const dono = crypto.randomUUID();
+  const travou = await invoke<boolean>("tentar_travar_sync", { path: caminho, dono });
+  return travou ? dono : null;
 }
 
-/** Libera a trava de `caminho` (`liberar_trava_sync`) — só tem efeito se esta janela for a
- * dona; do contrário não faz nada. */
-export async function liberarTravaSync(caminho: string): Promise<void> {
-  await invoke("liberar_trava_sync", { path: caminho });
+/** Libera a trava de `caminho` (`liberar_trava_sync`) — só tem efeito se `dono` for exatamente
+ * o token devolvido por `tentarTravarSync`; do contrário não faz nada. */
+export async function liberarTravaSync(caminho: string, dono: string): Promise<void> {
+  await invoke("liberar_trava_sync", { path: caminho, dono });
 }
