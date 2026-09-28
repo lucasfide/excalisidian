@@ -1,11 +1,13 @@
 // servidor/src/admin.ts
 // Ponto de entrada de `excalisidian-admin` (Task 6, doc 18 §4; `vaults`/`apagar-vault` vieram
-// depois, no plano "sincronização mais simples", Task 1): cinco comandos, lendo a mesma
+// depois, no plano "sincronização mais simples", Task 1; `superior`/`uso` vieram com a IA no
+// servidor, doc 18 §5): sete comandos, lendo a mesma
 // config (`carregarConfig`) e o mesmo banco (`abrirBanco`) que o servidor usa — na VPS aponta
 // para `/var/lib/excalisidian` via `EXCALISIDIAN_DADOS`, exatamente como `excalisidian-api`.
 //
-// `premium <email>` e `gratis <email>` trocam `contas.plano`; `contas` lista e-mail, plano e
-// bytes usados por conta (a mesma soma de `bytesUsadosPelaConta`, a cota do doc 18 §3);
+// `premium <email>`, `superior <email>` e `gratis <email>` trocam `contas.plano` e a faixa de IA
+// (`contas.faixa_ia`); `uso <email>` mostra o mês da IA (créditos, pedidos, tokens, custo em
+// US$); `contas` lista e-mail, plano, faixa e bytes usados por conta (a mesma soma de `bytesUsadosPelaConta`, a cota do doc 18 §3);
 // `vaults <email>` lista os vaults da conta (id, bytes, lotes, última atividade — NUNCA o
 // nome, que é cifrado e o servidor não consegue abrir); `apagar-vault <email> <id>` confere
 // que o vault é da conta antes de apagar metadados e arquivos, reusando `ArmazenamentoSqlite`
@@ -20,11 +22,13 @@ import { normalizarEmail } from "../../src/conta/derivacaoSenha";
 import { abrirBanco, type BancoSqlite } from "./banco";
 import { ArmazenamentoSqlite, bytesUsadosPelaConta } from "./armazenamentoSync";
 import { carregarConfig } from "./config";
+import { COTA_POR_FAIXA, periodoDe, saldoDaConta, type FaixaIa } from "./creditosIa";
 
 interface LinhaConta {
   id: number;
   email: string;
   plano: string;
+  faixa?: string;
 }
 
 /** Devolve a linha da conta pelo e-mail normalizado, ou `undefined` se não existe. Exportado
@@ -36,30 +40,38 @@ export function buscarContaPorEmail(banco: BancoSqlite, email: string): LinhaCon
     | undefined;
 }
 
-/** `premium <email>`: acha a conta pelo e-mail, define `plano = 'premium'`. E-mail
- * inexistente é erro (não cria conta — a conta nasce só por `POST /v1/contas`, do app). */
-export function definirPlano(banco: BancoSqlite, email: string, plano: "premium" | "gratis"): LinhaConta {
+/** `premium`/`superior`/`gratis <email>`: define o plano e a faixa de IA (doc 18 §4, §5.2).
+ * `superior` é premium com faixa `superior` (10.000 créditos); premium e grátis ficam na
+ * faixa `padrao`. E-mail inexistente é erro (não cria conta). */
+export function definirPlano(
+  banco: BancoSqlite,
+  email: string,
+  plano: "premium" | "gratis",
+  faixa: FaixaIa = "padrao",
+): LinhaConta {
   const conta = buscarContaPorEmail(banco, email);
   if (!conta) {
     throw new Error(`e-mail nao encontrado: ${normalizarEmail(email)}`);
   }
-  banco.prepare(`update contas set plano = ? where id = ?`).run(plano, conta.id);
+  banco.prepare(`update contas set plano = ?, faixa_ia = ? where id = ?`).run(plano, faixa, conta.id);
   return { ...conta, plano };
 }
 
 export interface LinhaContaComUso {
   email: string;
   plano: string;
+  faixa: string;
   bytesUsados: number;
 }
 
 /** `contas`: todas as contas, com o espaço usado (soma de lotes + partes de retrato, a mesma
  * cota do doc 18 §3), ordenadas por e-mail — saída estável para conferir de olho. */
 export function listarContas(banco: BancoSqlite): LinhaContaComUso[] {
-  const linhas = banco.prepare(`select id, email, plano from contas order by email`).all() as LinhaConta[];
+  const linhas = banco.prepare(`select id, email, plano, faixa_ia as faixa from contas order by email`).all() as LinhaConta[];
   return linhas.map((linha) => ({
     email: linha.email,
     plano: linha.plano,
+    faixa: linha.faixa ?? "padrao",
     bytesUsados: bytesUsadosPelaConta(banco, linha.id),
   }));
 }
@@ -67,8 +79,54 @@ export function listarContas(banco: BancoSqlite): LinhaContaComUso[] {
 function formatarTabelaContas(linhas: LinhaContaComUso[]): string {
   if (linhas.length === 0) return "nenhuma conta.";
   return linhas
-    .map((linha) => `${linha.email}\t${linha.plano}\t${linha.bytesUsados} bytes`)
+    .map((linha) => `${linha.email}\t${linha.plano}\t${linha.faixa}\t${linha.bytesUsados} bytes`)
     .join("\n");
+}
+
+export interface UsoDaConta {
+  periodo: string;
+  usados: number;
+  total: number;
+  pedidos: number;
+  tokensEntrada: number;
+  tokensSaida: number;
+  custoUsd: number;
+}
+
+/** `uso <email>`: o mês corrente (Brasília) da conta — créditos, pedidos, tokens e o custo
+ * real em US$ (para conferir a conta do ADR-43 com uso de verdade). Nunca texto. */
+export function usoDaConta(banco: BancoSqlite, email: string, agoraMs: number): UsoDaConta {
+  const conta = buscarContaPorEmail(banco, email);
+  if (!conta) {
+    throw new Error(`e-mail nao encontrado: ${normalizarEmail(email)}`);
+  }
+  const periodo = periodoDe(agoraMs);
+  const linha = banco
+    .prepare(
+      `select custo_micro_usd as micro, pedidos, tokens_entrada as entrada, tokens_saida as saida
+       from uso_ia where conta_id = ? and periodo = ?`,
+    )
+    .get(conta.id, periodo) as { micro: number; pedidos: number; entrada: number; saida: number } | undefined;
+  const saldo = saldoDaConta(banco, conta.id, agoraMs);
+  return {
+    periodo,
+    usados: saldo.usados,
+    total: saldo.total,
+    pedidos: linha?.pedidos ?? 0,
+    tokensEntrada: linha?.entrada ?? 0,
+    tokensSaida: linha?.saida ?? 0,
+    custoUsd: (linha?.micro ?? 0) / 1_000_000,
+  };
+}
+
+function formatarUso(email: string, u: UsoDaConta): string {
+  return [
+    `${normalizarEmail(email)} — ${u.periodo}`,
+    `creditos\t${u.usados}/${u.total}`,
+    `pedidos\t${u.pedidos}`,
+    `tokens\tentrada ${u.tokensEntrada}, saida ${u.tokensSaida}`,
+    `custo\tUS$ ${u.custoUsd.toFixed(4)}`,
+  ].join("\n");
 }
 
 export interface LinhaVaultComUso {
@@ -136,14 +194,28 @@ export async function apagarVaultDaConta(
 
 /** Corpo dos comandos, separado de `main()` para os testes chamarem sem passar por
  * `process.argv`/`process.exit`. Devolve o texto a imprimir; lança em caso de erro de uso. */
-export async function executarComando(banco: BancoSqlite, pastaDados: string, argumentos: string[]): Promise<string> {
+export async function executarComando(
+  banco: BancoSqlite,
+  pastaDados: string,
+  argumentos: string[],
+  agoraMs: number = Date.now(),
+): Promise<string> {
   const [comando, primeiroArgumento, segundoArgumento] = argumentos;
 
   switch (comando) {
     case "premium": {
       if (!primeiroArgumento) throw new Error("uso: excalisidian-admin premium <email>");
       const conta = definirPlano(banco, primeiroArgumento, "premium");
-      return `${conta.email}: premium`;
+      return `${conta.email}: premium (${COTA_POR_FAIXA.padrao} creditos/mes)`;
+    }
+    case "superior": {
+      if (!primeiroArgumento) throw new Error("uso: excalisidian-admin superior <email>");
+      const conta = definirPlano(banco, primeiroArgumento, "premium", "superior");
+      return `${conta.email}: premium (superior, ${COTA_POR_FAIXA.superior} creditos/mes)`;
+    }
+    case "uso": {
+      if (!primeiroArgumento) throw new Error("uso: excalisidian-admin uso <email>");
+      return formatarUso(primeiroArgumento, usoDaConta(banco, primeiroArgumento, agoraMs));
     }
     case "gratis": {
       if (!primeiroArgumento) throw new Error("uso: excalisidian-admin gratis <email>");
@@ -165,7 +237,7 @@ export async function executarComando(banco: BancoSqlite, pastaDados: string, ar
       return `${normalizarEmail(primeiroArgumento)}: vault ${segundoArgumento} apagado`;
     }
     default:
-      throw new Error("uso: excalisidian-admin <premium|gratis|contas|vaults|apagar-vault> [email] [id]");
+      throw new Error("uso: excalisidian-admin <premium|superior|gratis|contas|uso|vaults|apagar-vault> [email] [id]");
   }
 }
 

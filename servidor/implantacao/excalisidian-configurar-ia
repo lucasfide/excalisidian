@@ -1,0 +1,48 @@
+#!/usr/bin/env bash
+# servidor/implantacao/excalisidian-configurar-ia
+# Grava a chave do fornecedor da IA na VPS (doc 18 §5.3). Quem roda é o dono do produto, numa
+# sessão SSH: a chave é pedida sem aparecer na tela, testada com uma chamada mínima ao
+# fornecedor, gravada em /etc/excalisidian/ia.env (root, 600) e o serviço é reiniciado. A chave
+# nunca vai para a linha de comando (o cabeçalho segue para o curl pela entrada padrão), para
+# não aparecer na lista de processos.
+#
+# Uso: sudo excalisidian-configurar-ia
+set -euo pipefail
+
+if [[ ${EUID} -ne 0 ]]; then
+	echo "Rode com sudo: sudo excalisidian-configurar-ia" >&2
+	exit 1
+fi
+
+URL="${EXCALISIDIAN_IA_URL:-https://api.deepseek.com}"
+MODELO="${EXCALISIDIAN_IA_MODELO:-deepseek-flash}"
+
+read -rsp "Cole a chave da IA e aperte Enter (nada aparece na tela): " CHAVE
+echo
+CHAVE="$(printf '%s' "${CHAVE}" | tr -d '[:space:]')"
+if [[ -z "${CHAVE}" ]]; then
+	echo "Chave vazia. Nada foi gravado." >&2
+	exit 1
+fi
+
+echo "Testando a chave com uma pergunta mínima..."
+CORPO_PEDIDO="{\"model\":\"${MODELO}\",\"messages\":[{\"role\":\"user\",\"content\":\"Responda apenas: ok\"}],\"max_tokens\":5,\"thinking\":{\"type\":\"disabled\"}}"
+SAIDA="$(printf 'Authorization: Bearer %s\n' "${CHAVE}" |
+	curl -sS --max-time 60 -H @- -H 'content-type: application/json' \
+		-d "${CORPO_PEDIDO}" -w '\n%{http_code}' "${URL}/chat/completions" || true)"
+STATUS="${SAIDA##*$'\n'}"
+RESPOSTA="${SAIDA%$'\n'*}"
+if [[ "${STATUS}" != "200" ]]; then
+	echo "O fornecedor recusou a chave (status ${STATUS}). Nada foi gravado." >&2
+	exit 1
+fi
+echo "O fornecedor respondeu. Resposta completa (confira o campo \"usage\"):"
+echo "${RESPOSTA}"
+
+install -d -m 700 -o root -g root /etc/excalisidian
+umask 077
+printf 'EXCALISIDIAN_IA_CHAVE=%s\n' "${CHAVE}" >/etc/excalisidian/ia.env
+chmod 600 /etc/excalisidian/ia.env
+chown root:root /etc/excalisidian/ia.env
+systemctl restart excalisidian-api
+echo "Chave gravada e serviço reiniciado."

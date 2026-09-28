@@ -163,6 +163,65 @@ Espera-se `{"ok":true}`, com certificado válido (o Caddy já deve ter obtido o 
 passo 7 — se a resposta for erro de TLS, espere um minuto e tente de novo; se persistir,
 confira o DNS do pré-requisito 1 e `sudo journalctl -u caddy -n 50`).
 
+## IA do Excalisidian
+
+A IA do agente roda no servidor, com a chave do fornecedor guardada só na VPS (doc 18 §5).
+Sem a chave, só as rotas de IA respondem 503; conta e sincronização seguem normais.
+
+### 1. Pré-requisito (dono do produto)
+
+Conta no fornecedor, saldo pré-pago e uma chave de API criada no painel dele. Ninguém além do
+dono do produto vê a chave.
+
+### 2. Instalar o serviço atualizado e o script **[muda a VPS]**
+
+Nesta máquina, na pasta `servidor/`:
+
+```
+$ scp implantacao/excalisidian-api.service implantacao/excalisidian-configurar-ia implantacao/excalisidian-admin lucas@100.88.85.127:/tmp/
+```
+
+Na VPS:
+
+```
+lucas@vps:~$ sudo cp /tmp/excalisidian-api.service /etc/systemd/system/
+lucas@vps:~$ sudo systemctl daemon-reload
+lucas@vps:~$ sudo cp /tmp/excalisidian-configurar-ia /usr/local/bin/excalisidian-configurar-ia
+lucas@vps:~$ sudo chmod 755 /usr/local/bin/excalisidian-configurar-ia
+lucas@vps:~$ sudo cp /tmp/excalisidian-admin /usr/local/bin/excalisidian-admin
+lucas@vps:~$ sudo chmod 755 /usr/local/bin/excalisidian-admin
+lucas@vps:~$ rm /tmp/excalisidian-api.service /tmp/excalisidian-configurar-ia /tmp/excalisidian-admin
+```
+
+Confere: `systemctl cat excalisidian-api` mostra a linha
+`EnvironmentFile=-/etc/excalisidian/ia.env`.
+
+### 3. Gravar a chave **[muda a VPS]** — só o dono do produto
+
+```
+lucas@vps:~$ sudo excalisidian-configurar-ia
+```
+
+O script pede a chave sem mostrá-la, testa com uma pergunta mínima ao fornecedor, grava em
+`/etc/excalisidian/ia.env` e reinicia o serviço.
+
+Confere: a mensagem final "Chave gravada e serviço reiniciado." e
+`sudo ls -l /etc/excalisidian/ia.env` mostra `-rw------- root root`.
+
+### 4. Conferir
+
+No app (`$env:VITE_SERVIDOR="real"; npm run tauri dev`, conta premium), use o agente com a IA
+do Excalisidian; depois, na VPS, `excalisidian-admin uso email-da-pessoa@example.com` mostra
+pedidos e créditos.
+
+Trocar a chave: rode o passo 3 de novo. Tirar a chave **[muda a VPS]**:
+
+```
+lucas@vps:~$ sudo rm /etc/excalisidian/ia.env && sudo systemctl restart excalisidian-api
+```
+
+A IA passa a responder 503; conta e sincronização seguem.
+
 ## Atualização
 
 Depois de qualquer mudança no código do servidor:
@@ -211,16 +270,26 @@ Confira depois: `systemctl is-active hermes-gateway orca-runtime xvfb-orca` cont
 lucas@vps:~$ excalisidian-admin premium email-da-pessoa@example.com
 ```
 
-Devolve uma linha de confirmação (`email-da-pessoa@example.com: premium`), ou um erro se o
+Devolve uma linha de confirmação (`email-da-pessoa@example.com: premium (3000 creditos/mes)`), ou um erro se o
 e-mail não tem conta criada (a conta só nasce pelo app, em `POST /v1/contas` — este comando
 nunca cria conta, só troca o plano de uma que já existe).
 
 Para voltar a conta a grátis: `excalisidian-admin gratis email-da-pessoa@example.com`.
 
-Para conferir todas as contas (e-mail, plano, bytes usados):
+`premium` dá 3.000 créditos de IA por mês. Para a faixa maior (10.000 créditos por mês, também
+premium): `excalisidian-admin superior email-da-pessoa@example.com`. `premium` e `gratis`
+devolvem a conta à faixa padrão.
+
+Para conferir todas as contas (e-mail, plano, faixa de IA, bytes usados):
 
 ```
 lucas@vps:~$ excalisidian-admin contas
+```
+
+Para ver o mês corrente da IA de uma conta (créditos, pedidos, tokens e custo real em US$):
+
+```
+lucas@vps:~$ excalisidian-admin uso email-da-pessoa@example.com
 ```
 
 ## Ver e apagar vaults de uma conta **[o segundo comando muda a VPS]**

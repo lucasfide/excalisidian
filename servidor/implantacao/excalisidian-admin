@@ -4,9 +4,13 @@
 # sistema `excalisidian`, com o mesmo ambiente do serviço (mesma pasta de dados). Instalação:
 # ver servidor/LEIAME.md ("comando que muda a VPS": copiar para /usr/local/bin e dar +x).
 #
-# Uso: excalisidian-admin premium <email>
+# Uso: excalisidian-admin premium <email>     (premium, 3.000 creditos de IA por mes)
+#      excalisidian-admin superior <email>    (premium, 10.000 creditos de IA por mes)
 #      excalisidian-admin gratis <email>
 #      excalisidian-admin contas
+#      excalisidian-admin uso <email>
+#      excalisidian-admin vaults <email>
+#      excalisidian-admin apagar-vault <email> <id>
 set -euo pipefail
 
 exec sudo --user=excalisidian --set-home \

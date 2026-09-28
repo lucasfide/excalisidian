@@ -9,7 +9,7 @@
 # /etc/systemd/system/.
 
 [Unit]
-Description=Excalisidian - servidor de conta e sincronizacao
+Description=Excalisidian - servidor de conta, sincronizacao e IA
 After=network.target
 
 [Service]
@@ -19,6 +19,10 @@ WorkingDirectory=/opt/excalisidian
 Environment=EXCALISIDIAN_DADOS=/var/lib/excalisidian
 Environment=EXCALISIDIAN_PORTA=3100
 Environment=NODE_ENV=production
+# Chave do fornecedor da IA (doc 18 §5.3): só neste arquivo, root:root 600, gravado por
+# `sudo excalisidian-configurar-ia`. O hífen deixa o serviço subir mesmo sem o arquivo — aí
+# só as rotas de IA respondem 503.
+EnvironmentFile=-/etc/excalisidian/ia.env
 ExecStart=/usr/bin/node /opt/excalisidian/dist/servidor.js
 Restart=on-failure
 RestartSec=2

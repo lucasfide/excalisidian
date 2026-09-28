@@ -9,7 +9,14 @@ import path from "node:path";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
 import { abrirBanco, type BancoSqlite } from "./banco";
 import { ArmazenamentoSqlite } from "./armazenamentoSync";
-import { apagarVaultDaConta, definirPlano, executarComando, listarContas, listarVaultsDaConta } from "./admin";
+import {
+  apagarVaultDaConta,
+  definirPlano,
+  executarComando,
+  listarContas,
+  listarVaultsDaConta,
+  usoDaConta,
+} from "./admin";
 
 let pastaTemporaria: string;
 let banco: BancoSqlite;
@@ -84,8 +91,8 @@ describe("listarContas", () => {
     const linhas = listarContas(banco);
 
     expect(linhas).toEqual([
-      { email: "a@example.com", plano: "gratis", bytesUsados: 0 },
-      { email: "b@example.com", plano: "premium", bytesUsados: 42 },
+      { email: "a@example.com", plano: "gratis", faixa: "padrao", bytesUsados: 0 },
+      { email: "b@example.com", plano: "premium", faixa: "padrao", bytesUsados: 42 },
     ]);
     void idB;
   });
@@ -99,7 +106,7 @@ describe("executarComando", () => {
   it("premium <email> devolve uma linha de confirmação", async () => {
     criarConta("alguem@example.com");
     await expect(executarComando(banco, pastaTemporaria, ["premium", "alguem@example.com"])).resolves.toBe(
-      "alguem@example.com: premium",
+      "alguem@example.com: premium (3000 creditos/mes)",
     );
   });
 
@@ -113,7 +120,7 @@ describe("executarComando", () => {
   it("contas formata uma linha por conta com e-mail, plano e bytes", async () => {
     criarConta("alguem@example.com", "premium");
     const saida = await executarComando(banco, pastaTemporaria, ["contas"]);
-    expect(saida).toBe("alguem@example.com\tpremium\t0 bytes");
+    expect(saida).toBe("alguem@example.com\tpremium\tpadrao\t0 bytes");
   });
 
   it("contas sem nenhuma conta devolve uma mensagem, não uma tabela vazia", async () => {
@@ -283,5 +290,64 @@ describe("apagarVaultDaConta", () => {
     criarConta("dona@example.com");
     const saida = await executarComando(banco, pastaTemporaria, ["vaults", "dona@example.com"]);
     expect(saida).toBe("nenhum vault.");
+  });
+});
+
+describe("faixa de IA e uso", () => {
+  const AGORA = Date.UTC(2026, 8, 28, 12, 0, 0);
+  const pasta = () => pastaTemporaria;
+
+  beforeEach(() => {
+    criarConta("a@x.com");
+  });
+
+  it("premium põe a faixa padrão; superior põe premium com faixa superior; gratis volta à padrão", async () => {
+    await executarComando(banco, pasta(), ["superior", "a@x.com"], AGORA);
+    expect(banco.prepare(`select plano, faixa_ia as faixa from contas where email = 'a@x.com'`).get()).toEqual({
+      plano: "premium",
+      faixa: "superior",
+    });
+    await executarComando(banco, pasta(), ["premium", "a@x.com"], AGORA);
+    expect(banco.prepare(`select faixa_ia as faixa from contas where email = 'a@x.com'`).get()).toEqual({ faixa: "padrao" });
+    await executarComando(banco, pasta(), ["superior", "a@x.com"], AGORA);
+    await executarComando(banco, pasta(), ["gratis", "a@x.com"], AGORA);
+    expect(banco.prepare(`select plano, faixa_ia as faixa from contas where email = 'a@x.com'`).get()).toEqual({
+      plano: "gratis",
+      faixa: "padrao",
+    });
+  });
+
+  it("contas mostra a faixa", async () => {
+    await executarComando(banco, pasta(), ["superior", "a@x.com"], AGORA);
+    expect(await executarComando(banco, pasta(), ["contas"], AGORA)).toContain("a@x.com\tpremium\tsuperior\t");
+  });
+
+  it("uso mostra o mês atual: créditos, pedidos, tokens e custo em US$", async () => {
+    const conta = banco.prepare(`select id from contas where email = 'a@x.com'`).get() as { id: number };
+    banco
+      .prepare(`insert into uso_ia (conta_id, periodo, custo_micro_usd, pedidos, tokens_entrada, tokens_saida) values (?, '2026-09', 1234567, 42, 900000, 80000)`)
+      .run(conta.id);
+    expect(usoDaConta(banco, "a@x.com", AGORA)).toEqual({
+      periodo: "2026-09",
+      usados: 1235,
+      total: 3000,
+      pedidos: 42,
+      tokensEntrada: 900000,
+      tokensSaida: 80000,
+      custoUsd: 1.234567,
+    });
+    const texto = await executarComando(banco, pasta(), ["uso", "a@x.com"], AGORA);
+    expect(texto).toContain("2026-09");
+    expect(texto).toContain("1235/3000");
+    expect(texto).toContain("US$ 1.2346");
+  });
+
+  it("uso de conta sem nenhum pedido no mês mostra zeros, não erro", () => {
+    expect(usoDaConta(banco, "a@x.com", AGORA)).toMatchObject({ usados: 0, pedidos: 0, custoUsd: 0 });
+  });
+
+  it("uso e superior com e-mail inexistente são erro", async () => {
+    await expect(executarComando(banco, pasta(), ["uso", "ninguem@x.com"], AGORA)).rejects.toThrow("e-mail nao encontrado");
+    await expect(executarComando(banco, pasta(), ["superior", "ninguem@x.com"], AGORA)).rejects.toThrow("e-mail nao encontrado");
   });
 });
