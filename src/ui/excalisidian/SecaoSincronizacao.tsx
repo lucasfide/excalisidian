@@ -29,7 +29,7 @@ import {
   chaveDeStatus,
   type AcaoItem,
 } from "../../sync/fluxoSecao";
-import { montarListaDeVaults, type ItemVault } from "../../sync/listaDeVaults";
+import { montarListaDeVaults, vinculosOrfaos, type ItemVault } from "../../sync/listaDeVaults";
 import { proximoNomeDePasta } from "../../sync/pastaDeDownload";
 import { tempoRelativo } from "../../sync/tempoRelativo";
 import { existePasta } from "../../sync/existePasta";
@@ -165,17 +165,18 @@ export default function SecaoSincronizacao() {
     setErroLista(null);
     try {
       const recentesBrutos = await listarRecentes();
+      // NUNCA esquece um vínculo local só porque a pasta não apareceu nesta leitura (revisão
+      // pós-commit a4ce75f): uma pasta do OneDrive ainda não baixada ou um HD externo desligado
+      // têm a mesma aparência de "sumida" que uma pasta apagada de verdade, e esquecer sozinho
+      // fazia "Sincronizar" recriar um vault DUPLICADO na nuvem quando a pasta voltava. O vault
+      // aparece como "Na nuvem" enquanto a pasta não existir, e volta a "Sincronizado" sozinho
+      // assim que ela reaparecer — `montarListaDeVaults` decide isso sem nenhuma escrita aqui.
       const recentes = await Promise.all(
-        recentesBrutos.map(async (r) => {
-          const existe = await existePasta(r.caminho);
-          const estado = await carregarEstadoSync(r.caminho);
-          // Pasta de um vault sincronizado que não existe mais (apagada/movida): esquece o
-          // vínculo local — o vault volta a aparecer como "Na nuvem" (via a entrada de nuvem
-          // abaixo), nunca como um estado próprio de "pasta não encontrada" (doc 17 §8, plano
-          // 13 Task 2). Melhor esforço: uma falha ao esquecer não pode travar a lista.
-          if (!existe && estado) await esquecer(r.caminho).catch(() => {});
-          return { caminho: r.caminho, existe, estado };
-        }),
+        recentesBrutos.map(async (r) => ({
+          caminho: r.caminho,
+          existe: await existePasta(r.caminho),
+          estado: await carregarEstadoSync(r.caminho),
+        })),
       );
 
       let nuvem: { id: string; nome: string | null }[] = [];
@@ -395,6 +396,24 @@ export default function SecaoSincronizacao() {
         flushTudo: async () => {},
       });
       await salvarEstadoSync(caminhoFinal, estado);
+
+      // Esquece qualquer vínculo local ÓRFÃO deste MESMO vault (mesmo `idDoVault`) cuja pasta
+      // não existe agora — doc 17 §8, revisão pós-commit a4ce75f: baixar para um lugar novo é a
+      // única ação que finalmente descarta um vínculo assim (nunca uma leitura da lista, que
+      // não sabe diferenciar "pasta apagada de vez" de "OneDrive ainda não baixou"/"HD externo
+      // desligado"). Melhor esforço: uma falha ao esquecer não pode derrubar o download, que já
+      // deu certo.
+      const recentes = await Promise.all(
+        (await listarRecentes()).map(async (r) => ({
+          caminho: r.caminho,
+          existe: await existePasta(r.caminho),
+          estado: await carregarEstadoSync(r.caminho),
+        })),
+      );
+      for (const caminho of vinculosOrfaos(item.idNaNuvem, recentes)) {
+        await esquecer(caminho).catch(() => {});
+      }
+
       await abrirVaultEmJanela(caminhoFinal);
     } catch (e) {
       setErroPorItem((m) => ({ ...m, [item.chave]: chaveDeErroCiclo(codigoDeErroSync(e)) }));
@@ -605,14 +624,14 @@ function ItemDaLista({
   );
 }
 
-/** Doc 04 §17 — "Sincronizado há {tempo}" / "Sincronizando…" / o erro do status, para o item
- * aberto NESTA janela: usa o status ao vivo do `syncStore` (mais preciso que `ultimoCicloEm`,
- * que só é gravado ao FIM de um ciclo). Para os demais itens "sincronizado" (fechados, ou
- * sincronizados por outra janela / segundo plano), usa `ultimoErro`/`ultimoCicloEm` do próprio
- * `ItemVault`. `outraSenha` (plano 13 Task 2) troca qualquer um desses textos pelo aviso de
- * outra senha — nome e caminho continuam vindo do estado normal do item. "Só neste computador"
- * e "Na nuvem" não têm mais texto de status próprio: nome, caminho (se houver) e o grupo na
- * lista já dizem tudo (doc 17 §8, tabela). */
+/** Doc 04 §17 — o texto da coluna "Situação" (revisão pós-commit a4ce75f: não é uma dedução por
+ * cor/botão, é texto visível): "Sincronizado há {tempo}" / "Sincronizando…" / o erro do status
+ * para o item aberto NESTA janela (status ao vivo do `syncStore`, mais preciso que
+ * `ultimoCicloEm`, que só é gravado ao FIM de um ciclo); `ultimoErro`/`ultimoCicloEm` do próprio
+ * `ItemVault` para os demais itens "sincronizado" (fechados, ou sincronizados por outra janela /
+ * segundo plano); "Só neste computador" e "Na nuvem" como legenda fixa para os outros dois
+ * estados. `outraSenha` (plano 13 Task 2) troca qualquer um desses textos pelo aviso de outra
+ * senha — nome e caminho continuam vindo do estado normal do item. */
 function textoDeEstado(
   item: ItemVault,
   aberto: boolean,
@@ -636,7 +655,8 @@ function textoDeEstado(
       return null;
     }
     case "so-local":
+      return t("sync.item.soLocal");
     case "so-nuvem":
-      return null;
+      return t("sync.item.soNuvem");
   }
 }

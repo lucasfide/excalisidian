@@ -11,11 +11,13 @@
 //
 // Plano 13 Task 2 (pedido do dono do produto no teste de 29/09/2026): a lista "Seus vaults"
 // perdeu as ações "Abrir", "Parar neste computador" e "Esquecer neste computador", e os estados
-// "Pasta não encontrada"/"Criado com outra senha" pararam de ter texto de estado próprio (a
-// pasta sumida esquece o vínculo e vira "Na nuvem" sem aviso; "outra senha" é um aviso sobre o
-// estado sincronizado/na nuvem, não um estado à parte). As chaves correspondentes saíram do
-// catálogo; `sync.senha.*` e `sync.erro.senhaIncorreta` continuam, usadas pelo bloco "Confirme
-// sua senha" inline.
+// "Pasta não encontrada"/"Criado com outra senha" pararam de ser estados PRÓPRIOS ("outra senha"
+// virou um aviso sobre o estado sincronizado/na nuvem, não um estado à parte; uma pasta sumida
+// nunca é esquecida sozinha — revisão pós-commit a4ce75f — e o vault aparece como "Na nuvem"). A
+// legenda da situação continua na tela (`sync.item.soLocal`/`sync.item.soNuvem`) — é a coluna
+// "Situação" da tabela do doc 17 §8, não uma dedução por cor/botão. As chaves das três ações
+// removidas saíram do catálogo; `sync.senha.*` e `sync.erro.senhaIncorreta` continuam, usadas
+// pelo bloco "Confirme sua senha" inline.
 
 export const PT_BR_SYNC = {
   "sync.titulo": "Sincronização",
@@ -32,6 +34,8 @@ export const PT_BR_SYNC = {
     "Os vaults sincronizados atualizam sozinhos enquanto o app está aberto.",
   "sync.lista.vazio": "Nenhum vault ainda.",
   "sync.item.sincronizadoHa": "Sincronizado há {tempo}",
+  "sync.item.soLocal": "Só neste computador",
+  "sync.item.soNuvem": "Na nuvem",
   "sync.item.outraSenha": "Este vault foi criado com outra senha e não abre com esta conta.",
   "sync.item.semNome": "Vault sem nome",
   "sync.item.conflito": "1 conflito — abra o vault para resolver",
@@ -77,6 +81,8 @@ export const EN_SYNC: Partial<Record<keyof typeof PT_BR_SYNC, string>> = {
   "sync.lista.rodape": "Synced vaults update on their own while the app is open.",
   "sync.lista.vazio": "No vaults yet.",
   "sync.item.sincronizadoHa": "Synced {tempo} ago",
+  "sync.item.soLocal": "Only on this computer",
+  "sync.item.soNuvem": "In the cloud",
   "sync.item.outraSenha": "This vault was created with another password and can't be opened with this account.",
   "sync.item.semNome": "Unnamed vault",
   "sync.item.conflito": "1 conflict — open the vault to resolve it",

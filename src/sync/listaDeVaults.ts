@@ -7,12 +7,22 @@
 //
 // Plano 13 Task 2 (simplificação pedida pelo dono do produto): só três situações —
 // "sincronizado", "so-local", "so-nuvem". "Pasta não encontrada" deixou de ser estado próprio:
-// uma pasta local sumida não aparece mais como item local (a casca já esqueceu o vínculo antes
-// de montar a lista, com `esquecer(caminho)` — o vault volta a aparecer como "so-nuvem", se
-// ainda estiver na nuvem). "Criado com outra senha" também deixou de ser estado próprio: virou a
-// flag `outraSenha` sobre "sincronizado" (local, via `EstadoSync.ultimoErro === "outra-senha"`)
-// ou "so-nuvem" (nome que não decifrou) — só a ação Apagar aparece nesse caso
-// (`fluxoSecao.ts#acoesDoEstado`).
+// uma pasta local sumida não aparece mais como item local — o vault volta a aparecer como
+// "so-nuvem", se ainda estiver na nuvem. "Criado com outra senha" também deixou de ser estado
+// próprio: virou a flag `outraSenha` sobre "sincronizado" (local, via
+// `EstadoSync.ultimoErro === "outra-senha"`) ou "so-nuvem" (nome que não decifrou) — só a ação
+// Apagar aparece nesse caso (`fluxoSecao.ts#acoesDoEstado`).
+//
+// Revisão da Task 2 (achado do dono do produto: seu vault mora numa pasta do OneDrive, que pode
+// estar "não baixada" ou temporariamente indisponível — mesma aparência de "pasta sumida" que
+// um HD externo desligado): uma pasta local que não existe agora NUNCA é esquecida sozinha
+// (`esquecer`, `estadoSync.ts`) só porque não apareceu numa leitura da lista — o `EstadoSync`
+// daquele caminho continua gravado, e o item volta a "sincronizado" sozinho assim que a pasta
+// reaparecer (a OneDrive termina de baixar, o HD é ligado de novo). Esquecer um vínculo assim
+// era o que fazia "Sincronizar" recriar um vault DUPLICADO na nuvem depois que a pasta voltava.
+// O único jeito de esquecer esse vínculo agora é uma ação explícita da pessoa: "Baixar…" para um
+// lugar novo esquece o(s) vínculo(s) órfão(s) do MESMO vault (`vinculosOrfaos`, abaixo) — quem
+// chama isso é a casca (`SecaoSincronizacao.tsx#aoBaixar`), depois de baixar com sucesso.
 
 import { chaveDeVault } from "./coordenacao";
 import { nomeDoVault } from "../vault/vaultsRecentes";
@@ -101,9 +111,10 @@ function grupoDoEstado(estado: EstadoItem): number {
  * - local com `EstadoSync` cujo id NÃO está na nuvem → continua "sincronizado" — a lista não
  *   conclui sozinha que o vault foi apagado do servidor (podia ser falha de rede, lista ainda
  *   não chegou); `ultimoCicloEm`/`ultimoErro` são preservados do `EstadoSync`.
- * - local com `EstadoSync` cuja pasta NÃO existe mais → não aparece como item local (a casca já
- *   esqueceu o vínculo com `esquecer(caminho)` antes de montar a lista — doc 17 §8); se ainda
- *   está na nuvem, a entrada de nuvem abaixo cobre o vault como "so-nuvem".
+ * - local com `EstadoSync` cuja pasta NÃO existe mais → não aparece como item local — o vínculo
+ *   NÃO é esquecido (doc 17 §8: só "Baixar…" para um lugar novo esquece um vínculo órfão,
+ *   nunca uma leitura da lista); se ainda está na nuvem, a entrada de nuvem abaixo cobre o
+ *   vault como "so-nuvem", e a pasta local volta a "sincronizado" sozinha se reaparecer.
  * - local sem `EstadoSync`, pasta existe → "so-local"; pasta não existe → não aparece (nada a
  *   fazer com um caminho recente que não é vault nem nunca sincronizou).
  * - nuvem sem local correspondente → "so-nuvem"; `outraSenha` é true quando o nome não decifrou
@@ -172,4 +183,17 @@ export function montarListaDeVaults(entrada: EntradaListaDeVaults): ItemVault[] 
     if (g !== 0) return g;
     return a.nome.localeCompare(b.nome);
   });
+}
+
+/** Caminhos locais do MESMO vault (`idDoVault`) cuja pasta não existe agora — vínculos órfãos
+ * (doc 17 §8, revisão da Task 2): `montarListaDeVaults` nunca esquece esses vínculos sozinha
+ * (uma pasta do OneDrive ainda não baixada, ou um HD externo desligado, parecem "sumidos" sem
+ * ter sido apagados de verdade). Só "Baixar…" para um lugar novo chama isto, depois de baixar
+ * com sucesso — é a ação explícita da pessoa que finalmente descarta o(s) vínculo(s) antigo(s)
+ * (`SecaoSincronizacao.tsx#aoBaixar`), para "Sincronizar" num vínculo esquecido tarde demais não
+ * criar um vault duplicado na nuvem. */
+export function vinculosOrfaos(idDoVault: string, recentes: EntradaRecente[]): string[] {
+  return recentes
+    .filter((r) => !r.existe && r.estado?.idDoVault === idDoVault)
+    .map((r) => r.caminho);
 }

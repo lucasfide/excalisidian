@@ -698,11 +698,17 @@ acessar os seus vaults"):
 | Situação | Mostra | Ações |
 |---|---|---|
 | Sincronizado | nome, caminho, "Sincronizado há…" / o erro do status | Sincronizar agora · Apagar |
-| Só neste computador | nome, caminho | Sincronizar |
-| Na nuvem | nome | Baixar… |
+| Só neste computador | nome, caminho, "Só neste computador" | Sincronizar |
+| Na nuvem | nome, "Na nuvem" | Baixar… |
 
-- Uma pasta de um vault sincronizado que não existe mais (apagada ou movida) esquece o vínculo
-  local sozinha, sem aviso — o vault volta a aparecer como "Na nuvem".
+A coluna "Situação" é o texto visível na linha do vault — nunca uma dedução por cor ou pelos
+botões que aparecem.
+
+- Uma pasta de um vault sincronizado que não existe mais (apagada, movida, ou — caso real — uma
+  pasta do OneDrive ainda não baixada ou um HD externo desligado) **nunca esquece o vínculo
+  local sozinha**: o vault aparece como "Na nuvem" enquanto a pasta não existir, e volta a
+  "Sincronizado" sozinho assim que ela reaparecer. Esquecer automaticamente fazia "Sincronizar"
+  recriar um vault duplicado na nuvem quando a pasta voltava.
 - Um vault que não abre com a chave desta conta (criado com a senha de outra conta) aparece
   dentro de "Sincronizado" ou "Na nuvem" com o texto "Este vault foi criado com outra senha e
   não abre com esta conta." e só a ação Apagar.
@@ -711,7 +717,10 @@ acessar os seus vaults"):
   cópia da nuvem e a sincronização são removidas." Depois de apagar, o vínculo local (se houver)
   também é esquecido.
 - **Baixar…** deixa escolher onde colocar o vault; o app cria a pasta com o nome do vault
-  (numerada se já existir uma com esse nome), baixa e abre.
+  (numerada se já existir uma com esse nome), baixa e abre. Se havia um vínculo local órfão
+  deste mesmo vault (pasta que não existe), baixar para o lugar novo esquece esse vínculo
+  antigo — é a única ação que esquece uma pasta sumida, e só porque a pessoa pediu
+  explicitamente para baixar de novo.
 
 ## 18. Busca nas Configurações
 

@@ -232,10 +232,12 @@ as ações "Abrir", "Parar neste computador" nem "Esquecer neste computador".
   vault (numerada, `Nome (2)`, `Nome (3)`…, se já existir uma pasta com esse nome — padrão
   ADR-15; nunca mistura com uma pasta existente), baixa o retrato mais recente e os lotes
   seguintes, e abre o vault numa janela.
-- **Pasta sumida (vault sincronizado cuja pasta foi apagada ou movida):** não é mais um estado
-  próprio da lista nem uma ação manual — ao montar a lista, o `EstadoSync` deste computador para
-  aquele vault é esquecido sozinho (`esquecer(caminho)`), sem aviso, e o vault volta a aparecer
-  como "Na nuvem" (se ainda estiver lá).
+- **Pasta sumida (vault sincronizado cuja pasta não existe agora — apagada, movida, uma pasta
+  do OneDrive ainda não baixada, um HD externo desligado):** não é mais um estado próprio da
+  lista, mas também NÃO esquece o vínculo local sozinha (revisão pós-commit a4ce75f — ver §8).
+  O vault aparece como "Na nuvem" (se ainda estiver lá) enquanto a pasta não existir, e volta a
+  "Sincronizado" sozinho assim que ela reaparecer. Só "Baixar…" para um lugar novo esquece
+  explicitamente o vínculo antigo.
 - **Envelope que não abre com a chave desta conta:** hoje a `chaveDeEnvelope` pertence à CONTA
   (§2), não a um vault — um envelope que não abre significa "este vault foi criado com a senha
   de outra conta", nunca "a chave está errada". Por isso a chave NUNCA é apagada do cofre por
@@ -262,19 +264,33 @@ mostra a lista "Seus vaults": cada vault do usuário, uma única vez, juntando t
 vaults recentes deste computador (caminho), estados de sincronização deste computador
 (`EstadoSync` por caminho → id no servidor) e vaults da conta no servidor (nome decifrado).
 
-A lista tem três estados possíveis, um por vault (decisão do dono do produto, 29/09/2026):
+A lista tem três estados possíveis, um por vault (decisão do dono do produto, 29/09/2026). A
+coluna "Estado" abaixo é o texto que aparece na linha — nunca uma dedução por cor ou pelos
+botões visíveis:
 
 | Estado | Mostra | Ações |
 |---|---|---|
 | Sincronizado | nome, caminho, "Sincronizado há X min" / "Sincronizando…" / o erro do status; "N conflitos — abra o vault para resolver" se houver | Sincronizar agora · Apagar |
-| Só neste computador | nome, caminho | Sincronizar |
-| Na nuvem | nome | Baixar… |
+| Só neste computador | nome, caminho, "Só neste computador" | Sincronizar |
+| Na nuvem | nome, "Na nuvem" | Baixar… |
 
 Um vault que não abre com a chave desta conta (criado com a senha de outra conta, §7) não tem
 estado próprio: aparece dentro de "Sincronizado" (local, `EstadoSync.ultimoErro === "outra-senha"`)
 ou "Na nuvem" (nome que não decifrou), com o texto "Este vault foi criado com outra senha e não
 abre com esta conta." no lugar do status normal, e só a ação Apagar — nenhuma outra ação da
 lista funciona sem abrir o envelope.
+
+**Pasta local que não existe agora (revisão pós-commit a4ce75f):** o vínculo (`EstadoSync`
+daquele caminho) **nunca é esquecido sozinho** só porque não apareceu numa leitura da lista —
+uma pasta do OneDrive ainda não baixada ou um HD externo desligado têm exatamente a mesma
+aparência de "sumida" que uma pasta apagada de verdade, e esquecer sozinho fazia "Sincronizar"
+recriar um vault DUPLICADO na nuvem quando a pasta voltava. Enquanto a pasta não existir, o
+vault não aparece como item local — a entrada correspondente da nuvem (mesmo `idDoVault`) cobre
+o vault como "Na nuvem", a menos que exista OUTRO caminho local com o mesmo `idDoVault` e pasta
+existente (esse é o "Sincronizado"). Assim que a pasta reaparecer, o item volta a "Sincronizado"
+sozinho, sem nenhuma ação da pessoa. O único jeito de esquecer um vínculo assim é "Baixar…" para
+um lugar novo: depois de baixar com sucesso, a ação esquece explicitamente o(s) vínculo(s)
+órfão(s) do mesmo vault (`vinculosOrfaos`, `src/sync/listaDeVaults.ts`) — nunca antes disso.
 
 O rodapé da lista diz: "Os vaults sincronizados atualizam sozinhos enquanto o app está aberto."
 
@@ -305,10 +321,12 @@ mostrando ele):
   em alguma janela; se estiver, pula — a janela dele sincroniza sozinha. Um vault que acabou de
   abrir numa janela espera o ciclo em segundo plano terminar antes de começar o seu, por uma
   trava por vault (em memória do processo Rust).
-- Um vault cuja pasta não existe mais (apagada ou movida pelo Explorer) não é sincronizado em
-  segundo plano, e o segundo plano nunca recria a pasta nem baixa o vault num lugar inesperado —
-  ao montar a lista "Seus vaults" (§8), o vínculo local é esquecido sozinho e o vault volta a
-  aparecer como "Na nuvem".
+- Um vault cuja pasta não existe mais (apagada ou movida pelo Explorer, ou — caso real — uma
+  pasta do OneDrive ainda não baixada ou um HD externo desligado) não é sincronizado em segundo
+  plano, e o segundo plano nunca recria a pasta nem baixa o vault num lugar inesperado nem
+  esquece o vínculo sozinho (§8) — ao montar a lista "Seus vaults", o vault volta a aparecer
+  como "Na nuvem" enquanto a pasta não existir, e volta a "Sincronizado" sozinho assim que ela
+  reaparecer.
 - Um vault cujo envelope não abre com a chave desta conta (§7, "criado com outra senha") é
   pulado, sem sincronizar: o ciclo grava `ultimoErro: "outra-senha"` no `EstadoSync` do vault e
   a chave no cofre não é tocada.

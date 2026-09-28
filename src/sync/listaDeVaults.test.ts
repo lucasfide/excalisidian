@@ -5,15 +5,20 @@
 // implementação, visto falhando.
 //
 // "Pasta não encontrada" e "outra-senha" deixaram de ser estados próprios (plano 12): uma pasta
-// sumida não aparece mais como item local (a casca, `SecaoSincronizacao.tsx`, já esqueceu o
-// vínculo antes de montar a lista — o vault volta a aparecer como "so-nuvem", coberto pela
-// entrada da nuvem); "outra-senha" vira a flag `outraSenha` sobre o estado "sincronizado" (local,
-// via `ultimoErro`) ou "so-nuvem" (nome não decifrado).
+// sumida não aparece mais como item local — o vault volta a aparecer como "so-nuvem", coberto
+// pela entrada da nuvem; "outra-senha" vira a flag `outraSenha` sobre o estado "sincronizado"
+// (local, via `ultimoErro`) ou "so-nuvem" (nome não decifrado).
+//
+// Revisão pós-commit a4ce75f (achado do dono do produto): "pasta sumida" também acontece com uma
+// pasta do OneDrive ainda não baixada ou um HD externo desligado — NUNCA é esquecida sozinha por
+// `montarListaDeVaults` nem por quem chama esta função ao montar a lista; só "Baixar…" para um
+// lugar novo esquece um vínculo órfão, com `vinculosOrfaos` (testada no fim deste arquivo).
 
 import { describe, it, expect } from "vitest";
 
-import { montarListaDeVaults } from "./listaDeVaults";
+import { montarListaDeVaults, vinculosOrfaos } from "./listaDeVaults";
 import type { EstadoSync } from "./estadoSync";
+import type { EntradaRecente } from "./listaDeVaults";
 import { chaveDeVault } from "./coordenacao";
 
 function estado(overrides: Partial<EstadoSync> = {}): EstadoSync {
@@ -46,7 +51,7 @@ describe("montarListaDeVaults", () => {
     });
   });
 
-  it("local com EstadoSync cuja pasta não existe mais: não aparece como item local (a nuvem cobre)", () => {
+  it("local com EstadoSync cuja pasta não existe mais: não aparece como item local, mostra 'Na nuvem' (a nuvem cobre)", () => {
     const itens = montarListaDeVaults({
       recentes: [
         { caminho: "C:/Vaults/Sumiu", existe: false, estado: estado({ idDoVault: "id-2" }) },
@@ -58,6 +63,40 @@ describe("montarListaDeVaults", () => {
     expect(itens[0]!.estado).toBe("so-nuvem");
     expect(itens[0]!.caminho).toBe(null);
     expect(itens[0]!.idNaNuvem).toBe("id-2");
+  });
+
+  it("pasta que volta a existir (OneDrive terminou de baixar, HD externo ligado de novo): volta a 'sincronizado' sozinha", () => {
+    // Mesmo EstadoSync de antes — nunca foi esquecido (`montarListaDeVaults` não tem I/O de
+    // escrita; é só a mesma função, chamada de novo com `existe: true` agora).
+    const estadoDoVault = estado({ idDoVault: "id-2" });
+
+    const semAPasta = montarListaDeVaults({
+      recentes: [{ caminho: "C:/Vaults/OneDrive", existe: false, estado: estadoDoVault }],
+      nuvem: [{ id: "id-2", nome: "Trabalho" }],
+    });
+    expect(semAPasta[0]!.estado).toBe("so-nuvem");
+
+    const comAPastaDeVolta = montarListaDeVaults({
+      recentes: [{ caminho: "C:/Vaults/OneDrive", existe: true, estado: estadoDoVault }],
+      nuvem: [{ id: "id-2", nome: "Trabalho" }],
+    });
+    expect(comAPastaDeVolta).toHaveLength(1);
+    expect(comAPastaDeVolta[0]!.estado).toBe("sincronizado");
+    expect(comAPastaDeVolta[0]!.caminho).toBe("C:/Vaults/OneDrive");
+  });
+
+  it("pasta sumida, mas OUTRO local com o mesmo id tem pasta existente: só o existente aparece, como sincronizado", () => {
+    const itens = montarListaDeVaults({
+      recentes: [
+        { caminho: "C:/Vaults/Antigo", existe: false, estado: estado({ idDoVault: "id-2" }) },
+        { caminho: "D:/Vaults/Novo", existe: true, estado: estado({ idDoVault: "id-2" }) },
+      ],
+      nuvem: [{ id: "id-2", nome: "Trabalho" }],
+    });
+
+    expect(itens).toHaveLength(1);
+    expect(itens[0]!.estado).toBe("sincronizado");
+    expect(itens[0]!.caminho).toBe("D:/Vaults/Novo");
   });
 
   it("local com EstadoSync cuja pasta não existe mais, e o vault não está (mais) na nuvem: não aparece", () => {
@@ -248,5 +287,39 @@ describe("montarListaDeVaults", () => {
       "so-nuvem",
       "so-nuvem",
     ]);
+  });
+});
+
+describe("vinculosOrfaos", () => {
+  // Só "Baixar…" para um lugar novo chama isto (`SecaoSincronizacao.tsx#aoBaixar`) — é a única
+  // ação que esquece um vínculo local cuja pasta não existe agora; `montarListaDeVaults` nunca
+  // esquece nada sozinha (revisão pós-commit a4ce75f).
+  function recente(overrides: Partial<EntradaRecente> = {}): EntradaRecente {
+    return { caminho: "C:/Vaults/Antigo", existe: false, estado: estado({ idDoVault: "id-1" }), ...overrides };
+  }
+
+  it("pasta que não existe com o mesmo idDoVault: é um vínculo órfão", () => {
+    expect(vinculosOrfaos("id-1", [recente()])).toEqual(["C:/Vaults/Antigo"]);
+  });
+
+  it("pasta que existe: não é órfã, mesmo com o mesmo idDoVault", () => {
+    expect(vinculosOrfaos("id-1", [recente({ existe: true })])).toEqual([]);
+  });
+
+  it("pasta que não existe, mas de OUTRO vault (id diferente): não é órfã deste vault", () => {
+    expect(vinculosOrfaos("id-1", [recente({ estado: estado({ idDoVault: "id-2" }) })])).toEqual([]);
+  });
+
+  it("pasta que não existe e nunca teve EstadoSync: não é órfã (nada a esquecer)", () => {
+    expect(vinculosOrfaos("id-1", [recente({ estado: null })])).toEqual([]);
+  });
+
+  it("vários vínculos órfãos do mesmo vault: todos voltam", () => {
+    const orfaos = vinculosOrfaos("id-1", [
+      recente({ caminho: "C:/Vaults/Antigo1" }),
+      recente({ caminho: "C:/Vaults/Antigo2" }),
+      recente({ caminho: "C:/Vaults/Existe", existe: true }),
+    ]);
+    expect(orfaos).toEqual(["C:/Vaults/Antigo1", "C:/Vaults/Antigo2"]);
   });
 });
