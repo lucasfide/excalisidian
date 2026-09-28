@@ -29,6 +29,20 @@ import { registrarAbertura } from "./vaultsRecentes";
 
 const CHAVE_VAULT = "vaultPath";
 
+/** Falha de `doBoot` ao conceder o escopo do último vault salvo: carrega o caminho tentado
+ * (só `doBoot` sabe resolvê-lo, entre a URL `?vault=` e o `vaultPath` salvo) pra quem trata o
+ * erro conseguir montar uma mensagem com o nome do vault (doc 04 — textos de vault/abertura),
+ * sem repetir aqui a lógica de qual dos dois caminhos venceu. */
+export class ErroAberturaVault extends Error {
+  constructor(
+    message: string,
+    public readonly caminho: string,
+  ) {
+    super(message);
+    this.name = "ErroAberturaVault";
+  }
+}
+
 /** Junta a raiz absoluta com um caminho relativo do vault (sempre com "/"). */
 function absoluto(raiz: string, rel: string): string {
   const limpo = rel.replace(/^\/+/, "");
@@ -61,7 +75,11 @@ export class TauriVaultAdapter implements VaultAdapter {
       caminho = (await store.get<string>(CHAVE_VAULT)) ?? undefined;
     }
     if (!caminho) return null;
-    await invoke("permitir_vault", { path: caminho });
+    try {
+      await invoke("permitir_vault", { path: caminho });
+    } catch (e) {
+      throw new ErroAberturaVault(e instanceof Error ? e.message : String(e), caminho);
+    }
     return new TauriVaultAdapter(caminho);
   }
 

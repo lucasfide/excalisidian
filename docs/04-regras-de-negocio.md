@@ -502,6 +502,16 @@ Contrato com `docs/12-multiplos-vaults.md` §5 — nomes de comando e chaves de 
 | Erro `pai_indisponivel` | "Não foi possível acessar o local escolhido." |
 | Tela sem vault: título | "Nenhum vault aberto" (mantém) |
 | Tela sem vault: lista | "Recentes" |
+| Erro ao abrir — título | "Não foi possível abrir o vault" |
+| Erro ao abrir — pasta não encontrada | "A pasta do vault «{nome}» não foi encontrada. Ela pode ter sido movida, renomeada ou estar num lugar indisponível agora, como o OneDrive ou um HD externo. Escolha um vault abaixo ou abra a pasta onde ele está." |
+| Erro ao abrir — genérico | "Algo impediu a abertura do vault. Tente de novo ou escolha outro vault abaixo." |
+
+O erro cru do sistema (`Error.message` do Rust/Tauri, ex.: mensagens de IO em inglês com "os
+error 3") nunca aparece na tela: `src/vault/mensagemFalhaAbrir.ts` reconhece pasta/arquivo não
+encontrado (inclusive as variantes em português do Windows) e devolve a chave certa, com
+`{nome}` = último segmento do caminho tentado (`nomeDoVault`); qualquer outro erro, ou pasta
+não encontrada sem caminho conhecido, cai no genérico. O erro técnico original só vai pro
+console em modo de desenvolvimento.
 
 A tela sem vault ganhou tela de boas-vindas, nome do usuário e conteúdo de exemplo no primeiro
 vault — ver seção 14, abaixo. Os textos antigos de apoio ("Crie um vault novo ou abra uma pasta

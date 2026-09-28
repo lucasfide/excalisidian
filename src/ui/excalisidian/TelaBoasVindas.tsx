@@ -15,12 +15,14 @@ import { sugerirNomeUsuario } from "../../app/sistemaOperacional";
 import { criarVault, escolherPasta } from "../../vault/janelas";
 import { nomeDoVault, type VaultRecente } from "../../vault/vaultsRecentes";
 import { chaveDoErroVault } from "../../vault/mensagensErroVault";
+import { mensagemFalhaAbrir } from "../../vault/mensagemFalhaAbrir";
 import { useTexto } from "../../i18n/useTexto";
 
 const NOME_VAULT_PADRAO = "Notas";
 
 interface Props {
   erro: string | null;
+  erroCaminho?: string;
   recentes: VaultRecente[];
   onAbrirVault(caminho: string, opcoes?: { conteudoInicial?: boolean }): Promise<void>;
   onAbrirPasta(): Promise<void>;
@@ -35,6 +37,7 @@ function separadorDe(caminho: string): string {
 
 export default function TelaBoasVindas({
   erro,
+  erroCaminho,
   recentes,
   onAbrirVault,
   onAbrirPasta,
@@ -79,8 +82,11 @@ export default function TelaBoasVindas({
   }, []);
 
   const primeiroUso = recentes.length === 0;
+  // Erro cru (`Error.message` do Rust/Tauri) nunca chega na tela como está: só a chave que
+  // `mensagemFalhaAbrir` escolhe, traduzida por `t()` (doc 04 — textos de vault/abertura).
+  const mensagemErro = erro ? mensagemFalhaAbrir(erro, erroCaminho) : null;
   const titulo = erro
-    ? "Não foi possível abrir o vault"
+    ? t("vault.erroAbrir.titulo")
     : primeiroUso
       ? "Vamos começar"
       : "Nenhum vault aberto";
@@ -139,7 +145,9 @@ export default function TelaBoasVindas({
             {titulo}
           </h1>
           {erro ? (
-            <p className="text-corpo text-bordo [text-wrap:pretty]">{erro}</p>
+            <p className="text-corpo text-bordo [text-wrap:pretty]">
+              {mensagemErro && t(mensagemErro.chave, mensagemErro.valores)}
+            </p>
           ) : (
             primeiroUso && (
               <p className="text-corpo text-tinta-media [text-wrap:pretty]">

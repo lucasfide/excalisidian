@@ -5,7 +5,7 @@ import { useCallback, useEffect, useRef, useState } from "react";
 import { FilePlus, Images, ListChecks, PanelLeft, Search, Settings, SquarePen, Trash2 } from "lucide-react";
 import { Toaster, toast } from "sonner";
 
-import { TauriVaultAdapter } from "../vault/TauriVaultAdapter";
+import { TauriVaultAdapter, ErroAberturaVault } from "../vault/TauriVaultAdapter";
 import { abrirNestaJanela } from "../vault/abrirNestaJanela";
 import { escolherPasta } from "../vault/janelas";
 import {
@@ -46,6 +46,16 @@ import RaizDialogos from "../ui/excalisidian/RaizDialogos";
 import RaizSobreposicoes from "../ui/excalisidian/RaizSobreposicoes";
 import LimiteDeErro from "../ui/excalisidian/LimiteDeErro";
 
+/** Monta o estado de erro do boot a partir de uma falha de abertura: guarda a mensagem crua
+ * (nunca mostrada como está — `TelaBoasVindas` traduz via `mensagemFalhaAbrir`) e o caminho
+ * tentado, quando conhecido. O erro técnico original só vai pro console em DEV. */
+function erroDeBoot(e: unknown, caminho?: string): { erro: string; caminho?: string } {
+  const mensagem = e instanceof Error ? e.message : String(e);
+  if (import.meta.env.DEV) console.error("Falha ao abrir o vault:", e);
+  const caminhoConhecido = e instanceof ErroAberturaVault ? e.caminho : caminho;
+  return { erro: mensagem, caminho: caminhoConhecido };
+}
+
 function aplicarTema(tema: Tema) {
   const escuro =
     tema === "escuro" ||
@@ -54,7 +64,9 @@ function aplicarTema(tema: Tema) {
   document.documentElement.classList.toggle("dark", escuro);
 }
 
-type Boot = "carregando" | "sem-vault" | "pronto" | { erro: string };
+// `caminho`: vault que se tentava abrir, quando conhecido — alimenta `mensagemFalhaAbrir`
+// pra mostrar o nome do vault na tela em vez do erro cru (doc 04 — textos de vault/abertura).
+type Boot = "carregando" | "sem-vault" | "pronto" | { erro: string; caminho?: string };
 
 export default function App() {
   const [boot, setBoot] = useState<Boot>("carregando");
@@ -237,7 +249,7 @@ export default function App() {
           setBoot("sem-vault");
         }
       } catch (e) {
-        if (ativo) setBoot({ erro: String(e) });
+        if (ativo) setBoot(erroDeBoot(e));
       }
     })();
     return () => {
@@ -270,9 +282,10 @@ export default function App() {
   }, [boot]);
 
   const abrirPasta = useCallback(async () => {
+    let caminho: string | null = null;
     try {
       setBoot("carregando");
-      const caminho = await escolherPasta();
+      caminho = await escolherPasta();
       if (!caminho) {
         setBoot((b) => (b === "carregando" ? "sem-vault" : b));
         return;
@@ -280,7 +293,7 @@ export default function App() {
       const adapter = await TauriVaultAdapter.abrir(caminho);
       await ativarVaultNestaJanela(adapter);
     } catch (e) {
-      setBoot({ erro: String(e) });
+      setBoot(erroDeBoot(e, caminho ?? undefined));
     }
   }, [ativarVaultNestaJanela]);
 
@@ -328,7 +341,7 @@ export default function App() {
           }
         }
       } catch (e) {
-        setBoot({ erro: String(e) });
+        setBoot(erroDeBoot(e, caminho));
       }
     },
     [ativarVaultNestaJanela],
@@ -344,9 +357,11 @@ export default function App() {
 
   if (boot === "sem-vault" || typeof boot === "object") {
     const erro = typeof boot === "object" ? boot.erro : null;
+    const erroCaminho = typeof boot === "object" ? boot.caminho : undefined;
     return (
       <TelaBoasVindas
         erro={erro}
+        erroCaminho={erroCaminho}
         recentes={recentesSemVault}
         onAbrirVault={onAbrirVaultCriado}
         onAbrirPasta={abrirPasta}
