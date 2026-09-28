@@ -1,56 +1,95 @@
 // src/sync/fluxoSecao.ts
 // Módulo PURO (sem disco, sem rede, sem zustand) com as decisões de fluxo da seção
-// "Sincronização" das Configurações (plano 10 Task 4, doc 04 §17 e doc 17 §7-8):
+// "Sincronização" das Configurações (plano 12 Task 6, doc 04 §17, doc 17 §7-8, spec
+// 2026-09-27 §2):
 //
-//   - qual dos estados da seção mostrar (doc 17 §7: sem conta / grátis / não sincronizado /
-//     sincronizado — "premium sem chave" não é um quinto estado persistente da seção, é um
-//     diálogo que aparece ao clicar em "Sincronizar este vault" ou "Baixar…" enquanto este
-//     computador não tem a chave guardada, ver `precisaConfirmarSenha`);
-//   - se a pasta escolhida pra "Baixar um vault sincronizado" serve (tem que estar vazia);
-//   - se é preciso pedir a senha da conta antes de ligar ou baixar um vault;
+//   - qual dos quatro estados da seção mostrar (sem conta / grátis / premium sem chave / lista
+//     "Seus vaults" — ver `estadoDaSecaoSincronizacao`);
+//   - se é preciso pedir a senha da conta antes de mostrar a lista (`precisaConfirmarSenha`);
+//   - quais ações aparecem para cada estado de um item da lista (`acoesDoEstado`, doc 17 §8);
+//   - o texto de "N conflitos" de um item (`chaveDeConflitos` — singular/plural, doc 04 §17);
 //   - qual chave do catálogo (`src/i18n/catalogo/sync.ts`) corresponde a um código de erro do
 //     ciclo (`ErroCiclo`, `sync/motor.ts`) ou a um `StatusSync` (`estado/syncStore.ts`).
 //
 // A UI (`SecaoSincronizacao.tsx`) só chama estas funções e traduz a chave devolvida com
 // `useTexto()` — nenhuma decisão de "o que mostrar" mora no componente.
+//
+// Revisão do plano 12 Task 6 (achado de code review da Task 4): a tela deixou de ter dois
+// ramos — "não sincronizado" (com botões de ligar/baixar) e "sincronizado" (com status de UM
+// vault) — e virou uma lista única "Seus vaults" (doc 17 §8). O estado da SEÇÃO agora só
+// decide "o que mostrar no lugar da lista" (nada, grátis, pedir senha) ou "mostrar a lista";
+// quem decide o que cada VAULT da lista mostra é `montarListaDeVaults` (`listaDeVaults.ts`,
+// Task 4) + `acoesDoEstado` (aqui). `pastaEstaVazia` saiu: "Baixar para este computador…" não
+// exige mais pasta vazia — cria uma pasta NOVA, numerada se precisar (`pastaDeDownload.ts`).
 
 import type { PlanoAssinatura } from "../conta/tipos";
 import type { ErroCiclo } from "./motor";
+import type { EstadoItem } from "./listaDeVaults";
 import type { StatusSync } from "../estado/syncStore";
 import type { ChaveTexto } from "../i18n/catalogo";
 
-export type EstadoSecaoSincronizacao =
-  | "sem-conta"
-  | "gratis"
-  | "nao-sincronizado"
-  | "sincronizado";
+export type EstadoSecaoSincronizacao = "sem-conta" | "gratis" | "sem-chave" | "lista";
 
-/** Doc 17 §7: sem sessão, nada mais é mostrado (ADR-31: sem convite insistente). Sessão
- * grátis, mesma coisa, mas com a frase "é recurso do premium" — mesmo que o vault atual
- * estivesse marcado como sincronizado em outro plano, o grátis nunca teria chegado a ligar
- * um (defesa em profundidade, não deveria acontecer). Premium decide só pelo vault ATUAL
- * (`vaultSincronizado` — `useSyncStore.getState().raiz !== null`, plano 10 Task 5). */
+/** Doc 17 §7: sem sessão, nada além da frase (ADR-31: sem convite insistente). Sessão grátis,
+ * mesma coisa, com a frase "é recurso do premium". Premium sem a `chaveDeEnvelope` deste
+ * computador: pede a senha ANTES de mostrar a lista — nenhuma ação da lista (ligar, baixar,
+ * sincronizar agora, apagar da nuvem) funciona sem ela (doc 17 §7, "Ligar... exige... Se este
+ * computador ainda não tem a chaveDeEnvelope, pede a senha da conta"), e sem a chave também não
+ * dá para decifrar nome nenhum da nuvem — mostrar uma lista pela metade seria mais confuso do
+ * que pedir a senha primeiro. Premium com chave: mostra a lista de verdade. */
 export function estadoDaSecaoSincronizacao(input: {
   sessao: { plano: PlanoAssinatura } | null;
-  vaultSincronizado: boolean;
+  temChave: boolean;
 }): EstadoSecaoSincronizacao {
   if (!input.sessao) return "sem-conta";
   if (input.sessao.plano === "gratis") return "gratis";
-  return input.vaultSincronizado ? "sincronizado" : "nao-sincronizado";
+  return input.temChave ? "lista" : "sem-chave";
 }
 
-/** Doc 17 §7: "Baixar um vault para este computador" exige uma PASTA VAZIA — baixar por cima
- * de arquivos existentes poderia sobrescrever notas que não têm nada a ver com o vault.
- * `entradas` é o que `VaultAdapter.listarPasta("")` devolve pra pasta escolhida no diálogo
- * nativo — qualquer entrada (arquivo ou pasta, mesmo pasta-ponto) reprova. */
-export function pastaEstaVazia(entradas: { nome: string }[]): boolean {
-  return entradas.length === 0;
-}
-
-/** Doc 17 §7: ligar ou baixar um vault exige a `chaveDeEnvelope` deste computador (guardada
- * no cofre do Windows). Sem ela, a ação pede a senha da conta antes de continuar. */
+/** Doc 17 §7 / spec §1: sem a `chaveDeEnvelope` deste computador (guardada no cofre do
+ * Windows), a seção pede a senha da conta antes de mostrar a lista. Mesmo teste que
+ * `estadoDaSecaoSincronizacao` usa por dentro — exportado à parte porque `SecaoSincronizacao`
+ * também chama isto sozinho depois de `contaStore.entrar` resolver, para saber se pode
+ * recarregar a lista. */
 export function precisaConfirmarSenha(chaveDeEnvelope: Uint8Array | null): boolean {
   return chaveDeEnvelope === null;
+}
+
+/** Uma ação de item da lista "Seus vaults" (doc 17 §8, tabela; doc 04 §17, linha "Ação"). */
+export type AcaoItem =
+  | "abrir"
+  | "sincronizarAgora"
+  | "pararNesteComputador"
+  | "apagarDaNuvem"
+  | "sincronizar"
+  | "baixarParaEsteComputador"
+  | "esquecerNesteComputador";
+
+/** Doc 17 §8 (tabela) / spec §2: quais ações aparecem para cada estado de um item. */
+export function acoesDoEstado(estado: EstadoItem): AcaoItem[] {
+  switch (estado) {
+    case "sincronizado":
+      return ["abrir", "sincronizarAgora", "pararNesteComputador", "apagarDaNuvem"];
+    case "so-local":
+      return ["sincronizar"];
+    case "so-nuvem":
+      return ["baixarParaEsteComputador"];
+    case "pasta-nao-encontrada":
+      return ["esquecerNesteComputador"];
+    case "outra-senha":
+      return ["apagarDaNuvem"];
+  }
+}
+
+/** Doc 04 §17: "{n} conflitos — abra o vault para resolver" (1: "1 conflito — abra o vault
+ * para resolver") — singular tem texto próprio (nunca "1 conflitos"). `null` sem conflito: a
+ * UI não mostra a linha. */
+export function chaveDeConflitos(
+  n: number,
+): { chave: ChaveTexto; params?: Record<string, number> } | null {
+  if (n <= 0) return null;
+  if (n === 1) return { chave: "sync.item.conflito" };
+  return { chave: "sync.item.conflitos", params: { n } };
 }
 
 /** Doc 04 §17: `sessao`, `plano` e `espaco` têm texto próprio; todo outro código do ciclo
@@ -71,10 +110,8 @@ export function chaveDeErroCiclo(erro: ErroCiclo): ChaveTexto {
 }
 
 /** Doc 17 §8: texto do ícone de estado e da seção para cada `StatusSync`. `"desligado"`
- * devolve `null` — é o status de um vault que não está sincronizado; a seção só chama isto
- * no estado "sincronizado" (`estadoDaSecaoSincronizacao`), onde `"desligado"` não deveria
- * aparecer (ver JSDoc de `StatusSync`). Um `{ erro }` reusa `chaveDeErroCiclo`: são os mesmos
- * códigos (`ErroCiclo`). */
+ * devolve `null` — é o status de um vault que não está sincronizado nesta janela. Um `{ erro }`
+ * reusa `chaveDeErroCiclo`: são os mesmos códigos (`ErroCiclo`). */
 export function chaveDeStatus(status: StatusSync): ChaveTexto | null {
   if (typeof status === "object") return chaveDeErroCiclo(status.erro);
   switch (status) {

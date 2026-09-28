@@ -1,62 +1,50 @@
 // src/sync/fluxoSecao.test.ts
 // Testes do módulo puro que decide o que a seção "Sincronização" das Configurações mostra
-// (plano 10 Task 4, doc 04 §17): qual dos estados exibir, se a pasta escolhida para "Baixar"
-// serve, se é preciso pedir a senha antes de uma ação, e qual chave do catálogo corresponde a
-// um código de erro do ciclo ou a um `StatusSync`. Escrito ANTES da implementação (visto
-// falhando) — nenhum destes símbolos existe ainda em `fluxoSecao.ts`.
+// (plano 12 Task 6, doc 04 §17, doc 17 §7-8): qual dos quatro estados exibir, quais ações
+// aparecem para cada estado de item da lista, o texto de contagem de conflitos, e qual chave do
+// catálogo corresponde a um código de erro do ciclo ou a um `StatusSync`. Reescrito para a
+// lista "Seus vaults" (plano 10 tinha dois ramos — "não sincronizado"/"sincronizado" — que a
+// Task 6 substitui por uma lista única); `pastaEstaVazia` saiu (baixar não exige mais pasta
+// vazia). Escrito ANTES da implementação (visto falhando).
 
 import { describe, it, expect } from "vitest";
 
 import {
   estadoDaSecaoSincronizacao,
-  pastaEstaVazia,
   precisaConfirmarSenha,
+  acoesDoEstado,
+  chaveDeConflitos,
   chaveDeErroCiclo,
   chaveDeStatus,
 } from "./fluxoSecao";
 
 describe("estadoDaSecaoSincronizacao", () => {
   it("sem sessão: sem-conta", () => {
-    expect(estadoDaSecaoSincronizacao({ sessao: null, vaultSincronizado: false })).toBe(
-      "sem-conta",
+    expect(estadoDaSecaoSincronizacao({ sessao: null, temChave: false })).toBe("sem-conta");
+    // Mesmo com a chave presente: sem sessão, a seção nunca mostra a lista (defesa em
+    // profundidade — não deveria acontecer na prática).
+    expect(estadoDaSecaoSincronizacao({ sessao: null, temChave: true })).toBe("sem-conta");
+  });
+
+  it("sessão grátis: gratis, mesmo com chave presente", () => {
+    expect(estadoDaSecaoSincronizacao({ sessao: { plano: "gratis" }, temChave: false })).toBe(
+      "gratis",
     );
-    // Mesmo com o vault marcado como sincronizado: sem sessão, a seção nunca mostra estado
-    // de vault sincronizado (defesa em profundidade — não deveria acontecer na prática).
-    expect(estadoDaSecaoSincronizacao({ sessao: null, vaultSincronizado: true })).toBe(
-      "sem-conta",
+    expect(estadoDaSecaoSincronizacao({ sessao: { plano: "gratis" }, temChave: true })).toBe(
+      "gratis",
     );
   });
 
-  it("sessão grátis: gratis, mesmo com vault sincronizado", () => {
-    expect(
-      estadoDaSecaoSincronizacao({ sessao: { plano: "gratis" }, vaultSincronizado: false }),
-    ).toBe("gratis");
-    expect(
-      estadoDaSecaoSincronizacao({ sessao: { plano: "gratis" }, vaultSincronizado: true }),
-    ).toBe("gratis");
+  it("premium sem chave: sem-chave", () => {
+    expect(estadoDaSecaoSincronizacao({ sessao: { plano: "premium" }, temChave: false })).toBe(
+      "sem-chave",
+    );
   });
 
-  it("premium sem vault sincronizado: nao-sincronizado", () => {
-    expect(
-      estadoDaSecaoSincronizacao({ sessao: { plano: "premium" }, vaultSincronizado: false }),
-    ).toBe("nao-sincronizado");
-  });
-
-  it("premium com vault sincronizado: sincronizado", () => {
-    expect(
-      estadoDaSecaoSincronizacao({ sessao: { plano: "premium" }, vaultSincronizado: true }),
-    ).toBe("sincronizado");
-  });
-});
-
-describe("pastaEstaVazia", () => {
-  it("pasta sem entradas está vazia", () => {
-    expect(pastaEstaVazia([])).toBe(true);
-  });
-
-  it("pasta com qualquer entrada não está vazia", () => {
-    expect(pastaEstaVazia([{ nome: "nota.md" }])).toBe(false);
-    expect(pastaEstaVazia([{ nome: ".git" }])).toBe(false);
+  it("premium com chave: lista", () => {
+    expect(estadoDaSecaoSincronizacao({ sessao: { plano: "premium" }, temChave: true })).toBe(
+      "lista",
+    );
   });
 });
 
@@ -67,6 +55,47 @@ describe("precisaConfirmarSenha", () => {
 
   it("com chaveDeEnvelope no cofre: não precisa", () => {
     expect(precisaConfirmarSenha(new Uint8Array([1, 2, 3]))).toBe(false);
+  });
+});
+
+describe("acoesDoEstado", () => {
+  it("sincronizado: abrir, sincronizar agora, parar neste computador, apagar da nuvem", () => {
+    expect(acoesDoEstado("sincronizado")).toEqual([
+      "abrir",
+      "sincronizarAgora",
+      "pararNesteComputador",
+      "apagarDaNuvem",
+    ]);
+  });
+
+  it("so-local: sincronizar", () => {
+    expect(acoesDoEstado("so-local")).toEqual(["sincronizar"]);
+  });
+
+  it("so-nuvem: baixar para este computador", () => {
+    expect(acoesDoEstado("so-nuvem")).toEqual(["baixarParaEsteComputador"]);
+  });
+
+  it("pasta-nao-encontrada: esquecer neste computador", () => {
+    expect(acoesDoEstado("pasta-nao-encontrada")).toEqual(["esquecerNesteComputador"]);
+  });
+
+  it("outra-senha: apagar da nuvem", () => {
+    expect(acoesDoEstado("outra-senha")).toEqual(["apagarDaNuvem"]);
+  });
+});
+
+describe("chaveDeConflitos", () => {
+  it("zero conflitos: null (a UI não mostra a linha)", () => {
+    expect(chaveDeConflitos(0)).toBe(null);
+  });
+
+  it("um conflito: chave singular, sem parâmetro", () => {
+    expect(chaveDeConflitos(1)).toEqual({ chave: "sync.item.conflito" });
+  });
+
+  it("vários conflitos: chave plural, com {n}", () => {
+    expect(chaveDeConflitos(3)).toEqual({ chave: "sync.item.conflitos", params: { n: 3 } });
   });
 });
 
