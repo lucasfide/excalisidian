@@ -84,6 +84,26 @@ const MIGRACOES: readonly Migracao[] = [
       create index idx_retrato_partes_vault_id on retrato_partes(vault_id);
     `);
   },
+  // Migração 4 (Task 1 do plano "sincronização mais simples e duas correções"): tolerância a
+  // `renovar` chamado várias vezes com o mesmo token (várias janelas/efeitos do app ao
+  // reabrir). `substituida_por` aponta para a sessão nova criada por essa renovação;
+  // `substituida_em` é quando isso aconteceu (epoch em ms, mesma unidade de `expira_em`). A
+  // sessão antiga continua guardada só com `token_hash` — nunca em texto — mesmo depois de
+  // substituída; ver sessao.ts para a janela de graça de 120 s e o cache em memória do token
+  // novo (que este nunca vai para o banco).
+  (db) => {
+    db.exec(`
+      alter table sessoes add column substituida_por integer references sessoes(id);
+      alter table sessoes add column substituida_em integer;
+    `);
+  },
+  // Migração 5 (Task 1, `excalisidian-admin vaults <email>`): "última atividade" por vault —
+  // a última vez que `gravar` (armazenamentoSync.ts) escreveu um lote ou um retrato. `0` para
+  // vaults já existentes antes desta migração (nunca teve gravação registrada) — o comando
+  // mostra isso como nunca atualizado, sem inventar uma data.
+  (db) => {
+    db.exec(`alter table vaults add column atualizado_em integer not null default 0;`);
+  },
 ];
 
 export function abrirBanco(pastaDados: string): BancoSqlite {

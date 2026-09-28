@@ -12,7 +12,7 @@ import { ETIQUETA_KDF, normalizarEmail } from "../../src/conta/derivacaoSenha";
 import type { FastifyInstance, FastifyReply, FastifyRequest } from "fastify";
 import { LimiteDeTentativas } from "./limiteDeTentativas";
 import { gastarTempoDeEmailInexistente, gerarSal, provaConfere, derivarHashDaProva } from "./prova";
-import { criarSessao, exigirPremium, exigirSessao, extrairBearer, revogarSessaoPorToken } from "./sessao";
+import { criarSessao, exigirPremium, exigirSessao, extrairBearer, renovarSessao, revogarSessaoPorToken } from "./sessao";
 import type { SessaoResposta } from "./tipos";
 import { ArmazenamentoSqlite, bytesUsadosPelaConta, COTA_BYTES_POR_CONTA, TAMANHO_MAXIMO_PACOTE } from "./armazenamentoSync";
 
@@ -62,12 +62,15 @@ function decodificarProva(provaBase64: string): Buffer | undefined {
 
 export async function rotasApi(
   app: FastifyInstance,
-  opcoes: { pastaDados: string },
+  opcoes: { pastaDados: string; agora?: () => number },
 ): Promise<void> {
   app.get("/saude", async () => ({ ok: true }));
 
   const banco = app.banco;
   const { pastaDados } = opcoes;
+  // Injetável só pelos testes (Task 1, janela de graça de `renovar` de 120 s) — em produção
+  // é sempre o relógio de verdade.
+  const agora = opcoes.agora ?? (() => Date.now());
   const limiteEntrada = new LimiteDeTentativas();
   const limiteCriacao = new LimiteDeTentativas();
 
@@ -93,7 +96,7 @@ export async function rotasApi(
 
       const sal = gerarSal();
       const hash = await derivarHashDaProva(provaBytes, sal);
-      const criadaEm = Date.now();
+      const criadaEm = agora();
 
       let contaId: number;
       try {
@@ -113,7 +116,7 @@ export async function rotasApi(
         throw erro;
       }
 
-      const sessao = criarSessao(banco, contaId);
+      const sessao = criarSessao(banco, contaId, agora());
       return reply.code(200).send(sessaoResposta(emailNormalizado, "gratis", sessao.token, sessao.expiraEm));
     },
   );
@@ -146,25 +149,24 @@ export async function rotasApi(
       const confere = await provaConfere(provaBytes, conta.sal, conta.hash);
       if (!confere) return reply.code(401).send();
 
-      const sessao = criarSessao(banco, conta.id);
+      const sessao = criarSessao(banco, conta.id, agora());
       return reply.code(200).send(sessaoResposta(conta.email, conta.plano, sessao.token, sessao.expiraEm));
     },
   );
 
-  app.post(
-    "/sessoes/renovar",
-    { preHandler: exigirSessao },
-    async (request, reply) => {
-      // `exigirSessao` já respondeu 401 e retornou se o Bearer não é válido — aqui
-      // `request.conta`/`request.tokenSessao` sempre existem.
-      const conta = request.conta!;
-      const tokenAntigo = request.tokenSessao!;
+  app.post("/sessoes/renovar", async (request, reply) => {
+    // Sem `exigirSessao` aqui de propósito: um token já substituído por uma renovação
+    // anterior (dentro da janela de graça de 120 s) não é mais uma sessão "válida" para o
+    // resto da API, mas ainda deve poder repetir `renovar` e receber a MESMA sessão nova —
+    // `renovarSessao` sabe distinguir os dois casos; `exigirSessao` não.
+    const token = extrairBearer(request);
+    if (!token) return reply.code(401).send();
 
-      revogarSessaoPorToken(banco, tokenAntigo);
-      const sessao = criarSessao(banco, conta.id);
-      return reply.code(200).send(sessaoResposta(conta.email, conta.plano, sessao.token, sessao.expiraEm));
-    },
-  );
+    const resultado = renovarSessao(banco, token, agora());
+    if (!resultado) return reply.code(401).send();
+
+    return reply.code(200).send(sessaoResposta(resultado.email, resultado.plano, resultado.token, resultado.expiraEm));
+  });
 
   app.delete("/sessoes", async (request, reply) => {
     // Sair é idempotente (doc 18 §2): sem Bearer, ou com um token que já não existe (já

@@ -128,20 +128,101 @@ describe("kdf desconhecido", () => {
 });
 
 describe("POST /v1/sessoes/renovar", () => {
-  it("renovar troca o token; o antigo deixa de valer", async () => {
+  it("renovar troca o token", async () => {
     const { sessao: primeira } = await servico.criar("fabio@teste.com", SENHA_VALIDA);
 
     const segunda = await servico.renovar(primeira.token);
     expect(segunda.token).not.toBe(primeira.token);
     expect(segunda.email).toBe("fabio@teste.com");
 
-    await expect(servico.renovar(primeira.token)).rejects.toThrow(
-      expect.objectContaining({ codigo: "expirada" }),
-    );
-
     // O novo token continua bom.
     const terceira = await servico.renovar(segunda.token);
     expect(terceira.token).not.toBe(segunda.token);
+  });
+});
+
+// Causa confirmada pelo plano "sincronização mais simples" (Task 1): o log do servidor
+// mostrava `renovar` 200 seguido de vários 401 — várias janelas/efeitos do app chamam
+// `renovar` com o mesmo token ao reabrir; o primeiro trocava o token e os outros recebiam
+// 401, e o app tratava isso como sessão expirada. Estes testes usam o `ServicoContaHttp`
+// real (mesma prova de verdade dos outros testes deste arquivo) contra um servidor com
+// relógio injetável, para provar a janela de graça de 120 s sem esperar de verdade.
+describe("POST /v1/sessoes/renovar (tolerante a chamadas simultâneas)", () => {
+  let pastaClock: string;
+  let appClock: FastifyInstance;
+  let servicoClock: ServicoContaHttp;
+  let relogio: number;
+
+  beforeEach(() => {
+    pastaClock = fs.mkdtempSync(path.join(os.tmpdir(), "excalisidian-renovar-tolerante-"));
+    relogio = Date.now();
+    const config: Config = { porta: 0, pastaDados: pastaClock };
+    appClock = criarApp(config, { agora: () => relogio });
+    servicoClock = new ServicoContaHttp(BASE, fetchPorInject(appClock), derivarComCache);
+  });
+
+  afterEach(async () => {
+    await appClock.close();
+    fs.rmSync(pastaClock, { recursive: true, force: true });
+  });
+
+  it("dois renovar em sequência com o mesmo token: os dois 200, o mesmo token novo", async () => {
+    const { sessao } = await servicoClock.criar("renovar-sequencia@teste.com", SENHA_VALIDA);
+
+    const primeira = await servicoClock.renovar(sessao.token);
+    const segunda = await servicoClock.renovar(sessao.token);
+
+    expect(primeira.token).not.toBe(sessao.token);
+    expect(segunda.token).toBe(primeira.token);
+  });
+
+  it("três renovações simultâneas (Promise.all) com o mesmo token: todas 200, mesmo token novo", async () => {
+    const { sessao } = await servicoClock.criar("renovar-simultaneo@teste.com", SENHA_VALIDA);
+
+    const [a, b, c] = await Promise.all([
+      servicoClock.renovar(sessao.token),
+      servicoClock.renovar(sessao.token),
+      servicoClock.renovar(sessao.token),
+    ]);
+
+    expect(a.token).not.toBe(sessao.token);
+    expect(b.token).toBe(a.token);
+    expect(c.token).toBe(a.token);
+  });
+
+  it("depois de 120 s, o token substituído dá 401", async () => {
+    const { sessao } = await servicoClock.criar("renovar-janela@teste.com", SENHA_VALIDA);
+    await servicoClock.renovar(sessao.token);
+
+    relogio += 120_001;
+
+    await expect(servicoClock.renovar(sessao.token)).rejects.toThrow(
+      expect.objectContaining({ codigo: "expirada" }),
+    );
+  });
+
+  it("o token novo continua renovável normalmente", async () => {
+    const { sessao } = await servicoClock.criar("renovar-continua@teste.com", SENHA_VALIDA);
+    const segunda = await servicoClock.renovar(sessao.token);
+
+    const terceira = await servicoClock.renovar(segunda.token);
+
+    expect(terceira.token).not.toBe(segunda.token);
+    expect(terceira.email).toBe("renovar-continua@teste.com");
+  });
+
+  it("sair invalida a sessão nova e a que ela substituiu", async () => {
+    const { sessao } = await servicoClock.criar("renovar-sair@teste.com", SENHA_VALIDA);
+    const segunda = await servicoClock.renovar(sessao.token);
+
+    await servicoClock.sair(segunda.token);
+
+    await expect(servicoClock.renovar(segunda.token)).rejects.toThrow(
+      expect.objectContaining({ codigo: "expirada" }),
+    );
+    await expect(servicoClock.renovar(sessao.token)).rejects.toThrow(
+      expect.objectContaining({ codigo: "expirada" }),
+    );
   });
 });
 

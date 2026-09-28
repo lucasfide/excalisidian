@@ -208,11 +208,14 @@ export class ArmazenamentoSqlite implements ArmazenamentoServidorSync {
 
     // 2. Metadados numa transação só.
     const aplicar = this.banco.transaction(() => {
+      // `atualizado_em` alimenta só `excalisidian-admin vaults <email>` ("última atividade",
+      // doc 18 §4) — não é usado por nenhuma regra de sincronização.
+      const agora = Date.now();
       const existeVault = this.banco.prepare(`select id from vaults where id = ?`).get(vault.id);
       if (!existeVault) {
         this.banco
           .prepare(
-            `insert into vaults (id, conta_id, nome_cifrado, envelope, ultimo_retrato) values (?, ?, ?, ?, ?)`,
+            `insert into vaults (id, conta_id, nome_cifrado, envelope, ultimo_retrato, atualizado_em) values (?, ?, ?, ?, ?, ?)`,
           )
           .run(
             vault.id,
@@ -220,16 +223,18 @@ export class ArmazenamentoSqlite implements ArmazenamentoServidorSync {
             Buffer.from(vault.nomeCifrado),
             Buffer.from(vault.envelope),
             vault.retrato?.ateSequencia ?? 0,
+            agora,
           );
       } else {
         this.banco
           .prepare(
-            `update vaults set nome_cifrado = ?, envelope = ?, ultimo_retrato = ? where id = ? and conta_id = ?`,
+            `update vaults set nome_cifrado = ?, envelope = ?, ultimo_retrato = ?, atualizado_em = ? where id = ? and conta_id = ?`,
           )
           .run(
             Buffer.from(vault.nomeCifrado),
             Buffer.from(vault.envelope),
             vault.retrato?.ateSequencia ?? 0,
+            agora,
             vault.id,
             this.contaId,
           );

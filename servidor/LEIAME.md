@@ -222,3 +222,26 @@ Para conferir todas as contas (e-mail, plano, bytes usados):
 ```
 lucas@vps:~$ excalisidian-admin contas
 ```
+
+## Ver e apagar vaults de uma conta **[o segundo comando muda a VPS]**
+
+Para listar os vaults de uma conta (id, bytes usados, número de lotes, última atividade —
+nunca o nome, que é cifrado e o servidor não consegue abrir):
+
+```
+lucas@vps:~$ excalisidian-admin vaults email-da-pessoa@example.com
+```
+
+Devolve uma linha por vault (`nenhum vault.` se a conta não tem nenhum), ou um erro se o
+e-mail não tem conta criada.
+
+Para apagar um vault específico da nuvem (confere que o vault pertence a essa conta antes de
+apagar; apaga metadados e arquivos — os arquivos continuam em qualquer computador onde o vault
+já esteja sincronizado, só a cópia na nuvem some):
+
+```
+lucas@vps:~$ excalisidian-admin apagar-vault email-da-pessoa@example.com id-do-vault
+```
+
+Devolve uma linha de confirmação, ou um erro se o e-mail não tem conta ou o vault não existe
+(ou não é dessa conta) — nunca apaga silenciosamente um id digitado errado.

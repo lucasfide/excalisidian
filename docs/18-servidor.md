@@ -58,7 +58,17 @@ Onde o servidor e esses contratos divergirem, o servidor está errado.
   `/var/backups/excalisidian/<data>/`, guardando 7 dias. É no mesmo disco — protege contra erro
   de software, não contra perder a VPS. Cópia fora da VPS fica como pendência declarada.
 - **Administração**, na VPS: `excalisidian-admin premium <email>`,
-  `excalisidian-admin gratis <email>`, `excalisidian-admin contas`.
+  `excalisidian-admin gratis <email>`, `excalisidian-admin contas`,
+  `excalisidian-admin vaults <email>` (id, bytes usados, número de lotes e última atividade de
+  cada vault da conta — nunca o nome, que é cifrado) e
+  `excalisidian-admin apagar-vault <email> <id>` (confere que o vault é dessa conta antes de
+  apagar metadados e arquivos; os arquivos continuam em qualquer computador já sincronizado, só
+  a cópia na nuvem some). Passo a passo no `servidor/LEIAME.md`.
+- **Sessões:** `renovar` é tolerante a chamadas simultâneas com o mesmo token (várias
+  janelas/efeitos do app ao reabrir) — a sessão antiga fica marcada como substituída por até
+  120 s e um `renovar` repetido nessa janela devolve de novo a mesma sessão nova, em vez de
+  401. Depois disso, ou se a sessão nova já foi ela mesma substituída, 401. `sair` encerra a
+  sessão atual e as que ela substituiu.
 - **Atualizar:** o app é empacotado nesta máquina, copiado pela rede privada (Tailscale) e o
   serviço é reiniciado. Passo a passo no `servidor/LEIAME.md`.
 - O `Caddyfile` padrão que veio com o Caddy foi guardado em

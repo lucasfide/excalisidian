@@ -15,7 +15,7 @@ declare module "fastify" {
   }
 }
 
-export function criarApp(config: Config): FastifyInstance {
+export function criarApp(config: Config, opcoes?: { agora?: () => number }): FastifyInstance {
   // Na VPS o servidor escuta só em 127.0.0.1 (doc 18 §2) e toda requisição chega pelo
   // Caddy — sem isto, `request.ip` seria sempre 127.0.0.1 e o limite de tentativas por IP
   // (doc 18 §3) contaria todo mundo junto. `trustProxy: "127.0.0.1"` confia SÓ em quem
@@ -52,7 +52,7 @@ export function criarApp(config: Config): FastifyInstance {
     },
   );
 
-  app.register(rotasApi, { prefix: "/v1", pastaDados: config.pastaDados });
+  app.register(rotasApi, { prefix: "/v1", pastaDados: config.pastaDados, agora: opcoes?.agora });
 
   return app;
 }
