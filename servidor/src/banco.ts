@@ -104,6 +104,25 @@ const MIGRACOES: readonly Migracao[] = [
   (db) => {
     db.exec(`alter table vaults add column atualizado_em integer not null default 0;`);
   },
+  // Migração 6 (IA do Excalisidian, doc 18 §5.2): a faixa de IA da conta (`padrao` = 3.000
+  // créditos/mês, `superior` = 10.000; as duas são "premium" para o resto do produto) e o uso
+  // por conta e por mês civil de Brasília (`periodo` = "AAAA-MM"). Só números — nunca texto
+  // de mensagem. `custo_micro_usd` é o custo real acumulado do fornecedor em micro-dólares
+  // inteiros; os créditos saem dele (1 crédito = 1000 micro-dólares).
+  (db) => {
+    db.exec(`
+      alter table contas add column faixa_ia text not null default 'padrao';
+      create table uso_ia (
+        conta_id integer not null references contas(id) on delete cascade,
+        periodo text not null,
+        custo_micro_usd integer not null default 0,
+        pedidos integer not null default 0,
+        tokens_entrada integer not null default 0,
+        tokens_saida integer not null default 0,
+        primary key (conta_id, periodo)
+      );
+    `);
+  },
 ];
 
 export function abrirBanco(pastaDados: string): BancoSqlite {
