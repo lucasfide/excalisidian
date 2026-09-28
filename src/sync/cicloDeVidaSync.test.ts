@@ -34,7 +34,14 @@ function criarStoreFalso<T extends object>(inicial: T) {
 // `vi.mock` é hoisted para o topo do arquivo — as fábricas só podem referenciar variáveis
 // declaradas via `vi.hoisted` (também hoisted, antes dos mocks). Sem isso, `vaultStoreFalso`
 // etc. seriam `undefined` no momento em que a fábrica roda.
-const { vaultStoreFalso, contaStoreFalso, pararMock, iniciarMock } = vi.hoisted(() => {
+const {
+  vaultStoreFalso,
+  contaStoreFalso,
+  pararMock,
+  iniciarMock,
+  pararSegundoPlanoMock,
+  iniciarSegundoPlanoRealMock,
+} = vi.hoisted(() => {
   return {
     vaultStoreFalso: criarStoreFalso<{ adapter: unknown }>({ adapter: null }),
     contaStoreFalso: criarStoreFalso<{ carregado: boolean; sessao: unknown }>({
@@ -43,6 +50,8 @@ const { vaultStoreFalso, contaStoreFalso, pararMock, iniciarMock } = vi.hoisted(
     }),
     pararMock: vi.fn(),
     iniciarMock: vi.fn(async () => {}),
+    pararSegundoPlanoMock: vi.fn(),
+    iniciarSegundoPlanoRealMock: vi.fn(),
   };
 });
 
@@ -58,6 +67,14 @@ vi.mock("../estado/syncStore", () => ({
 vi.mock("./ligarAoVault", () => ({
   iniciarSincronizacaoDoVaultAberto: () => iniciarMock(),
 }));
+// Segundo plano (plano 12 Task 5): mockado inteiro — este arquivo só testa QUE
+// `instalarCicloDeVidaSync` instala e pára o segundo plano nos momentos certos, não o que ele
+// faz por dentro (isso é `segundoPlano.test.ts`). `iniciarSegundoPlanoReal` é chamado sem
+// argumentos; devolve a função "parar" que os testes espionam.
+iniciarSegundoPlanoRealMock.mockImplementation(() => pararSegundoPlanoMock);
+vi.mock("./segundoPlano", () => ({
+  iniciarSegundoPlanoReal: () => iniciarSegundoPlanoRealMock(),
+}));
 
 import { instalarCicloDeVidaSync } from "./cicloDeVidaSync";
 
@@ -71,6 +88,15 @@ describe("instalarCicloDeVidaSync", () => {
     contaStoreFalso.setState({ carregado: false, sessao: null });
     pararMock.mockClear();
     iniciarMock.mockClear();
+    pararSegundoPlanoMock.mockClear();
+    iniciarSegundoPlanoRealMock.mockClear();
+  });
+
+  it("instala o segundo plano ao iniciar", () => {
+    const cancelar = instalarCicloDeVidaSync();
+
+    expect(iniciarSegundoPlanoRealMock).toHaveBeenCalledTimes(1);
+    cancelar();
   });
 
   it("vault abre nesta janela: para qualquer sincronização anterior e tenta ligar a nova", async () => {
@@ -152,13 +178,16 @@ describe("instalarCicloDeVidaSync", () => {
     expect(pararMock).toHaveBeenCalledTimes(1);
     // Sair não tenta ligar de novo — não há mais sessão premium pra ligar nada.
     expect(iniciarMock).not.toHaveBeenCalled();
+    // Sair da conta também pára o segundo plano (plano 12 Task 5).
+    expect(pararSegundoPlanoMock).toHaveBeenCalledTimes(1);
     cancelar();
   });
 
-  it("cancelar() desliga as duas assinaturas: mudanças depois disso não chamam mais nada", async () => {
+  it("cancelar() desliga as duas assinaturas e o segundo plano: mudanças depois disso não chamam mais nada", async () => {
     const cancelar = instalarCicloDeVidaSync();
     pararMock.mockClear();
     iniciarMock.mockClear();
+    pararSegundoPlanoMock.mockClear();
     cancelar();
 
     vaultStoreFalso.setState({ adapter: { raiz: () => "C:/v1" } });
@@ -167,6 +196,7 @@ describe("instalarCicloDeVidaSync", () => {
 
     expect(pararMock).not.toHaveBeenCalled();
     expect(iniciarMock).not.toHaveBeenCalled();
+    expect(pararSegundoPlanoMock).toHaveBeenCalledTimes(1);
   });
 
   it("instalar com o vault já aberto tenta ligar imediatamente (instalação tardia, defensivo)", () => {

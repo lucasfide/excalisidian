@@ -15,13 +15,22 @@
 //     tenta ligar de novo — é o "sessão chega tarde" do doc 17 §7.
 //   - `contaStore.sessao` que EXISTIA e sumiu (sair da conta): para a sincronização direto,
 //     sem tentar ligar de novo — não há mais sessão premium pra ligar nada.
+//
+// Também instala o segundo plano (doc 17 §8.1, plano 12 Task 5) — a sincronização dos vaults
+// sincronizados e FECHADOS nesta janela, se ela vier a ser a designada. Uma instalação só, na
+// abertura desta janela (o segundo plano já reavalia sessão/premium/chave a cada rodada, então
+// não precisa reinstalar quando a conta muda); pára junto com "sair da conta", mesma linha de
+// `useSyncStore.getState().parar()`.
 
 import { useVaultStore } from "../estado/vaultStore";
 import { useContaStore } from "../estado/contaStore";
 import { useSyncStore } from "../estado/syncStore";
 import { iniciarSincronizacaoDoVaultAberto } from "./ligarAoVault";
+import { iniciarSegundoPlanoReal } from "./segundoPlano";
 
 export function instalarCicloDeVidaSync(): () => void {
+  const pararSegundoPlano = iniciarSegundoPlanoReal();
+
   const cancelarVault = useVaultStore.subscribe((estado, anterior) => {
     if (estado.adapter === anterior.adapter) return;
     // Trocou ou fechou o vault desta janela: a sincronização do vault ANTERIOR não pode
@@ -34,6 +43,7 @@ export function instalarCicloDeVidaSync(): () => void {
     if (anterior.sessao && !estado.sessao) {
       // Sair da conta (doc 17 §2: quem sai não deixa a chave nem a sincronização rodando).
       useSyncStore.getState().parar();
+      pararSegundoPlano();
       return;
     }
     if (estado.carregado !== anterior.carregado || estado.sessao !== anterior.sessao) {
@@ -52,5 +62,6 @@ export function instalarCicloDeVidaSync(): () => void {
   return () => {
     cancelarVault();
     cancelarConta();
+    pararSegundoPlano();
   };
 }
