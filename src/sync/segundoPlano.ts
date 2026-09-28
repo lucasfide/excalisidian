@@ -98,12 +98,33 @@ async function gravarComSilencio(
   }
 }
 
+/** Deps mínimas para sincronizar UM vault fechado (`rodarVault`, abaixo) — subconjunto de
+ * `DepsSegundoPlano`. Task 6 (revisão de code review, commit 3d536f5): `SecaoSincronizacao.tsx`
+ * reaproveita `rodarVault` para "Sincronizar agora" num vault fechado nesta janela, em vez de
+ * manter uma segunda cópia da mesma trava/efeitos-nulos/`executarCiclo` — um `DepsSegundoPlano`
+ * completo sempre serve aqui (estrutural: só tem campos a mais). */
+export type DepsRodarVault = Pick<
+  DepsSegundoPlano,
+  | "carregarEstadoSync"
+  | "salvarEstadoSync"
+  | "existePasta"
+  | "tentarTravarSync"
+  | "liberarTravaSync"
+  | "vaultsAbertos"
+  | "chaveDeVault"
+  | "servico"
+  | "abrirEnvelope"
+  | "abrirAdaptador"
+  | "executarCiclo"
+  | "agora"
+>;
+
 /** Um vault por vez (Task 5): abre o envelope, roda `executarCiclo` com efeitos nulos e grava
  * `ultimoCicloEm`/`ultimoErro`. Qualquer falha (envelope que não abre, adaptador que não abre,
  * exceção do próprio ciclo) é registrada em `estado.ultimoErro` e NÃO propaga — quem chama
  * (`executarRodada`) segue para o próximo vault. */
 async function sincronizarUmVault(
-  deps: DepsSegundoPlano,
+  deps: DepsRodarVault,
   caminho: string,
   estado: EstadoSync,
   registro: { id: string; envelope: Uint8Array } | undefined,
@@ -180,9 +201,18 @@ async function sincronizarUmVault(
  * nova já carregou as abas, e se a própria janela designada for quem abriu o vault, o registro
  * de "escrita própria" faz o watcher ignorar o evento e a aba fica com a versão antiga. A trava
  * é sempre liberada com o token, inclusive se o ciclo lançar ou se este check encontrar o vault
- * aberto (Review Focus 2). */
-async function rodarVault(
-  deps: DepsSegundoPlano,
+ * aberto (Review Focus 2).
+ *
+ * Exportada (Task 6, revisão pós-commit 3d536f5): é a mesma função que "Sincronizar agora"
+ * chama, em `SecaoSincronizacao.tsx`, para um item da lista "Seus vaults" que está sincronizado
+ * mas fechado nesta janela — uma cópia própria da trava/efeitos-nulos/`executarCiclo` ali seria
+ * a mesma regra duas vezes (e já tinha ficado sem a checagem fresca de `vaultsAbertos()` depois
+ * da trava). Quando pula porque o vault está aberto em outra janela (ou a trava foi negada, ou a
+ * pasta sumiu), esta função não sinaliza nada de especial — devolve normalmente sem tocar em
+ * `estado.ultimoErro`; quem chama nunca deveria mostrar isso como um erro novo (a janela dona
+ * sincroniza sozinha). */
+export async function rodarVault(
+  deps: DepsRodarVault,
   caminho: string,
   nuvem: { id: string; envelope: Uint8Array }[],
   chaveDeEnvelope: Uint8Array,

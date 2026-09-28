@@ -7,7 +7,7 @@
 
 import { describe, it, expect, vi, beforeEach } from "vitest";
 
-import { executarRodada, iniciarSegundoPlano, type DepsSegundoPlano } from "./segundoPlano";
+import { executarRodada, iniciarSegundoPlano, rodarVault, type DepsSegundoPlano } from "./segundoPlano";
 import type { EstadoSync } from "./estadoSync";
 import type { ContextoCiclo, ResultadoCiclo } from "./motor";
 import type { ServicoSync } from "./ServicoSync";
@@ -282,6 +282,98 @@ describe("executarRodada", () => {
     const chamadaBoa = salvarEstadoSync.mock.calls.find(([raiz]) => raiz === "C:/Vaults/Bom")!;
     expect(chamadaRuim[1].ultimoErro).not.toBeNull();
     expect(chamadaBoa[1].ultimoErro).toBeNull();
+  });
+});
+
+describe("rodarVault", () => {
+  // Task 6 (revisão pós-commit 3d536f5): `rodarVault` é exportada para "Sincronizar agora" da
+  // lista "Seus vaults" (`SecaoSincronizacao.tsx`) reaproveitar, num vault fechado nesta janela,
+  // em vez de duplicar a trava/efeitos-nulos/`executarCiclo`. Testada direto, fora de
+  // `executarRodada` — só o subconjunto de deps de `DepsRodarVault` é necessário (um
+  // `DepsSegundoPlano` completo, via `depsBase()`, também serve: é estrutural).
+
+  it("sincroniza o vault: trava, roda o ciclo, grava ultimoCicloEm/ultimoErro, libera a trava", async () => {
+    const estado = estadoBase("vault-1");
+    const tentarTravarSync = vi.fn(async () => "dono-1");
+    const liberarTravaSync = vi.fn(async () => {});
+    const executarCiclo = vi.fn(async () => ({ ok: true, foraDaSincronizacao: [] }) as ResultadoCiclo);
+    const salvarEstadoSync = vi.fn(async (_raiz: string, _estado: EstadoSync) => {});
+    const deps = depsBase({
+      carregarEstadoSync: async () => estado,
+      tentarTravarSync,
+      liberarTravaSync,
+      executarCiclo,
+      salvarEstadoSync,
+    });
+
+    await rodarVault(
+      deps,
+      "C:/Vaults/Casa",
+      [{ id: "vault-1", envelope: new Uint8Array() }],
+      new Uint8Array([1]),
+      "Notebook do Lucas (este computador)",
+      () => new Date("2026-09-28T12:00:00.000Z"),
+    );
+
+    expect(tentarTravarSync).toHaveBeenCalledWith("C:/Vaults/Casa");
+    expect(executarCiclo).toHaveBeenCalledTimes(1);
+    expect(salvarEstadoSync).toHaveBeenCalledTimes(1);
+    const [, estadoSalvo] = salvarEstadoSync.mock.calls[0];
+    expect(estadoSalvo.ultimoCicloEm).toBe("2026-09-28T12:00:00.000Z");
+    expect(estadoSalvo.ultimoErro).toBeNull();
+    expect(liberarTravaSync).toHaveBeenCalledWith("C:/Vaults/Casa", "dono-1");
+  });
+
+  it("vault aberto em outra janela: pula sem sincronizar, mas ainda libera a trava (Review Focus 2)", async () => {
+    const estado = estadoBase("vault-1");
+    const executarCiclo = vi.fn(async () => ({ ok: true, foraDaSincronizacao: [] }) as ResultadoCiclo);
+    const liberarTravaSync = vi.fn(async () => {});
+    const salvarEstadoSync = vi.fn(async () => {});
+    const deps = depsBase({
+      carregarEstadoSync: async () => estado,
+      vaultsAbertos: async () => ["c:/vaults/casa"],
+      chaveDeVault: (c) => c.toLowerCase(),
+      executarCiclo,
+      liberarTravaSync,
+      salvarEstadoSync,
+    });
+
+    await rodarVault(
+      deps,
+      "C:/Vaults/Casa",
+      [{ id: "vault-1", envelope: new Uint8Array() }],
+      new Uint8Array([1]),
+      "Notebook do Lucas (este computador)",
+      () => new Date("2026-09-28T12:00:00.000Z"),
+    );
+
+    expect(executarCiclo).not.toHaveBeenCalled();
+    expect(salvarEstadoSync).not.toHaveBeenCalled();
+    expect(liberarTravaSync).toHaveBeenCalledWith("C:/Vaults/Casa", expect.any(String));
+  });
+
+  it("pasta inexistente: pula sem travar nem sincronizar", async () => {
+    const estado = estadoBase("vault-1");
+    const tentarTravarSync = vi.fn(async () => "dono-1");
+    const executarCiclo = vi.fn(async () => ({ ok: true, foraDaSincronizacao: [] }) as ResultadoCiclo);
+    const deps = depsBase({
+      carregarEstadoSync: async () => estado,
+      existePasta: async () => false,
+      tentarTravarSync,
+      executarCiclo,
+    });
+
+    await rodarVault(
+      deps,
+      "C:/Vaults/Sumiu",
+      [{ id: "vault-1", envelope: new Uint8Array() }],
+      new Uint8Array([1]),
+      "Notebook do Lucas (este computador)",
+      () => new Date("2026-09-28T12:00:00.000Z"),
+    );
+
+    expect(tentarTravarSync).not.toHaveBeenCalled();
+    expect(executarCiclo).not.toHaveBeenCalled();
   });
 });
 

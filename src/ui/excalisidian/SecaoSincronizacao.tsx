@@ -33,14 +33,8 @@ import { montarListaDeVaults, type ItemVault } from "../../sync/listaDeVaults";
 import { proximoNomeDePasta } from "../../sync/pastaDeDownload";
 import { tempoRelativo } from "../../sync/tempoRelativo";
 import { existePasta } from "../../sync/existePasta";
-import {
-  iniciarVault,
-  baixarVault,
-  efeitosNulos,
-  executarCiclo,
-  type ErroCiclo,
-  type ContextoCiclo,
-} from "../../sync/motor";
+import { iniciarVault, baixarVault, efeitosNulos, type ErroCiclo } from "../../sync/motor";
+import { rodarVault } from "../../sync/segundoPlano";
 import { servicoSyncAtual } from "../../sync/servicoSyncAtual";
 import {
   carregarEstadoSync,
@@ -50,7 +44,7 @@ import {
   gravarNomeDoComputador,
 } from "../../sync/estadoSync";
 import { abrir, abrirEnvelope, aadDe } from "../../sync/pacote";
-import { tentarTravarSync, liberarTravaSync } from "../../sync/coordenacao";
+import { tentarTravarSync, liberarTravaSync, vaultsAbertos, chaveDeVault } from "../../sync/coordenacao";
 import { iniciarSincronizacaoDoVaultAberto } from "../../sync/ligarAoVault";
 import { FalhaSync } from "../../sync/tiposServidor";
 import { escolherPasta, abrirVaultEmJanela, criarVault } from "../../vault/janelas";
@@ -243,59 +237,40 @@ export default function SecaoSincronizacao() {
     await carregarLista();
   }
 
-  /** Ciclo avulso para um vault sincronizado FECHADO nesta janela (nenhuma outra tarefa deste
-   * plano cobre isto fora do segundo plano automático, que é módulo à parte — plano 12 Task 5):
-   * abre o adaptador, decifra a `chaveDoVault`, tenta a trava (doc 17 §8.1 — nunca dois ciclos
-   * no mesmo vault ao mesmo tempo) e roda `executarCiclo` com efeitos nulos (não há árvore nem
-   * aba deste vault nesta janela) e conflito indo só para `conflitosPendentes` — mesmo contrato
-   * do segundo plano. Devolve o código de erro do ciclo, ou `null` em sucesso (ou quando a
-   * trava foi negada: não é erro, só "tente de novo" — a lista mostra o estado de antes). */
-  async function sincronizarVaultFechado(caminho: string): Promise<ErroCiclo | null> {
-    if (!chaveDeEnvelope) return "sessao"; // defesa em profundidade — o gate já garante a chave
-    const estado = await carregarEstadoSync(caminho);
-    if (!estado) return null;
-
-    let registro;
-    try {
-      const vaults = await servicoSyncAtual().listarVaults();
-      registro = vaults.find((v) => v.id === estado.idDoVault);
-    } catch (e) {
-      return codigoDeErroSync(e);
-    }
-    if (!registro) return "nao-encontrado";
-
-    let chaveDoVault: Uint8Array;
-    try {
-      chaveDoVault = await abrirEnvelope(chaveDeEnvelope, registro.envelope, registro.id);
-    } catch {
-      return "sessao";
-    }
-
-    const adaptador = await TauriVaultAdapter.abrir(caminho);
+  /** "Sincronizar agora" num item que está sincronizado mas FECHADO nesta janela: reaproveita
+   * `rodarVault` (`sync/segundoPlano.ts`), a MESMA função que o segundo plano automático chama
+   * para cada vault a cada rodada (plano 12 Task 5) — trava (doc 17 §8.1, nunca dois ciclos no
+   * mesmo vault ao mesmo tempo), confere `vaultsAbertos()` de novo depois da trava (Review
+   * Focus 2), decifra o envelope, roda `executarCiclo` com efeitos nulos e grava
+   * `ultimoCicloEm`/`ultimoErro`. Sem isto haveria duas cópias da mesma regra — a de cá tinha
+   * ficado sem a checagem fresca de `vaultsAbertos()` (achado da revisão do commit 3d536f5).
+   * Quando `rodarVault` pula (trava negada, pasta sumida, ou o vault abriu numa janela entre o
+   * clique e agora), ela não lança e não muda `ultimoErro` — não há nada de novo para mostrar
+   * como erro aqui (a janela dona sincroniza sozinha); só uma exceção de verdade (rede ao listar
+   * a nuvem, etc., fora do que `rodarVault` já absorve internamente) cai no `catch` abaixo. */
+  async function sincronizarVaultFechado(caminho: string): Promise<void> {
+    if (!chaveDeEnvelope) return; // defesa em profundidade — o gate já garante a chave
+    const vaults = await servicoSyncAtual().listarVaults();
     const nomeDesteComputador = await lerNomeDoComputador();
-
-    const dono = await tentarTravarSync(caminho);
-    if (!dono) return null; // outra janela (ou o segundo plano) está sincronizando agora
-    try {
-      const ctx: ContextoCiclo = {
-        adaptador,
+    await rodarVault(
+      {
+        carregarEstadoSync,
+        salvarEstadoSync,
+        existePasta,
+        tentarTravarSync,
+        liberarTravaSync,
+        vaultsAbertos,
+        chaveDeVault,
         servico: servicoSyncAtual(),
-        chave: chaveDoVault,
-        estado,
-        efeitos: efeitosNulos(),
-        nomeDesteComputador,
-        registrarConflito: () => {},
-        flushTudo: async () => {},
-        conflitosAbertos: () => new Set(),
-      };
-      const resultado = await executarCiclo(ctx);
-      estado.ultimoCicloEm = new Date().toISOString();
-      estado.ultimoErro = resultado.ok ? null : resultado.erro;
-      await salvarEstadoSync(caminho, estado);
-      return resultado.ok ? null : resultado.erro;
-    } finally {
-      await liberarTravaSync(caminho, dono);
-    }
+        abrirEnvelope,
+        abrirAdaptador: (c) => TauriVaultAdapter.abrir(c),
+      },
+      caminho,
+      vaults,
+      chaveDeEnvelope,
+      nomeDesteComputador,
+      () => new Date(),
+    );
   }
 
   async function aoSincronizarAgora(item: ItemVault): Promise<void> {
@@ -306,8 +281,7 @@ export default function SecaoSincronizacao() {
       if (item.caminho === raizAberta) {
         await useSyncStore.getState().sincronizarAgora();
       } else {
-        const erro = await sincronizarVaultFechado(item.caminho);
-        if (erro) setErroPorItem((m) => ({ ...m, [item.chave]: chaveDeErroCiclo(erro) }));
+        await sincronizarVaultFechado(item.caminho);
       }
     } catch (e) {
       setErroPorItem((m) => ({ ...m, [item.chave]: chaveDeErroCiclo(codigoDeErroSync(e)) }));
