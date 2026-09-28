@@ -17,6 +17,10 @@ export class LimiteDeTentativas {
   private readonly tentativasPorChave = new Map<string, number[]>();
   private chamadasDesdeALimpeza = 0;
 
+  /** `limite`: tentativas por minuto por chave. Padrão 10 (entrar/criar conta, doc 18 §3); a
+   * IA usa 30 por conta (doc 18 §5.1). */
+  constructor(private readonly limite: number = LIMITE) {}
+
   /** Registra uma tentativa para `chave` e devolve `true` se ainda está dentro do limite,
    * `false` se esta tentativa já excede. */
   registrar(chave: string): boolean {
@@ -32,7 +36,7 @@ export class LimiteDeTentativas {
     const dentroDaJanela = anteriores.filter((tentativa) => agora - tentativa < JANELA_MS);
     dentroDaJanela.push(agora);
     this.tentativasPorChave.set(chave, dentroDaJanela);
-    return dentroDaJanela.length <= LIMITE;
+    return dentroDaJanela.length <= this.limite;
   }
 
   private limpar(agora: number): void {

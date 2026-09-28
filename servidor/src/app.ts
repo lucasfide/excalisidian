@@ -8,6 +8,7 @@ import { abrirBanco, type BancoSqlite } from "./banco";
 import type { Config } from "./config";
 import { registrarLog } from "./log";
 import { rotasApi } from "./rotas";
+import { registrarRotasIa } from "./rotasIa";
 
 declare module "fastify" {
   interface FastifyInstance {
@@ -15,7 +16,7 @@ declare module "fastify" {
   }
 }
 
-export function criarApp(config: Config, opcoes?: { agora?: () => number }): FastifyInstance {
+export function criarApp(config: Config, opcoes?: { agora?: () => number; fetchFornecedor?: typeof fetch }): FastifyInstance {
   // Na VPS o servidor escuta só em 127.0.0.1 (doc 18 §2) e toda requisição chega pelo
   // Caddy — sem isto, `request.ip` seria sempre 127.0.0.1 e o limite de tentativas por IP
   // (doc 18 §3) contaria todo mundo junto. `trustProxy: "127.0.0.1"` confia SÓ em quem
@@ -53,6 +54,17 @@ export function criarApp(config: Config, opcoes?: { agora?: () => number }): Fas
   );
 
   app.register(rotasApi, { prefix: "/v1", pastaDados: config.pastaDados, agora: opcoes?.agora });
+
+  // IA do Excalisidian (doc 18 §5): plugin próprio sob o mesmo prefixo /v1.
+  app.register(
+    async (instancia) =>
+      registrarRotasIa(instancia, banco, {
+        ia: config.ia,
+        fetchFornecedor: opcoes?.fetchFornecedor ?? fetch,
+        agora: opcoes?.agora ?? (() => Date.now()),
+      }),
+    { prefix: "/v1" },
+  );
 
   return app;
 }
