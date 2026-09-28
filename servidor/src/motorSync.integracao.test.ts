@@ -45,7 +45,7 @@ beforeEach(async () => {
   // Uma conta premium só, compartilhada pelos "computadores" do teste — sincronização é por
   // CONTA (vários dispositivos, uma sessão cada na vida real; aqui um token só é suficiente,
   // porque o que se está testando é o diário do vault, não a autenticação).
-  const sessao = await contas.criar("equipe@teste.com", "senha-de-teste-123456");
+  const { sessao } = await contas.criar("equipe@teste.com", "senha-de-teste-123456");
   app.banco.prepare(`update contas set plano = 'premium' where email = ?`).run("equipe@teste.com");
   definirTokenDaSessao(sessao.token);
 });

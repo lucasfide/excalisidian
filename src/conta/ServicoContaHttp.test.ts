@@ -36,7 +36,7 @@ describe("ServicoContaHttp", () => {
     const falso = vi.fn(async () => resposta(200, sessaoValida));
     const servico = servicoComDubles(falso as unknown as typeof fetch);
 
-    const s = await servico.entrar(" Ana@Exemplo.com ", "segredo123456");
+    const { sessao: s } = await servico.entrar(" Ana@Exemplo.com ", "segredo123456");
 
     expect(s.token).toBe("tok-1");
     expect(s.plano).toBe("premium");
@@ -139,6 +139,26 @@ describe("ServicoContaHttp", () => {
     await servico.renovar("tok-velho");
     const [, init] = falso.mock.calls[0] as unknown as [string, RequestInit];
     expect((init.headers as Record<string, string>).Authorization).toBe("Bearer tok-velho");
+  });
+
+  it("entrar deriva a chaveDeEnvelope UMA vez e devolve a mesma da derivação", async () => {
+    const falso = vi.fn(async () => resposta(200, sessaoValida));
+    const servico = servicoComDubles(falso as unknown as typeof fetch);
+
+    const resultado = await servico.entrar("ana@exemplo.com", "segredo123456");
+
+    expect(derivarFalso).toHaveBeenCalledTimes(1);
+    expect(resultado.chaveDeEnvelope).toEqual(new Uint8Array([1, 2, 3]));
+  });
+
+  it("criar deriva a chaveDeEnvelope UMA vez e devolve a mesma da derivação", async () => {
+    const falso = vi.fn(async () => resposta(200, sessaoValida));
+    const servico = servicoComDubles(falso as unknown as typeof fetch);
+
+    const resultado = await servico.criar("ana@exemplo.com", "segredo123456");
+
+    expect(derivarFalso).toHaveBeenCalledTimes(1);
+    expect(resultado.chaveDeEnvelope).toEqual(new Uint8Array([1, 2, 3]));
   });
 
   it("exceção de rede vira rede", async () => {

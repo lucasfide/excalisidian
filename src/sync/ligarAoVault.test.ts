@@ -146,7 +146,7 @@ describe("iniciarSincronizacaoDoVaultAberto", () => {
     carregarEstadoSyncMock.mockResolvedValue(ESTADO_SALVO);
     useContaStore.setState({ carregado: true, sessao: SESSAO_PREMIUM });
     const chave = new Uint8Array([1, 2, 3]);
-    await useContaStore.getState().cofreChaveDeEnvelope.gravar(chave);
+    await useContaStore.getState().cofreChaveDeEnvelope.gravar(SESSAO_PREMIUM.email, chave);
     const envelope = new Uint8Array([9, 9]);
     listarVaultsMock.mockResolvedValue([
       { id: "vault-1", nomeCifrado: new Uint8Array(), envelope },
@@ -171,7 +171,7 @@ describe("iniciarSincronizacaoDoVaultAberto", () => {
     vaultStoreState.adapter = ADAPTER_FAKE;
     carregarEstadoSyncMock.mockResolvedValue(ESTADO_SALVO);
     useContaStore.setState({ carregado: true, sessao: SESSAO_PREMIUM });
-    await useContaStore.getState().cofreChaveDeEnvelope.gravar(new Uint8Array([1]));
+    await useContaStore.getState().cofreChaveDeEnvelope.gravar(SESSAO_PREMIUM.email, new Uint8Array([1]));
     listarVaultsMock.mockResolvedValue([]);
 
     await iniciarSincronizacaoDoVaultAberto();
@@ -184,7 +184,7 @@ describe("iniciarSincronizacaoDoVaultAberto", () => {
       vaultStoreState.adapter = ADAPTER_FAKE;
       carregarEstadoSyncMock.mockResolvedValue(ESTADO_SALVO);
       useContaStore.setState({ carregado: true, sessao: SESSAO_PREMIUM });
-      await useContaStore.getState().cofreChaveDeEnvelope.gravar(new Uint8Array([1]));
+      await useContaStore.getState().cofreChaveDeEnvelope.gravar(SESSAO_PREMIUM.email, new Uint8Array([1]));
     });
 
     it("marca sem-conexao (iniciarPendente) e não deixa o erro escapar", async () => {
@@ -231,7 +231,7 @@ describe("iniciarSincronizacaoDoVaultAberto", () => {
     vaultStoreState.adapter = ADAPTER_FAKE;
     carregarEstadoSyncMock.mockResolvedValue(ESTADO_SALVO);
     useContaStore.setState({ carregado: true, sessao: SESSAO_PREMIUM });
-    await useContaStore.getState().cofreChaveDeEnvelope.gravar(new Uint8Array([1]));
+    await useContaStore.getState().cofreChaveDeEnvelope.gravar(SESSAO_PREMIUM.email, new Uint8Array([1]));
     listarVaultsMock.mockRejectedValue(new FalhaSync("servidor"));
 
     await iniciarSincronizacaoDoVaultAberto();
@@ -247,7 +247,7 @@ describe("iniciarSincronizacaoDoVaultAberto", () => {
       carregarEstadoSyncMock.mockResolvedValue(ESTADO_SALVO);
       useContaStore.setState({ carregado: true, sessao: SESSAO_PREMIUM });
       const cofre = useContaStore.getState().cofreChaveDeEnvelope;
-      await cofre.gravar(new Uint8Array([1]));
+      await cofre.gravar(SESSAO_PREMIUM.email, new Uint8Array([1]));
       listarVaultsMock.mockResolvedValue([
         { id: "vault-1", nomeCifrado: new Uint8Array(), envelope: new Uint8Array([9]) },
       ]);
@@ -255,7 +255,7 @@ describe("iniciarSincronizacaoDoVaultAberto", () => {
 
       await expect(iniciarSincronizacaoDoVaultAberto()).resolves.toBeUndefined();
 
-      expect(await cofre.ler()).toBeNull();
+      expect(await cofre.ler(SESSAO_PREMIUM.email)).toBeNull();
       expect(syncStoreMock.iniciar).not.toHaveBeenCalled();
     });
   });
@@ -271,7 +271,7 @@ describe("iniciarSincronizacaoDoVaultAberto", () => {
       vaultStoreState.adapter = ADAPTER_FAKE;
       carregarEstadoSyncMock.mockResolvedValue(ESTADO_SALVO);
       useContaStore.setState({ carregado: true, sessao: SESSAO_PREMIUM });
-      await useContaStore.getState().cofreChaveDeEnvelope.gravar(new Uint8Array([1]));
+      await useContaStore.getState().cofreChaveDeEnvelope.gravar(SESSAO_PREMIUM.email, new Uint8Array([1]));
       listarVaultsMock.mockResolvedValue([
         { id: "vault-1", nomeCifrado: new Uint8Array(), envelope: new Uint8Array([9]) },
       ]);

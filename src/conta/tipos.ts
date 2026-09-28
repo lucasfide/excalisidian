@@ -18,6 +18,16 @@ export interface Sessao {
   expiraEm: number;
 }
 
+/** O que `entrar`/`criar` devolvem (plano 12 Task 2, ADR-39 "Mudança de 27/09/2026"): a
+ * `chaveDeEnvelope` nasce junto da sessão, porque é o único momento em que o app tem a
+ * senha em mãos — nunca duas derivações por login, a mesma chamada que produz a prova de
+ * identidade também produz esta chave. Quem chama grava no cofre (`contaStore`); este tipo
+ * só carrega os dois valores juntos até lá. */
+export interface ResultadoLogin {
+  sessao: Sessao;
+  chaveDeEnvelope: Uint8Array;
+}
+
 export type ErroConta =
   | "credenciais" // email ou senha não conferem
   | "emailEmUso" // criação com email já cadastrado

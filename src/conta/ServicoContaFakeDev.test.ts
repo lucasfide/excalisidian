@@ -15,10 +15,18 @@ const contaTeste = () => ({
 describe("ServicoContaFakeDev", () => {
   it("entrar com a conta de teste devolve sessão premium", async () => {
     const s = new ServicoContaFakeDev(contaTeste());
-    const sessao = await s.entrar(EMAIL_CONTA_TESTE_DEV, SENHA_CONTA_TESTE_DEV);
+    const { sessao } = await s.entrar(EMAIL_CONTA_TESTE_DEV, SENHA_CONTA_TESTE_DEV);
     expect(sessao.email).toBe(EMAIL_CONTA_TESTE_DEV);
     expect(sessao.plano).toBe("premium");
     expect(sessao.token).toBeTruthy();
+  });
+
+  it("entrar devolve uma chaveDeEnvelope determinística (barata, do fake por baixo)", async () => {
+    const s = new ServicoContaFakeDev(contaTeste());
+    const r1 = await s.entrar(EMAIL_CONTA_TESTE_DEV, SENHA_CONTA_TESTE_DEV);
+    const r2 = await s.entrar(EMAIL_CONTA_TESTE_DEV, SENHA_CONTA_TESTE_DEV);
+    expect(r1.chaveDeEnvelope).toEqual(r2.chaveDeEnvelope);
+    expect(r1.chaveDeEnvelope.length).toBe(32);
   });
 
   it("entrar com senha errada falha com credenciais, igual ServicoContaFake", async () => {
@@ -30,14 +38,14 @@ describe("ServicoContaFakeDev", () => {
 
   it("o token de duas chamadas de entrar (mesma conta) é sempre o mesmo — determinístico", async () => {
     const s = new ServicoContaFakeDev(contaTeste());
-    const sessao1 = await s.entrar(EMAIL_CONTA_TESTE_DEV, SENHA_CONTA_TESTE_DEV);
-    const sessao2 = await s.entrar(EMAIL_CONTA_TESTE_DEV, SENHA_CONTA_TESTE_DEV);
+    const { sessao: sessao1 } = await s.entrar(EMAIL_CONTA_TESTE_DEV, SENHA_CONTA_TESTE_DEV);
+    const { sessao: sessao2 } = await s.entrar(EMAIL_CONTA_TESTE_DEV, SENHA_CONTA_TESTE_DEV);
     expect(sessao1.token).toBe(sessao2.token);
   });
 
   it("um token criado numa instância (janela A) é aceito por renovar de outra instância nova (janela B)", async () => {
     const janelaA = new ServicoContaFakeDev(contaTeste());
-    const sessaoA = await janelaA.entrar(EMAIL_CONTA_TESTE_DEV, SENHA_CONTA_TESTE_DEV);
+    const { sessao: sessaoA } = await janelaA.entrar(EMAIL_CONTA_TESTE_DEV, SENHA_CONTA_TESTE_DEV);
 
     // Janela B: instância NOVA, nunca viu esse token no seu mapa de sessões em memória —
     // só o cofre compartilhado (simulado aqui por passar o mesmo token direto) o conecta à A.

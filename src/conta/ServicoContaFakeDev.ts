@@ -21,7 +21,7 @@
 
 import type { ServicoConta } from "./ServicoConta";
 import { ServicoContaFake } from "./ServicoContaFake";
-import type { PlanoAssinatura, Sessao } from "./tipos";
+import type { PlanoAssinatura, ResultadoLogin, Sessao } from "./tipos";
 
 /** E-mail e senha da conta de teste em DEV — únicos, fixos, documentados em
  * docs/17-sincronizacao.md §10. Nunca usados fora de `import.meta.env.DEV`. */
@@ -59,18 +59,19 @@ export class ServicoContaFakeDev implements ServicoConta {
     return { token, email: emailNormalizado, plano: conta.plano, expiraEm: Date.now() + DURACAO_SESSAO_MS };
   }
 
-  async entrar(email: string, senha: string): Promise<Sessao> {
+  async entrar(email: string, senha: string): Promise<ResultadoLogin> {
     // Valida a senha com a lógica comum (mesmo código de erro "credenciais"); descarta o
     // token sequencial que ela gera (`tok-fake-N`, só existe na memória desta instância) e
     // devolve o determinístico no lugar — o único que `renovar` reconhece vindo de qualquer
-    // janela.
-    const sessao = await this.fake.entrar(email, senha);
-    return this.sessaoDeterministica(normalizar(sessao.email));
+    // janela. A `chaveDeEnvelope` do fake já é determinística (função só de e-mail e senha,
+    // doc 17 §2) — reaproveitada direto, sem derivar de novo.
+    const { sessao, chaveDeEnvelope } = await this.fake.entrar(email, senha);
+    return { sessao: await this.sessaoDeterministica(normalizar(sessao.email)), chaveDeEnvelope };
   }
 
-  async criar(email: string, senha: string): Promise<Sessao> {
-    const sessao = await this.fake.criar(email, senha);
-    return this.sessaoDeterministica(normalizar(sessao.email));
+  async criar(email: string, senha: string): Promise<ResultadoLogin> {
+    const { sessao, chaveDeEnvelope } = await this.fake.criar(email, senha);
+    return { sessao: await this.sessaoDeterministica(normalizar(sessao.email)), chaveDeEnvelope };
   }
 
   async renovar(token: string): Promise<Sessao> {

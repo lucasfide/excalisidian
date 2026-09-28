@@ -86,7 +86,7 @@ async function tentar(): Promise<void> {
   // `decidirLigar` não precisa do valor pra concluir "esperar-conta" ou "sem-premium".
   const chaveDeEnvelope =
     vaultAberto && estadoSalvo !== null && contaCarregada && premium
-      ? await conta.cofreChaveDeEnvelope.ler()
+      ? await conta.chaveDeEnvelopeAtual()
       : null;
 
   const decisao = decidirLigar({

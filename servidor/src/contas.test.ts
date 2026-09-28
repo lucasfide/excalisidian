@@ -54,7 +54,7 @@ const SENHA_ERRADA = "outra-senha-bem-diferente";
 
 describe("POST /v1/contas (criar)", () => {
   it("cria a conta e devolve uma sessão no plano grátis", async () => {
-    const sessao = await servico.criar("ana@teste.com", SENHA_VALIDA);
+    const { sessao } = await servico.criar("ana@teste.com", SENHA_VALIDA);
 
     expect(sessao.email).toBe("ana@teste.com");
     expect(sessao.plano).toBe("gratis");
@@ -75,7 +75,7 @@ describe("POST /v1/sessoes (entrar)", () => {
   it("entrar com a senha certa devolve uma sessão", async () => {
     await servico.criar("carla@teste.com", SENHA_VALIDA);
 
-    const sessao = await servico.entrar("carla@teste.com", SENHA_VALIDA);
+    const { sessao } = await servico.entrar("carla@teste.com", SENHA_VALIDA);
 
     expect(sessao.email).toBe("carla@teste.com");
     expect(sessao.plano).toBe("gratis");
@@ -129,7 +129,7 @@ describe("kdf desconhecido", () => {
 
 describe("POST /v1/sessoes/renovar", () => {
   it("renovar troca o token; o antigo deixa de valer", async () => {
-    const primeira = await servico.criar("fabio@teste.com", SENHA_VALIDA);
+    const { sessao: primeira } = await servico.criar("fabio@teste.com", SENHA_VALIDA);
 
     const segunda = await servico.renovar(primeira.token);
     expect(segunda.token).not.toBe(primeira.token);
@@ -147,7 +147,7 @@ describe("POST /v1/sessoes/renovar", () => {
 
 describe("DELETE /v1/sessoes (sair)", () => {
   it("sair invalida o token — renovar depois falha", async () => {
-    const sessao = await servico.criar("gustavo@teste.com", SENHA_VALIDA);
+    const { sessao } = await servico.criar("gustavo@teste.com", SENHA_VALIDA);
 
     await servico.sair(sessao.token);
 
@@ -157,7 +157,7 @@ describe("DELETE /v1/sessoes (sair)", () => {
   });
 
   it("sair é idempotente: chamar duas vezes com o mesmo token não dá erro", async () => {
-    const sessao = await servico.criar("helena@teste.com", SENHA_VALIDA);
+    const { sessao } = await servico.criar("helena@teste.com", SENHA_VALIDA);
 
     const primeira = await app.inject({
       method: "DELETE",
@@ -217,7 +217,7 @@ describe("limite de tentativas", () => {
 describe("o banco nunca guarda a prova nem o token em texto", () => {
   it("a linha de `contas` não contém a prova de identidade original, e a de `sessoes` não contém o token", async () => {
     const { provaDeIdentidade } = await derivarComCache("karina@teste.com", SENHA_VALIDA);
-    const sessao = await servico.criar("karina@teste.com", SENHA_VALIDA);
+    const { sessao } = await servico.criar("karina@teste.com", SENHA_VALIDA);
 
     const linhaConta = app.banco
       .prepare("select * from contas where email = ?")

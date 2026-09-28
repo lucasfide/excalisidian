@@ -88,6 +88,10 @@ interface ContaState {
   entrar(email: string, senha: string): Promise<boolean>;
   criar(email: string, senha: string): Promise<boolean>;
   sair(): Promise<void>;
+  /** Atalho (plano 12 Task 2): `cofreChaveDeEnvelope.ler(sessao.email)` — `null` sem sessão.
+   * É o único jeito correto de ler a chave; leitores diretos do cofre não sabem qual e-mail
+   * conferir. */
+  chaveDeEnvelopeAtual(): Promise<Uint8Array | null>;
 }
 
 export const useContaStore = create<ContaState>((set, get) => {
@@ -124,6 +128,21 @@ export const useContaStore = create<ContaState>((set, get) => {
     } catch (e) {
       console.warn(
         "Não foi possível apagar a chave de envelope da sincronização deste computador.",
+        e,
+      );
+    }
+  }
+
+  // Mesma postura "nunca rejeita" de `gravarToken`: a chave nasce junto da sessão (ADR-39
+  // "Mudança de 27/09/2026"), mas uma falha ao gravá-la no cofre não pode derrubar um login
+  // que já foi bem-sucedido no servidor — só um aviso técnico; a seção Sincronização volta a
+  // pedir a senha na próxima vez que precisar da chave.
+  async function gravarChaveDeEnvelope(email: string, chave: Uint8Array): Promise<void> {
+    try {
+      await get().cofreChaveDeEnvelope.gravar(email, chave);
+    } catch (e) {
+      console.warn(
+        "Não foi possível gravar a chave de envelope da sincronização no cofre do sistema.",
         e,
       );
     }
@@ -199,10 +218,11 @@ export const useContaStore = create<ContaState>((set, get) => {
     async entrar(email, senha) {
       set({ ocupado: true, erro: null });
       try {
-        const sessao = await get().servico.entrar(email, senha);
+        const { sessao, chaveDeEnvelope } = await get().servico.entrar(email, senha);
         geracao++;
         definirTokenDaSessao(sessao.token);
         await gravarToken(sessao.token);
+        await gravarChaveDeEnvelope(sessao.email, chaveDeEnvelope);
         set({ sessao, ocupado: false });
         await emit(EVENTO_PREFS_MUDOU);
         return true;
@@ -219,10 +239,11 @@ export const useContaStore = create<ContaState>((set, get) => {
     async criar(email, senha) {
       set({ ocupado: true, erro: null });
       try {
-        const sessao = await get().servico.criar(email, senha);
+        const { sessao, chaveDeEnvelope } = await get().servico.criar(email, senha);
         geracao++;
         definirTokenDaSessao(sessao.token);
         await gravarToken(sessao.token);
+        await gravarChaveDeEnvelope(sessao.email, chaveDeEnvelope);
         set({ sessao, ocupado: false });
         await emit(EVENTO_PREFS_MUDOU);
         return true;
@@ -230,6 +251,12 @@ export const useContaStore = create<ContaState>((set, get) => {
         set({ ocupado: false, erro: codigoDe(e) });
         return false;
       }
+    },
+
+    async chaveDeEnvelopeAtual() {
+      const sessao = get().sessao;
+      if (!sessao) return null;
+      return get().cofreChaveDeEnvelope.ler(sessao.email);
     },
 
     async sair() {

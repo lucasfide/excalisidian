@@ -27,7 +27,6 @@ import {
   chaveDeErroCiclo,
   chaveDeStatus,
 } from "../../sync/fluxoSecao";
-import { derivarDaSenha } from "../../conta/derivacaoSenha";
 import { iniciarVault, baixarVault, efeitosNulos, type ErroCiclo } from "../../sync/motor";
 import { servicoSyncAtual } from "../../sync/servicoSyncAtual";
 import {
@@ -94,7 +93,7 @@ export default function SecaoSincronizacao() {
    * senão, pede a senha primeiro e só roda depois que ela for confirmada (doc 17 §7). */
   async function comChaveGarantida(acao: () => Promise<void>): Promise<void> {
     setErroAcao(null);
-    const chave = await useContaStore.getState().cofreChaveDeEnvelope.ler();
+    const chave = await useContaStore.getState().chaveDeEnvelopeAtual();
     if (!precisaConfirmarSenha(chave)) {
       await acao();
       return;
@@ -108,7 +107,7 @@ export default function SecaoSincronizacao() {
     setOcupado(true);
     setErroAcao(null);
     try {
-      const chaveDeEnvelope = await useContaStore.getState().cofreChaveDeEnvelope.ler();
+      const chaveDeEnvelope = await useContaStore.getState().chaveDeEnvelopeAtual();
       if (!chaveDeEnvelope) return; // garantido por comChaveGarantida; defesa em profundidade
       const nomeDesteComputador = await lerNomeDoComputador();
       const resultado = await iniciarVault({
@@ -131,7 +130,7 @@ export default function SecaoSincronizacao() {
     setOcupado(true);
     setErroAcao(null);
     try {
-      const chaveDeEnvelope = await useContaStore.getState().cofreChaveDeEnvelope.ler();
+      const chaveDeEnvelope = await useContaStore.getState().chaveDeEnvelopeAtual();
       if (!chaveDeEnvelope) return;
       const vaults = await servicoSyncAtual().listarVaults();
       const decifrados: VaultParaBaixar[] = [];
@@ -161,7 +160,7 @@ export default function SecaoSincronizacao() {
         setErroAcao("sync.erro.pastaNaoVazia");
         return;
       }
-      const chaveDeEnvelope = await useContaStore.getState().cofreChaveDeEnvelope.ler();
+      const chaveDeEnvelope = await useContaStore.getState().chaveDeEnvelopeAtual();
       if (!chaveDeEnvelope) return;
       const nomeDesteComputador = await lerNomeDoComputador();
       const estado = await baixarVault({
@@ -350,10 +349,10 @@ export default function SecaoSincronizacao() {
 }
 
 /** Pede a senha da conta e confere com o servidor entrando de novo (`ServicoConta.entrar`,
- * via `contaStore` — não duplica a derivação). Senha certa: deriva a `chaveDeEnvelope` com
- * `derivarDaSenha` (só DEPOIS que `entrar` confirmou a senha) e grava no cofre. Senha errada:
- * mensagem do catálogo, nada é guardado. O campo nunca vai para estado global nem log, e
- * limpa depois de cada tentativa — sucesso ou falha. */
+ * via `contaStore`). `contaStore.entrar` já deriva a `chaveDeEnvelope` (a mesma chamada que
+ * confirma a senha) e grava sozinho no cofre (plano 12 Task 2) — esta função não deriva nem
+ * grava nada por conta própria. Senha errada: mensagem do catálogo, nada é guardado. O campo
+ * nunca vai para estado global nem log, e limpa depois de cada tentativa — sucesso ou falha. */
 function DialogoSenhaSincronizacao({
   onFechar,
   onConfirmado,
@@ -382,8 +381,6 @@ function DialogoSenhaSincronizacao({
       setOcupado(false);
       return;
     }
-    const { chaveDeEnvelope } = await derivarDaSenha(email, senhaTentada);
-    await useContaStore.getState().cofreChaveDeEnvelope.gravar(chaveDeEnvelope);
     setOcupado(false);
     await onConfirmado();
   }

@@ -33,13 +33,13 @@ let sync: ServicoSyncHttp;
 const SENHA = "senha-de-teste-123456";
 
 async function criarContaPremium(email: string): Promise<string> {
-  const sessao = await contas.criar(email, SENHA);
+  const { sessao } = await contas.criar(email, SENHA);
   app.banco.prepare(`update contas set plano = 'premium' where email = ?`).run(email);
   return sessao.token;
 }
 
 async function criarContaGratis(email: string): Promise<string> {
-  const sessao = await contas.criar(email, SENHA);
+  const { sessao } = await contas.criar(email, SENHA);
   return sessao.token;
 }
 

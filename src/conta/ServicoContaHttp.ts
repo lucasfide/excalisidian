@@ -12,7 +12,7 @@ import { fetch as fetchTauri } from "@tauri-apps/plugin-http";
 import { BASE_URL_SERVICO } from "../servico/base";
 import { derivarDaSenha, normalizarEmail } from "./derivacaoSenha";
 import type { ServicoConta } from "./ServicoConta";
-import { FalhaConta, SENHA_MINIMA, type ErroConta, type Sessao } from "./tipos";
+import { FalhaConta, SENHA_MINIMA, type ErroConta, type ResultadoLogin, type Sessao } from "./tipos";
 
 const TIMEOUT_MS = 20_000;
 
@@ -66,11 +66,14 @@ export class ServicoContaHttp implements ServicoConta {
     return corpo;
   }
 
-  async entrar(email: string, senha: string): Promise<Sessao> {
+  async entrar(email: string, senha: string): Promise<ResultadoLogin> {
     // Sem mínimo aqui de propósito (decisão 7 do plano ADR-39): quem já tem conta com senha
     // curta, criada antes desta regra, não pode ficar trancado por uma regra nova.
-    const { provaDeIdentidade, kdf } = await this.derivar(email, senha);
-    return this.pedir(
+    // UMA derivação só (doc 17 §2, ADR-39 "Mudança de 27/09/2026"): a mesma chamada produz a
+    // prova de identidade (vai ao servidor) e a chaveDeEnvelope (fica só aqui, nunca no corpo
+    // da requisição).
+    const { provaDeIdentidade, kdf, chaveDeEnvelope } = await this.derivar(email, senha);
+    const sessao = await this.pedir(
       "/sessoes",
       {
         method: "POST",
@@ -79,9 +82,10 @@ export class ServicoContaHttp implements ServicoConta {
       },
       "credenciais",
     );
+    return { sessao, chaveDeEnvelope };
   }
 
-  async criar(email: string, senha: string): Promise<Sessao> {
+  async criar(email: string, senha: string): Promise<ResultadoLogin> {
     // A contagem usa `[...senha].length` (pontos de código, depois de NFC) e não
     // `senha.length` (unidades UTF-16): um caractere acentuado pode ocupar duas unidades em
     // certas formas de normalização, e contar unidades rejeitaria por engano uma senha que o
@@ -92,8 +96,8 @@ export class ServicoContaHttp implements ServicoConta {
     if ([...senhaNormalizada].length < SENHA_MINIMA) {
       throw new FalhaConta("senhaCurta");
     }
-    const { provaDeIdentidade, kdf } = await this.derivar(email, senha);
-    return this.pedir(
+    const { provaDeIdentidade, kdf, chaveDeEnvelope } = await this.derivar(email, senha);
+    const sessao = await this.pedir(
       "/contas",
       {
         method: "POST",
@@ -102,6 +106,7 @@ export class ServicoContaHttp implements ServicoConta {
       },
       "credenciais",
     );
+    return { sessao, chaveDeEnvelope };
   }
 
   renovar(token: string): Promise<Sessao> {

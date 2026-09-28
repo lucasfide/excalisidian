@@ -2,8 +2,11 @@
 // Nada aqui é seguro nem pretende ser — senha em texto puro, token sequencial. O ponto é
 // exercitar todo o caminho de estado e de interface sem rede.
 
+import { sha256 } from "@noble/hashes/sha2.js";
+import { utf8ToBytes } from "@noble/hashes/utils.js";
+
 import type { ServicoConta } from "./ServicoConta";
-import { FalhaConta, SENHA_MINIMA, type PlanoAssinatura, type Sessao } from "./tipos";
+import { FalhaConta, SENHA_MINIMA, type PlanoAssinatura, type ResultadoLogin, type Sessao } from "./tipos";
 
 const DURACAO_SESSAO_MS = 30 * 24 * 60 * 60 * 1000; // 30 dias
 
@@ -13,6 +16,13 @@ interface ContaGuardada {
 }
 
 const normalizar = (email: string) => email.trim().toLowerCase();
+
+/** Chave de envelope determinística e barata para os fakes (plano 12 Task 2): nunca a
+ * derivação real (`derivarDaSenha`, Argon2id — lenta de propósito), que multiplicada pelos
+ * testes seria inaceitável. Não pretende ser segura, só estável e distinta por conta. */
+function chaveFake(emailNormalizado: string, senha: string): Uint8Array {
+  return sha256(utf8ToBytes(`chave-fake|${emailNormalizado}|${senha}`));
+}
 
 interface SessaoGuardada {
   email: string;
@@ -46,16 +56,16 @@ export class ServicoContaFake implements ServicoConta {
     if (sessao) sessao.expiraEm = Date.now() - 1;
   }
 
-  async entrar(email: string, senha: string): Promise<Sessao> {
+  async entrar(email: string, senha: string): Promise<ResultadoLogin> {
     const chave = normalizar(email);
     const conta = this.contas.get(chave);
     // Email inexistente e senha errada dão o MESMO erro de propósito: responder coisas
     // diferentes conta a um estranho quem tem conta aqui.
     if (!conta || conta.senha !== senha) throw new FalhaConta("credenciais");
-    return this.abrirSessao(chave);
+    return { sessao: this.abrirSessao(chave), chaveDeEnvelope: chaveFake(chave, senha) };
   }
 
-  async criar(email: string, senha: string): Promise<Sessao> {
+  async criar(email: string, senha: string): Promise<ResultadoLogin> {
     // Mesma regra do ServicoContaHttp (decisão 7 do plano ADR-39), contando pontos de
     // código depois de NFC — este fake é a implementação usada para desenvolver sem
     // servidor, e o comportamento tem que bater com o real.
@@ -63,7 +73,7 @@ export class ServicoContaFake implements ServicoConta {
     const chave = normalizar(email);
     if (this.contas.has(chave)) throw new FalhaConta("emailEmUso");
     this.contas.set(chave, { senha, plano: "gratis" });
-    return this.abrirSessao(chave);
+    return { sessao: this.abrirSessao(chave), chaveDeEnvelope: chaveFake(chave, senha) };
   }
 
   async renovar(token: string): Promise<Sessao> {

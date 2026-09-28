@@ -10,7 +10,7 @@ import { ServicoContaFake } from "../conta/ServicoContaFake";
 import type { ServicoConta } from "../conta/ServicoConta";
 import { CofreTokenFake } from "../conta/CofreTokenFake";
 import { CofreChaveDeEnvelopeFake } from "../conta/CofreChaveDeEnvelopeFake";
-import { FalhaConta, type Sessao } from "../conta/tipos";
+import { FalhaConta, type ResultadoLogin, type Sessao } from "../conta/tipos";
 import { tokenDaSessaoAtual, definirTokenDaSessao } from "../servico/sessao";
 
 /** Dublê cujo `renovar` só resolve quando o teste mandar — para controlar a ordem entre um
@@ -52,11 +52,11 @@ class ServicoContaControlavel implements ServicoConta {
     this.rejeitarRenovar(erro);
   }
 
-  entrar(email: string, senha: string): Promise<Sessao> {
+  entrar(email: string, senha: string): Promise<ResultadoLogin> {
     return this.base.entrar(email, senha);
   }
 
-  criar(email: string, senha: string): Promise<Sessao> {
+  criar(email: string, senha: string): Promise<ResultadoLogin> {
     return this.base.criar(email, senha);
   }
 
@@ -177,18 +177,68 @@ describe("contaStore", () => {
 
   it("sair apaga também a chave de envelope deste computador", async () => {
     await useContaStore.getState().entrar("ana@exemplo.com", "segredo123");
-    cofreChaveDeEnvelope.chave = new Uint8Array([1, 2, 3]);
+    expect(cofreChaveDeEnvelope.bruto).not.toBeNull();
     await useContaStore.getState().sair();
-    expect(cofreChaveDeEnvelope.chave).toBeNull();
+    expect(cofreChaveDeEnvelope.bruto).toBeNull();
   });
 
   it("sair não trava se apagar a chave de envelope falhar (mesma postura do token)", async () => {
     await useContaStore.getState().entrar("ana@exemplo.com", "segredo123");
-    cofreChaveDeEnvelope.chave = new Uint8Array([1, 2, 3]);
     cofreChaveDeEnvelope.falhar = true;
     await useContaStore.getState().sair();
     expect(useContaStore.getState().sessao).toBeNull();
     expect(useContaStore.getState().ocupado).toBe(false);
+  });
+
+  it("entrar grava a chaveDeEnvelope no cofre com o e-mail da conta", async () => {
+    await useContaStore.getState().entrar("ana@exemplo.com", "segredo123");
+    const chave = await useContaStore.getState().chaveDeEnvelopeAtual();
+    expect(chave).not.toBeNull();
+    expect(chave).toBeInstanceOf(Uint8Array);
+  });
+
+  it("entrar com a conta B depois da A (sem sair): chaveDeEnvelopeAtual devolve a chave de B, nunca a de A (Review Focus 1)", async () => {
+    const servico = new ServicoContaFake({
+      "ana@exemplo.com": { senha: "segredo123", plano: "premium" },
+      "bia@exemplo.com": { senha: "outrasenha1", plano: "premium" },
+    });
+    useContaStore.getState().definirServico(servico);
+
+    await useContaStore.getState().entrar("ana@exemplo.com", "segredo123");
+    const chaveDeA = await useContaStore.getState().chaveDeEnvelopeAtual();
+    expect(chaveDeA).not.toBeNull();
+
+    // Troca de conta SEM sair — B entra por cima, sem nunca chamar sair().
+    await useContaStore.getState().entrar("bia@exemplo.com", "outrasenha1");
+    const chaveDeB = await useContaStore.getState().chaveDeEnvelopeAtual();
+
+    expect(chaveDeB).not.toBeNull();
+    expect(chaveDeB).not.toEqual(chaveDeA);
+    expect(useContaStore.getState().sessao?.email).toBe("bia@exemplo.com");
+  });
+
+  it("falha do cofre ao gravar a chave não derruba o login (postura nunca rejeita)", async () => {
+    cofreChaveDeEnvelope.falhar = true;
+    const ok = await useContaStore.getState().entrar("ana@exemplo.com", "segredo123");
+    expect(ok).toBe(true);
+    expect(useContaStore.getState().sessao?.email).toBe("ana@exemplo.com");
+  });
+
+  it("sessão restaurada por carregar/renovar (sem senha digitada) não tem chaveDeEnvelope: chaveDeEnvelopeAtual devolve null", async () => {
+    const servico = comConta();
+    useContaStore.getState().definirServico(servico);
+    const { sessao: inicial } = await servico.entrar("ana@exemplo.com", "segredo123");
+    cofre.token = inicial.token;
+
+    await useContaStore.getState().carregar();
+
+    expect(useContaStore.getState().sessao?.email).toBe("ana@exemplo.com");
+    expect(await useContaStore.getState().chaveDeEnvelopeAtual()).toBeNull();
+  });
+
+  it("chaveDeEnvelopeAtual sem sessão devolve null", async () => {
+    expect(useContaStore.getState().sessao).toBeNull();
+    expect(await useContaStore.getState().chaveDeEnvelopeAtual()).toBeNull();
   });
 
   it("sair marca ocupado enquanto o sair do serviço não resolve", async () => {
@@ -214,7 +264,7 @@ describe("contaStore", () => {
   it("carregar com token salvo renova e traz o plano do servidor", async () => {
     const servico = comConta();
     useContaStore.getState().definirServico(servico);
-    const inicial = await servico.entrar("ana@exemplo.com", "segredo123");
+    const { sessao: inicial } = await servico.entrar("ana@exemplo.com", "segredo123");
     cofre.token = inicial.token;
 
     await useContaStore.getState().carregar();
@@ -226,7 +276,7 @@ describe("contaStore", () => {
   it("carregar migra o token legado do settings.json para o cofre e apaga o legado", async () => {
     const servico = comConta();
     useContaStore.getState().definirServico(servico);
-    const inicial = await servico.entrar("ana@exemplo.com", "segredo123");
+    const { sessao: inicial } = await servico.entrar("ana@exemplo.com", "segredo123");
     guardados.tokenConta = inicial.token; // só no legado; cofre começa vazio
 
     await useContaStore.getState().carregar();
