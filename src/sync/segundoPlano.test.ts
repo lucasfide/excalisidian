@@ -69,9 +69,10 @@ describe("executarRodada", () => {
     expect(carregarEstadoSync).not.toHaveBeenCalled();
   });
 
-  it("vault aberto numa janela é pulado (Review Focus 2): não trava, não sincroniza", async () => {
+  it("vault aberto numa janela é pulado (Review Focus 2): trava, confere, libera, não sincroniza", async () => {
     const estado = estadoBase("vault-1");
     const tentarTravarSync = vi.fn(async () => "dono-1");
+    const liberarTravaSync = vi.fn(async () => {});
     const executarCiclo = vi.fn(async () => ({ ok: true, foraDaSincronizacao: [] }) as ResultadoCiclo);
     const deps = depsBase({
       listarRecentes: async () => [{ caminho: "C:/Vaults/Casa" }],
@@ -79,6 +80,7 @@ describe("executarRodada", () => {
       vaultsAbertos: async () => ["c:/vaults/casa"],
       chaveDeVault: (c) => c.toLowerCase(),
       tentarTravarSync,
+      liberarTravaSync,
       executarCiclo,
       servico: servicoFalso({
         listarVaults: async () => [{ id: "vault-1", nomeCifrado: new Uint8Array(), envelope: new Uint8Array() }],
@@ -87,8 +89,50 @@ describe("executarRodada", () => {
 
     await executarRodada(deps);
 
-    expect(tentarTravarSync).not.toHaveBeenCalled();
+    // A trava é obtida ANTES de conferir se está aberto (revisão pós-commit d9346a7: o
+    // `vaultsAbertos()` fresco só faz sentido consultado depois de já ter a trava) — mas o
+    // vault continua não sincronizando, e a trava é liberada de volta.
+    expect(tentarTravarSync).toHaveBeenCalledWith("C:/Vaults/Casa");
+    expect(liberarTravaSync).toHaveBeenCalledWith("C:/Vaults/Casa", "dono-1");
     expect(executarCiclo).not.toHaveBeenCalled();
+  });
+
+  it("vault que abre numa janela DEPOIS do início da rodada, antes da sua vez, é pulado e a trava é liberada", async () => {
+    const estadoA = estadoBase("vault-a");
+    const estadoB = estadoBase("vault-b");
+    const executarCiclo = vi.fn(async () => ({ ok: true, foraDaSincronizacao: [] }) as ResultadoCiclo);
+    const liberarTravaSync = vi.fn(async (_caminho: string, _dono: string) => {});
+    // `vaultsAbertos()` é consultado de novo para CADA vault (depois da trava) — não uma lista
+    // só pega no início da rodada. Na primeira consulta (vez do vault A) ninguém abriu nada
+    // ainda; na segunda (vez do vault B, "durante" a rodada) o vault B acabou de abrir numa
+    // janela.
+    const vaultsAbertos = vi
+      .fn<() => Promise<string[]>>()
+      .mockResolvedValueOnce([])
+      .mockResolvedValueOnce(["c:/vaults/b"]);
+
+    const deps = depsBase({
+      listarRecentes: async () => [{ caminho: "C:/Vaults/A" }, { caminho: "C:/Vaults/B" }],
+      carregarEstadoSync: async (raiz) => (raiz === "C:/Vaults/A" ? estadoA : estadoB),
+      chaveDeVault: (c) => c.toLowerCase().replace(/\\/g, "/"),
+      vaultsAbertos,
+      executarCiclo,
+      liberarTravaSync,
+      servico: servicoFalso({
+        listarVaults: async () => [
+          { id: "vault-a", nomeCifrado: new Uint8Array(), envelope: new Uint8Array() },
+          { id: "vault-b", nomeCifrado: new Uint8Array(), envelope: new Uint8Array() },
+        ],
+      }),
+    });
+
+    await executarRodada(deps);
+
+    // Vault A sincronizou normalmente (não estava aberto na hora da sua checagem).
+    expect(executarCiclo).toHaveBeenCalledTimes(1);
+    // Vault B teve a trava obtida E liberada, mas não chegou a sincronizar — foi pulado pela
+    // checagem fresca de `vaultsAbertos()`, feita depois da trava.
+    expect(liberarTravaSync).toHaveBeenCalledWith("C:/Vaults/B", expect.any(String));
   });
 
   it("trava negada pula o vault sem sincronizar", async () => {

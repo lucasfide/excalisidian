@@ -170,13 +170,21 @@ async function sincronizarUmVault(
 }
 
 /** Pula (nunca sincroniza) se: não é recente com `EstadoSync`, a pasta não existe (nunca é
- * criada — Review Focus 3), está aberto em alguma janela (Review Focus 2), ou a trava é negada.
- * A trava é sempre liberada com o token, inclusive se o ciclo lançar (Review Focus 2). */
+ * criada — Review Focus 3), a trava é negada, ou está aberto em alguma janela (Review Focus 2).
+ *
+ * `vaultsAbertos()` é consultado de novo AQUI, depois de já ter a trava — não reaproveita uma
+ * lista pega no início da rodada (revisão pós-commit d9346a7): entre o início da rodada e a vez
+ * deste vault, alguém pode ter aberto ele numa janela; se o segundo plano confiasse só na lista
+ * velha, a trava não evitaria a corrida (ela só impede DOIS ciclos ao mesmo tempo, não decide
+ * QUAL dos dois devia nem rodar) — as escritas do segundo plano podiam cair depois que a janela
+ * nova já carregou as abas, e se a própria janela designada for quem abriu o vault, o registro
+ * de "escrita própria" faz o watcher ignorar o evento e a aba fica com a versão antiga. A trava
+ * é sempre liberada com o token, inclusive se o ciclo lançar ou se este check encontrar o vault
+ * aberto (Review Focus 2). */
 async function rodarVault(
   deps: DepsSegundoPlano,
   caminho: string,
   nuvem: { id: string; envelope: Uint8Array }[],
-  abertos: Set<string>,
   chaveDeEnvelope: Uint8Array,
   nomeDesteComputador: string,
   agora: () => Date,
@@ -186,12 +194,13 @@ async function rodarVault(
 
   if (!(await deps.existePasta(caminho))) return; // pasta apagada/movida — não recria, não sincroniza
 
-  if (abertos.has(deps.chaveDeVault(caminho))) return; // aberto numa janela — ela sincroniza sozinha
-
   const dono = await deps.tentarTravarSync(caminho);
   if (dono === null) return; // outra janela (ou o próprio segundo plano de outra rodada) já trava
 
   try {
+    const abertos = await deps.vaultsAbertos();
+    if (abertos.includes(deps.chaveDeVault(caminho))) return; // aberto agora — ela sincroniza sozinha
+
     const registro = nuvem.find((v) => v.id === estado.idDoVault);
     await sincronizarUmVault(deps, caminho, estado, registro, chaveDeEnvelope, nomeDesteComputador, agora);
   } finally {
@@ -224,14 +233,13 @@ export async function executarRodada(deps: DepsSegundoPlano): Promise<void> {
     return;
   }
 
-  const abertos = new Set(await deps.vaultsAbertos());
   const recentes = await deps.listarRecentes();
   const nomeDesteComputador = await deps.nomeDesteComputador();
   const agora = deps.agora ?? (() => new Date());
 
   for (const recente of recentes) {
     try {
-      await rodarVault(deps, recente.caminho, nuvem, abertos, chaveDeEnvelope, nomeDesteComputador, agora);
+      await rodarVault(deps, recente.caminho, nuvem, chaveDeEnvelope, nomeDesteComputador, agora);
     } catch {
       // Um vault por vez; falha de um (inclusive uma exceção não coberta pelos try/catch de
       // dentro) não pode impedir os demais.
