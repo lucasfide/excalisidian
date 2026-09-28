@@ -13,7 +13,9 @@ export default function Logotipo({ altura = 16 }: Props) {
     <img
       src={lettering}
       alt="Excalisidian"
-      className="block w-auto select-none"
+      // `self-start` e `shrink-0`: em contêiner flex (ex.: TelaBoasVindas), o `align-items: stretch`
+      // padrão e o encolhimento do item esticariam a LARGURA da imagem além da proporção nativa.
+      className="block w-auto shrink-0 self-start select-none"
       // 16px casa com a altura dos botões-ícone ao lado (h-4, BotaoIcone sem `grande`), que são
       // quem define a altura da linha do cabeçalho — assim trocar o lettering não mexe no layout.
       // A imagem tem 27px de altura nativa: aqui ela reduz, nunca amplia.
