@@ -139,7 +139,12 @@ src/
 │   ├── decisaoLigar.ts       decisão pura de ligar (ou não, e por quê) a sincronização ao vault aberto nesta janela (plano 10)
 │   ├── ligarAoVault.ts       casca de I/O que reúne os booleanos (vault, conta, cofre) e chama decidirLigar (plano 10)
 │   ├── cicloDeVidaSync.ts    instala, uma vez por janela, o gatilho de ligarAoVault a cada abertura/troca de vault (plano 10)
-│   └── iconeStatus.ts        mapeia StatusSync para o nome do ícone e a cor do IconeSincronizacao na sidebar (doc 06; plano 10)
+│   ├── iconeStatus.ts        mapeia StatusSync para o nome do ícone e a cor do IconeSincronizacao na sidebar (doc 06; plano 10)
+│   ├── listaDeVaults.ts      modelo puro da lista "Seus vaults" — junta recentes, EstadoSync e vaults da conta num item por vault (doc 17 §8, plano 12)
+│   ├── segundoPlano.ts       sincronização em segundo plano de todo vault já sincronizado neste computador mas sem janela aberta (doc 17 §8.1, plano 12)
+│   ├── pastaDeDownload.ts    nome da pasta criada por "Baixar para este computador…", numerada se já existir (doc 17 §7, plano 12)
+│   ├── tempoRelativo.ts      unidade + valor de "Sincronizado há {tempo}", tradução fica no catálogo (doc 04 §17, plano 12)
+│   └── existePasta.ts        confere se a pasta de um vault recente ainda existe no disco, para a lista "Seus vaults" (plano 12)
 ├── agente/                    agente de IA opcional (doc 11) — único outro código que fala com rede
 │   ├── tipos.ts
 │   ├── provedores.ts          catálogo de provedores, dialetos, base URLs, preços

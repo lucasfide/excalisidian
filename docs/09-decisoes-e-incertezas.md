@@ -1842,6 +1842,13 @@ doc 17 §8.1) garante que o mesmo vault nunca sincroniza duas vezes ao mesmo tem
 janelas, nem pela janela e pelo segundo plano juntos. Falta o servidor de verdade
 (plano `docs/superpowers/plans/2026-09-24-10-sincronizacao-na-tela.md`).**
 
+**Concluído em 28/09/2026** (plano `docs/superpowers/plans/2026-09-28-12-seus-vaults.md`,
+commits `78d6de9`..`9c94f3a`): a chave que tranca os pacotes de cada vault nasce no login e fica
+presa ao e-mail da conta; a lista "Seus vaults" foi para a aba Sincronização das Configurações;
+e a sincronização automática em segundo plano descrita acima passou a valer para todos os
+vaults já sincronizados neste computador, não só o aberto na janela. 1427 testes no app, 61 no
+servidor. Falta o teste manual do dono do produto.
+
 **Consequências:** a Fatia 15 do roadmap passa a ter um desenho técnico completo para seguir,
 não só a decisão de produto. O plano citado acima constrói as peças isoladas, sem tela, sem
 disco e sem rede de verdade; um próximo plano monta o motor que as liga ao vault, e outro liga

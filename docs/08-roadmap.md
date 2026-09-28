@@ -368,6 +368,13 @@ no cofre do Windows — e testável em desenvolvimento com um servidor de teste 
 de teste (doc 17 §10); falta o servidor de verdade
 (plano `docs/superpowers/plans/2026-09-24-10-sincronizacao-na-tela.md`). Já existe um servidor
 de verdade no ar (ver Fatia 16); falta ligar esta tela a ele e testar entre dois computadores.
+Concluído em 28/09/2026 (plano `docs/superpowers/plans/2026-09-28-12-seus-vaults.md`, commits
+`78d6de9`..`9c94f3a`): a chave que tranca os pacotes de cada vault nasce no login e fica presa
+ao e-mail da conta; o Rust ganhou uma trava por vault contra sincronizar o mesmo vault duas
+vezes ao mesmo tempo; a lista "Seus vaults" apareceu na aba Sincronização das Configurações; e
+todo vault já sincronizado neste computador passou a sincronizar sozinho em segundo plano
+enquanto o app está aberto, mesmo sem janela aberta para ele. 1427 testes no app, 61 no
+servidor. Falta o teste manual do dono do produto.
 
 **Status:** sincronização pronta no cliente — tela nas Configurações, ícone de estado, chave no
 cofre do Windows — e testável em desenvolvimento com um servidor de teste local e uma conta de
