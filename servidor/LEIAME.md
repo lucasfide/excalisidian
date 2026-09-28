@@ -168,6 +168,20 @@ confira o DNS do pré-requisito 1 e `sudo journalctl -u caddy -n 50`).
 A IA do agente roda no servidor, com a chave do fornecedor guardada só na VPS (doc 18 §5).
 Sem a chave, só as rotas de IA respondem 503; conta e sincronização seguem normais.
 
+### 0. Backup e atualização do código **[muda a VPS]**
+
+Antes de tudo, na VPS, um backup manual e a conferência de que a pasta nova apareceu:
+
+```
+lucas@vps:~$ sudo systemctl start excalisidian-backup.service
+lucas@vps:~$ sudo ls -lt /var/backups/excalisidian/ | head -3
+```
+
+Depois, atualize o código do servidor pela seção "Atualização" mais abaixo (empacotar, copiar,
+`npm ci --omit=dev`, reiniciar). É isso que aplica a migração 6 do banco (a faixa de créditos).
+
+Confere: `excalisidian-admin contas` mostra a coluna da faixa.
+
 ### 1. Pré-requisito (dono do produto)
 
 Conta no fornecedor, saldo pré-pago e uma chave de API criada no painel dele. Ninguém além do
@@ -208,6 +222,15 @@ O script pede a chave sem mostrá-la, testa com uma pergunta mínima ao forneced
 Confere: a mensagem final "Chave gravada e serviço reiniciado." e
 `sudo ls -l /etc/excalisidian/ia.env` mostra `-rw------- root root`.
 
+Se a chave falhar no teste, o script diz o motivo (chave errada, conta sem saldo, sem contato
+com o fornecedor ou outro status) e não grava nada.
+
+**Atenção:** o script sobrescreve o arquivo `/etc/excalisidian/ia.env` inteiro; ele guarda só a
+chave. Para trocar o endereço ou o modelo do fornecedor, edite o arquivo à mão depois
+(`sudo nano /etc/excalisidian/ia.env`), acrescentando as linhas `EXCALISIDIAN_IA_URL=...` e
+`EXCALISIDIAN_IA_MODELO=...`, e reinicie o serviço (`sudo systemctl restart excalisidian-api`).
+Rodar o script de novo apaga essas linhas — acrescente-as outra vez.
+
 ### 4. Conferir
 
 No app (`$env:VITE_SERVIDOR="real"; npm run tauri dev`, conta premium), use o agente com a IA
@@ -221,6 +244,14 @@ lucas@vps:~$ sudo rm /etc/excalisidian/ia.env && sudo systemctl restart excalisi
 ```
 
 A IA passa a responder 503; conta e sincronização seguem.
+
+### 5. Confirmar que nada mais quebrou
+
+```
+lucas@vps:~$ systemctl is-active hermes-gateway orca-runtime xvfb-orca
+```
+
+Os três devem responder `active`. Se algum não responder, investigue antes de seguir.
 
 ## Atualização
 
@@ -254,7 +285,8 @@ lucas@vps:~$ sudo rm /etc/caddy/Caddyfile
 lucas@vps:~$ sudo systemctl reload caddy
 lucas@vps:~$ sudo ufw delete allow 80/tcp
 lucas@vps:~$ sudo ufw delete allow 443/tcp
-lucas@vps:~$ sudo rm /usr/local/bin/excalisidian-admin
+lucas@vps:~$ sudo rm /usr/local/bin/excalisidian-admin /usr/local/bin/excalisidian-configurar-ia
+lucas@vps:~$ sudo rm -rf /etc/excalisidian
 lucas@vps:~$ sudo rm -rf /opt/excalisidian /var/backups/excalisidian
 # Só a linha abaixo apaga as contas e os pacotes de todo mundo — confirme antes:
 lucas@vps:~$ sudo rm -rf /var/lib/excalisidian

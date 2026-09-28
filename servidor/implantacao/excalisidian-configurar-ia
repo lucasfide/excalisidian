@@ -32,10 +32,26 @@ SAIDA="$(printf 'Authorization: Bearer %s\n' "${CHAVE}" |
 		-d "${CORPO_PEDIDO}" -w '\n%{http_code}' "${URL}/chat/completions" || true)"
 STATUS="${SAIDA##*$'\n'}"
 RESPOSTA="${SAIDA%$'\n'*}"
-if [[ "${STATUS}" != "200" ]]; then
-	echo "O fornecedor recusou a chave (status ${STATUS}). Nada foi gravado." >&2
+case "${STATUS}" in
+200) ;;
+401)
+	echo "A chave está errada ou foi apagada no painel do fornecedor. Nada foi gravado." >&2
 	exit 1
-fi
+	;;
+402)
+	echo "A chave está certa, mas a conta do fornecedor está sem saldo. Recarregue o saldo e rode de novo. Nada foi gravado." >&2
+	exit 1
+	;;
+000 | "" | *[!0-9]* | ????*)
+	echo "Não consegui falar com o fornecedor (a VPS está sem internet ou o endereço está errado). Nada foi gravado." >&2
+	exit 1
+	;;
+*)
+	echo "O fornecedor respondeu com o status ${STATUS}. Nada foi gravado. Resposta:" >&2
+	echo "${RESPOSTA:0:300}" >&2
+	exit 1
+	;;
+esac
 echo "O fornecedor respondeu. Resposta completa (confira o campo \"usage\"):"
 echo "${RESPOSTA}"
 
