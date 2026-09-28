@@ -31,7 +31,7 @@ const ALTURA_MINIMA: f64 = 600.0;
 
 /// Chave de `EstadoJanelas`: minúsculas, `\` virando `/`, sem barra final. Assim
 /// `C:\Vaults\Casa` e `c:/vaults/casa/` caem na mesma entrada.
-fn normalizar_chave(path: &str) -> String {
+pub(crate) fn normalizar_chave(path: &str) -> String {
     let mut chave = path.trim().replace('\\', "/").to_lowercase();
     while chave.len() > 1 && chave.ends_with('/') {
         chave.pop();

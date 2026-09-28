@@ -2,6 +2,7 @@ mod cofre;
 mod janelas;
 mod papel_parede;
 mod sistema;
+mod trava_sync;
 mod vault;
 mod watcher;
 
@@ -59,6 +60,7 @@ pub fn run() {
         .plugin(tauri_plugin_http::init())
         .manage(watcher::EstadoWatcher::default())
         .manage(janelas::EstadoJanelas::default())
+        .manage(trava_sync::TravasSync::default())
         .invoke_handler(tauri::generate_handler![
             vault::escolher_vault,
             vault::permitir_vault,
@@ -76,6 +78,9 @@ pub fn run() {
             cofre::ler_token_conta,
             cofre::gravar_token_conta,
             cofre::apagar_token_conta,
+            trava_sync::vaults_abertos,
+            trava_sync::tentar_travar_sync,
+            trava_sync::liberar_trava_sync,
         ])
         .setup(|app| {
             // Só em DEV (ver `conceder_escopo_sync_teste` acima) — em release esta chamada
@@ -85,8 +90,11 @@ pub fn run() {
             Ok(())
         })
         // Uma janela fechada não deve deixar rastro: nem no registro de "qual janela tem
-        // qual vault" (doc 12 §2) nem watcher rodando sozinho em background observando uma
-        // pasta que ninguém mais está mostrando.
+        // qual vault" (doc 12 §2), nem watcher rodando sozinho em background observando uma
+        // pasta que ninguém mais está mostrando, nem trava de sincronização travada para
+        // sempre (doc 17 §8.1) — sem isto um vault cuja janela fechou no meio de um ciclo
+        // nunca mais sincronizaria, nem pela janela (fechada) nem pelo segundo plano (que
+        // veria a trava presa a um label morto).
         .on_window_event(|window, event| {
             if let tauri::WindowEvent::Destroyed = event {
                 let label = window.label().to_string();
@@ -102,6 +110,7 @@ pub fn run() {
                     .lock()
                     .unwrap()
                     .remove(&label);
+                window.state::<trava_sync::TravasSync>().liberar_todas(&label);
             }
         })
         .run(tauri::generate_context!())

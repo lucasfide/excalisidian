@@ -33,6 +33,7 @@ import {
   type ResultadoCiclo,
 } from "../sync/motor";
 import { carregarEstadoSync, salvarEstadoSync, type EstadoSync } from "../sync/estadoSync";
+import * as coordenacaoReal from "../sync/coordenacao";
 import type { Conflito } from "../sync/tipos";
 import type { ServicoSync } from "../sync/ServicoSync";
 import type { EntradaArquivo, VaultAdapter } from "../vault/VaultAdapter";
@@ -47,6 +48,26 @@ const DEBOUNCE_MUDANCA_MS = 5000;
 
 /** "A cada 60 s com o app aberto" (doc 17 §5). */
 const INTERVALO_MS = 60000;
+
+/** Nova tentativa depois de uma trava negada (doc 17 §8.1) — o dono atual (a janela do vault,
+ * ou o segundo plano) deve estar perto de terminar o próprio ciclo. */
+const NOVA_TENTATIVA_TRAVA_MS = 2000;
+
+/** A trava de sincronização por vault (doc 17 §8.1, plano 12 Task 3), pelo mínimo que
+ * `rodarCiclo` precisa dela — mesmo padrão de `registrarConflito`/`flushTudo` acima: só os dois
+ * métodos usados, não o módulo `sync/coordenacao.ts` inteiro, para o teste poder injetar uma
+ * trava falsa sem mockar `@tauri-apps/api/core`. */
+export interface CoordenacaoSync {
+  tentarTravarSync: (caminho: string) => Promise<boolean>;
+  liberarTravaSync: (caminho: string) => Promise<void>;
+}
+
+/** Implementação real, sobre os comandos Rust (`sync/coordenacao.ts`) — o padrão quando
+ * `DepsSyncStore.coordenacao` é omitido. */
+const coordenacaoPadrao: CoordenacaoSync = {
+  tentarTravarSync: coordenacaoReal.tentarTravarSync,
+  liberarTravaSync: coordenacaoReal.liberarTravaSync,
+};
 
 /** Status exposto pra interface (doc 17 §8). `{ erro }` cobre os códigos de `ErroCiclo`
  * (os do servidor mais `"aplicar-lote"`) — a seção Sincronização das Configurações (plano 10)
@@ -85,6 +106,9 @@ export interface DepsSyncStore {
   executarCiclo?: (ctx: ContextoCiclo) => Promise<ResultadoCiclo>;
   /** Injetável pros testes controlarem `criadoEm`/`agora` do ciclo — repassado a `ContextoCiclo`. */
   agora?: () => Date;
+  /** Injetável só pros testes: a trava de sincronização por vault (doc 17 §8.1), no lugar da
+   * real (`coordenacaoPadrao`, sobre os comandos Rust) — o padrão quando omitido. */
+  coordenacao?: CoordenacaoSync;
 }
 
 interface SyncStoreState {
@@ -140,13 +164,19 @@ let pedidoDeNovo = false;
 let paradoPorErroPersistente = false;
 let timerDebounce: ReturnType<typeof setTimeout> | undefined;
 let timerIntervalo: ReturnType<typeof setInterval> | undefined;
+/** Nova tentativa 2 s depois de uma trava negada (doc 17 §8.1) — só uma agendada por vez: uma
+ * trava negada de novo enquanto esta já espera não arma uma segunda (mesmo padrão do debounce
+ * de mudança no índice, que reinicia em vez de empilhar). */
+let timerNovaTentativaTrava: ReturnType<typeof setTimeout> | undefined;
 let cancelarAssinaturaIndice: () => void = () => {};
 
 function limparAgendamento(): void {
   if (timerDebounce !== undefined) clearTimeout(timerDebounce);
   if (timerIntervalo !== undefined) clearInterval(timerIntervalo);
+  if (timerNovaTentativaTrava !== undefined) clearTimeout(timerNovaTentativaTrava);
   timerDebounce = undefined;
   timerIntervalo = undefined;
+  timerNovaTentativaTrava = undefined;
   cancelarAssinaturaIndice();
   cancelarAssinaturaIndice = () => {};
 }
@@ -170,6 +200,23 @@ export const useSyncStore = create<SyncStoreState>((set) => {
     if (!depsAtuais || !raiz || !estado) return; // desligado — nada a fazer
 
     const minhaGeracao = geracao;
+    const coordenacao = depsAtuais.coordenacao ?? coordenacaoPadrao;
+
+    // Trava por vault (doc 17 §8.1, Review Focus 2): antes de rodar, garante que nenhuma outra
+    // janela (nem o segundo plano) está sincronizando este vault agora. Negada = não é erro:
+    // status fica como estava, e uma nova tentativa é agendada em 2 s — o dono atual deve
+    // terminar logo.
+    const travado = await coordenacao.tentarTravarSync(raiz);
+    if (!travado) {
+      if (minhaGeracao === geracao && timerNovaTentativaTrava === undefined) {
+        timerNovaTentativaTrava = setTimeout(() => {
+          timerNovaTentativaTrava = undefined;
+          if (minhaGeracao === geracao) void rodarCiclo();
+        }, NOVA_TENTATIVA_TRAVA_MS);
+      }
+      return;
+    }
+
     cicloEmAndamento = true;
     set({ status: "sincronizando" });
 
@@ -231,6 +278,13 @@ export const useSyncStore = create<SyncStoreState>((set) => {
       }
     } finally {
       cicloEmAndamento = false;
+      try {
+        await coordenacao.liberarTravaSync(raiz);
+      } catch {
+        // Falha ao liberar (IPC caiu, app fechando): não propaga — nunca derruba o app nem
+        // trava o agendador. Uma trava presa a um label morto é limpa por
+        // `WindowEvent::Destroyed` do lado Rust ao fechar esta janela.
+      }
     }
 
     if (pedidoDeNovo) {

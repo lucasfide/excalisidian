@@ -30,7 +30,7 @@ vi.mock("@tauri-apps/plugin-store", () => ({
   }),
 }));
 
-import { useSyncStore, type DepsSyncStore } from "./syncStore";
+import { useSyncStore, type DepsSyncStore, type CoordenacaoSync } from "./syncStore";
 import { salvarEstadoSync, type EstadoSync } from "../sync/estadoSync";
 import type { ContextoCiclo, ResultadoCiclo } from "../sync/motor";
 import type { ServicoSync } from "../sync/ServicoSync";
@@ -128,17 +128,36 @@ function estadoBase(overrides: Partial<EstadoSync> = {}): EstadoSync {
 
 const RAIZ = "C:/vault-teste";
 
+/** Dublê de `CoordenacaoSync` (plano 12 Task 3): concede a trava por padrão, e registra cada
+ * chamada — os testes de trava trocam `concedida` ou leem `tentativas`/`liberacoes`. */
+class CoordenacaoControlavel implements CoordenacaoSync {
+  concedida = true;
+  tentativas: string[] = [];
+  liberacoes: string[] = [];
+
+  tentarTravarSync = async (caminho: string): Promise<boolean> => {
+    this.tentativas.push(caminho);
+    return this.concedida;
+  };
+
+  liberarTravaSync = async (caminho: string): Promise<void> => {
+    this.liberacoes.push(caminho);
+  };
+}
+
 interface Montagem {
   deps: DepsSyncStore;
   exec: ExecutorControlavel;
   registrarConflitoMock: ReturnType<typeof vi.fn>;
   ouvintesIndice: Array<() => void>;
+  coordenacao: CoordenacaoControlavel;
 }
 
 function montarDeps(overrides: Partial<DepsSyncStore> = {}): Montagem {
   const exec = new ExecutorControlavel();
   const registrarConflitoMock = vi.fn((_c: Conflito) => {});
   const ouvintesIndice: Array<() => void> = [];
+  const coordenacao = new CoordenacaoControlavel();
   const deps: DepsSyncStore = {
     adaptador: adaptadorFake(),
     servico: servicoFake(),
@@ -156,9 +175,10 @@ function montarDeps(overrides: Partial<DepsSyncStore> = {}): Montagem {
       };
     },
     executarCiclo: exec.executar,
+    coordenacao,
     ...overrides,
   };
-  return { deps, exec, registrarConflitoMock, ouvintesIndice };
+  return { deps, exec, registrarConflitoMock, ouvintesIndice, coordenacao };
 }
 
 describe("syncStore", () => {
@@ -516,5 +536,123 @@ describe("syncStore", () => {
     exec.resolverProxima(OK);
     await drenar();
     expect(useSyncStore.getState().status).toBe("sincronizado");
+  });
+
+  // Trava de sincronização por vault (doc 17 §8.1, plano 12 Task 3, Review Focus 2): antes de
+  // cada ciclo, `rodarCiclo` tenta travar `raiz` — outra janela (ou o segundo plano) já
+  // sincronizando o mesmo vault não pode rodar em paralelo.
+  describe("trava de sincronização (doc 17 §8.1)", () => {
+    it("tenta travar antes de rodar e libera depois de um ciclo com sucesso", async () => {
+      await salvarEstadoSync(RAIZ, estadoBase());
+      const { deps, exec, coordenacao } = montarDeps();
+
+      await useSyncStore.getState().iniciar(RAIZ, deps);
+      expect(coordenacao.tentativas).toEqual([RAIZ]);
+      expect(coordenacao.liberacoes).toEqual([]); // ainda em andamento
+
+      exec.resolverProxima(OK);
+      await drenar();
+      expect(coordenacao.liberacoes).toEqual([RAIZ]);
+    });
+
+    it("trava negada: o ciclo não roda (executarCiclo não é chamado), status fica inalterado, não é erro", async () => {
+      await salvarEstadoSync(RAIZ, estadoBase());
+      const { deps, exec, coordenacao } = montarDeps();
+      coordenacao.concedida = false;
+
+      await useSyncStore.getState().iniciar(RAIZ, deps);
+      await drenar();
+
+      expect(exec.chamadas).toHaveLength(0); // nunca chegou a rodar o ciclo
+      expect(useSyncStore.getState().status).toBe("desligado"); // status do iniciar(), inalterado
+      expect(coordenacao.liberacoes).toEqual([]); // nunca travou, nada para liberar
+    });
+
+    it("trava negada é refeita 2 s depois; concedendo na 2ª tentativa, o ciclo roda", async () => {
+      await salvarEstadoSync(RAIZ, estadoBase());
+      const { deps, exec, coordenacao } = montarDeps();
+      coordenacao.concedida = false;
+
+      await useSyncStore.getState().iniciar(RAIZ, deps);
+      await drenar();
+      expect(coordenacao.tentativas).toEqual([RAIZ]);
+      expect(exec.chamadas).toHaveLength(0);
+
+      coordenacao.concedida = true;
+      await vi.advanceTimersByTimeAsync(2_000);
+      await drenar();
+
+      expect(coordenacao.tentativas).toEqual([RAIZ, RAIZ]);
+      expect(exec.chamadas).toHaveLength(1); // agora rodou
+
+      exec.resolverProxima(OK);
+      await drenar();
+      expect(useSyncStore.getState().status).toBe("sincronizado");
+    });
+
+    it("trava negada duas vezes seguidas não empilha duas novas tentativas", async () => {
+      await salvarEstadoSync(RAIZ, estadoBase());
+      const { deps, coordenacao } = montarDeps();
+      coordenacao.concedida = false;
+
+      await useSyncStore.getState().iniciar(RAIZ, deps);
+      await drenar();
+      expect(coordenacao.tentativas).toEqual([RAIZ]);
+
+      // Um segundo gatilho (ex.: mudança no índice) enquanto já há uma nova tentativa agendada
+      // não deve agendar outra — só uma tentativa de reagendamento por vez.
+      void useSyncStore.getState().sincronizarAgora();
+      await drenar();
+      expect(coordenacao.tentativas).toEqual([RAIZ, RAIZ]); // a de sincronizarAgora rodou na hora
+
+      await vi.advanceTimersByTimeAsync(2_000);
+      await drenar();
+      expect(coordenacao.tentativas).toEqual([RAIZ, RAIZ, RAIZ]); // só mais uma, não duas
+    });
+
+    it("trava é liberada mesmo quando o ciclo lança uma exceção inesperada", async () => {
+      await salvarEstadoSync(RAIZ, estadoBase());
+      const { deps, coordenacao } = montarDeps({
+        executarCiclo: async () => {
+          throw new Error("falha de verdade, não um ResultadoCiclo");
+        },
+      });
+
+      await useSyncStore.getState().iniciar(RAIZ, deps);
+      await drenar();
+
+      expect(useSyncStore.getState().status).toEqual({ erro: "servidor" });
+      expect(coordenacao.liberacoes).toEqual([RAIZ]); // liberada apesar da exceção
+    });
+
+    it("trava é liberada mesmo quando salvarEstadoSync falha", async () => {
+      await salvarEstadoSync(RAIZ, estadoBase());
+      const { deps, exec, coordenacao } = montarDeps();
+      await useSyncStore.getState().iniciar(RAIZ, deps);
+
+      salvarDeveFalhar = true;
+      exec.resolverProxima(OK);
+      await drenar();
+
+      expect(coordenacao.liberacoes).toEqual([RAIZ]);
+    });
+
+    it("parar() cancela a nova tentativa agendada depois de uma trava negada", async () => {
+      await salvarEstadoSync(RAIZ, estadoBase());
+      const { deps, exec, coordenacao } = montarDeps();
+      coordenacao.concedida = false;
+
+      await useSyncStore.getState().iniciar(RAIZ, deps);
+      await drenar();
+      expect(coordenacao.tentativas).toEqual([RAIZ]);
+
+      useSyncStore.getState().parar();
+      coordenacao.concedida = true;
+      await vi.advanceTimersByTimeAsync(2_000);
+      await drenar();
+
+      expect(coordenacao.tentativas).toEqual([RAIZ]); // nenhuma nova tentativa depois de parar
+      expect(exec.chamadas).toHaveLength(0);
+    });
   });
 });

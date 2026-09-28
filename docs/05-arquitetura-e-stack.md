@@ -131,6 +131,7 @@ src/
 │   ├── ServicoSyncHttp.ts    implementação real de ServicoSync sobre plugin-http, para o servidor de verdade (plano 10)
 │   ├── ServicoSyncLocal.ts   servidor de teste local em arquivos, só em desenvolvimento, para duas janelas do app enxergarem o mesmo "servidor" (doc 17 §10; plano 10)
 │   ├── servicoSyncAtual.ts   escolhe ServicoSyncLocal em dev ou ServicoSyncHttp em produção (doc 17 §10; plano 10)
+│   ├── coordenacao.ts        vaultsAbertos/tentarTravarSync/liberarTravaSync/chaveDeVault — wrappers dos comandos Rust de trava_sync.rs (doc 17 §8.1, plano 12)
 │   ├── estadoSync.ts         EstadoSync por computador, persistido em plugin-store; nome do computador
 │   ├── aplicar.ts            aplica um lote remoto no vault (grava, move para lixeira, resolve conflito)
 │   ├── motor.ts              ciclo baixar → detectar → enviar → guardar, testável sem Tauri
@@ -185,6 +186,7 @@ src-tauri/
 │   ├── vault.rs             escolher_vault, permitir_vault, walk_vault
 │   ├── watcher.rs           observar_vault
 │   ├── janelas.rs           abrir_janela_vault, registrar_janela_vault, focar_janela, criar_vault (doc 12)
+│   ├── trava_sync.rs        vaults_abertos, tentar_travar_sync, liberar_trava_sync (doc 17 §8.1, plano 12)
 │   ├── sistema.rs           nome_usuario, revelar_pasta
 │   └── papel_parede.rs      papel de parede da Home (preparar/importar/remover)
 └── capabilities/
@@ -223,7 +225,8 @@ interface VaultAdapter {
 
 O plano original era de "quatro pontos de contato com o Rust, e não mais que isso sem uma
 boa razão" — múltiplos vaults (doc 12) já levou isso a nove, e hoje, com a Home, o
-updater e o cofre do token da conta (ADR-34), são dezesseis comandos registrados em `lib.rs`:
+updater, o cofre do token da conta (ADR-34) e a coordenação de sincronização (doc 17 §8.1,
+plano 12), são dezenove comandos registrados em `lib.rs`:
 
 | Comando | Assinatura | Por quê |
 |---|---|---|
@@ -244,9 +247,9 @@ updater e o cofre do token da conta (ADR-34), são dezesseis comandos registrado
 | `ler_token_conta` | `(app, segredo: Segredo) -> Result<Option<String>, String>` | lê um segredo do cofre de senhas do Windows — token da conta ou `chaveDeEnvelope` da sincronização (doc 09 ADR-34; doc 17 §2) |
 | `gravar_token_conta` | `(app, segredo: Segredo, token: String) -> Result<(), String>` | grava um segredo no cofre de senhas do Windows, em vez de texto puro |
 | `apagar_token_conta` | `(app, segredo: Segredo) -> Result<(), String>` | apaga um segredo do cofre de senhas do Windows |
-| `vaults_abertos` | `() -> Vec<String>` | chaves normalizadas dos vaults abertos em alguma janela (planejado, plano 12; doc 17 §8.1) |
-| `tentar_travar_sync` | `(path: String) -> bool` | trava um vault para a janela chamadora, para nenhuma outra sincronizar o mesmo vault ao mesmo tempo; `false` se já travado por outra janela (planejado, plano 12; doc 17 §8.1) |
-| `liberar_trava_sync` | `(path: String)` | libera a trava, só se o dono for a janela chamadora (planejado, plano 12; doc 17 §8.1) |
+| `vaults_abertos` | `(estado) -> Vec<String>` | chaves normalizadas dos vaults abertos em alguma janela (doc 17 §8.1) |
+| `tentar_travar_sync` | `(window, path: String) -> bool` | trava um vault para a janela chamadora, para nenhuma outra sincronizar o mesmo vault ao mesmo tempo; `false` se já travado por outra janela (doc 17 §8.1) |
+| `liberar_trava_sync` | `(window, path: String)` | libera a trava, só se o dono for a janela chamadora (doc 17 §8.1) |
 
 `Segredo` é um enum serde (`rename_all = "kebab-case"`) com só duas variantes —
 `sessao-conta` e `chave-de-envelope` — fechado em `cofre.rs`: o nome de usuário da entrada no
