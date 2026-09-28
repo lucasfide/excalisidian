@@ -55,7 +55,9 @@ Onde o servidor e esses contratos divergirem, o servidor está errado.
 ## 4. Operação
 
 - **Backup diário** às 03:00: cópia consistente do SQLite (`VACUUM INTO`) e dos pacotes para
-  `/var/backups/excalisidian/<data>/`, guardando 7 dias. É no mesmo disco — protege contra erro
+  `/var/backups/excalisidian/<AAAA-MM-DD_HHMMSS>/`, guardando 7 dias (pela data de criação da
+  pasta, não pelo nome). O nome inclui hora para que uma execução manual no mesmo dia (ex.: antes
+  de uma atualização) não colida com o backup diário. É no mesmo disco — protege contra erro
   de software, não contra perder a VPS. Cópia fora da VPS fica como pendência declarada.
 - **Administração**, na VPS: `excalisidian-admin premium <email>`,
   `excalisidian-admin gratis <email>`, `excalisidian-admin contas`,

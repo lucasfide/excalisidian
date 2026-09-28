@@ -15,7 +15,7 @@ PASTA_DADOS="/var/lib/excalisidian"
 PASTA_BACKUPS="/var/backups/excalisidian"
 RETENCAO_DIAS=7
 
-data="$(date +%Y-%m-%d)"
+data="$(date +%Y-%m-%d_%H%M%S)"
 destino="${PASTA_BACKUPS}/${data}"
 
 mkdir -p "$destino"
