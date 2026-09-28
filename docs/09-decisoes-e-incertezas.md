@@ -959,6 +959,14 @@ Verificado nesta terceira rodada:
 - **`.draw` não tem tipo MIME registrado na IANA nem software vivo associado** — só o DrawFile do RISC OS, plataforma extinta. `.board` e `.tela` também estão livres; `.drawing` é do Mapdiva Artboard, descontinuado.
 - **Marcas:** EXCALIDRAW tem pedido nos EUA (serial 97010906, Excalidraw s.r.o., classe 042, 2021) e a licença MIT do código não trata de marca. OBSIDIAN é marca da Dynalist Inc. (serial 98063360) com política pública que proíbe nomear produtos como "Obsidian XYZ". Não encontrei trademark policy publicada pelo Excalidraw.
 
+Verificado em 28/09/2026 em `api-docs.deepseek.com` (fornecedor da IA do Excalisidian, ADR-43; o nome do fornecedor não aparece na interface, só neste documento técnico):
+
+- Modelo `deepseek-flash`, base `https://api.deepseek.com`, compatível com o dialeto OpenAI (rota `/chat/completions`), contexto de 1M tokens.
+- Preço por milhão de tokens, fora de pico: entrada com cache US$ 0,003, entrada sem cache US$ 0,15, saída US$ 0,60. No pico: 0,006 / 0,30 / 1,20.
+- Pico: 01:00–04:00 e 06:00–10:00 UTC, de segunda a sexta (exceto feriados chineses); o resto é fora de pico.
+- O modo de raciocínio vem ligado por padrão e desliga com `"thinking": {"type": "disabled"}` no corpo. O parâmetro de teto de saída é `max_tokens`.
+- `usage` traz `prompt_tokens` e `completion_tokens`, mais o detalhe de cache (`prompt_cache_hit_tokens` / `prompt_cache_miss_tokens`) — ver Parte 3, item 33, sobre onde ele aparece.
+
 ## Parte 3 — O que NÃO foi confirmado
 
 Trate cada item abaixo como suposição a validar antes de depender dele.
@@ -1007,7 +1015,12 @@ Trate cada item abaixo como suposição a validar antes de depender dele.
 29. **Plano da assinatura preso até reiniciar.** O plano só é lido na abertura do app. Quem assinar pelo site continua vendo "Plano grátis" até fechar e reabrir o Excalisidian. Resolver isso exige um endpoint que não existe; usar `renovar` só para checar o plano rotacionaria o token a cada verificação, o que não é aceitável.
 30. **Sem renovação automática de sessão.** Um token que expira durante o uso não é renovado sozinho; o usuário precisa entrar de novo.
 31. **Fornecedor de IA e GDPR.** O modelo previsto no estudo de viabilidade para a IA do Excalisidian é de um fornecedor chinês. Mandar notas de um usuário europeu para lá é transferência internacional de dados sob o GDPR. Verificar se existe hospedagem ocidental do mesmo modelo antes de anunciar preço para esse serviço.
-32. **Endpoint de saldo de créditos não existe.** O medidor de créditos (doc 11, D5) não renderiza enquanto esse endpoint não existir — mostrar zero seria mentir sobre dinheiro.
+32. ~~**Endpoint de saldo de créditos não existe.**~~ **Resolvido (28/09/2026):** o servidor expõe `GET /v1/creditos` (doc 18 §5, ADR-43). O medidor segue oculto sempre que a busca falha — mostrar zero seria mentir sobre dinheiro.
+33. **Onde a resposta real do fornecedor traz o detalhe de cache.** A documentação lista `prompt_cache_hit_tokens` / `prompt_cache_miss_tokens` dentro de `prompt_tokens_details`; historicamente vinham no topo de `usage`. Não foi confirmado qual lugar a resposta real usa. O servidor lê os dois e, sem nenhum, trata toda a entrada como sem cache (cobra mais, nunca menos). Confirmar com uma chamada real na implantação.
+34. **Câmbio do plano em reais.** A conta de preços do ADR-43 supõe R$ 5,50 por US$, sem verificação. O custo de IA é em dólar; o anual em reais dá prejuízo no pior caso com o dólar acima de ~R$ 6,27 (premium) e ~R$ 6,08 (superior).
+35. **Imposto sobre consumo no Brasil.** Não se sabe se o preço em reais leva o imposto incluso ou somado; conferir com o intermediário de pagamento antes de cobrar.
+36. **GDPR do fornecedor de IA.** Já registrado no item 31, que continua valendo: as notas passam por um fornecedor chinês. Não bloqueia uso no Brasil.
+37. **Estimativas de uso por crédito** (leitura rápida ~1 crédito, rodada do acompanhamento 2–3, mensagem de chat ~2; 3.000 créditos ≈ 120 h de escrita intensa no pior horário, ~300 h de dia) são cálculo sobre a tabela de preços, não medição. Medir com uso real.
 
 ---
 
@@ -1938,3 +1951,72 @@ a lista completa antes de um lançamento público que não seja beta.
 **Condição de reversão:** se o produto voltar a ser distribuído só como uso pessoal, nada
 disso precisa ser desfeito — manter os avisos não custa nada e já está no lugar. Só o item 3
 (a seção de créditos na interface) seria dispensável, e mesmo assim é inofensivo.
+
+### ADR-43 · IA do Excalisidian no servidor: repasse com créditos pelo custo real
+
+**Contexto:** o provedor "IA do Excalisidian" já existe no app (ADR-35, ADR-38): dialeto OpenAI,
+`POST {BASE}/chat/completions` sem streaming, sessão da conta como credencial, modelos lógicos
+`leitura-rapida` e `acompanhamento`, e um medidor de créditos pronto mas oculto por falta de
+endpoint. O servidor (ADR-41, `docs/18-servidor.md`) agora ganha a IA. Contrato completo em
+`docs/18-servidor.md` §5; fatos do fornecedor na Parte 2.
+
+**Decisão:** o servidor recebe o pedido do app, confere sessão e plano, repassa ao fornecedor,
+devolve a resposta no mesmo dialeto e debita créditos. 1 crédito = US$ 0,001 de custo real do
+fornecedor, calculado pelo `usage` da resposta, pela faixa de horário (pico ou fora de pico) e
+pelo detalhe de cache. Cotas por mês civil de Brasília: premium 3.000 créditos, plano superior
+10.000 (faixa de IA guardada na conta; as duas são "premium" para o resto do produto). Créditos
+esgotados respondem 429 `{"codigo":"creditos"}`; falha do fornecedor responde 502 e nada é
+cobrado. O texto das notas não é guardado nem registrado em log. A chave do fornecedor vive só
+na VPS, em `/etc/excalisidian/ia.env`. A cobrança continua manual (`excalisidian-admin`).
+
+**Planos e preços** (decisão do dono do produto, 28/09/2026):
+
+| Plano | Créditos/mês | Mensal (US$) | Anual (US$) | Mensal (R$) | Anual (R$) |
+|---|---|---|---|---|---|
+| Premium | 3.000 | 8 | 59 | 35 | 249 |
+| Superior | 10.000 | 18 | 149 | 99 | 779 |
+
+Nome comercial do plano superior: ainda aberto, entra com a cobrança.
+
+**Conta do pior caso** (o assinante gasta todos os créditos). Premissas do relatório de negócio:
+intermediário de pagamento 5% + US$ 0,50 por cobrança, armazenamento até US$ 0,10 por mês,
+câmbio suposto de R$ 5,50 por US$ (não verificado).
+
+| Plano | Recebido/mês (US$) | Taxa/mês | IA máx. | Sobra no pior caso |
+|---|---|---|---|---|
+| Premium mensal US$ 8 | 8,00 | 0,90 | 3,00 | 4,00 |
+| Premium anual US$ 59 | 4,92 | 0,29 | 3,00 | 1,53 |
+| Superior mensal US$ 18 | 18,00 | 1,40 | 10,00 | 6,50 |
+| Superior anual US$ 149 | 12,42 | 0,66 | 10,00 | 1,66 |
+| Premium mensal R$ 35 | 6,36 | 0,82 | 3,00 | 2,44 |
+| Premium anual R$ 249 | 3,77 | 0,23 | 3,00 | 0,44 |
+| Superior mensal R$ 99 | 18,00 | 1,40 | 10,00 | 6,50 |
+| Superior anual R$ 779 | 11,80 | 0,63 | 10,00 | 1,07 |
+
+**Risco de câmbio:** o custo de IA é em dólar. No pior caso, o anual em reais passa a dar
+prejuízo com o dólar acima de ~R$ 6,27 (premium) e ~R$ 6,08 (superior). Mitigação: créditos são
+dinheiro real, então a alavanca é a cota ou o preço em reais, ajustáveis sem atualizar o app.
+Imposto sobre consumo no Brasil a conferir com o intermediário (preço com ou sem imposto
+incluso) — Parte 3, itens 34 e 35.
+
+**Uso esperado** (estimativa, Parte 3, item 37): leitura rápida ~1 crédito; rodada do
+acompanhamento 2 a 3; mensagem no chat ~2 — no preço de pico e sem cache. De dia no Brasil, fora
+de pico e com cache, rende de 2 a 3 vezes mais. 3.000 créditos equivalem a ~120 h de escrita
+intensa com acompanhamento no pior horário, ~300 h de dia.
+
+**Alternativas rejeitadas:**
+
+| Opção | Por que não |
+|---|---|
+| Serviço separado só para IA | Duplicaria sessão e plano, que o servidor atual já tem. |
+| Intermediário tipo OpenRouter | Outra conta, outra taxa e mais uma empresa vendo o texto das notas. |
+| Cobrar sempre pelo preço de pico | Mais simples, mas entregaria metade do uso pelo mesmo custo máximo. |
+| Contar créditos no app | O app não é confiável para contar dinheiro (ADR-35: contado no servidor). |
+| Streaming | O cliente não usa; fica fora. |
+
+**Consequências:** o texto das notas passa pelo servidor, sem ser guardado; a transferência a um
+fornecedor chinês segue pendente de GDPR (Parte 3, item 31), sem bloquear o uso no Brasil. O
+último pedido do mês pode passar um pouco do total (checagem antes, débito depois); o corpo
+limitado a 256 KiB limita o excesso a poucas dezenas de créditos. Sem chave do fornecedor na VPS,
+só a IA responde 503. Mudar cotas ou preços é atualizar o servidor, não o app. Fica pendente
+confirmar o lugar do detalhe de cache com uma chamada real (Parte 3, item 33).

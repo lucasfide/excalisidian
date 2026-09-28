@@ -260,10 +260,15 @@ própria:
 - **Assistente de configuração** (§6.3) tem passos diferentes para este provedor: o passo da
   chave vira passo de conta (sem campo de chave), a listagem de modelos não vai à rede, o
   campo "Avançado · Base URL" some, e o passo de revisão esconde chave e limite de gasto.
-- **Cota mensal em créditos, contada no servidor** — o cliente só interpreta o saldo que
-  chega (`src/servico/creditos.ts`), nunca conta localmente. O medidor em créditos **não
-  renderiza enquanto não houver saldo real**: o endpoint de saldo ainda não existe, e
-  mostrar zero seria mentir sobre dinheiro (doc 09, incerteza).
+- **Cota mensal em créditos, contada no servidor** (doc 18 §5) — o cliente só interpreta o
+  saldo que chega (`src/servico/creditos.ts`), nunca conta localmente. Premium: 3.000
+  créditos por mês; plano superior: 10.000 (o app não distingue, só mostra o total). O
+  servidor existe e expõe `GET /creditos`. O app busca o saldo ao abrir o painel do agente e
+  depois de cada resposta do provedor próprio; com a conta de teste do modo de
+  desenvolvimento (servidor local) não busca. Qualquer falha deixa o saldo em `null` e o
+  medidor **oculto**: nunca se mostra número inventado, e zero seria mentir sobre dinheiro.
+- **Créditos esgotados:** 429 com corpo `{"codigo":"creditos"}` vira o código de erro
+  `creditos`. Um 429 sem esse corpo continua sendo `cota` (limite momentâneo).
 - **"Testar conexão"** verifica a sessão em vez de responder "funcionando" sem testar nada.
 - O modo com chave própria (os seis provedores acima) continua **gratuito e intacto**.
   Vende-se conveniência, não exclusividade.
@@ -513,7 +518,8 @@ Português do Brasil, sentence case, sem emoji (doc 06, Voz da interface).
 | Chave inválida (401/403, provedores de chave própria) | "A chave da API foi recusada pelo provedor. Confira a chave nas configurações." |
 | Sem sessão (401 do provedor próprio, código `sessao`) | "Entre na sua conta do Excalisidian para usar a IA incluída no plano." (ADR-38) |
 | Conta sem direito à IA paga (403 do provedor próprio, código `plano`) | "A IA do Excalisidian faz parte do plano premium. Sua conta está no plano grátis." (ADR-38) |
-| Cota do provedor (429) | "O provedor limitou as chamadas agora. Tente de novo em instantes." |
+| Créditos esgotados (429 `creditos`, provedor próprio) | "Seus créditos de IA deste mês acabaram." (inglês: "You are out of AI credits for this month.") |
+| Cota do provedor (429, demais casos) | "O provedor limitou as chamadas agora. Tente de novo em instantes." |
 | Provedor fora do ar (5xx/rede) | "Não foi possível falar com o provedor. Verifique a conexão." |
 | Modelo inexistente (404) | "O provedor não conhece o modelo «{modelo}». Confira o nome nas configurações." |
 | Resposta inválida (JSON fora do schema) | no gateiro: linha de status no rodapé do painel ("A análise desta nota falhou. O agente tenta de novo quando você escrever mais.") e a tentativa fica liberada; na conversa: "O provedor devolveu uma resposta que não pude entender. Tente outro modelo." (`textoDoErro`, `src/agente/cliente.ts`). O estado `erro` após 3 falhas seguidas com "O provedor devolveu respostas inválidas. Tente outro modelo." **não está implementado**. |
