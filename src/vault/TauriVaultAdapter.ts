@@ -26,6 +26,7 @@ import {
   escreverBinarioAtomico,
 } from "./escritaAtomica";
 import { registrarAbertura } from "./vaultsRecentes";
+import { ERRO_PASTA_NAO_ENCONTRADA } from "./mensagemFalhaAbrir";
 
 const CHAVE_VAULT = "vaultPath";
 
@@ -75,6 +76,14 @@ export class TauriVaultAdapter implements VaultAdapter {
       caminho = (await store.get<string>(CHAVE_VAULT)) ?? undefined;
     }
     if (!caminho) return null;
+    // Fonte da verdade ANTES de tentar abrir: se a pasta sumiu (renomeada/movida/apagada),
+    // `vault_existe` diz isso direto, sem depender do texto do erro do SO em `permitir_vault`
+    // nem do `walk_vault` que só roda depois, já fora deste método (doc 04 — textos de
+    // vault/abertura; sem isto a UI caía sempre na mensagem genérica).
+    const existe = await invoke<boolean>("vault_existe", { path: caminho });
+    if (!existe) {
+      throw new ErroAberturaVault(ERRO_PASTA_NAO_ENCONTRADA, caminho);
+    }
     try {
       await invoke("permitir_vault", { path: caminho });
     } catch (e) {

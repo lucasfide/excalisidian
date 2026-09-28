@@ -13,10 +13,18 @@ export interface MensagemFalhaAbrir {
   valores?: Record<string, string>;
 }
 
+// Selo interno: `TauriVaultAdapter.doBoot()` confere se a pasta existe (comando Rust
+// `vault_existe`) ANTES de tentar abrir o vault — fonte da verdade, não depende do texto do
+// erro do SO. Exportado pra `ErroAberturaVault` usar como mensagem quando joga esse erro.
+export const ERRO_PASTA_NAO_ENCONTRADA = "pasta-nao-encontrada";
+
 // Pasta/arquivo não encontrado: código de erro do SO (Windows "os error 2/3", POSIX "No such
 // file or directory") e o texto livre que o Rust/Windows produzem em inglês e em português —
-// cobrindo a mensagem exata do relato do dono do produto.
+// cobrindo a mensagem exata do relato do dono do produto. Fica como reconhecimento de reforço
+// pra qualquer caminho que não passe pela checagem de `vault_existe` (ex.: pasta some entre a
+// checagem e a leitura).
 const PADROES_PASTA_NAO_ENCONTRADA = [
+  new RegExp(`^${ERRO_PASTA_NAO_ENCONTRADA}$`),
   /os error 2\b/i,
   /os error 3\b/i,
   /cannot find the path/i,

@@ -64,6 +64,7 @@ pub fn run() {
         .invoke_handler(tauri::generate_handler![
             vault::escolher_vault,
             vault::permitir_vault,
+            vault::vault_existe,
             vault::walk_vault,
             watcher::observar_vault,
             janelas::abrir_janela_vault,

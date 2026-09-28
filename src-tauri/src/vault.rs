@@ -1,6 +1,8 @@
-// Ponte com o disco. Três comandos, e não mais que isso sem uma boa razão (doc 05, seção 3):
+// Ponte com o disco. Poucos comandos, e não mais que isso sem uma boa razão (doc 05, seção 3):
 //   escolher_vault  -> abre o diálogo de pasta, concede o escopo de FS e devolve o caminho
 //   permitir_vault  -> reaplica o escopo no boot, a partir do caminho salvo
+//   vault_existe    -> confere se a pasta existe, ANTES de tentar abrir (fonte da verdade
+//                      pra "pasta não encontrada" no boot, sem depender do texto do erro)
 //   walk_vault      -> percorre o vault inteiro em uma chamada e devolve só metadados
 //
 // Armadilha do Tauri v2: o diálogo de pasta NÃO concede permissão de FS ao caminho, e o
@@ -57,6 +59,14 @@ pub async fn escolher_vault(app: AppHandle) -> Result<Option<String>, String> {
 #[tauri::command]
 pub fn permitir_vault(app: AppHandle, path: String) -> Result<(), String> {
     conceder_escopo(&app, &path)
+}
+
+/// Confere se `path` existe e é uma pasta, direto no processo Rust — sem depender do escopo
+/// de FS do plugin (que só é concedido depois, em `permitir_vault`) nem do texto de erro do
+/// SO. Fonte da verdade pro boot decidir "pasta não encontrada" antes de tentar abrir.
+#[tauri::command]
+pub fn vault_existe(path: String) -> bool {
+    std::path::Path::new(&path).is_dir()
 }
 
 /// Percorre a pasta inteira e devolve `[{path, isDir, size, mtimeMs, birthtimeMs}]`.
