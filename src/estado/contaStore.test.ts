@@ -514,6 +514,28 @@ describe("contaStore", () => {
     expect(useContaStore.getState().sessao).toBeNull();
   });
 
+  it("adotar token do cofre desliga a marca em memória: logout real em outra janela volta a valer", async () => {
+    const servico = comConta();
+    useContaStore.getState().definirServico(servico);
+    cofre.falhar = true;
+    await useContaStore.getState().entrar("ana@exemplo.com", "segredo123");
+    cofre.falhar = false;
+    const { sessao: outra } = await servico.entrar("ana@exemplo.com", "segredo123");
+    cofre.token = outra.token;
+    await useContaStore.getState().sincronizarComCofre();
+    expect(useContaStore.getState().sessao?.token).toBe(outra.token);
+    cofre.token = null; // outra janela saiu
+    await useContaStore.getState().sincronizarComCofre();
+    expect(useContaStore.getState().sessao).toBeNull();
+  });
+
+  it("atualizarPlano com dados iguais mantém o mesmo objeto de sessão", async () => {
+    await useContaStore.getState().entrar("ana@exemplo.com", "segredo123");
+    const antes = useContaStore.getState().sessao;
+    await useContaStore.getState().atualizarPlano();
+    expect(useContaStore.getState().sessao).toBe(antes);
+  });
+
   describe("sincronizarComCofre", () => {
     it("sem token no cofre zera a sessão e o porta-token", async () => {
       await useContaStore.getState().entrar("ana@exemplo.com", "segredo123");

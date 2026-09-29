@@ -259,6 +259,8 @@ export const useContaStore = create<ContaState>((set, get) => {
         const dados = await get().servico.consultar(token);
         if (geracao !== minhaGeracao || (get().sessao?.token ?? null) !== tokenAntes) return;
         definirTokenDaSessao(token);
+        // O token adotado vem do cofre: a sessão passa a ter respaldo lá.
+        sessaoSoEmMemoria = false;
         set({ sessao: { ...dados, token }, carregado: true });
       } catch (e) {
         if (geracao !== minhaGeracao || (get().sessao?.token ?? null) !== tokenAntes) return;
@@ -279,6 +281,15 @@ export const useContaStore = create<ContaState>((set, get) => {
       try {
         const dados = await get().servico.consultar(tokenAntes);
         if (geracao !== minhaGeracao || get().sessao?.token !== tokenAntes) return;
+        // Sem mudança real, mantém o mesmo objeto: quem assina a `sessao` (o agente) não deve
+        // ver abrir as preferências como troca de sessão.
+        if (
+          dados.email === sessao.email &&
+          dados.plano === sessao.plano &&
+          dados.expiraEm === sessao.expiraEm
+        ) {
+          return;
+        }
         set({ sessao: { ...dados, token: tokenAntes } });
       } catch (e) {
         if (geracao !== minhaGeracao || get().sessao?.token !== tokenAntes) return;
