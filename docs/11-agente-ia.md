@@ -289,17 +289,28 @@ própria:
 
 ```
 config: ConfigAgente | null      carregada do settings.json
-status: "desligado" | "ocioso" | "observando" | "pensando" | "erro"
-participacaoAtual: "nenhuma" | "pendente" | "aceito"   (nota ativa)
-convite: { tema, pergunta } | null
-sugestoes: Sugestao[]            (da nota ativa, desde o último aceite)
-uso: { tokensEntrada, tokensSaida, custoUsd, porDia }
+status: "desligado" | "ocioso" | "observando" | "pensando" | "pausado" | "erro"
+pausado: boolean                 (pausa manual; o status mostra "pausado" quando não há trabalho em voo)
+enviandoChat: boolean            (mensagem do chat em voo; outra só sai depois da resposta)
+erroAtual: string | null         (motivo do último erro, mostrado no painel)
+saldoCreditos: SaldoCreditos | null   (provedor próprio; null quando não há saldo confiável)
+participacao: Record<caminho, Participacao>
+convite: { path, tema } | null
+sugestoes: Record<caminho, Sugestao[]>   (por nota; substituídas a cada ciclo)
+usoSessao: { tokensEntrada, tokensSaida, custoUsd }
 painelAberto: boolean
-conversa: Mensagem[]             (conversa manual em curso)
+conversas: Record<caminho, MensagemChat[]>   (conversa manual por nota)
 ```
 
 Ações: `carregar()`, `salvarConfig()`, `testarConexao()`, `responderConvite()`,
-`enviarMensagem()`, `pausar()`, `retomar()`, `limparMemoria()`.
+`enviarMensagem()`, `pausar()`, `retomar()`, `atualizarSaldo()`, `dispensarSugestao()`,
+`limparMemoria()`.
+
+`saldoCreditos` só existe no provedor próprio e volta a `null` quando a busca falha (mostrar
+zero seria mentir sobre dinheiro). A pausa por créditos esgotados (§5.0) **não** usa `pausado`,
+que é escolha do usuário: é uma flag interna do segundo plano, e o chat segue liberado.
+`enviandoChat` bloqueia `enviarMensagem()` enquanto há um pedido em voo, para a resposta da
+primeira mensagem entrar no histórico antes de a segunda sair.
 
 Persistência: config no `settings.json`; uso do dia em memória + espelho em
 `agente/<hash>/uso.json` (para o teto diário sobreviver a restart). `painelAberto` é
@@ -346,9 +357,11 @@ resposta bem-sucedida também limpa o erro definitivo (quem virou premium depois
 Entrada: até os primeiros 2.000 caracteres da nota (sem frontmatter). Saída JSON estrita:
 
 ```json
-{ "valeParticipar": true, "tema": "orçamento de 2026",
-  "confianca": 0.8, "pergunta": "Quer que eu acompanhe esta nota?" }
+{ "valeParticipar": true, "tema": "orçamento de 2026", "confianca": 0.8 }
 ```
+
+O modelo não escreve a pergunta do convite: o texto do balão vem do catálogo de interface, com
+o `tema` detectado (`convite` guarda só `{ path, tema }`).
 
 Parse defensivo. `valeParticipar: false` ou `confianca < 0.5`: não convida, e o rodapé do
 painel diz por quê — "O agente leu esta nota e decidiu não participar por enquanto"
@@ -378,19 +391,21 @@ Saída JSON estrita:
 
 ```json
 { "sugestoes": [
-    { "tipo": "pergunta" | "conteudo" | "gap" | "notaRelacionada" | "achadoWeb",
+    { "tipo": "pergunta" | "conteudo" | "gap" | "notaRelacionada",
       "texto": "…", "caminhoNota": "Projetos/X.md" } ],
-  "novosFatos": [ "…" ],
-  "precisaWeb": false }
+  "novosFatos": [ "…" ] }
 ```
+
+No máximo 4 sugestões por ciclo e 2 fatos novos. O prompt não pede `precisaWeb` nem
+`achadoWeb` (ver §5.4).
 
 - `notaRelacionada` exige `caminhoNota` resolvido no índice (senão descarta a sugestão —
   nunca inventa caminho).
 - `novosFatos` entram em `fatos.json` (§2.2).
 - Sugestões substituem as anteriores da mesma nota (não acumulam entre ciclos); o usuário
-  pode marcar uma como "útil"/"dispensar" — dispensada some, útil fica fixada no topo.
-- `precisaWeb: true` + `webSearch` ligado → segunda chamada com o tool nativo (§5.4),
-  máximo 1 por ciclo; o resultado volta como sugestão `achadoWeb` com a URL no texto.
+  pode copiar ou dispensar uma — dispensada some. Não existe botão "útil" nem sugestão fixada.
+- Web search **não está implementado**: não há campo `precisaWeb`, e um `achadoWeb` que o modelo
+  devolva por conta própria é descartado na interpretação. O §5.4 é o desenho da fase 5.
 
 ### 5.4 Web search
 
@@ -556,7 +571,7 @@ Português do Brasil, sentence case, sem emoji (doc 06, Voz da interface).
 | Limpar memória (confirmação) | "Apagar resumos, fatos, participações e conversas do agente? As notas não são afetadas." |
 | Aviso da seção de configurações | "Opcional. Nada é enviado sem a sua configuração, e o agente só acompanha uma nota depois que você aceita o convite." |
 | Assistente — botão da seção sem config | "Configurar agente" |
-| Assistente — passos | "Provedor" · "Chave da API" · "Leitura inicial" · "Acompanhamento" · "Revisão" |
+| Assistente — passos | "Provedor" · "Chave da API" · "Leitura inicial" · "Acompanhamento" · "Revisão" (no provedor próprio, o segundo passo é "Conta" no lugar de "Chave da API") |
 | Assistente — navegação | "Voltar" / "Continuar" / "Ativar agente" |
 | Assistente — passo 2, link | "Onde consigo uma chave?" |
 | Assistente — passo 3, rótulo | "Modelo da leitura inicial — barato e rápido, só decide se vale convidar" |

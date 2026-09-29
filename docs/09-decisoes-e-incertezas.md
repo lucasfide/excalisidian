@@ -2015,6 +2015,10 @@ acompanhamento 2 a 3; mensagem no chat ~2 — no preço de pico e sem cache. De 
 de pico e com cache, rende de 2 a 3 vezes mais. 3.000 créditos equivalem a ~120 h de escrita
 intensa com acompanhamento no pior horário, ~300 h de dia.
 
+**Medição real (28/09/2026):** 10 pedidos custaram US$ 0,0029 e consumiram 3 créditos, cerca de
+0,3 crédito por pedido. As estimativas acima, em base de pico, são históricas: superadas pelo
+fornecedor do ADR-44.
+
 **Alternativas rejeitadas:**
 
 | Opção | Por que não |
