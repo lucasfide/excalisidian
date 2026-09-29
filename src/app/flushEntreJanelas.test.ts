@@ -49,8 +49,9 @@ vi.mock("../estado/agenteStore", () => ({
 }));
 
 const carregarContaMock = vi.fn(async () => {});
+const sincronizarContaMock = vi.fn(async () => {});
 vi.mock("../estado/contaStore", () => ({
-  useContaStore: { getState: () => ({ carregar: carregarContaMock }) },
+  useContaStore: { getState: () => ({ carregar: carregarContaMock, sincronizarComCofre: sincronizarContaMock }) },
 }));
 
 import {
@@ -69,6 +70,7 @@ beforeEach(() => {
   carregarPrefsMock.mockClear();
   carregarAgenteMock.mockClear();
   carregarContaMock.mockClear();
+  sincronizarContaMock.mockClear();
 });
 
 describe("agregarResultadoFlush (agregação pura)", () => {
@@ -177,7 +179,10 @@ describe("instalarOuvintesEntreJanelas", () => {
 
     expect(carregarPrefsMock).toHaveBeenCalledTimes(1);
     expect(carregarAgenteMock).toHaveBeenCalledTimes(1);
-    expect(carregarContaMock).toHaveBeenCalledTimes(1);
+    // A conta só adota o token do cofre; `carregar()` (com `renovar`) trocaria o token e
+    // derrubaria as outras janelas e o pedido do agente em andamento.
+    expect(sincronizarContaMock).toHaveBeenCalledTimes(1);
+    expect(carregarContaMock).not.toHaveBeenCalled();
   });
 
   it("a função de limpeza remove os dois ouvintes", async () => {

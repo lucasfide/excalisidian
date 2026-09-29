@@ -85,6 +85,15 @@ export class ServicoContaFake implements ServicoConta {
     return this.abrirSessao(sessao.email);
   }
 
+  async consultar(token: string): Promise<Omit<Sessao, "token">> {
+    const sessao = this.sessoes.get(token);
+    if (!sessao || Date.now() > sessao.expiraEm) throw new FalhaConta("expirada");
+    const conta = this.contas.get(sessao.email);
+    if (!conta) throw new FalhaConta("expirada");
+    // Não troca nem apaga o token — é a diferença para `renovar`.
+    return { email: sessao.email, plano: conta.plano, expiraEm: sessao.expiraEm };
+  }
+
   async sair(token: string): Promise<void> {
     this.sessoes.delete(token);
   }

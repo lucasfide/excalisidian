@@ -120,6 +120,33 @@ export class ServicoContaHttp implements ServicoConta {
     );
   }
 
+  /** Consulta a sessão sem trocar o token (doc 18 §1). Mesmos códigos de erro de `renovar`. */
+  async consultar(token: string): Promise<Omit<Sessao, "token">> {
+    let res: Response;
+    try {
+      res = await this.fetchImpl(`${this.baseUrl}/sessoes/atual`, {
+        method: "GET",
+        headers: { Authorization: `Bearer ${token}` },
+        connectTimeout: TIMEOUT_MS,
+      } as RequestInit);
+    } catch (e) {
+      throw new FalhaConta("rede", e instanceof Error ? e.message : String(e));
+    }
+    if (res.status === 401) throw new FalhaConta("expirada");
+    if (res.status < 200 || res.status >= 300) throw new FalhaConta("servidor");
+    let corpo: unknown;
+    try {
+      corpo = await res.json();
+    } catch {
+      throw new FalhaConta("servidor", "resposta não é JSON");
+    }
+    if (!ehSessao({ ...(corpo as object), token: "-" })) {
+      throw new FalhaConta("servidor", "resposta sem sessão válida");
+    }
+    const { email, plano, expiraEm } = corpo as Omit<Sessao, "token">;
+    return { email, plano, expiraEm };
+  }
+
   /** Sair é melhor-esforço: se o servidor recusar, o app esquece o token de qualquer jeito.
    * Deixar o usuário preso numa sessão porque o logout falhou seria pior. */
   async sair(token: string): Promise<void> {

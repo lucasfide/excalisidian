@@ -52,6 +52,10 @@ class ServicoContaControlavel implements ServicoConta {
     this.rejeitarRenovar(erro);
   }
 
+  consultar(token: string) {
+    return this.base.consultar(token);
+  }
+
   entrar(email: string, senha: string): Promise<ResultadoLogin> {
     return this.base.entrar(email, senha);
   }
@@ -422,5 +426,74 @@ describe("contaStore", () => {
     expect(useContaStore.getState().erro).toBe("credenciais");
     expect(useContaStore.getState().sessao).toEqual(sessaoAnterior);
     expect(tokenDaSessaoAtual()).toBe(sessaoAnterior?.token);
+  });
+
+  describe("sincronizarComCofre", () => {
+    it("sem token no cofre zera a sessão e o porta-token", async () => {
+      await useContaStore.getState().entrar("ana@exemplo.com", "segredo123");
+      cofre.token = null; // outra janela saiu
+      await useContaStore.getState().sincronizarComCofre();
+      expect(useContaStore.getState().sessao).toBeNull();
+      expect(useContaStore.getState().carregado).toBe(true);
+      expect(tokenDaSessaoAtual()).toBeNull();
+    });
+
+    it("token igual ao da sessão atual não chama o servidor", async () => {
+      await useContaStore.getState().entrar("ana@exemplo.com", "segredo123");
+      const servico = useContaStore.getState().servico;
+      const consultar = vi.spyOn(servico, "consultar");
+      const renovar = vi.spyOn(servico, "renovar");
+      await useContaStore.getState().sincronizarComCofre();
+      expect(consultar).not.toHaveBeenCalled();
+      expect(renovar).not.toHaveBeenCalled();
+    });
+
+    it("token diferente é consultado (sem renovar) e adotado", async () => {
+      const servico = comConta();
+      useContaStore.getState().definirServico(servico);
+      await useContaStore.getState().entrar("ana@exemplo.com", "segredo123");
+      const { sessao: outra } = await servico.entrar("ana@exemplo.com", "segredo123"); // outra janela
+      cofre.token = outra.token;
+      const renovar = vi.spyOn(servico, "renovar");
+
+      await useContaStore.getState().sincronizarComCofre();
+
+      expect(renovar).not.toHaveBeenCalled();
+      expect(useContaStore.getState().sessao?.token).toBe(outra.token);
+      expect(useContaStore.getState().plano()).toBe("premium");
+      expect(tokenDaSessaoAtual()).toBe(outra.token);
+      expect(cofre.token).toBe(outra.token);
+    });
+
+    it("token diferente expirado zera a sessão mas NÃO apaga o cofre", async () => {
+      await useContaStore.getState().entrar("ana@exemplo.com", "segredo123");
+      cofre.token = "tok-que-o-servidor-nao-conhece";
+      await useContaStore.getState().sincronizarComCofre();
+      expect(useContaStore.getState().sessao).toBeNull();
+      expect(tokenDaSessaoAtual()).toBeNull();
+      expect(cofre.token).toBe("tok-que-o-servidor-nao-conhece");
+    });
+
+    it("rede ou servidor fora do ar mantém a sessão atual", async () => {
+      await useContaStore.getState().entrar("ana@exemplo.com", "segredo123");
+      const antes = useContaStore.getState().sessao;
+      cofre.token = "tok-novo-de-outra-janela";
+      vi.spyOn(useContaStore.getState().servico, "consultar").mockRejectedValue(new FalhaConta("rede"));
+      await useContaStore.getState().sincronizarComCofre();
+      expect(useContaStore.getState().sessao).toEqual(antes);
+      expect(tokenDaSessaoAtual()).toBe(antes?.token);
+    });
+
+    it("descarta o resultado se entrar/sair aconteceu no meio (geracao)", async () => {
+      const servico = comConta();
+      useContaStore.getState().definirServico(servico);
+      const { sessao: outra } = await servico.entrar("ana@exemplo.com", "segredo123");
+      cofre.token = outra.token;
+      const sincronizando = useContaStore.getState().sincronizarComCofre();
+      await useContaStore.getState().sair();
+      await sincronizando;
+      expect(useContaStore.getState().sessao).toBeNull();
+      expect(tokenDaSessaoAtual()).toBeNull();
+    });
   });
 });

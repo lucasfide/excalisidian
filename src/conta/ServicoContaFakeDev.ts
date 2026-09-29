@@ -87,6 +87,21 @@ export class ServicoContaFakeDev implements ServicoConta {
     }
   }
 
+  async consultar(token: string): Promise<Omit<Sessao, "token">> {
+    try {
+      return await this.fake.consultar(token);
+    } catch (e) {
+      // Mesmo motivo de `renovar`: o token determinístico vindo de outra janela vale aqui.
+      for (const emailNormalizado of Object.keys(this.contas)) {
+        if (token === (await tokenDeterministico(emailNormalizado))) {
+          const { token: _descartado, ...dados } = await this.sessaoDeterministica(emailNormalizado);
+          return dados;
+        }
+      }
+      throw e;
+    }
+  }
+
   async sair(token: string): Promise<void> {
     await this.fake.sair(token);
   }

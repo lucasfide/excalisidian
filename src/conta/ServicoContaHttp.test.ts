@@ -141,6 +141,32 @@ describe("ServicoContaHttp", () => {
     expect((init.headers as Record<string, string>).Authorization).toBe("Bearer tok-velho");
   });
 
+  it("consultar faz GET /sessoes/atual com Bearer e devolve os dados sem token", async () => {
+    const falso = vi.fn(async () =>
+      resposta(200, { email: "ana@exemplo.com", plano: "premium", expiraEm: 123 }),
+    );
+    const servico = servicoComDubles(falso as unknown as typeof fetch);
+    const dados = await servico.consultar("tok-x");
+    expect(dados).toEqual({ email: "ana@exemplo.com", plano: "premium", expiraEm: 123 });
+    const [url, init] = falso.mock.calls[0] as unknown as [string, RequestInit];
+    expect(url).toBe(`${BASE}/sessoes/atual`);
+    expect(init.method).toBe("GET");
+    expect((init.headers as Record<string, string>).Authorization).toBe("Bearer tok-x");
+  });
+
+  it("consultar: 401 vira expirada, 500 vira servidor, rede vira rede", async () => {
+    const com = (f: unknown) => servicoComDubles(f as typeof fetch);
+    await expect(com(vi.fn(async () => resposta(401, {}))).consultar("t")).rejects.toThrow(
+      expect.objectContaining({ codigo: "expirada" }),
+    );
+    await expect(com(vi.fn(async () => resposta(500, {}))).consultar("t")).rejects.toThrow(
+      expect.objectContaining({ codigo: "servidor" }),
+    );
+    await expect(
+      com(vi.fn(async () => { throw new Error("sem rede"); })).consultar("t"),
+    ).rejects.toThrow(expect.objectContaining({ codigo: "rede" }));
+  });
+
   it("entrar deriva a chaveDeEnvelope UMA vez e devolve a mesma da derivação", async () => {
     const falso = vi.fn(async () => resposta(200, sessaoValida));
     const servico = servicoComDubles(falso as unknown as typeof fetch);

@@ -85,6 +85,10 @@ interface ContaState {
   definirCofreChaveDeEnvelope(c: CofreChaveDeEnvelope): void;
   plano(): PlanoAssinatura;
   carregar(): Promise<void>;
+  /** Adota o token que está no cofre SEM trocá-lo (`consultar`, não `renovar`). É o que as
+   * janelas fazem ao receber `app://prefs-mudou`: `carregar()` renovaria e invalidaria o token
+   * das outras janelas e de qualquer pedido do agente em andamento. */
+  sincronizarComCofre(): Promise<void>;
   entrar(email: string, senha: string): Promise<boolean>;
   criar(email: string, senha: string): Promise<boolean>;
   sair(): Promise<void>;
@@ -212,6 +216,38 @@ export const useContaStore = create<ContaState>((set, get) => {
         // Silêncio mantido nos dois casos: o usuário não pediu nada, só abriu o app. `sessao`
         // fica null nesta execução (indefinida até a próxima tentativa), sem tocar em `erro`.
         set({ sessao: null, carregado: true });
+      }
+    },
+
+    async sincronizarComCofre() {
+      const minhaGeracao = geracao;
+      let token: string | null;
+      try {
+        token = await get().cofre.ler();
+      } catch {
+        return; // cofre indisponível: não prova nada, mantém o estado
+      }
+      if (geracao !== minhaGeracao) return;
+      if (!token) {
+        // Outra janela saiu (ou nunca houve sessão): esta também fica sem sessão.
+        definirTokenDaSessao(null);
+        set({ sessao: null, carregado: true });
+        return;
+      }
+      if (token === get().sessao?.token) return;
+      try {
+        const dados = await get().servico.consultar(token);
+        if (geracao !== minhaGeracao) return;
+        definirTokenDaSessao(token);
+        set({ sessao: { ...dados, token }, carregado: true });
+      } catch (e) {
+        if (geracao !== minhaGeracao) return;
+        // Só "expirada" zera a sessão, e sem apagar o cofre: outra janela pode ter gravado um
+        // token novo nesse meio-tempo. `rede`/`servidor` mantêm o que já há.
+        if (codigoDe(e) === "expirada") {
+          definirTokenDaSessao(null);
+          set({ sessao: null });
+        }
       }
     },
 

@@ -104,6 +104,18 @@ describe("ServicoContaFake", () => {
     await expect(fake().sair("tok-invalido")).resolves.toBeUndefined();
   });
 
+  it("consultar devolve os dados sem trocar o token", async () => {
+    const f = fake();
+    const { sessao } = await f.entrar("ana@exemplo.com", "segredo123");
+    const dados = await f.consultar(sessao.token);
+    expect(dados).toEqual({ email: "ana@exemplo.com", plano: sessao.plano, expiraEm: sessao.expiraEm });
+    await expect(f.consultar(sessao.token)).resolves.toBeDefined();
+  });
+
+  it("consultar com token desconhecido dá expirada", async () => {
+    await expect(fake().consultar("tok-invalido")).rejects.toMatchObject({ codigo: "expirada" });
+  });
+
   it("FalhaConta é Error e carrega o código", () => {
     const e = new FalhaConta("rede");
     expect(e).toBeInstanceOf(Error);

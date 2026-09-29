@@ -163,7 +163,9 @@ export function instalarOuvintesEntreJanelas(): () => void {
   void listen(EVENTO_PREFS_MUDOU, () => {
     void usePrefsStore.getState().carregar();
     void useAgenteStore.getState().carregar();
-    void useContaStore.getState().carregar();
+    // `sincronizarComCofre`, não `carregar`: `carregar` faz `renovar`, que troca o token no
+    // servidor — o token velho (do pedido do agente em andamento, ou de outra janela) daria 401.
+    void useContaStore.getState().sincronizarComCofre();
   }).then((unlisten) => {
     if (cancelado) unlisten();
     else limpezas.push(unlisten);

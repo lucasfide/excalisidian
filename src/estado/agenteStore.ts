@@ -207,6 +207,25 @@ function notaAtivaAtual(): { path: string; texto: string } | null {
   return { path, texto: doc.conteudoEditor };
 }
 
+/** `completar` com uma segunda chance para o 401 do provedor próprio. Outra janela pode ter
+ * trocado o token (`renovar`, entrar) enquanto este pedido voava com o token velho: o cofre
+ * tem o token novo e o usuário continua logado. Então, num `FalhaAgente("sessao")`, adota o
+ * token do cofre (`sincronizarComCofre`, que nunca renova) e, SE ele mudou para outro não
+ * nulo, repete UMA vez. Token igual, ou sem token, ou segundo 401: repropaga, e os catch
+ * existentes decidem o que é definitivo. */
+async function completarComSessao(pedido: Parameters<typeof completar>[0]) {
+  const tokenUsado = tokenDaSessaoAtual();
+  try {
+    return await completar(pedido);
+  } catch (e) {
+    if (!(e instanceof FalhaAgente) || e.codigo !== "sessao" || !pedido.provedor.exigeConta) throw e;
+    await useContaStore.getState().sincronizarComCofre();
+    const tokenAgora = tokenDaSessaoAtual();
+    if (tokenAgora === null || tokenAgora === tokenUsado) throw e;
+    return completar(pedido);
+  }
+}
+
 function statusBase(s: Pick<AgenteState, "config" | "pausado">): StatusAgente {
   if (!s.config || !s.config.habilitado) return "desligado";
   return s.pausado ? "pausado" : "ocioso";
@@ -361,7 +380,7 @@ export const useAgenteStore = create<AgenteState>((set, get) => {
     set((st) => ({ status: st.pausado ? st.status : "pensando" }));
     try {
       const cfg = s.config;
-      const r = await completar({
+      const r = await completarComSessao({
         provedor: provedorDe(cfg.provedor),
         chave: cfg.chaves[cfg.provedor],
         baseUrl: baseUrlEfetiva(cfg.provedor, cfg.baseUrls),
@@ -504,7 +523,7 @@ export const useAgenteStore = create<AgenteState>((set, get) => {
           gerados++;
           try {
             const bruto = await adapter.lerTexto(r.path);
-            const res = await completar({
+            const res = await completarComSessao({
               provedor: provedorDe(cfg.provedor),
               chave: cfg.chaves[cfg.provedor],
               baseUrl: baseUrlEfetiva(cfg.provedor, cfg.baseUrls),
@@ -531,7 +550,7 @@ export const useAgenteStore = create<AgenteState>((set, get) => {
         material.push({ path: r.path, titulo: r.titulo, texto: textoR });
       }
 
-      const r = await completar({
+      const r = await completarComSessao({
         provedor: provedorDe(cfg.provedor),
         chave: cfg.chaves[cfg.provedor],
         baseUrl: baseUrlEfetiva(cfg.provedor, cfg.baseUrls),
@@ -737,7 +756,7 @@ export const useAgenteStore = create<AgenteState>((set, get) => {
       set({ status: "pensando", erroAtual: null });
       try {
         const nota = ativa ? ativa.texto.slice(0, CONTEXTO_NOTA_CHARS) : null;
-        const resposta = await completar({
+        const resposta = await completarComSessao({
           provedor: provedorDe(cfg.provedor),
           chave: cfg.chaves[cfg.provedor],
           baseUrl: baseUrlEfetiva(cfg.provedor, cfg.baseUrls),

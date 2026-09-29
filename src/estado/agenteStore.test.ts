@@ -57,8 +57,10 @@ vi.mock("./workspaceStore", () => ({
 const { dispararConta } = vi.hoisted(() => ({
   dispararConta: { lista: [] as Array<(s: unknown, p: unknown) => void> },
 }));
+const { sincronizarMock } = vi.hoisted(() => ({ sincronizarMock: vi.fn(async () => {}) }));
 vi.mock("./contaStore", () => ({
   useContaStore: {
+    getState: () => ({ sincronizarComCofre: sincronizarMock }),
     subscribe: (cb: (s: unknown, p: unknown) => void) => {
       dispararConta.lista.push(cb);
       return () => {
@@ -735,5 +737,89 @@ describe("agenteStore — créditos esgotados pausam o segundo plano", () => {
     const chamadas = vi.mocked(completar).mock.calls.length;
     await vi.advanceTimersByTimeAsync(60_000);
     expect(completar).toHaveBeenCalledTimes(chamadas);
+  });
+});
+
+// ——— sessão trocada por outra janela (plano 15, tarefa 3) ———
+
+describe("agenteStore — 401 com token trocado por outra janela", () => {
+  beforeEach(() => {
+    sincronizarMock.mockReset();
+    sincronizarMock.mockImplementation(async () => {});
+    definirTokenDaSessao("tok-velho");
+  });
+
+  it("chat: 401, o cofre tem outro token, repete UMA vez e dá certo sem erro", async () => {
+    await prepararNota(CONFIG_PROPRIA);
+    vi.mocked(completar).mockReset();
+    sincronizarMock.mockImplementation(async () => definirTokenDaSessao("tok-novo"));
+    vi.mocked(completar)
+      .mockRejectedValueOnce(new FalhaAgente("sessao"))
+      .mockImplementation(async (p) => respostaPorPapel(p));
+
+    await st().enviarMensagem("oi");
+
+    expect(sincronizarMock).toHaveBeenCalledTimes(1);
+    expect(completar).toHaveBeenCalledTimes(2);
+    expect(st().erroAtual).toBeNull();
+    expect(st().status).not.toBe("erro");
+  });
+
+  it("chat: 401 e o token continua o mesmo, vira erro sem repetir", async () => {
+    await prepararNota(CONFIG_PROPRIA);
+    vi.mocked(completar).mockReset();
+    vi.mocked(completar).mockRejectedValue(new FalhaAgente("sessao"));
+
+    await st().enviarMensagem("oi");
+
+    expect(sincronizarMock).toHaveBeenCalledTimes(1);
+    expect(completar).toHaveBeenCalledTimes(1);
+    expect(st().status).toBe("erro");
+  });
+
+  it("chat: 401 de novo depois da repetição vira erro (só repete uma vez)", async () => {
+    await prepararNota(CONFIG_PROPRIA);
+    vi.mocked(completar).mockReset();
+    sincronizarMock.mockImplementation(async () => definirTokenDaSessao("tok-novo"));
+    vi.mocked(completar).mockRejectedValue(new FalhaAgente("sessao"));
+
+    await st().enviarMensagem("oi");
+
+    expect(completar).toHaveBeenCalledTimes(2);
+    expect(st().status).toBe("erro");
+  });
+
+  it("chat: sessão zerada pela outra janela (sem token) vira erro sem repetir", async () => {
+    await prepararNota(CONFIG_PROPRIA);
+    vi.mocked(completar).mockReset();
+    sincronizarMock.mockImplementation(async () => definirTokenDaSessao(null));
+    vi.mocked(completar).mockRejectedValue(new FalhaAgente("sessao"));
+
+    await st().enviarMensagem("oi");
+
+    expect(completar).toHaveBeenCalledTimes(1);
+    expect(st().status).toBe("erro");
+  });
+
+  it("provedor de chave própria não consulta o cofre num 401", async () => {
+    await prepararNota(CONFIG);
+    vi.mocked(completar).mockReset();
+    vi.mocked(completar).mockRejectedValue(new FalhaAgente("sessao"));
+
+    await st().enviarMensagem("oi");
+
+    expect(sincronizarMock).not.toHaveBeenCalled();
+    expect(completar).toHaveBeenCalledTimes(1);
+  });
+
+  it("gateiro: o mesmo caminho vale para o segundo plano", async () => {
+    sincronizarMock.mockImplementation(async () => definirTokenDaSessao("tok-novo"));
+    vi.mocked(completar).mockRejectedValueOnce(new FalhaAgente("sessao"));
+    vi.mocked(completar).mockImplementation(async (p) => respostaPorPapel(p));
+    await prepararNota(CONFIG_PROPRIA);
+    await vi.advanceTimersByTimeAsync(6_000);
+
+    expect(sincronizarMock).toHaveBeenCalledTimes(1);
+    expect(st().status).not.toBe("erro");
   });
 });
