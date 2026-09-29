@@ -9,6 +9,7 @@ import type { Config } from "./config";
 import { registrarLog } from "./log";
 import { rotasApi } from "./rotas";
 import { registrarRotasIa } from "./rotasIa";
+import { registrarRotasSessaoAtual } from "./rotasSessaoAtual";
 
 declare module "fastify" {
   interface FastifyInstance {
@@ -65,6 +66,9 @@ export function criarApp(config: Config, opcoes?: { agora?: () => number; fetchF
       }),
     { prefix: "/v1" },
   );
+
+  // Consulta da sessão sem trocar o token (doc 18 §1): plugin próprio, `rotas.ts` fica intacto.
+  app.register(async (instancia) => registrarRotasSessaoAtual(instancia, banco), { prefix: "/v1" });
 
   return app;
 }
