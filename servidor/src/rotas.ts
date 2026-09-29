@@ -200,18 +200,29 @@ function tratarFalhaSync(erro: unknown, reply: FastifyReply): FastifyReply {
     if (erro.codigo === "nao-encontrado") return reply.code(404).send();
     if (erro.codigo === "fora-de-ordem") return reply.code(409).send({ codigo: "fora-de-ordem" });
     if (erro.codigo === "ja-existe") return reply.code(409).send({ codigo: "ja-existe" });
+    if (erro.codigo === "espaco") return reply.code(507).send();
   }
   throw erro;
 }
+
+const PADRAO_ID_VAULT = "^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$";
 
 const SCHEMA_CRIAR_VAULT = {
   type: "object",
   additionalProperties: false,
   required: ["id", "nomeCifrado", "envelope"],
   properties: {
-    id: { type: "string", minLength: 1 },
+    id: { type: "string", pattern: PADRAO_ID_VAULT },
     nomeCifrado: { type: "string", minLength: 1 },
     envelope: { type: "string", minLength: 1 },
+  },
+} as const;
+
+const SCHEMA_PARAMETROS_VAULT = {
+  type: "object",
+  required: ["id"],
+  properties: {
+    id: { type: "string", pattern: PADRAO_ID_VAULT },
   },
 } as const;
 
@@ -231,7 +242,7 @@ const SCHEMA_ENVIAR_RETRATO = {
   required: ["ateSequencia", "partes"],
   properties: {
     ateSequencia: { type: "integer", minimum: 1 },
-    partes: { type: "array", items: { type: "string" } },
+    partes: { type: "array", minItems: 1, items: { type: "string", minLength: 1 } },
   },
 } as const;
 
@@ -287,7 +298,7 @@ function registrarRotasSync(app: FastifyInstance, banco: FastifyInstance["banco"
 
   app.get<{ Params: { id: string }; Querystring: { apos?: string } }>(
     "/sync/vaults/:id/pacotes",
-    { preHandler: preHandlerSync },
+    { preHandler: preHandlerSync, schema: { params: SCHEMA_PARAMETROS_VAULT } },
     async (request, reply) => {
       const nucleo = new NucleoServidorSync(new ArmazenamentoSqlite(banco, pastaDados, request.conta!.id));
       const apos = Number(request.query.apos ?? 0);
@@ -314,7 +325,7 @@ function registrarRotasSync(app: FastifyInstance, banco: FastifyInstance["banco"
 
   app.post<{ Params: { id: string }; Body: { esperoUltima: number; bytes: string } }>(
     "/sync/vaults/:id/lotes",
-    { preHandler: preHandlerSync, schema: { body: SCHEMA_ENVIAR_LOTE }, bodyLimit: BODY_LIMIT_LOTE },
+    { preHandler: preHandlerSync, schema: { params: SCHEMA_PARAMETROS_VAULT, body: SCHEMA_ENVIAR_LOTE }, bodyLimit: BODY_LIMIT_LOTE },
     async (request, reply) => {
       const contaId = request.conta!.id;
       const bytes = decodificarBase64(request.body.bytes);
@@ -335,7 +346,7 @@ function registrarRotasSync(app: FastifyInstance, banco: FastifyInstance["banco"
 
   app.post<{ Params: { id: string }; Body: { ateSequencia: number; partes: string[] } }>(
     "/sync/vaults/:id/retratos",
-    { preHandler: preHandlerSync, schema: { body: SCHEMA_ENVIAR_RETRATO }, bodyLimit: BODY_LIMIT_RETRATO },
+    { preHandler: preHandlerSync, schema: { params: SCHEMA_PARAMETROS_VAULT, body: SCHEMA_ENVIAR_RETRATO }, bodyLimit: BODY_LIMIT_RETRATO },
     async (request, reply) => {
       const contaId = request.conta!.id;
       const partes = request.body.partes.map(decodificarBase64);
@@ -361,7 +372,7 @@ function registrarRotasSync(app: FastifyInstance, banco: FastifyInstance["banco"
 
   app.delete<{ Params: { id: string } }>(
     "/sync/vaults/:id",
-    { preHandler: preHandlerSync },
+    { preHandler: preHandlerSync, schema: { params: SCHEMA_PARAMETROS_VAULT } },
     async (request, reply) => {
       const nucleo = new NucleoServidorSync(new ArmazenamentoSqlite(banco, pastaDados, request.conta!.id));
       await nucleo.apagarVault(request.params.id);

@@ -13,7 +13,7 @@ import type { FastifyInstance } from "fastify";
 import { criarApp } from "./app";
 import type { Config } from "./config";
 import { fetchPorInject } from "./apoioTestes/fetchPorInject";
-import { TAMANHO_MAXIMO_PACOTE } from "./armazenamentoSync";
+import { ArmazenamentoSqlite, TAMANHO_MAXIMO_PACOTE } from "./armazenamentoSync";
 
 import { ServicoContaHttp } from "../../src/conta/ServicoContaHttp";
 import { ServicoSyncHttp } from "../../src/sync/ServicoSyncHttp";
@@ -201,6 +201,24 @@ describe("POST /v1/sync/vaults/:id/lotes (enviarLote)", () => {
 });
 
 describe("POST /v1/sync/vaults/:id/retratos (enviarRetrato)", () => {
+  it("recusa retrato sem partes e preserva o lote anterior", async () => {
+    const token = await criarContaPremium("retrato-vazio@teste.com");
+    definirTokenDaSessao(token);
+    const id = crypto.randomUUID();
+    const { nomeCifrado, envelope } = envelopeDeTeste();
+    await sync.criarVault(id, nomeCifrado, envelope);
+    await sync.enviarLote(id, 0, new Uint8Array([1, 2, 3]));
+
+    const resposta = await app.inject({
+      method: "POST",
+      url: `/v1/sync/vaults/${id}/retratos`,
+      headers: { authorization: `Bearer ${token}` },
+      payload: { ateSequencia: 1, partes: [] },
+    });
+    expect(resposta.statusCode).toBe(400);
+    expect((await sync.baixar(id, 0)).lotes).toHaveLength(1);
+  });
+
   it("envia um retrato e baixar(0) devolve ele mais os lotes seguintes", async () => {
     const token = await criarContaPremium("joao@teste.com");
     definirTokenDaSessao(token);
@@ -310,6 +328,27 @@ describe("403 — conta grátis", () => {
 });
 
 describe("isolamento entre contas", () => {
+  it("recusa criar um ID de outra conta sem apagar os pacotes existentes", async () => {
+    const tokenA = await criarContaPremium("id-dona@teste.com");
+    definirTokenDaSessao(tokenA);
+    const id = crypto.randomUUID();
+    const { nomeCifrado, envelope } = envelopeDeTeste();
+    await sync.criarVault(id, nomeCifrado, envelope);
+    await sync.enviarLote(id, 0, new Uint8Array([1, 2, 3]));
+
+    const tokenB = await criarContaPremium("id-intruso@teste.com");
+    definirTokenDaSessao(tokenB);
+    await expect(sync.criarVault(id, nomeCifrado, envelope)).rejects.toThrow(
+      expect.objectContaining({ codigo: "ja-existe" }),
+    );
+    expect(await sync.listarVaults()).toEqual([]);
+
+    definirTokenDaSessao(tokenA);
+    expect((await sync.baixar(id, 0)).lotes).toEqual([
+      { sequencia: 1, bytes: new Uint8Array([1, 2, 3]) },
+    ]);
+  });
+
   it("um vault de outra conta é nao-encontrado (404), nunca aparece na listagem, e apagar não o afeta", async () => {
     const tokenA = await criarContaPremium("otavio@teste.com");
     definirTokenDaSessao(tokenA);
@@ -341,5 +380,58 @@ describe("isolamento entre contas", () => {
     expect(vaultsDeA[0].id).toBe(idDoVaultDeA);
     const resultado = await sync.baixar(idDoVaultDeA, 0);
     expect(resultado.lotes).toHaveLength(1);
+  });
+
+  it("recusa alias de caminho e preserva o pacote de outra conta", async () => {
+    const tokenA = await criarContaPremium("dona@teste.com");
+    definirTokenDaSessao(tokenA);
+    const id = crypto.randomUUID();
+    const { nomeCifrado, envelope } = envelopeDeTeste();
+    await sync.criarVault(id, nomeCifrado, envelope);
+    await sync.enviarLote(id, 0, new Uint8Array([1, 2, 3]));
+
+    const tokenB = await criarContaPremium("intruso@teste.com");
+    const alias = `${id}/.`;
+    const autorizacao = { authorization: `Bearer ${tokenB}` };
+    const criacao = await app.inject({
+      method: "POST",
+      url: "/v1/sync/vaults",
+      headers: autorizacao,
+      payload: { id: alias, nomeCifrado: "AQ==", envelope: "Ag==" },
+    });
+    expect(criacao.statusCode).toBe(400);
+
+    const envio = await app.inject({
+      method: "POST",
+      url: `/v1/sync/vaults/${encodeURIComponent(alias)}/lotes`,
+      headers: autorizacao,
+      payload: { esperoUltima: 0, bytes: "CQkJ" },
+    });
+    expect(envio.statusCode).toBe(400);
+
+    const contaB = app.banco.prepare("select id from contas where email = ?").get("intruso@teste.com") as { id: number };
+    const armazenamentoB = new ArmazenamentoSqlite(app.banco, pastaTemporaria, contaB.id);
+    await expect(armazenamentoB.gravar({
+      id: alias,
+      nomeCifrado: new Uint8Array([1]),
+      envelope: new Uint8Array([2]),
+      lotes: [{ sequencia: 1, bytes: new Uint8Array([9, 9, 9]) }],
+    })).rejects.toThrow("id de vault inseguro");
+
+    const { arquivoDaDona } = app.banco.prepare(
+      "select caminho_arquivo as arquivoDaDona from lotes where vault_id = ? and sequencia = 1",
+    ).get(id) as { arquivoDaDona: string };
+    // Simula um alias persistido antes da correção: a listagem não deve ler o pacote da dona.
+    app.banco.prepare("insert into vaults (id, conta_id, nome_cifrado, envelope) values (?, ?, ?, ?)")
+      .run(alias, contaB.id, Buffer.from([1]), Buffer.from([2]));
+    app.banco.prepare("insert into lotes (vault_id, sequencia, tamanho, caminho_arquivo) values (?, 1, 3, ?)")
+      .run(alias, arquivoDaDona);
+    expect(await armazenamentoB.buscar(alias)).toBeNull();
+    expect(await armazenamentoB.listar()).toEqual([]);
+    await armazenamentoB.apagar(alias);
+
+    expect([...fs.readFileSync(arquivoDaDona)]).toEqual([1, 2, 3]);
+    definirTokenDaSessao(tokenA);
+    expect((await sync.baixar(id, 0)).lotes[0].bytes).toEqual(new Uint8Array([1, 2, 3]));
   });
 });

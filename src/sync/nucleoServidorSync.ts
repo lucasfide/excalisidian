@@ -36,7 +36,12 @@ export interface VaultGuardado {
  * mesmo "servidor"). */
 export interface ArmazenamentoServidorSync {
   buscar(id: string): Promise<VaultGuardado | null>;
-  listar(): Promise<VaultGuardado[]>;
+  listar(): Promise<VaultSincronizado[]>;
+  /** Operações otimizadas para o armazenamento persistente: evitam ler todo o diário. */
+  existe?(id: string): Promise<boolean>;
+  baixarPacotes?(id: string, aposSequencia: number): Promise<ResultadoBaixar | null>;
+  anexarLote?(id: string, esperoUltima: number, bytes: Uint8Array): Promise<number>;
+  substituirRetrato?(id: string, ateSequencia: number, partes: Uint8Array[]): Promise<void>;
   /** Grava (cria ou substitui) o vault inteiro. */
   gravar(vault: VaultGuardado): Promise<void>;
   apagar(id: string): Promise<void>;
@@ -70,7 +75,9 @@ export class NucleoServidorSync {
   }
 
   async criarVault(id: string, nomeCifrado: Uint8Array, envelope: Uint8Array): Promise<void> {
-    if (await this.armazenamento.buscar(id)) throw new FalhaSync("ja-existe");
+    if (this.armazenamento.existe ? await this.armazenamento.existe(id) : await this.armazenamento.buscar(id)) {
+      throw new FalhaSync("ja-existe");
+    }
     await this.armazenamento.gravar({
       id,
       nomeCifrado: copiarBytes(nomeCifrado),
@@ -80,6 +87,11 @@ export class NucleoServidorSync {
   }
 
   async baixar(id: string, aposSequencia: number): Promise<ResultadoBaixar> {
+    if (this.armazenamento.baixarPacotes) {
+      const resultado = await this.armazenamento.baixarPacotes(id, aposSequencia);
+      if (!resultado) throw new FalhaSync("nao-encontrado");
+      return resultado;
+    }
     const vault = await this.buscarOuFalhar(id);
     const { retrato } = vault;
     // `ultimoRetrato` vem sempre preenchido (doc 17 §9) — 0 se nunca houve retrato — mesmo
@@ -103,6 +115,7 @@ export class NucleoServidorSync {
   }
 
   async enviarLote(id: string, esperoUltima: number, bytes: Uint8Array): Promise<number> {
+    if (this.armazenamento.anexarLote) return this.armazenamento.anexarLote(id, esperoUltima, bytes);
     const vault = await this.buscarOuFalhar(id);
     if (esperoUltima !== this.ultimaSequencia(vault)) throw new FalhaSync("fora-de-ordem");
     const sequencia = esperoUltima + 1;
@@ -112,6 +125,10 @@ export class NucleoServidorSync {
   }
 
   async enviarRetrato(id: string, ateSequencia: number, partes: Uint8Array[]): Promise<void> {
+    if (this.armazenamento.substituirRetrato) {
+      await this.armazenamento.substituirRetrato(id, ateSequencia, partes);
+      return;
+    }
     const vault = await this.buscarOuFalhar(id);
     // Um retrato mais velho (ou igual) que o já guardado não pode substituí-lo: os lotes
     // entre os dois já foram descartados pelo retrato mais novo, e um computador novo nunca
