@@ -277,6 +277,22 @@ describe("contaStore", () => {
     expect(tokenDaSessaoAtual()).toBe(useContaStore.getState().sessao?.token);
   });
 
+  it("carregar com sucesso emite prefs-mudou uma vez; com falha não emite", async () => {
+    const servico = comConta();
+    useContaStore.getState().definirServico(servico);
+    const { sessao: inicial } = await servico.entrar("ana@exemplo.com", "segredo123");
+    cofre.token = inicial.token;
+    emitMock.mockClear();
+    await useContaStore.getState().carregar();
+    expect(emitMock).toHaveBeenCalledTimes(1);
+    expect(emitMock).toHaveBeenCalledWith("app://prefs-mudou");
+
+    emitMock.mockClear();
+    cofre.token = "tok-que-nao-existe";
+    await useContaStore.getState().carregar();
+    expect(emitMock).not.toHaveBeenCalled();
+  });
+
   it("carregar migra o token legado do settings.json para o cofre e apaga o legado", async () => {
     const servico = comConta();
     useContaStore.getState().definirServico(servico);
@@ -494,6 +510,58 @@ describe("contaStore", () => {
       await sincronizando;
       expect(useContaStore.getState().sessao).toBeNull();
       expect(tokenDaSessaoAtual()).toBeNull();
+    });
+  });
+
+  describe("sincronizarComCofre concorrente com carregar() na mesma janela", () => {
+    const T1: Sessao = { token: "tok-T1", email: "ana@exemplo.com", plano: "premium", expiraEm: Date.now() + 1000 };
+
+    function montarCorrida() {
+      const servico = new ServicoContaControlavel(comConta());
+      let resolverConsulta!: (d: Omit<Sessao, "token">) => void;
+      let rejeitarConsulta!: (e: unknown) => void;
+      vi.spyOn(servico, "consultar").mockImplementation(
+        () =>
+          new Promise((res, rej) => {
+            resolverConsulta = res;
+            rejeitarConsulta = rej;
+          }),
+      );
+      useContaStore.getState().definirServico(servico);
+      cofre.token = "tok-T0";
+      return { servico, resolverConsulta: (d: Omit<Sessao, "token">) => resolverConsulta(d), rejeitarConsulta: (e: unknown) => rejeitarConsulta(e) };
+    }
+
+    it("renovar termina primeiro e consultar(T0) dá 401: não desloga quem carregar() acabou de logar", async () => {
+      const c = montarCorrida();
+      const carregando = useContaStore.getState().carregar();
+      await c.servico.chamada;
+      const sincronizando = useContaStore.getState().sincronizarComCofre();
+      await vi.waitFor(() => expect(c.servico.consultar).toHaveBeenCalled());
+
+      c.servico.resolverComo(T1);
+      await carregando;
+      c.rejeitarConsulta(new FalhaConta("expirada"));
+      await sincronizando;
+
+      expect(useContaStore.getState().sessao?.token).toBe("tok-T1");
+      expect(tokenDaSessaoAtual()).toBe("tok-T1");
+    });
+
+    it("renovar termina primeiro e consultar(T0) responde 200: não sobrescreve T1 com o T0 já rotacionado", async () => {
+      const c = montarCorrida();
+      const carregando = useContaStore.getState().carregar();
+      await c.servico.chamada;
+      const sincronizando = useContaStore.getState().sincronizarComCofre();
+      await vi.waitFor(() => expect(c.servico.consultar).toHaveBeenCalled());
+
+      c.servico.resolverComo(T1);
+      await carregando;
+      c.resolverConsulta({ email: "ana@exemplo.com", plano: "gratis", expiraEm: 1 });
+      await sincronizando;
+
+      expect(useContaStore.getState().sessao?.token).toBe("tok-T1");
+      expect(tokenDaSessaoAtual()).toBe("tok-T1");
     });
   });
 });

@@ -32,8 +32,9 @@ const CHAVE_TOKEN_LEGADO = "tokenConta";
 // Doc 12 §6 / doc 04 §5.1: mesmo evento que prefsStore.ts e agenteStore.ts emitem depois de
 // gravar uma mudança compartilhada no settings.json (literal repetido nos três arquivos — ver
 // comentário em flushEntreJanelas.ts sobre por que não virou uma constante importada). Só as
-// ações que o usuário decide (entrar/criar/sair) emitem; `carregar()` é a metade "recebe" do
-// contrato, igual ao `carregar()` dos outros dois stores, e nunca emite de volta.
+// ações que o usuário decide (entrar/criar/sair) emitem; `carregar()` também emite, mas só depois de um `renovar`
+// bem-sucedido (o token rotacionou e as outras janelas precisam adotar o novo). Não há laço: quem
+// recebe o evento chama `sincronizarComCofre()`, que nunca renova e nunca emite.
 const EVENTO_PREFS_MUDOU = "app://prefs-mudou";
 
 async function abrirStore() {
@@ -200,6 +201,8 @@ export const useContaStore = create<ContaState>((set, get) => {
         definirTokenDaSessao(sessao.token);
         await gravarToken(sessao.token);
         set({ sessao, carregado: true });
+        // Fora do tratamento de erro do renovar: uma falha do emit não desloga ninguém.
+        void emit(EVENTO_PREFS_MUDOU).catch(() => {});
       } catch (e) {
         if (geracao !== minhaGeracao) return;
         // Só o servidor dizendo "essa sessão não vale mais" pode apagar o cofre. `rede` (não
@@ -221,6 +224,10 @@ export const useContaStore = create<ContaState>((set, get) => {
 
     async sincronizarComCofre() {
       const minhaGeracao = geracao;
+      // `carregar()` (renovar em andamento nesta mesma janela) não mexe em `geracao`, mas
+      // troca `sessao`: se o token da sessão mudou enquanto eu consultava, o que eu descobri
+      // já é velho (consultar(T0) depois de o renovar rotacionar T0 daria 401 e deslogaria).
+      const tokenAntes = get().sessao?.token ?? null;
       let token: string | null;
       try {
         token = await get().cofre.ler();
@@ -237,11 +244,11 @@ export const useContaStore = create<ContaState>((set, get) => {
       if (token === get().sessao?.token) return;
       try {
         const dados = await get().servico.consultar(token);
-        if (geracao !== minhaGeracao) return;
+        if (geracao !== minhaGeracao || (get().sessao?.token ?? null) !== tokenAntes) return;
         definirTokenDaSessao(token);
         set({ sessao: { ...dados, token }, carregado: true });
       } catch (e) {
-        if (geracao !== minhaGeracao) return;
+        if (geracao !== minhaGeracao || (get().sessao?.token ?? null) !== tokenAntes) return;
         // Só "expirada" zera a sessão, e sem apagar o cofre: outra janela pode ter gravado um
         // token novo nesse meio-tempo. `rede`/`servidor` mantêm o que já há.
         if (codigoDe(e) === "expirada") {

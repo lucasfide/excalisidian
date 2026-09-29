@@ -28,6 +28,12 @@ function ehSessao(v: unknown): v is Sessao {
   );
 }
 
+function ehDadosSessao(v: unknown): v is Omit<Sessao, "token"> {
+  if (typeof v !== "object" || v === null) return false;
+  const s = v as Record<string, unknown>;
+  return typeof s.email === "string" && (s.plano === "gratis" || s.plano === "premium") && typeof s.expiraEm === "number";
+}
+
 export class ServicoContaHttp implements ServicoConta {
   constructor(
     private readonly baseUrl: string = BASE_URL_SERVICO,
@@ -140,10 +146,10 @@ export class ServicoContaHttp implements ServicoConta {
     } catch {
       throw new FalhaConta("servidor", "resposta não é JSON");
     }
-    if (!ehSessao({ ...(corpo as object), token: "-" })) {
+    if (!ehDadosSessao(corpo)) {
       throw new FalhaConta("servidor", "resposta sem sessão válida");
     }
-    const { email, plano, expiraEm } = corpo as Omit<Sessao, "token">;
+    const { email, plano, expiraEm } = corpo;
     return { email, plano, expiraEm };
   }
 

@@ -820,6 +820,7 @@ describe("agenteStore — 401 com token trocado por outra janela", () => {
     await vi.advanceTimersByTimeAsync(6_000);
 
     expect(sincronizarMock).toHaveBeenCalledTimes(1);
+    expect(completar).toHaveBeenCalledTimes(2); // a repetição aconteceu de fato
     expect(st().status).not.toBe("erro");
   });
 });
