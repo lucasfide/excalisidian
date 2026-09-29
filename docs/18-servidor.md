@@ -98,10 +98,14 @@ Onde o servidor e esses contratos divergirem, o servidor está errado.
   120 s e um `renovar` repetido nessa janela devolve de novo a mesma sessão nova, em vez de
   401. Depois disso, ou se a sessão nova já foi ela mesma substituída, 401. `sair` encerra a
   sessão atual e as que ela substituiu.
+- **Renovação automática:** além da abertura, o app renova a sessão sozinho quando faltam menos de
+  7 dias para vencer (confere ao adotar uma sessão e a cada 6 h; um timer por janela). Quem deixa
+  o app aberto por mais de 30 dias não é deslogado. Falha de rede tenta de novo no próximo tique;
+  se outra janela já renovou, esta adota o token do cofre em vez de renovar o velho.
 - **Consultar sem trocar:** `GET /v1/sessoes/atual` (Bearer) devolve `{ email, plano, expiraEm }`
   da sessão do token, **sem trocá-lo** e sem nunca devolver token; 401 sem sessão válida (inclusive
   token já substituído por `renovar`). É como uma janela do app adota o token que outra janela
-  gravou no cofre: só a abertura da janela renova (`renovar`); mudança de preferência, entrar e
+  gravou no cofre: só a abertura da janela e o timer de renovação renovam (`renovar`); mudança de preferência, entrar e
   sair em outra janela só consultam. Consequência: o plano (`plano`) mostrado numa janela só é
   atualizado ao abrir o app, ao entrar, quando o token de outra janela muda (a renovação de uma
   janela avisa as demais), ao abrir o passo Conta do assistente com plano insuficiente e ao abrir a

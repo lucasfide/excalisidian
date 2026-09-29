@@ -1,4 +1,4 @@
-import { describe, it, expect, beforeEach, vi } from "vitest";
+import { describe, it, expect, beforeEach, afterEach, vi } from "vitest";
 
 const emitMock = vi.fn(async (..._args: unknown[]) => {});
 vi.mock("@tauri-apps/api/event", () => ({
@@ -654,6 +654,166 @@ describe("contaStore", () => {
 
       expect(useContaStore.getState().sessao?.token).toBe("tok-T1");
       expect(tokenDaSessaoAtual()).toBe("tok-T1");
+    });
+  });
+
+  describe("renovação automática antes de vencer (Review Focus 4)", () => {
+    const DIA = 24 * 60 * 60 * 1000;
+    const SEIS_HORAS = 6 * 60 * 60 * 1000;
+
+    /** Serviço dublê: `entrar` devolve uma sessão que vence em `venceEm` ms; cada `renovar`
+     * devolve um token novo com 30 dias de validade. */
+    function montar(venceEm: number) {
+      let n = 0;
+      const servico = {
+        entrar: vi.fn(async () => ({
+          sessao: { token: "tok-0", email: "ana@exemplo.com", plano: "premium" as const, expiraEm: Date.now() + venceEm },
+          chaveDeEnvelope: new Uint8Array(32),
+        })),
+        criar: vi.fn(),
+        renovar: vi.fn(async (_t: string): Promise<Sessao> => ({
+          token: `tok-${++n}`,
+          email: "ana@exemplo.com",
+          plano: "premium" as const,
+          expiraEm: Date.now() + 30 * DIA,
+        })),
+        consultar: vi.fn(async (_t: string) => ({
+          email: "ana@exemplo.com",
+          plano: "premium" as const,
+          expiraEm: Date.now() + 30 * DIA,
+        })),
+        sair: vi.fn(async () => {}),
+      };
+      useContaStore.getState().definirServico(servico as unknown as ServicoConta);
+      return servico;
+    }
+
+    beforeEach(async () => {
+      // Zera o timer que testes anteriores possam ter deixado (é do módulo, não do estado).
+      await useContaStore.getState().sair();
+      vi.useFakeTimers();
+      emitMock.mockClear();
+    });
+
+    afterEach(async () => {
+      await useContaStore.getState().sair();
+      vi.useRealTimers();
+    });
+
+    it("sessão perto de vencer: renova logo ao entrar, grava no cofre e emite uma vez", async () => {
+      const servico = montar(3 * DIA);
+      await useContaStore.getState().entrar("ana@exemplo.com", "x");
+      emitMock.mockClear();
+      await vi.advanceTimersByTimeAsync(0);
+      expect(servico.renovar).toHaveBeenCalledTimes(1);
+      expect(servico.renovar).toHaveBeenCalledWith("tok-0");
+      expect(cofre.token).toBe("tok-1");
+      expect(useContaStore.getState().sessao?.token).toBe("tok-1");
+      expect(tokenDaSessaoAtual()).toBe("tok-1");
+      expect(emitMock).toHaveBeenCalledTimes(1);
+      expect(emitMock).toHaveBeenCalledWith("app://prefs-mudou");
+      // Agora longe de vencer: os tiques seguintes não voltam ao servidor.
+      await vi.advanceTimersByTimeAsync(SEIS_HORAS * 4);
+      expect(servico.renovar).toHaveBeenCalledTimes(1);
+    });
+
+    it("sessão longe de vencer: não chama o servidor; o tique dentro dos 7 dias renova", async () => {
+      const servico = montar(30 * DIA);
+      await useContaStore.getState().entrar("ana@exemplo.com", "x");
+      await vi.advanceTimersByTimeAsync(20 * DIA);
+      expect(servico.renovar).not.toHaveBeenCalled();
+      await vi.advanceTimersByTimeAsync(4 * DIA); // faltam ~6 dias
+      expect(servico.renovar).toHaveBeenCalledTimes(1);
+      expect(useContaStore.getState().sessao?.token).toBe("tok-1");
+    });
+
+    it("carregar várias vezes não duplica o timer", async () => {
+      const servico = montar(30 * DIA);
+      cofre.token = "tok-velho";
+      await useContaStore.getState().carregar();
+      await useContaStore.getState().carregar();
+      await useContaStore.getState().carregar();
+      expect(vi.getTimerCount()).toBe(1);
+      expect(servico.renovar).toHaveBeenCalledTimes(3); // os três carregar; nenhum do timer
+    });
+
+    it("sair cancela o timer", async () => {
+      montar(30 * DIA);
+      await useContaStore.getState().entrar("ana@exemplo.com", "x");
+      expect(vi.getTimerCount()).toBe(1);
+      await useContaStore.getState().sair();
+      expect(vi.getTimerCount()).toBe(0);
+    });
+
+    it("falha de rede: mantém a sessão e tenta de novo no próximo tique", async () => {
+      const servico = montar(3 * DIA);
+      servico.renovar.mockRejectedValueOnce(new FalhaConta("rede"));
+      await useContaStore.getState().entrar("ana@exemplo.com", "x");
+      await vi.advanceTimersByTimeAsync(0);
+      expect(useContaStore.getState().sessao?.token).toBe("tok-0");
+      expect(cofre.token).toBe("tok-0");
+      await vi.advanceTimersByTimeAsync(SEIS_HORAS);
+      expect(servico.renovar).toHaveBeenCalledTimes(2);
+      expect(useContaStore.getState().sessao?.token).toBe("tok-1");
+    });
+
+    it("expirada: mesmo tratamento do carregar (sem sessão, cofre apagado, timer parado)", async () => {
+      const servico = montar(3 * DIA);
+      servico.renovar.mockRejectedValueOnce(new FalhaConta("expirada"));
+      await useContaStore.getState().entrar("ana@exemplo.com", "x");
+      await vi.advanceTimersByTimeAsync(0);
+      expect(useContaStore.getState().sessao).toBeNull();
+      expect(tokenDaSessaoAtual()).toBeNull();
+      expect(cofre.token).toBeNull();
+      expect(vi.getTimerCount()).toBe(0);
+    });
+
+    it("outra janela já renovou (cofre tem outro token): adota em vez de renovar o token velho", async () => {
+      const servico = montar(3 * DIA);
+      servico.renovar.mockRejectedValueOnce(new FalhaConta("rede")); // o check do entrar falha
+      await useContaStore.getState().entrar("ana@exemplo.com", "x");
+      await vi.advanceTimersByTimeAsync(0);
+      expect(servico.renovar).toHaveBeenCalledTimes(1);
+      cofre.token = "tok-da-outra-janela"; // a outra janela renovou e gravou
+      await vi.advanceTimersByTimeAsync(SEIS_HORAS);
+      expect(servico.renovar).toHaveBeenCalledTimes(1); // não tentou o token velho
+      expect(useContaStore.getState().sessao?.token).toBe("tok-da-outra-janela");
+    });
+
+    it("expirada do token velho enquanto o cofre já tem o da outra janela: adota, não apaga o cofre", async () => {
+      const servico = montar(3 * DIA);
+      servico.renovar.mockImplementationOnce(async () => {
+        cofre.token = "tok-da-outra-janela"; // a outra janela rotacionou no meio do caminho
+        throw new FalhaConta("expirada");
+      });
+      await useContaStore.getState().entrar("ana@exemplo.com", "x");
+      await vi.advanceTimersByTimeAsync(0);
+      expect(cofre.token).toBe("tok-da-outra-janela");
+      expect(useContaStore.getState().sessao?.token).toBe("tok-da-outra-janela");
+    });
+
+    it("cofre que falhou ao gravar (sessão só em memória): o timer renova o token da memória", async () => {
+      const servico = montar(3 * DIA);
+      cofre.falhar = true;
+      await useContaStore.getState().entrar("ana@exemplo.com", "x");
+      await vi.advanceTimersByTimeAsync(0);
+      expect(servico.renovar).toHaveBeenCalledWith("tok-0");
+      expect(useContaStore.getState().sessao?.token).toBe("tok-1");
+      cofre.falhar = false;
+    });
+
+    it("sair com renovar em andamento descarta o resultado (contador geracao)", async () => {
+      const servico = montar(3 * DIA);
+      let resolver!: (s: Sessao) => void;
+      servico.renovar.mockImplementationOnce(() => new Promise<Sessao>((r) => (resolver = r)));
+      await useContaStore.getState().entrar("ana@exemplo.com", "x");
+      await vi.advanceTimersByTimeAsync(0);
+      await useContaStore.getState().sair();
+      resolver({ token: "tok-tarde", email: "ana@exemplo.com", plano: "premium", expiraEm: Date.now() + 30 * DIA });
+      await vi.advanceTimersByTimeAsync(0);
+      expect(useContaStore.getState().sessao).toBeNull();
+      expect(cofre.token).toBeNull();
+      expect(tokenDaSessaoAtual()).toBeNull();
     });
   });
 });

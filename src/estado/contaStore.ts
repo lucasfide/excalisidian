@@ -37,6 +37,12 @@ const CHAVE_TOKEN_LEGADO = "tokenConta";
 // recebe o evento chama `sincronizarComCofre()`, que nunca renova e nunca emite.
 const EVENTO_PREFS_MUDOU = "app://prefs-mudou";
 
+// Renovação automática (Review Focus 4): a sessão vale 30 dias e o `renovar` da abertura só
+// roda ao reiniciar o app. Com o app aberto o tempo todo, um timer confere a cada 6 h e renova
+// quando faltam menos de 7 dias.
+const INTERVALO_RENOVACAO_MS = 6 * 60 * 60 * 1000;
+const RENOVAR_QUANDO_FALTAR_MENOS_DE_MS = 7 * 24 * 60 * 60 * 1000;
+
 async function abrirStore() {
   return load("settings.json", { autoSave: false });
 }
@@ -164,6 +170,123 @@ export const useContaStore = create<ContaState>((set, get) => {
     }
   }
 
+  // Um só timer por janela. É do módulo (não do estado) e só nasce com uma sessão adotada.
+  let timerRenovacao: ReturnType<typeof setInterval> | null = null;
+  // Trava de reentrada: um tique e uma adoção logo depois de entrar não renovam ao mesmo tempo
+  // (o servidor toleraria, mas emitiria o evento duas vezes).
+  // Guarda a geração em que começou: um sair/entrar no meio invalida a trava, para que uma
+  // renovação que nunca volta (rede pendurada) não bloqueie a sessão seguinte.
+  let renovandoNaGeracao: number | null = null;
+
+  function pararTimerRenovacao(): void {
+    if (timerRenovacao !== null) clearInterval(timerRenovacao);
+    timerRenovacao = null;
+  }
+
+  // Rotina de renovar compartilhada por `carregar()` (modo "abertura") e pelo timer (modo
+  // "timer"). Sucesso: espelha no porta-token, grava no cofre, guarda a sessão e emite
+  // `app://prefs-mudou` para as outras janelas adotarem. Sempre respeita `geracao`.
+  //  - "abertura": qualquer falha deixa a sessão null (comportamento histórico do carregar).
+  //  - "timer": há uma sessão em uso; só `expirada` a derruba. `rede`/`servidor` mantêm tudo e o
+  //    próximo tique tenta de novo.
+  async function renovarEAplicar(
+    token: string,
+    minhaGeracao: number,
+    modo: "abertura" | "timer",
+  ): Promise<void> {
+    const tokenAntes = get().sessao?.token ?? null;
+    // No timer, se outra janela adotou/gravou nesse meio-tempo (o token em memória mudou), o
+    // resultado é velho. Na abertura não havia essa guarda e continua sem.
+    const velho = () => modo === "timer" && (get().sessao?.token ?? null) !== tokenAntes;
+    try {
+      const sessao = await get().servico.renovar(token);
+      if (geracao !== minhaGeracao || velho()) return;
+      definirTokenDaSessao(sessao.token);
+      await gravarToken(sessao.token);
+      set({ sessao, carregado: true });
+      // Fora do tratamento de erro do renovar: uma falha do emit não desloga ninguém.
+      void emit(EVENTO_PREFS_MUDOU).catch(() => {});
+    } catch (e) {
+      if (geracao !== minhaGeracao || velho()) return;
+      // Só o servidor dizendo "essa sessão não vale mais" pode apagar o cofre. `rede` (não
+      // deu pra falar com o servidor — app offline, rotina num local-first) e `servidor`
+      // (erro inesperado, ou o token rotativo já foi consumido por OUTRA janela — `renovar`
+      // é de uso único e todas as janelas leem o mesmo token do cofre compartilhado) não são
+      // prova de que a sessão morreu. Apagar nesses casos desloga em silêncio quem só abriu
+      // o app sem internet, ou builda uma corrida entre janelas onde a mais lenta apaga o
+      // token que a mais rápida acabou de renovar.
+      if (codigoDe(e) === "expirada") {
+        if (modo === "timer") {
+          // O timer pode disputar com outra janela que renovou depois da nossa leitura: se o
+          // cofre já tem outro token, o nosso é o que foi consumido — adota o do cofre em vez
+          // de apagá-lo.
+          let doCofre: string | null = null;
+          try {
+            doCofre = await get().cofre.ler();
+          } catch {
+            /* cofre indisponível: segue como expirada */
+          }
+          if (geracao !== minhaGeracao || velho()) return;
+          if (doCofre && doCofre !== token) {
+            await get().sincronizarComCofre();
+            return;
+          }
+        }
+        pararTimerRenovacao();
+        definirTokenDaSessao(null);
+        await gravarToken(null);
+        set({ sessao: null, carregado: true });
+        return;
+      }
+      // Silêncio mantido nos dois casos: o usuário não pediu nada, só abriu o app. `sessao`
+      // fica null nesta execução (indefinida até a próxima tentativa), sem tocar em `erro`.
+      if (modo === "abertura") set({ sessao: null, carregado: true });
+    }
+  }
+
+  async function verificarRenovacao(): Promise<void> {
+    const sessao = get().sessao;
+    if (!sessao) {
+      pararTimerRenovacao();
+      return;
+    }
+    if (sessao.expiraEm - Date.now() >= RENOVAR_QUANDO_FALTAR_MENOS_DE_MS) return;
+    if (renovandoNaGeracao === geracao) return;
+    const minhaGeracao = geracao;
+    renovandoNaGeracao = minhaGeracao;
+    try {
+      const token = sessao.token;
+      // Sessão só em memória: o cofre não tem este token e nada prova que ele é mais novo.
+      if (!sessaoSoEmMemoria) {
+        let doCofre: string | null;
+        try {
+          doCofre = await get().cofre.ler();
+        } catch {
+          doCofre = token; // cofre indisponível: não prova nada, renova o que temos
+        }
+        if (geracao !== minhaGeracao || get().sessao?.token !== token) return;
+        if (doCofre !== token) {
+          // Outra janela renovou (ou saiu) primeiro: adota o que ela gravou em vez de gastar um
+          // token velho — fora da janela de 120 s do servidor ele daria 401 e derrubaria a sessão.
+          await get().sincronizarComCofre();
+          return;
+        }
+      }
+      await renovarEAplicar(token, minhaGeracao, "timer");
+    } finally {
+      if (renovandoNaGeracao === minhaGeracao) renovandoNaGeracao = null;
+    }
+  }
+
+  // Chamado sempre que esta janela passa a ter uma sessão nova (carregar/entrar/criar/adoção):
+  // liga o timer se ainda não houver (nunca duplica) e confere já se falta pouco para vencer.
+  function sessaoAdotada(): void {
+    if (timerRenovacao === null) {
+      timerRenovacao = setInterval(() => void verificarRenovacao(), INTERVALO_RENOVACAO_MS);
+    }
+    void verificarRenovacao();
+  }
+
   return {
     sessao: null,
     carregado: false,
@@ -203,34 +326,12 @@ export const useContaStore = create<ContaState>((set, get) => {
       if (!token) {
         if (geracao !== minhaGeracao) return;
         definirTokenDaSessao(null);
+        pararTimerRenovacao();
         set({ carregado: true });
         return;
       }
-      try {
-        const sessao = await get().servico.renovar(token);
-        if (geracao !== minhaGeracao) return;
-        definirTokenDaSessao(sessao.token);
-        await gravarToken(sessao.token);
-        set({ sessao, carregado: true });
-        // Fora do tratamento de erro do renovar: uma falha do emit não desloga ninguém.
-        void emit(EVENTO_PREFS_MUDOU).catch(() => {});
-      } catch (e) {
-        if (geracao !== minhaGeracao) return;
-        // Só o servidor dizendo "essa sessão não vale mais" pode apagar o cofre. `rede` (não
-        // deu pra falar com o servidor — app offline, rotina num local-first) e `servidor`
-        // (erro inesperado, ou o token rotativo já foi consumido por OUTRA janela — `renovar`
-        // é de uso único e todas as janelas leem o mesmo token do cofre compartilhado) não são
-        // prova de que a sessão morreu. Apagar nesses casos desloga em silêncio quem só abriu
-        // o app sem internet, ou builda uma corrida entre janelas onde a mais lenta apaga o
-        // token que a mais rápida acabou de renovar.
-        if (codigoDe(e) === "expirada") {
-          definirTokenDaSessao(null);
-          await gravarToken(null);
-        }
-        // Silêncio mantido nos dois casos: o usuário não pediu nada, só abriu o app. `sessao`
-        // fica null nesta execução (indefinida até a próxima tentativa), sem tocar em `erro`.
-        set({ sessao: null, carregado: true });
-      }
+      await renovarEAplicar(token, minhaGeracao, "abertura");
+      if (get().sessao) sessaoAdotada();
     },
 
     async sincronizarComCofre() {
@@ -251,6 +352,7 @@ export const useContaStore = create<ContaState>((set, get) => {
         if (sessaoSoEmMemoria && get().sessao) return;
         // Outra janela saiu (ou nunca houve sessão): esta também fica sem sessão.
         definirTokenDaSessao(null);
+        pararTimerRenovacao();
         set({ sessao: null, carregado: true });
         return;
       }
@@ -262,12 +364,14 @@ export const useContaStore = create<ContaState>((set, get) => {
         // O token adotado vem do cofre: a sessão passa a ter respaldo lá.
         sessaoSoEmMemoria = false;
         set({ sessao: { ...dados, token }, carregado: true });
+        sessaoAdotada();
       } catch (e) {
         if (geracao !== minhaGeracao || (get().sessao?.token ?? null) !== tokenAntes) return;
         // Só "expirada" zera a sessão, e sem apagar o cofre: outra janela pode ter gravado um
         // token novo nesse meio-tempo. `rede`/`servidor` mantêm o que já há.
         if (codigoDe(e) === "expirada") {
           definirTokenDaSessao(null);
+          pararTimerRenovacao();
           set({ sessao: null });
         }
       }
@@ -296,6 +400,7 @@ export const useContaStore = create<ContaState>((set, get) => {
         // Mesmo tratamento de `sincronizarComCofre`: só "expirada" zera, sem apagar o cofre.
         if (codigoDe(e) === "expirada") {
           definirTokenDaSessao(null);
+          pararTimerRenovacao();
           set({ sessao: null });
         }
       }
@@ -311,6 +416,7 @@ export const useContaStore = create<ContaState>((set, get) => {
         await gravarChaveDeEnvelope(sessao.email, chaveDeEnvelope);
         set({ sessao, ocupado: false });
         await emit(EVENTO_PREFS_MUDOU);
+        sessaoAdotada();
         return true;
       } catch (e) {
         // Falha ao entrar preserva a sessão anterior (se havia uma): só `erro` muda. Sem
@@ -332,6 +438,7 @@ export const useContaStore = create<ContaState>((set, get) => {
         await gravarChaveDeEnvelope(sessao.email, chaveDeEnvelope);
         set({ sessao, ocupado: false });
         await emit(EVENTO_PREFS_MUDOU);
+        sessaoAdotada();
         return true;
       } catch (e) {
         set({ ocupado: false, erro: codigoDe(e) });
@@ -352,6 +459,7 @@ export const useContaStore = create<ContaState>((set, get) => {
         const token = get().sessao?.token;
         sessaoSoEmMemoria = false;
         set({ sessao: null });
+        pararTimerRenovacao();
         definirTokenDaSessao(null);
         await gravarToken(null);
         await apagarChaveDeEnvelope();
