@@ -60,6 +60,18 @@ Onde o servidor e esses contratos divergirem, o servidor está errado.
 - **Tamanho:** um lote ou parte de retrato acima de 8 MiB + 28 bytes → 413.
 - **Logs:** método, rota sem parâmetros, status e duração. Nunca e-mail, token, prova, corpo ou
   id de vault.
+- **Registro de IA:** cada pedido que chega ao fornecedor gera uma linha JSON a mais no stdout
+  (além da linha da requisição), com `evento: "ia"`, o modelo lógico, `resultado` (`ok` ou
+  `falha`), `duracaoFornecedorMs` e `tentativas`. Na falha vêm também `motivo` (`http`, `tempo`,
+  `rede`, `json` ou `sem_texto`) e, quando existirem, `statusFornecedor`, `codigoErroFornecedor`
+  (só o `error.code` do corpo de erro do OpenRouter), `provedorEscolhido`, `idGeracao`,
+  `motivoFim` e os tokens. No sucesso: `provedorEscolhido`, `idGeracao` (`gen-…`, para achar a
+  geração no painel do OpenRouter), `motivoFim`, `tokensEntrada`, `tokensSaida`, `tokensCache` e
+  `custoMicroUsd` (o que foi debitado). **Nunca** entram e-mail, id de conta, token, chave, texto
+  de mensagem, nem `error.message` ou `metadata.raw` do fornecedor (podem repetir o pedido): a
+  linha é montada campo a campo, e todo campo vindo do fornecedor passa por conferência de formato
+  (código inteiro, nome curto, `gen-…`); se vier texto solto, o campo some. Pedido barrado antes do
+  fornecedor (401, 403, 404, 429, 503) não gera essa linha.
 
 ## 4. Operação
 
@@ -124,7 +136,7 @@ das rotas de sincronização):
 | 6b | Mais de 3 pedidos em andamento na conta (checado logo antes de chamar o fornecedor, depois dos créditos e da chave) | 429, corpo `{"codigo":"limite"}` |
 | 7 | Créditos do mês esgotados (usados ≥ total) | 429, corpo `{"codigo":"creditos"}` |
 | 8 | Chave do fornecedor não configurada | 503 |
-| 9 | Fornecedor falhou (rede, mais de 90 s, status não-2xx, resposta sem texto) | 502, nada é cobrado |
+| 9 | Fornecedor falhou (rede, mais de 90 s, status não-2xx, resposta sem texto), depois da nova tentativa quando cabe | 502, nada é cobrado |
 | 10 | Sucesso | 200, débito pelo custo informado na resposta (§5.2) |
 
 Chamada ao fornecedor (passo 9): o modelo real sai de um mapeamento que existe num lugar só do
@@ -133,6 +145,14 @@ servidor (hoje os dois modelos lógicos apontam para o mesmo modelo); o forneced
 nem treinam com os dados (`data_collection: deny`); e há teto de preço de US$ 0,30 por milhão de
 tokens de entrada e US$ 1,20 de saída (`max_price`); o teto de saída é o `max_completion_tokens` pedido, limitado a 4096,
 ou 2048 se ausente.
+
+**Uma nova tentativa.** Se a primeira chamada falhar por status 429 ou 5xx, por rede ou por tempo
+esgotado, **e** tiverem passado menos de 15 s desde o início, o servidor chama o fornecedor mais
+uma vez. O tempo máximo total continua 90 s (a segunda tentativa usa o que sobrou). Não se repete
+4xx (chave ou pedido inválido), corpo ilegível nem resposta sem texto. A vaga de "pedido em
+andamento" fica ocupada durante as duas tentativas, o débito é uma vez só, pela tentativa boa, e
+duas falhas seguidas dão um 502 só. O registro (§3) leva o `motivo` da última falha e
+`tentativas: 2`.
 
 Resposta 200: `{object: "chat.completion", model: <id lógico pedido>, choices: [{index: 0,
 message: {role: "assistant", content}, finish_reason}], usage: {prompt_tokens,
@@ -185,7 +205,8 @@ fabricado (corpo de 256 KiB, cobrado pelo teto de preço), poucos créditos no u
 
 O texto das notas passa pelo servidor e pelo OpenRouter, e por um provedor que não guarda nem
 treina com os dados (`data_collection: deny`), mas não é guardado nem registrado em log no
-servidor (o log segue como em §3: método, rota, status, duração). A pendência de GDPR segue
+servidor (o log segue como em §3: método, rota, status, duração, mais o registro de IA, que só leva
+números, códigos e nomes de provedor — nunca texto de mensagem nem o texto de erro do fornecedor). A pendência de GDPR segue
 aberta (doc 09, Parte 3, item 31); não bloqueia o uso no Brasil.
 
 ---
