@@ -318,6 +318,21 @@ todas obrigatórias:
 O gateiro tem disparo próprio: nota ativa com ≥ 140 caracteres, participação ausente
 (`participacao.json` sem entrada), 5 s de inatividade, uma tentativa por nota por sessão.
 
+**Novas tentativas depois de falha** (rede, provedor fora do ar, resposta que não parseia —
+não vale para sessão e plano, que param até a sessão ou a configuração mudarem). A espera é
+por nota e cresce a cada falha seguida: **5 s → 30 s → 2 min → 10 min**
+(`ESPERAS_APOS_FALHA_MS`, `src/agente/tentativas.ts`). Passada a última, o agente desiste da
+nota até ela crescer (gateiro: +50%; ciclo: 200 caracteres novos desde o último ciclo).
+Uma resposta boa zera o contador. Offline por horas, isso dá no máximo cinco pedidos por nota
+e depois silêncio. O contador vive só em memória: reiniciar o app recomeça.
+
+**Créditos esgotados** (`creditos`, provedor próprio, em qualquer caminho): o segundo plano
+inteiro pausa — nenhum gateiro nem ciclo roda — e o painel mostra a mensagem de créditos. O
+chat continua permitido (é ação explícita). A pausa termina quando o saldo do servidor volta
+a ter crédito (`usados < total`), quando a sessão ou a configuração mudam, ou quando qualquer
+resposta do provedor der certo; durante a pausa o app confere o saldo a cada 30 min. Uma
+resposta bem-sucedida também limpa o erro definitivo (quem virou premium depois de um 403).
+
 ### 5.1 Gateiro
 
 Entrada: até os primeiros 2.000 caracteres da nota (sem frontmatter). Saída JSON estrita:
@@ -331,8 +346,8 @@ Parse defensivo. `valeParticipar: false` ou `confianca < 0.5`: não convida, e o
 painel diz por quê — "O agente leu esta nota e decidiu não participar por enquanto"
 (revisão 13/09: a decisão era invisível, e invisível parecia bug). Nova tentativa só se a
 nota crescer >50%. Falha de rede ou JSON inválido: mesma linha de status em versão de erro,
-e a tentativa fica liberada para o próximo ciclo de inatividade (pane não consome a
-espera de +50%). O convite, quando vem, aparece no balão (§6.1) com o tema detectado.
+e a tentativa fica liberada depois da espera crescente do §5.0 (pane não consome a
+espera de +50%; esgotadas as esperas, vale a regra de +50%). O convite, quando vem, aparece no balão (§6.1) com o tema detectado.
 
 ### 5.2 Convite
 
@@ -519,6 +534,7 @@ Português do Brasil, sentence case, sem emoji (doc 06, Voz da interface).
 | Sem sessão (401 do provedor próprio, código `sessao`) | "Entre na sua conta do Excalisidian para usar a IA incluída no plano." (ADR-38) |
 | Conta sem direito à IA paga (403 do provedor próprio, código `plano`) | "A IA do Excalisidian faz parte do plano premium. Sua conta está no plano grátis." (ADR-38) |
 | Créditos esgotados (429 `creditos`, provedor próprio) | "Seus créditos de IA deste mês acabaram." (inglês: "You are out of AI credits for this month.") |
+| Segundo plano parado por créditos | mesma mensagem de "Créditos esgotados", no painel, até o saldo voltar (§5.0). Nenhum texto novo. |
 | Cota do provedor (429, demais casos) | "O provedor limitou as chamadas agora. Tente de novo em instantes." |
 | Provedor fora do ar (5xx/rede) | "Não foi possível falar com o provedor. Verifique a conexão." |
 | Modelo inexistente (404) | "O provedor não conhece o modelo «{modelo}». Confira o nome nas configurações." |

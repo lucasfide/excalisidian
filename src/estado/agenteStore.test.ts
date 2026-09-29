@@ -34,6 +34,11 @@ vi.mock("../agente/cliente", () => ({
   textoDoErro: vi.fn(() => "erro simulado"),
 }));
 
+const { buscarSaldoMock } = vi.hoisted(() => ({ buscarSaldoMock: vi.fn() }));
+vi.mock("../servico/saldoCreditos", () => ({
+  buscarSaldoCreditos: (...a: unknown[]) => buscarSaldoMock(...a),
+}));
+
 const notaAberta = {
   path: "Nota.md",
   conteudoEditor: "O texto da nota aberta.",
@@ -141,6 +146,7 @@ beforeEach(() => {
 });
 
 afterEach(() => {
+  vi.unstubAllEnvs();
   vi.useRealTimers();
 });
 
@@ -569,5 +575,165 @@ describe("agenteStore — memória de longo prazo", () => {
     expect(st().conversas).toEqual({});
     const arquivo = stores.get(`agente/${hashVault("C:/vault")}/participacao.json`);
     expect((arquivo?.get("dados") as { dados: unknown }).dados).toEqual({});
+  });
+});
+
+// ——— novas tentativas com espera crescente e pausa por créditos (plano 15, tarefa 2) ———
+
+const CONFIG_PROPRIA: ConfigAgente = {
+  ...CONFIG,
+  provedor: "excalisidian",
+  chaves: {},
+  baseUrls: { excalisidian: BASE_URL_SERVICO },
+  modeloGateiro: MODELO_LEITURA,
+};
+
+async function prepararNota(config: ConfigAgente = CONFIG) {
+  vi.useFakeTimers();
+  notaAberta.conteudoEditor = "x".repeat(500);
+  await st().aplicarConfig(config);
+  await st().aoAbrirVault("C:/vault");
+  st().conectarGatilhos();
+}
+
+describe("agenteStore — espera crescente entre falhas", () => {
+  it("gateiro: duas falhas seguidas esperam 5 s e depois 30 s", async () => {
+    vi.mocked(completar).mockRejectedValue(new Error("sem rede"));
+    await prepararNota();
+
+    await vi.advanceTimersByTimeAsync(5_100); // 1ª tentativa (inatividade de 5 s)
+    expect(completar).toHaveBeenCalledTimes(1);
+
+    await vi.advanceTimersByTimeAsync(5_000); // espera de 5 s → 2ª tentativa
+    expect(completar).toHaveBeenCalledTimes(2);
+
+    await vi.advanceTimersByTimeAsync(29_000); // ainda dentro dos 30 s
+    expect(completar).toHaveBeenCalledTimes(2);
+
+    await vi.advanceTimersByTimeAsync(1_500); // passou dos 30 s → 3ª tentativa
+    expect(completar).toHaveBeenCalledTimes(3);
+  });
+
+  it("gateiro: depois das quatro esperas desiste até a nota crescer 50%", async () => {
+    vi.mocked(completar).mockRejectedValue(new Error("sem rede"));
+    await prepararNota();
+
+    await vi.advanceTimersByTimeAsync(20 * 60_000);
+    const chamadas = vi.mocked(completar).mock.calls.length;
+    expect(chamadas).toBe(5);
+
+    await vi.advanceTimersByTimeAsync(60 * 60_000);
+    expect(completar).toHaveBeenCalledTimes(chamadas);
+  });
+
+  it("gateiro: veredito válido depois de uma falha convida normalmente", async () => {
+    vi.mocked(completar).mockRejectedValueOnce(new Error("sem rede"));
+    vi.mocked(completar).mockImplementation(async (p) => respostaPorPapel(p));
+    await prepararNota();
+
+    await vi.advanceTimersByTimeAsync(11_000);
+    expect(completar).toHaveBeenCalledTimes(2);
+    expect(st().convite).not.toBeNull();
+  });
+
+  it("ciclo: falhas seguidas não repetem a cada 10 s; a 3ª rodada espera 30 s", async () => {
+    vi.mocked(completar).mockRejectedValue(new Error("sem rede"));
+    await prepararNota();
+    useAgenteStore.setState({ participacao: { "Nota.md": "aceito" } });
+    for (const f of dispararDocs.lista) f();
+
+    await vi.advanceTimersByTimeAsync(10_100); // 1ª falha do ciclo
+    const primeira = vi.mocked(completar).mock.calls.length;
+    expect(primeira).toBeGreaterThan(0);
+
+    await vi.advanceTimersByTimeAsync(10_000); // 2ª rodada (espera 5 s < inatividade 10 s)
+    const segunda = vi.mocked(completar).mock.calls.length;
+    expect(segunda).toBeGreaterThan(primeira);
+
+    await vi.advanceTimersByTimeAsync(20_000); // a 3ª só depois de 30 s
+    expect(vi.mocked(completar).mock.calls.length).toBe(segunda);
+    await vi.advanceTimersByTimeAsync(11_000);
+    expect(vi.mocked(completar).mock.calls.length).toBeGreaterThan(segunda);
+  });
+});
+
+describe("agenteStore — créditos esgotados pausam o segundo plano", () => {
+  it("gateiro com 'creditos': erro visível e nenhuma chamada nova, mesmo com o tempo passando", async () => {
+    vi.mocked(completar).mockRejectedValue(new FalhaAgente("creditos"));
+    await prepararNota(CONFIG_PROPRIA);
+
+    await vi.advanceTimersByTimeAsync(6_000);
+    expect(st().status).toBe("erro");
+    expect(st().erroAtual).toBe("erro simulado");
+    const chamadas = vi.mocked(completar).mock.calls.length;
+
+    await vi.advanceTimersByTimeAsync(25 * 60_000);
+    expect(completar).toHaveBeenCalledTimes(chamadas);
+  });
+
+  it("mudança de sessão tira da pausa e o gateiro volta", async () => {
+    vi.mocked(completar).mockRejectedValue(new FalhaAgente("creditos"));
+    await prepararNota(CONFIG_PROPRIA);
+    await vi.advanceTimersByTimeAsync(6_000);
+    const antes = vi.mocked(completar).mock.calls.length;
+
+    vi.mocked(completar).mockImplementation(async (p) => respostaPorPapel(p));
+    for (const cb of dispararConta.lista) cb({ sessao: { token: "novo" } }, { sessao: null });
+    await vi.advanceTimersByTimeAsync(6_000);
+
+    expect(vi.mocked(completar).mock.calls.length).toBeGreaterThan(antes);
+  });
+
+  it("saldo com créditos (usados < total) tira da pausa", async () => {
+    vi.mocked(completar).mockRejectedValue(new FalhaAgente("creditos"));
+    await prepararNota(CONFIG_PROPRIA);
+    await vi.advanceTimersByTimeAsync(6_000);
+    const antes = vi.mocked(completar).mock.calls.length;
+
+    vi.stubEnv("VITE_SERVIDOR", "real"); // fora do modo local de DEV, o saldo é buscado
+    definirTokenDaSessao("tok");
+    buscarSaldoMock.mockResolvedValue({ usados: 10, total: 100, renovaEm: 1 });
+    vi.mocked(completar).mockImplementation(async (p) => respostaPorPapel(p));
+    await st().atualizarSaldo();
+    await vi.advanceTimersByTimeAsync(6_000);
+
+    expect(vi.mocked(completar).mock.calls.length).toBeGreaterThan(antes);
+  });
+
+  it("durante a pausa, o timer de 30 min consulta o saldo", async () => {
+    vi.mocked(completar).mockRejectedValue(new FalhaAgente("creditos"));
+    vi.stubEnv("VITE_SERVIDOR", "real");
+    definirTokenDaSessao("tok");
+    buscarSaldoMock.mockReset();
+    buscarSaldoMock.mockResolvedValue({ usados: 100, total: 100, renovaEm: 1 });
+    await prepararNota(CONFIG_PROPRIA);
+    await vi.advanceTimersByTimeAsync(6_000);
+    buscarSaldoMock.mockClear();
+
+    await vi.advanceTimersByTimeAsync(31 * 60_000);
+    expect(buscarSaldoMock.mock.calls.length).toBeGreaterThanOrEqual(1);
+  });
+
+  it("o chat continua permitido durante a pausa e uma resposta boa sai dela", async () => {
+    vi.mocked(completar).mockRejectedValue(new FalhaAgente("creditos"));
+    await prepararNota(CONFIG_PROPRIA);
+    await vi.advanceTimersByTimeAsync(6_000);
+    expect(st().status).toBe("erro");
+
+    vi.mocked(completar).mockImplementation(async (p) => respostaPorPapel(p));
+    await st().enviarMensagem("oi");
+    expect(st().erroAtual).toBeNull();
+    expect(st().status).not.toBe("erro");
+  });
+
+  it("chat com 'creditos' entra na pausa e para o segundo plano", async () => {
+    await prepararNota(CONFIG_PROPRIA);
+    vi.mocked(completar).mockReset();
+    vi.mocked(completar).mockRejectedValue(new FalhaAgente("creditos"));
+    await st().enviarMensagem("oi");
+    expect(st().status).toBe("erro");
+    const chamadas = vi.mocked(completar).mock.calls.length;
+    await vi.advanceTimersByTimeAsync(60_000);
+    expect(completar).toHaveBeenCalledTimes(chamadas);
   });
 });

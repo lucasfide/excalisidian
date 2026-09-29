@@ -44,6 +44,7 @@ import {
   textoNovo,
 } from "../agente/gatilhos";
 import { systemAssistente, montarPrompt, interpretarCiclo, type SugestaoAgente } from "../agente/assistente";
+import { esperaAposFalha } from "../agente/tentativas";
 import { palavrasChave, recuperarNotasRelacionadas } from "../agente/recuperacao";
 import {
   adicionarFatos,
@@ -78,6 +79,8 @@ const CONTEXTO_NOTA_CHARS = 6000;
 /** Resumos gerados por ciclo (os demais entram com trecho cru) — teto de custo local. */
 const RESUMOS_POR_CICLO = 3;
 const FALHAS_PARA_ERRO_VISIVEL = 3;
+/** Com os créditos esgotados, confere o saldo a cada 30 min para voltar sozinho (doc 11 §5.0). */
+const CONSULTA_SALDO_PAUSA_MS = 30 * 60_000;
 
 function ehConfigAgente(v: unknown): v is ConfigAgente {
   if (!v || typeof v !== "object") return false;
@@ -181,6 +184,14 @@ let falhasSeguidas = 0;
 // esta flag bloqueia `agendar()`, porque só ela significa "tentar de novo é inútil até algo
 // mudar" (a sessão, via conectarGatilhos, ou a config, via aplicarConfig).
 let erroDefinitivo = false;
+// Novas tentativas (doc 11 §5.0/§5.1): falhas seguidas por nota e até quando a nota fica em
+// espera. Em memória — reiniciar o app zera, e é o que se quer.
+let falhasGateiro: Record<string, number> = {};
+let falhasCiclo: Record<string, number> = {};
+let bloqueadoAte: Record<string, number> = {};
+// Créditos da IA própria esgotados: segundo plano parado até haver saldo (entrarPausaPorCreditos).
+let pausaPorCreditos = false;
+let timerSaldoPausa: number | undefined;
 let gatilhosLigados = false;
 let resumosCache: Record<string, Resumo> = {};
 let timerPersistirParticipacao: number | undefined;
@@ -243,6 +254,36 @@ export const useAgenteStore = create<AgenteState>((set, get) => {
     }, 1000);
   }
 
+  function sairDaPausaPorCreditos() {
+    pausaPorCreditos = false;
+    window.clearInterval(timerSaldoPausa);
+    timerSaldoPausa = undefined;
+  }
+
+  function entrarPausaPorCreditos(e: unknown) {
+    pausaPorCreditos = true;
+    set({ status: "erro", erroAtual: textoDoErro(e) });
+    if (timerSaldoPausa === undefined) {
+      timerSaldoPausa = window.setInterval(() => void get().atualizarSaldo(), CONSULTA_SALDO_PAUSA_MS);
+    }
+  }
+
+  /** Qualquer resposta boa do provedor prova que sessão, plano e créditos estão em ordem:
+   * cobre quem virou premium depois de um 403 e quem recarregou créditos. */
+  function aoSucessoDoProvedor() {
+    if (!erroDefinitivo && !pausaPorCreditos) return;
+    erroDefinitivo = false;
+    sairDaPausaPorCreditos();
+    set((s) => ({ status: s.status === "erro" ? statusBase(s) : s.status, erroAtual: null }));
+    agendar();
+  }
+
+  /** Espera de uma nota: a inatividade normal ou o que faltar da espera por falha, o maior. */
+  function esperaDaNota(path: string, inatividadeMs: number): number {
+    const bloqueio = bloqueadoAte[path];
+    return bloqueio === undefined ? inatividadeMs : Math.max(inatividadeMs, bloqueio - Date.now());
+  }
+
   function agendar() {
     const s = get();
     window.clearTimeout(timerCiclo);
@@ -252,21 +293,24 @@ export const useAgenteStore = create<AgenteState>((set, get) => {
     // cota) não entram aqui — continuam reagendando como já faziam. Só sai daqui quando a
     // sessão mudar (conectarGatilhos) ou a config for reaplicada (aplicarConfig já limpa
     // erroAtual e chama agendar de novo).
-    if (erroDefinitivo) return;
+    if (erroDefinitivo || pausaPorCreditos) return;
     if (!s.config?.habilitado || s.pausado) return;
     const ativa = notaAtivaAtual();
     if (!ativa) return;
     const { path, texto } = ativa;
     const part = s.participacao[path];
     if (part === "aceito") {
-      timerCiclo = window.setTimeout(() => void cicloSePuder(path), INATIVIDADE_CICLO_MS);
+      timerCiclo = window.setTimeout(
+        () => void cicloSePuder(path),
+        esperaDaNota(path, INATIVIDADE_CICLO_MS),
+      );
     } else if (!part) {
       // um convite por vez: com convite pendente, não se agenda outro gateiro
       // (doc 11 §5.2 — o usuário responde primeiro).
       if (s.convite) return;
       timerGateiro = window.setTimeout(
         () => void gateiroSePuder(path),
-        INATIVIDADE_GATEIRO_MS,
+        esperaDaNota(path, INATIVIDADE_GATEIRO_MS),
       );
     } else if (part === "adiado") {
       if (s.convite) return;
@@ -274,16 +318,30 @@ export const useAgenteStore = create<AgenteState>((set, get) => {
       if (tentativa && cresceuDemais(tentativa.chars, texto.length)) {
         timerGateiro = window.setTimeout(
           () => void gateiroSePuder(path),
-          INATIVIDADE_GATEIRO_MS,
+          esperaDaNota(path, INATIVIDADE_GATEIRO_MS),
         );
       }
     }
   }
 
+  /** Falha transitória do gateiro (erro do provedor ou resposta que não parseia): espera
+   * crescente por nota; esgotadas as esperas, só uma nota 50% maior libera nova leitura. */
+  function registrarFalhaGateiro(path: string) {
+    const falhas = (falhasGateiro[path] ?? 0) + 1;
+    const espera = esperaAposFalha(falhas);
+    if (espera === null) {
+      delete falhasGateiro[path];
+      return;
+    }
+    falhasGateiro[path] = falhas;
+    bloqueadoAte[path] = Date.now() + espera;
+    delete tentativasGateiro[path];
+  }
+
   async function gateiroSePuder(path: string) {
     const s = get();
     const doc = useDocumentosStore.getState().docs.get(path);
-    if (!s.config?.habilitado || !doc) return;
+    if (!s.config?.habilitado || !doc || pausaPorCreditos) return;
     const texto = doc.conteudoEditor;
     const tentativa = tentativasGateiro[path];
     if (
@@ -317,7 +375,12 @@ export const useAgenteStore = create<AgenteState>((set, get) => {
         maxTokens: 500,
       });
       set((st) => ({ usoSessao: somarUso(st.usoSessao, r.uso) }));
+      aoSucessoDoProvedor();
       const veredito = interpretarGateiro(r.texto);
+      if (veredito) {
+        delete falhasGateiro[path];
+        delete bloqueadoAte[path];
+      }
       if (deveConvidar(veredito)) {
         set({
           convite: { path, tema: veredito.tema },
@@ -330,7 +393,7 @@ export const useAgenteStore = create<AgenteState>((set, get) => {
         // resposta que não parseia: trata como erro, não como "não vale" — e libera a
         // próxima tentativa (a guarda de +50% é para decisão legítima, não para pane).
         set((st) => ({ analises: { ...st.analises, [path]: "erro" } }));
-        delete tentativasGateiro[path];
+        registrarFalhaGateiro(path);
       }
     } catch (e) {
       // sessão ausente/expirada, ou conta sem direito à IA (403 do provedor próprio): sobe
@@ -338,14 +401,20 @@ export const useAgenteStore = create<AgenteState>((set, get) => {
       // "análise falhou" — os dois são estados definitivos (não transitórios como rede/cota),
       // e o usuário precisa saber por que o gateiro parou, mesmo que a ação seguinte difira
       // (entrar na conta vs. mudar de plano — nenhum botão aqui distingue os dois).
-      if (e instanceof FalhaAgente && (e.codigo === "sessao" || e.codigo === "plano")) {
+      const definitivo =
+        e instanceof FalhaAgente && (e.codigo === "sessao" || e.codigo === "plano");
+      if (definitivo) {
         erroDefinitivo = true;
         set({ status: "erro", erroAtual: textoDoErro(e) });
       }
+      const semCreditos = e instanceof FalhaAgente && e.codigo === "creditos";
+      if (semCreditos) entrarPausaPorCreditos(e);
       // gateiro silencioso: demais erros não viram faixa, mas ficam na linha de status do
-      // painel e não bloqueiam a próxima tentativa.
+      // painel. Sessão/plano/créditos param tudo até algo mudar (a tentativa fica liberada);
+      // o resto segue a espera crescente.
       set((st) => ({ analises: { ...st.analises, [path]: "erro" } }));
-      delete tentativasGateiro[path];
+      if (definitivo || semCreditos) delete tentativasGateiro[path];
+      else registrarFalhaGateiro(path);
     } finally {
       emVoo.delete(path);
       set((st) => ({ status: st.status === "pensando" ? statusBase(st) : st.status }));
@@ -356,7 +425,7 @@ export const useAgenteStore = create<AgenteState>((set, get) => {
   async function cicloSePuder(path: string) {
     const s = get();
     const doc = useDocumentosStore.getState().docs.get(path);
-    if (!s.config?.habilitado || !doc) return;
+    if (!s.config?.habilitado || !doc || pausaPorCreditos) return;
     const texto = doc.conteudoEditor;
     if (
       !deveRodarCiclo({
@@ -370,6 +439,20 @@ export const useAgenteStore = create<AgenteState>((set, get) => {
       return;
     }
     await rodarCiclo(path, texto);
+  }
+
+  /** Falha transitória do ciclo: espera crescente por nota; esgotadas as esperas, só 200
+   * caracteres novos liberam nova rodada. */
+  function registrarFalhaCiclo(path: string, texto: string) {
+    const falhas = (falhasCiclo[path] ?? 0) + 1;
+    const espera = esperaAposFalha(falhas);
+    if (espera === null) {
+      delete falhasCiclo[path];
+      ultimoCicloTexto[path] = texto;
+      return;
+    }
+    falhasCiclo[path] = falhas;
+    bloqueadoAte[path] = Date.now() + espera;
   }
 
   async function rodarCiclo(path: string, texto: string) {
@@ -439,7 +522,9 @@ export const useAgenteStore = create<AgenteState>((set, get) => {
               resumosCache[r.path] = { mtimeMs: metaR.mtimeMs, size: metaR.size, resumo: textoR };
               agendarPersistirResumos();
             }
-          } catch {
+          } catch (e) {
+            // sem créditos não adianta seguir para o pedido principal: aborta o ciclo
+            if (e instanceof FalhaAgente && e.codigo === "creditos") throw e;
             // sem resumo: o trecho cru mesmo assim (doc 11 §5.5)
           }
         }
@@ -468,6 +553,7 @@ export const useAgenteStore = create<AgenteState>((set, get) => {
         maxTokens: 1500,
       });
       set((st) => ({ usoSessao: somarUso(st.usoSessao, r.uso) }));
+      aoSucessoDoProvedor();
       const parsed = interpretarCiclo(r.texto, (c) => indice.has(c));
       if (parsed) {
         set((st) => ({
@@ -478,6 +564,8 @@ export const useAgenteStore = create<AgenteState>((set, get) => {
       }
       ultimoCicloTexto[path] = texto;
       falhasSeguidas = 0;
+      delete falhasCiclo[path];
+      delete bloqueadoAte[path];
     } catch (e) {
       // sessão ausente/expirada ou conta sem direito à IA: definitivo, grita na hora — não
       // faz sentido esperar mais duas falhas seguidas para um erro que não é transitório
@@ -485,7 +573,10 @@ export const useAgenteStore = create<AgenteState>((set, get) => {
       if (e instanceof FalhaAgente && (e.codigo === "sessao" || e.codigo === "plano")) {
         erroDefinitivo = true;
         set({ status: "erro", erroAtual: textoDoErro(e) });
+      } else if (e instanceof FalhaAgente && e.codigo === "creditos") {
+        entrarPausaPorCreditos(e);
       } else {
+        registrarFalhaCiclo(path, texto);
         falhasSeguidas++;
         // ciclo em segundo plano só grita na terceira falha seguida (doc 11 §7).
         if (falhasSeguidas >= FALHAS_PARA_ERRO_VISIVEL) {
@@ -525,7 +616,14 @@ export const useAgenteStore = create<AgenteState>((set, get) => {
         set({ saldoCreditos: null });
         return;
       }
-      set({ saldoCreditos: await buscarSaldoCreditos(token) });
+      const saldo = await buscarSaldoCreditos(token);
+      set({ saldoCreditos: saldo });
+      // voltou a haver crédito (renovação do mês ou recarga): sai da pausa sozinho
+      if (pausaPorCreditos && saldo && saldo.usados < saldo.total) {
+        sairDaPausaPorCreditos();
+        set((s) => ({ status: statusBase(s), erroAtual: null }));
+        agendar();
+      }
     },
 
     raiz: null,
@@ -554,6 +652,7 @@ export const useAgenteStore = create<AgenteState>((set, get) => {
 
     async aplicarConfig(config) {
       erroDefinitivo = false;
+      sairDaPausaPorCreditos();
       set({ config, erroAtual: null });
       set((s) => ({ status: statusBase(s) }));
       const store = await load("settings.json", { autoSave: false });
@@ -647,6 +746,7 @@ export const useAgenteStore = create<AgenteState>((set, get) => {
           system: systemConversa(ativa ? ativa.path : null, nota),
           mensagens: (get().conversas[chave] ?? []).slice(-12),
         });
+        aoSucessoDoProvedor();
         anexar({ papel: "assistente", texto: resposta.texto });
         set((s) => ({
           usoSessao: somarUso(s.usoSessao, resposta.uso),
@@ -656,7 +756,11 @@ export const useAgenteStore = create<AgenteState>((set, get) => {
       } catch (e) {
         // A mensagem do usuário fica na conversa e o erro aparece no rodapé — fazer o
         // texto digitado sumir seria pior que o erro visível (RF11.15).
-        set({ status: "erro", erroAtual: textoDoErro(e) });
+        if (e instanceof FalhaAgente && e.codigo === "creditos") {
+          entrarPausaPorCreditos(e);
+        } else {
+          set({ status: "erro", erroAtual: textoDoErro(e) });
+        }
       }
     },
 
@@ -673,6 +777,9 @@ export const useAgenteStore = create<AgenteState>((set, get) => {
       emVoo = new Set();
       ultimoCicloTexto = {};
       tentativasGateiro = {};
+      falhasGateiro = {};
+      falhasCiclo = {};
+      bloqueadoAte = {};
       resumosCache = await carregarResumos(raiz);
       const conversasSalvas = await carregarConversas(raiz);
       set({
@@ -703,8 +810,9 @@ export const useAgenteStore = create<AgenteState>((set, get) => {
       // definitivo (sessao/plano): reavalia. Isto só lê e reage a `useContaStore` — nunca
       // escreve nele — então não pode disparar este mesmo assinante de volta (sem laço).
       useContaStore.subscribe((state, prev) => {
-        if (state.sessao !== prev.sessao && erroDefinitivo) {
+        if (state.sessao !== prev.sessao && (erroDefinitivo || pausaPorCreditos)) {
           erroDefinitivo = false;
+          sairDaPausaPorCreditos();
           set((s) => ({ status: statusBase(s), erroAtual: null }));
           agendar();
         }
@@ -798,6 +906,9 @@ export const useAgenteStore = create<AgenteState>((set, get) => {
       resumosCache = {};
       ultimoCicloTexto = {};
       tentativasGateiro = {};
+      falhasGateiro = {};
+      falhasCiclo = {};
+      bloqueadoAte = {};
       set({ participacao: {}, sugestoes: {}, fatos: [], conversas: {}, convite: null });
       await limparMemoriaDisco(raiz);
     },
