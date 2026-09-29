@@ -124,6 +124,8 @@ interface AgenteState {
   config: ConfigAgente | null;
   carregado: boolean;
   status: StatusAgente;
+  /** Chat manual em andamento; independe de `status`, que o segundo plano também mexe. */
+  enviandoChat: boolean;
   erroAtual: string | null;
   pausado: boolean;
   painelAberto: boolean;
@@ -663,6 +665,7 @@ export const useAgenteStore = create<AgenteState>((set, get) => {
     config: null,
     carregado: false,
     status: "desligado",
+    enviandoChat: false,
     erroAtual: null,
     pausado: false,
     painelAberto: false,
@@ -703,10 +706,21 @@ export const useAgenteStore = create<AgenteState>((set, get) => {
     async carregar() {
       try {
         const store = await load("settings.json", { autoSave: false });
-        const salva = store.get<ConfigAgente>(CHAVE_CONFIG);
+        const salva = await store.get<ConfigAgente>(CHAVE_CONFIG);
         if (ehConfigAgente(salva)) {
-          set({ config: salva });
-          set((s) => ({ status: statusBase(s) }));
+          const atual = get().config;
+          const mudou = !atual || JSON.stringify(atual) !== JSON.stringify(salva);
+          if (mudou) {
+            // Config diferente: vale o mesmo que aplicarConfig (o motivo do erro era da config antiga).
+            erroDefinitivo = false;
+            sairDaPausaPorCreditos();
+            if (!salva.habilitado || !provedorDe(salva.provedor).exigeConta) zerarSaldo();
+            set({ config: salva, erroAtual: null });
+            set((s) => ({ status: statusBase(s) }));
+          } else if (!erroDefinitivo && !pausaPorCreditos) {
+            set((s) => ({ status: statusBase(s) }));
+          }
+          // mesma config com erro definitivo ou pausa: o motivo continua valendo, nada a tocar
         }
       } catch {
         // sem configuração salva: agente simplesmente não existe
@@ -804,7 +818,7 @@ export const useAgenteStore = create<AgenteState>((set, get) => {
     async enviarMensagem(texto) {
       const cfg = get().config;
       const envio = texto.trim();
-      if (!cfg || !cfg.habilitado || get().pausado || !envio) return;
+      if (!cfg || !cfg.habilitado || get().pausado || !envio || get().enviandoChat) return;
       if (envio.length > LIMITE_MENSAGEM_CHARS) {
         set({ erroAtual: traduzirAgora("agente.erro.mensagemLonga") });
         return "longa";
@@ -814,7 +828,7 @@ export const useAgenteStore = create<AgenteState>((set, get) => {
       const anexar = (msg: MensagemChat) =>
         set((s) => ({ conversas: { ...s.conversas, [chave]: [...(s.conversas[chave] ?? []), msg] } }));
       anexar({ papel: "usuario", texto: envio });
-      set({ status: "pensando", erroAtual: null });
+      set({ enviandoChat: true, status: "pensando", erroAtual: null });
       try {
         const nota = ativa ? ativa.texto.slice(0, CONTEXTO_NOTA_CHARS) : null;
         const resposta = await completarComSessao({
@@ -841,6 +855,8 @@ export const useAgenteStore = create<AgenteState>((set, get) => {
         } else {
           set({ status: "erro", erroAtual: textoDoErro(e) });
         }
+      } finally {
+        set({ enviandoChat: false });
       }
     },
 

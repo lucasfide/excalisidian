@@ -49,6 +49,7 @@ export default function PainelAgente() {
   const aberto = useAgenteStore((s) => s.painelAberto);
   const conversas = useAgenteStore((s) => s.conversas);
   const status = useAgenteStore((s) => s.status);
+  const enviandoChat = useAgenteStore((s) => s.enviandoChat);
   const erroAtual = useAgenteStore((s) => s.erroAtual);
   const pausado = useAgenteStore((s) => s.pausado);
   const uso = useAgenteStore((s) => s.usoSessao);
@@ -67,7 +68,7 @@ export default function PainelAgente() {
 
   const enviar = () => {
     const texto = rascunho.trim();
-    if (!texto || status === "pensando") return;
+    if (!texto || enviandoChat) return;
     setRascunho("");
     // Mensagem longa demais não sai: o texto volta para o campo, com o aviso no rodapé.
     void useAgenteStore.getState().enviarMensagem(texto).then((r) => {
@@ -106,7 +107,7 @@ export default function PainelAgente() {
 
   useEffect(() => {
     fimRef.current?.scrollIntoView({ block: "end" });
-  }, [conversa.length, status]);
+  }, [conversa.length, status, enviandoChat]);
 
   const textoMedidor = useMemo(() => formatarUso(uso, null), [uso]);
 
@@ -282,7 +283,7 @@ export default function PainelAgente() {
           </section>
         )}
 
-        {conversa.length === 0 && sugestoes.length === 0 && !conviteAqui && status !== "pensando" && (
+        {conversa.length === 0 && sugestoes.length === 0 && !conviteAqui && !enviandoChat && (
           <p className="mt-auto mb-auto px-1 text-center text-pequeno text-tinta-suave">
             Pergunte algo sobre a nota aberta.
           </p>
@@ -301,7 +302,7 @@ export default function PainelAgente() {
             {m.texto}
           </div>
         ))}
-        {status === "pensando" && (
+        {enviandoChat && (
           <div className="meta animate-pulse text-tinta-suave">pensando…</div>
         )}
         <div ref={fimRef} />
@@ -332,7 +333,7 @@ export default function PainelAgente() {
           <BotaoIcone
             Icone={Send}
             titulo="Enviar"
-            disabled={!rascunho.trim() || status === "pensando" || pausado}
+            disabled={!rascunho.trim() || enviandoChat || pausado}
             onClick={enviar}
             className="h-9 w-9"
           />

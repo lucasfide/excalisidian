@@ -134,6 +134,7 @@ beforeEach(() => {
     config: null,
     carregado: false,
     status: "desligado",
+    enviandoChat: false,
     erroAtual: null,
     pausado: false,
     painelAberto: false,
@@ -1053,5 +1054,67 @@ describe("agenteStore — testar conexão do provedor próprio consulta o servid
     definirTokenDaSessao(null);
     expect(await st().testarConexao()).toBe("erro simulado");
     expect(consultarMock).not.toHaveBeenCalled();
+  });
+});
+
+// ——— chat com estado próprio e recarga entre janelas (plano 16, tarefa 4) ———
+
+describe("agenteStore — chat com estado próprio", () => {
+  it("duas mensagens seguidas: a segunda é ignorada enquanto a primeira não termina", async () => {
+    await st().aplicarConfig(CONFIG);
+    let liberar: (v: { texto: string; uso: { tokensEntrada: number; tokensSaida: number } }) => void = () => {};
+    vi.mocked(completar).mockImplementationOnce(
+      () => new Promise((res) => void (liberar = res)),
+    );
+    const primeira = st().enviarMensagem("primeira");
+    expect(st().enviandoChat).toBe(true);
+    await st().enviarMensagem("segunda");
+    expect(completar).toHaveBeenCalledTimes(1);
+    liberar({ texto: "resp1", uso: { tokensEntrada: 1, tokensSaida: 1 } });
+    await primeira;
+    expect(st().enviandoChat).toBe(false);
+    const textos = (st().conversas["Nota.md"] ?? []).map((m) => m.texto);
+    expect(textos).toEqual(["primeira", "resp1"]);
+  });
+
+  it("depois de terminar (mesmo com erro), o chat volta a aceitar mensagem", async () => {
+    await st().aplicarConfig(CONFIG);
+    vi.mocked(completar).mockRejectedValueOnce(new Error("falhou"));
+    await st().enviarMensagem("um");
+    expect(st().enviandoChat).toBe(false);
+    await st().enviarMensagem("dois");
+    expect(completar).toHaveBeenCalledTimes(2);
+  });
+
+  it("status global baixado no meio da conversa não desliga enviandoChat", async () => {
+    await st().aplicarConfig(CONFIG);
+    vi.mocked(completar).mockImplementationOnce(() => new Promise(() => {}));
+    void st().enviarMensagem("oi");
+    useAgenteStore.setState({ status: "ocioso" });
+    expect(st().enviandoChat).toBe(true);
+  });
+});
+
+describe("agenteStore — carregar() entre janelas não apaga o motivo do erro", () => {
+  it("com erro definitivo e a mesma config, mantém status e texto do erro", async () => {
+    await st().aplicarConfig(CONFIG_PROPRIA);
+    vi.mocked(completar).mockRejectedValue(new FalhaAgente("creditos"));
+    await st().enviarMensagem("oi");
+    expect(st().status).toBe("erro");
+    await st().carregar();
+    expect(st().status).toBe("erro");
+    expect(st().erroAtual).toBe("erro simulado");
+  });
+
+  it("com config diferente na outra janela, limpa o erro e sai da pausa", async () => {
+    await st().aplicarConfig(CONFIG_PROPRIA);
+    vi.mocked(completar).mockRejectedValue(new FalhaAgente("creditos"));
+    await st().enviarMensagem("oi");
+    expect(st().status).toBe("erro");
+    stores.get("settings.json")!.set("agente", { ...CONFIG_PROPRIA, thinking: "alto" });
+    await st().carregar();
+    expect(st().erroAtual).toBeNull();
+    expect(st().status).not.toBe("erro");
+    expect(st().config?.thinking).toBe("alto");
   });
 });
