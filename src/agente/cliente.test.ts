@@ -386,7 +386,7 @@ describe("provedor próprio — créditos esgotados", () => {
 
   it("429 sem esse corpo continua sendo cota", async () => {
     definirTokenDaSessao("tok");
-    fetchMock.mockResolvedValue(respostaHTTP(429, { codigo: "limite" }));
+    fetchMock.mockResolvedValue(respostaHTTP(429, { codigo: "outro" }));
     await expect(completar(pedidoProprio())).rejects.toMatchObject({ codigo: "cota" });
   });
 
@@ -403,5 +403,76 @@ describe("provedor próprio — créditos esgotados", () => {
         mensagens: [{ papel: "usuario", texto: "oi" }],
       }),
     ).rejects.toMatchObject({ codigo: "cota" });
+  });
+});
+
+describe("provedor próprio — mensagens de instabilidade, limite e tamanho", () => {
+  afterEach(() => definirTokenDaSessao(null));
+
+  const pedidoProprio = () => ({
+    provedor: provedorDe("excalisidian"),
+    baseUrl: BASE_URL_SERVICO,
+    modelo: MODELO_LEITURA,
+    thinking: "padrao" as const,
+    system: "sys",
+    mensagens: [{ papel: "usuario" as const, texto: "oi" }],
+  });
+  const pedidoChavePropria = () => ({
+    provedor: provedorDe("openai"),
+    chave: "sk",
+    baseUrl: "https://api.openai.com/v1",
+    modelo: "gpt-5.4-mini",
+    thinking: "padrao" as const,
+    system: "sys",
+    mensagens: [{ papel: "usuario" as const, texto: "oi" }],
+  });
+
+  it.each([502, 503, 504])("%i vira 'instavel' com texto próprio", async (status) => {
+    definirTokenDaSessao("tok");
+    fetchMock.mockResolvedValue(respostaHTTP(status, {}));
+    const erro = await completar(pedidoProprio()).catch((e) => e);
+    expect(erro).toMatchObject({ codigo: "instavel" });
+    expect(textoDoErro(erro)).toBe("A IA do Excalisidian está instável agora. Tente de novo em instantes.");
+  });
+
+  it("500 continua sendo provedor", async () => {
+    definirTokenDaSessao("tok");
+    fetchMock.mockResolvedValue(respostaHTTP(500, {}));
+    await expect(completar(pedidoProprio())).rejects.toMatchObject({ codigo: "provedor" });
+  });
+
+  it("429 com codigo limite vira 'limite'", async () => {
+    definirTokenDaSessao("tok");
+    fetchMock.mockResolvedValue(respostaHTTP(429, { codigo: "limite" }));
+    const erro = await completar(pedidoProprio()).catch((e) => e);
+    expect(erro).toMatchObject({ codigo: "limite" });
+    expect(textoDoErro(erro)).toBe("Muitos pedidos seguidos. Espere um minuto.");
+  });
+
+  it("429 sem corpo reconhecido continua 'cota'", async () => {
+    definirTokenDaSessao("tok");
+    fetchMock.mockResolvedValue(respostaHTTP(429, {}));
+    await expect(completar(pedidoProprio())).rejects.toMatchObject({ codigo: "cota" });
+  });
+
+  it("413 vira 'tamanho'", async () => {
+    definirTokenDaSessao("tok");
+    fetchMock.mockResolvedValue(respostaHTTP(413, {}));
+    const erro = await completar(pedidoProprio()).catch((e) => e);
+    expect(erro).toMatchObject({ codigo: "tamanho" });
+    expect(textoDoErro(erro)).toBe("Esta conversa ficou grande demais. Limpe a conversa para continuar.");
+  });
+
+  it("chave própria: nada muda (502/503/504 e 413 provedor; 429 limite cota)", async () => {
+    for (const [status, corpo, codigo] of [
+      [502, {}, "provedor"],
+      [503, {}, "provedor"],
+      [504, {}, "provedor"],
+      [413, {}, "provedor"],
+      [429, { codigo: "limite" }, "cota"],
+    ] as const) {
+      fetchMock.mockResolvedValue(respostaHTTP(status, corpo));
+      await expect(completar(pedidoChavePropria())).rejects.toMatchObject({ codigo });
+    }
   });
 });

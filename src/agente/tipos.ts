@@ -48,6 +48,9 @@ export type ErroAgente =
   | "plano" // provedor próprio: conta autenticada sem direito à IA (403)
   | "cota" // 429
   | "creditos" // provedor próprio: créditos do mês esgotados (429 {"codigo":"creditos"})
+  | "instavel" // provedor próprio: 502/503/504
+  | "limite" // provedor próprio: 429 {"codigo":"limite"} (limite por minuto do servidor)
+  | "tamanho" // provedor próprio: 413 (conversa grande demais)
   | "modelo" // 404
   | "rede" // exceção de conexão
   | "escopo" // base URL fora do escopo permitido pelo capability

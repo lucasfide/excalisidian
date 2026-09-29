@@ -69,7 +69,10 @@ export default function PainelAgente() {
     const texto = rascunho.trim();
     if (!texto || status === "pensando") return;
     setRascunho("");
-    void useAgenteStore.getState().enviarMensagem(texto);
+    // Mensagem longa demais não sai: o texto volta para o campo, com o aviso no rodapé.
+    void useAgenteStore.getState().enviarMensagem(texto).then((r) => {
+      if (r === "longa") setRascunho((atual) => atual || rascunho);
+    });
   };
 
   // Esc fecha; clique fora fecha. O Dialog tem a mesma mecânica — replicada aqui porque

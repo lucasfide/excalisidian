@@ -115,7 +115,14 @@ function erroDeStatus(status: number, corpo: unknown, ctx: ContextoChamada): Fal
     // outro 429 (inclusive o limite por minuto do nosso servidor) é "cota" momentânea.
     const codigo = corpo && typeof corpo === "object" ? (corpo as { codigo?: unknown }).codigo : undefined;
     if (ctx.provedor.exigeConta && codigo === "creditos") return new FalhaAgente("creditos", detalhe);
+    if (ctx.provedor.exigeConta && codigo === "limite") return new FalhaAgente("limite", detalhe);
     return new FalhaAgente("cota", detalhe);
+  }
+  // Só o provedor próprio tem mensagem específica: 413 é conversa grande demais, 502/503/504 é
+  // o nosso serviço (ou o que está atrás dele) instável. Chave própria: tudo continua "provedor".
+  if (ctx.provedor.exigeConta) {
+    if (status === 413) return new FalhaAgente("tamanho", detalhe);
+    if (status === 502 || status === 503 || status === 504) return new FalhaAgente("instavel", detalhe);
   }
   if (status === 404) return new FalhaAgente("modelo", detalhe);
   if (status >= 500) return new FalhaAgente("provedor", detalhe);
@@ -299,6 +306,12 @@ export function textoDoErro(
       return traduzirAgora("agente.erro.cota");
     case "creditos":
       return traduzirAgora("agente.erro.creditos");
+    case "instavel":
+      return traduzirAgora("agente.erro.instavel");
+    case "limite":
+      return traduzirAgora("agente.erro.limite");
+    case "tamanho":
+      return traduzirAgora("agente.erro.tamanho");
     case "modelo":
       return traduzirAgora("agente.erro.modelo", { modelo: fmt.modelo ?? "?" });
     case "escopo":

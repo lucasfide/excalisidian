@@ -220,6 +220,22 @@ describe("agenteStore", () => {
     expect(st().conversas["Nota.md"][0]).toEqual({ papel: "usuario", texto: "oi" });
   });
 
+  it("mensagem com mais de 100 mil caracteres não é enviada e avisa; devolve 'longa'", async () => {
+    await st().aplicarConfig(CONFIG);
+    const r = await st().enviarMensagem("a".repeat(100_001));
+    expect(r).toBe("longa");
+    expect(completar).not.toHaveBeenCalled();
+    expect(st().conversas["Nota.md"] ?? []).toEqual([]);
+    expect(st().erroAtual).toBe("Mensagem longa demais para o agente (máximo de 100 mil caracteres).");
+  });
+
+  it("mensagem com exatamente 100 mil caracteres ainda é enviada", async () => {
+    await st().aplicarConfig(CONFIG);
+    const r = await st().enviarMensagem("a".repeat(100_000));
+    expect(r).toBeUndefined();
+    expect(completar).toHaveBeenCalledTimes(1);
+  });
+
   it("carregar rejeita config com provedor fora do catálogo e cai no padrão", async () => {
     await st().aplicarConfig(CONFIG);
     const store = stores.get("settings.json")!;

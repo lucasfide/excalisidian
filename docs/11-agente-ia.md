@@ -268,7 +268,7 @@ própria:
   desenvolvimento (servidor local) não busca. Qualquer falha deixa o saldo em `null` e o
   medidor **oculto**: nunca se mostra número inventado, e zero seria mentir sobre dinheiro.
 - **Créditos esgotados:** 429 com corpo `{"codigo":"creditos"}` vira o código de erro
-  `creditos`. Um 429 sem esse corpo continua sendo `cota` (limite momentâneo).
+  `creditos`. Um 429 sem esse corpo continua sendo `cota` (limite momentâneo). Só no provedor próprio: 429 `{"codigo":"limite"}` vira `limite`; 413 vira `tamanho`; 502/503/504 viram `instavel`. Os três são transitórios para a política de tentativas (não param o segundo plano). Provedores de chave própria mantêm `cota`/`provedor`.
 - **401 com o token trocado por outra janela:** duas janelas compartilham o token pelo cofre; se
   outra janela renovou ou entrou enquanto um pedido voava com o token velho, o 401 não significa
   "deslogado". Num `sessao` do provedor próprio o agente adota o token do cofre
@@ -543,8 +543,12 @@ Português do Brasil, sentence case, sem emoji (doc 06, Voz da interface).
 | Conta sem direito à IA paga (403 do provedor próprio, código `plano`) | "A IA do Excalisidian faz parte do plano premium. Sua conta está no plano grátis." (ADR-38) |
 | Créditos esgotados (429 `creditos`, provedor próprio) | "Seus créditos de IA deste mês acabaram." (inglês: "You are out of AI credits for this month.") |
 | Segundo plano parado por créditos | mesma mensagem de "Créditos esgotados", no painel, até o saldo voltar (§5.0). Nenhum texto novo. |
-| Cota do provedor (429, demais casos) | "O provedor limitou as chamadas agora. Tente de novo em instantes." |
-| Provedor fora do ar (5xx/rede) | "Não foi possível falar com o provedor. Verifique a conexão." |
+| Serviço instável (502/503/504, provedor próprio, código `instavel`) | "A IA do Excalisidian está instável agora. Tente de novo em instantes." (inglês: "Excalisidian AI is unstable right now. Try again in a moment.") |
+| Limite por minuto (429 `{"codigo":"limite"}`, provedor próprio, código `limite`) | "Muitos pedidos seguidos. Espere um minuto." (inglês: "Too many requests in a row. Wait a minute.") |
+| Conversa grande demais (413, provedor próprio, código `tamanho`) | "Esta conversa ficou grande demais. Limpe a conversa para continuar." (inglês: "This conversation got too large. Clear it to continue.") |
+| Mensagem digitada com mais de 100.000 caracteres (chat, antes de enviar) | "Mensagem longa demais para o agente (máximo de 100 mil caracteres)." (inglês: "Message too long for the agent (100k characters maximum)."). Não envia e o texto fica no campo. |
+| Cota do provedor (429, demais casos; e todo 429 de chave própria) | "O provedor limitou as chamadas agora. Tente de novo em instantes." |
+| Provedor fora do ar (5xx/rede; em chave própria também 413 e 502/503/504) | "Não foi possível falar com o provedor. Verifique a conexão." |
 | Modelo inexistente (404) | "O provedor não conhece o modelo «{modelo}». Confira o nome nas configurações." |
 | Resposta inválida (JSON fora do schema) | no gateiro: linha de status no rodapé do painel ("A análise desta nota falhou. O agente tenta de novo quando você escrever mais.") e a tentativa fica liberada; na conversa: "O provedor devolveu uma resposta que não pude entender. Tente outro modelo." (`textoDoErro`, `src/agente/cliente.ts`). O estado `erro` após 3 falhas seguidas com "O provedor devolveu respostas inválidas. Tente outro modelo." **não está implementado**. |
 | Gateiro decidiu não participar | "O agente leu esta nota e decidiu não participar por enquanto." |

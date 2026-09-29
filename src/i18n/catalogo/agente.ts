@@ -8,6 +8,10 @@ export const PT_BR_AGENTE = {
   "agente.erro.plano": "A IA do Excalisidian faz parte do plano premium. Sua conta está no plano grátis.",
   "agente.erro.cota": "O provedor limitou as chamadas agora. Tente de novo em instantes.",
   "agente.erro.creditos": "Seus créditos de IA deste mês acabaram.",
+  "agente.erro.instavel": "A IA do Excalisidian está instável agora. Tente de novo em instantes.",
+  "agente.erro.limite": "Muitos pedidos seguidos. Espere um minuto.",
+  "agente.erro.tamanho": "Esta conversa ficou grande demais. Limpe a conversa para continuar.",
+  "agente.erro.mensagemLonga": "Mensagem longa demais para o agente (máximo de 100 mil caracteres).",
   "agente.erro.modelo":
     "O provedor não conhece o modelo «{modelo}». Confira o nome nas configurações.",
   "agente.erro.escopo":
@@ -39,6 +43,10 @@ export const EN_AGENTE: Partial<Record<keyof typeof PT_BR_AGENTE, string>> = {
   "agente.erro.plano": "Excalisidian AI is part of the premium plan. Your account is on the free plan.",
   "agente.erro.cota": "The provider is rate-limiting calls right now. Try again in a moment.",
   "agente.erro.creditos": "You are out of AI credits for this month.",
+  "agente.erro.instavel": "Excalisidian AI is unstable right now. Try again in a moment.",
+  "agente.erro.limite": "Too many requests in a row. Wait a minute.",
+  "agente.erro.tamanho": "This conversation got too large. Clear it to continue.",
+  "agente.erro.mensagemLonga": "Message too long for the agent (100k characters maximum).",
   "agente.erro.modelo":
     "The provider does not recognize the model \"{modelo}\". Check the name in settings.",
   "agente.erro.escopo":

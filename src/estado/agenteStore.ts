@@ -22,6 +22,7 @@ import type {
 import { FalhaAgente } from "../agente/tipos";
 import { baseUrlEfetiva, provedorDe, PROVEDORES } from "../agente/provedores";
 import { completar, listarModelos, textoDoErro } from "../agente/cliente";
+import { traduzirAgora } from "../i18n/traduzirAgora";
 import { tokenDaSessaoAtual } from "../servico/sessao";
 import { buscarSaldoCreditos } from "../servico/saldoCreditos";
 import type { SaldoCreditos } from "../servico/creditos";
@@ -76,6 +77,8 @@ const CHAVE_CONFIG = "agente";
 // uma dependência entre os dois stores só por causa do nome do evento.
 const EVENTO_PREFS_MUDOU = "app://prefs-mudou";
 const CONTEXTO_NOTA_CHARS = 6000;
+/** Teto da mensagem digitada no chat: acima disso o servidor recusaria (413) de qualquer jeito. */
+const LIMITE_MENSAGEM_CHARS = 100_000;
 /** Resumos gerados por ciclo (os demais entram com trecho cru) — teto de custo local. */
 const RESUMOS_POR_CICLO = 3;
 const FALHAS_PARA_ERRO_VISIVEL = 3;
@@ -151,7 +154,8 @@ interface AgenteState {
   pausar(): void;
   retomar(): void;
   testarConexao(config?: ConfigAgente): Promise<string | null>;
-  enviarMensagem(texto: string): Promise<void>;
+  /** Devolve "longa" quando a mensagem passa do limite e NÃO foi enviada (a UI mantém o texto). */
+  enviarMensagem(texto: string): Promise<"longa" | undefined>;
   limparConversa(): void;
 
   /** Chamado na abertura/troca de vault: carrega participação e resumos do vault novo. */
@@ -758,6 +762,10 @@ export const useAgenteStore = create<AgenteState>((set, get) => {
       const cfg = get().config;
       const envio = texto.trim();
       if (!cfg || !cfg.habilitado || get().pausado || !envio) return;
+      if (envio.length > LIMITE_MENSAGEM_CHARS) {
+        set({ erroAtual: traduzirAgora("agente.erro.mensagemLonga") });
+        return "longa";
+      }
       const ativa = notaAtivaAtual();
       const chave = ativa ? ativa.path : "";
       const anexar = (msg: MensagemChat) =>
