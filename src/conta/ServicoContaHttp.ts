@@ -134,6 +134,8 @@ export class ServicoContaHttp implements ServicoConta {
         method: "GET",
         headers: { Authorization: `Bearer ${token}` },
         connectTimeout: TIMEOUT_MS,
+        // Pedido pendurado (conexão morta) não pode segurar quem consulta; estouro vira "rede".
+        signal: AbortSignal.timeout(TIMEOUT_MS),
       } as RequestInit);
     } catch (e) {
       throw new FalhaConta("rede", e instanceof Error ? e.message : String(e));

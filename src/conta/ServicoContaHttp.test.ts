@@ -167,6 +167,17 @@ describe("ServicoContaHttp", () => {
     ).rejects.toThrow(expect.objectContaining({ codigo: "rede" }));
   });
 
+  it("consultar: passa signal e TimeoutError vira rede", async () => {
+    const falso = vi.fn(async () => resposta(200, { email: "a@b.c", plano: "gratis", expiraEm: 1 }));
+    await servicoComDubles(falso as unknown as typeof fetch).consultar("t");
+    const [, init] = falso.mock.calls[0] as unknown as [string, RequestInit];
+    expect(init.signal).toBeInstanceOf(AbortSignal);
+    const estouro = vi.fn(async () => { throw new DOMException("tempo", "TimeoutError"); });
+    await expect(
+      servicoComDubles(estouro as unknown as typeof fetch).consultar("t"),
+    ).rejects.toThrow(expect.objectContaining({ codigo: "rede" }));
+  });
+
   it("entrar deriva a chaveDeEnvelope UMA vez e devolve a mesma da derivação", async () => {
     const falso = vi.fn(async () => resposta(200, sessaoValida));
     const servico = servicoComDubles(falso as unknown as typeof fetch);
