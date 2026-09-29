@@ -27,9 +27,9 @@ import { useAgenteStore } from "../../estado/agenteStore";
 import { useWorkspaceStore } from "../../estado/workspaceStore";
 import { formatarUso } from "../../agente/orcamento";
 import { provedorDe } from "../../agente/provedores";
-import { formatarCreditos, nivelDeAviso, restantes, type SaldoCreditos } from "../../servico/creditos";
+import { formatarCreditos, formatarRenovacao, nivelDeAviso, restantes, type SaldoCreditos } from "../../servico/creditos";
 import { useTexto } from "../../i18n/useTexto";
-import { tagDeLocale, type Idioma } from "../../i18n/idioma";
+import { type Idioma } from "../../i18n/idioma";
 import { usePrefsStore } from "../../estado/prefsStore";
 import type { TipoSugestao } from "../../agente/assistente";
 
@@ -57,6 +57,7 @@ export default function PainelAgente() {
   const sugestoesPorPath = useAgenteStore((s) => s.sugestoes);
   const fatos = useAgenteStore((s) => s.fatos);
   const caminhoAtivo = useWorkspaceStore((s) => s.caminhoAtivo);
+  const conviteAqui = convite && convite.path === caminhoAtivo ? convite : null;
   const sugestoes = caminhoAtivo ? (sugestoesPorPath[caminhoAtivo] ?? []) : [];
   const conversa = conversas[caminhoAtivo ?? ""] ?? [];
   const [fatosAbertos, setFatosAbertos] = useState(false);
@@ -83,7 +84,11 @@ export default function PainelAgente() {
       }
     };
     const aoPonteiro = (e: PointerEvent) => {
-      if (!raizRef.current?.contains(e.target as Node)) {
+      const alvo = e.target as Element;
+      // O balão tem o próprio onClick que alterna o painel; tratar o pointerdown dele
+      // aqui fecharia e o clique reabriria.
+      if (alvo.closest?.("[data-balao-agente]")) return;
+      if (!raizRef.current?.contains(alvo)) {
         useAgenteStore.getState().alternarPainel();
       }
     };
@@ -148,11 +153,11 @@ export default function PainelAgente() {
       </header>
 
       <div className="flex min-h-0 flex-1 flex-col gap-2 overflow-y-auto p-3">
-        {convite && (
+        {conviteAqui && (
           <div className="rounded-controle border border-regua bg-lavagem p-3">
             <p className="text-[13px] leading-relaxed text-tinta [text-wrap:pretty]">
               Esta nota parece tratar de{" "}
-              <span className="font-medium">{convite.tema}</span>. Quer que eu acompanhe?
+              <span className="font-medium">{conviteAqui.tema}</span>. Quer que eu acompanhe?
             </p>
             <div className="mt-2 flex gap-2">
               <Botao
@@ -274,7 +279,7 @@ export default function PainelAgente() {
           </section>
         )}
 
-        {conversa.length === 0 && sugestoes.length === 0 && !convite && status !== "pensando" && (
+        {conversa.length === 0 && sugestoes.length === 0 && !conviteAqui && status !== "pensando" && (
           <p className="mt-auto mb-auto px-1 text-center text-pequeno text-tinta-suave">
             Pergunte algo sobre a nota aberta.
           </p>
@@ -365,32 +370,23 @@ function MedidorCreditos({
   idioma: Idioma;
 }) {
   const nivel = nivelDeAviso(saldo);
-  const formatadorData = useMemo(
-    () => new Intl.DateTimeFormat(tagDeLocale(idioma), { day: "2-digit", month: "2-digit" }),
-    [idioma],
-  );
+  const sobra = restantes(saldo);
   return (
     <span className="meta flex items-baseline gap-2">
-      <span
-        className={cn(
-          nivel === "esgotado"
-            ? "text-bordo"
-            : nivel === "acabando"
-              ? "text-ocre-tinta"
-              : "text-tinta-suave",
-        )}
-      >
-        {t("agente.creditos.restantes", {
-          restantes: formatarCreditos(restantes(saldo), idioma),
-        })}
-      </span>
+      {nivel !== "esgotado" && (
+        <span className={cn(nivel === "acabando" ? "text-ocre-tinta" : "text-tinta-suave")}>
+          {Math.floor(sobra) === 1
+            ? t("agente.creditos.restante")
+            : t("agente.creditos.restantes", { restantes: formatarCreditos(sobra, idioma) })}
+        </span>
+      )}
       {nivel === "acabando" && (
         <span className="text-ocre-tinta">{t("agente.creditos.acabando")}</span>
       )}
       {nivel === "esgotado" && (
         <span className="text-bordo">
           {t("agente.creditos.esgotado", {
-            data: formatadorData.format(saldo.renovaEm),
+            data: formatarRenovacao(saldo.renovaEm, idioma),
           })}
         </span>
       )}

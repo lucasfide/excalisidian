@@ -34,3 +34,13 @@ export function nivelDeAviso(s: SaldoCreditos): "ok" | "acabando" | "esgotado" {
 export function formatarCreditos(n: number, idioma: Idioma = "pt-BR"): string {
   return new Intl.NumberFormat(tagDeLocale(idioma)).format(Math.floor(n));
 }
+
+/** Data da renovação da cota, sempre no fuso de Brasília: a cota vira à meia-noite de lá, e
+ * o fuso da máquina (Acre, Amazonas) mostraria o dia anterior. */
+export function formatarRenovacao(ms: number, idioma: Idioma = "pt-BR"): string {
+  return new Intl.DateTimeFormat(tagDeLocale(idioma), {
+    day: "numeric",
+    month: "short",
+    timeZone: "America/Sao_Paulo",
+  }).format(ms);
+}

@@ -6,6 +6,7 @@ import {
   fracaoUsada,
   nivelDeAviso,
   formatarCreditos,
+  formatarRenovacao,
   type SaldoCreditos,
 } from "./creditos";
 
@@ -76,5 +77,24 @@ describe("formatarCreditos", () => {
 
   it("em inglês usa vírgula como separador de milhar", () => {
     expect(formatarCreditos(1700, "en")).toBe("1,700");
+  });
+});
+
+describe("formatarRenovacao", () => {
+  // 1º de outubro às 00:00 em Brasília (UTC-3) é 03:00 UTC.
+  const renovaEm = Date.UTC(2026, 9, 1, 3, 0, 0);
+
+  it("mostra o dia 1º de outubro no fuso de Brasília, não o dia 30 de setembro", () => {
+    const texto = formatarRenovacao(renovaEm, "pt-BR");
+    expect(texto).toContain("1");
+    expect(texto.toLowerCase()).toContain("out");
+    expect(texto).not.toContain("30");
+    expect(texto.toLowerCase()).not.toContain("set");
+  });
+
+  it("em inglês usa o mês por extenso curto", () => {
+    const texto = formatarRenovacao(renovaEm, "en");
+    expect(texto).toContain("Oct");
+    expect(texto).toContain("1");
   });
 });

@@ -40,6 +40,7 @@ export default function BalaoAgente(): ReactNode {
   return (
     <button
       type="button"
+      data-balao-agente
       title={tooltip}
       aria-label={tooltip}
       aria-pressed={painelAberto}
