@@ -20,25 +20,56 @@ destino="${PASTA_BACKUPS}/${data}"
 
 mkdir -p "$destino"
 
-# 1. SQLite: VACUUM INTO grava uma cópia consistente e compactada num arquivo novo — o
-# processo do servidor pode continuar escrevendo no original o tempo todo. Passa os caminhos
-# por variável de ambiente (não por interpolação de shell dentro do script Node) para não
-# depender de escapar aspas.
+# O bloqueio de escrita do SQLite cobre o VACUUM INTO e um espelho temporário de hard links
+# dos pacotes. Após liberar a trava, a cópia dos bytes é feita a partir desse espelho: um
+# retrato novo pode apagar o arquivo original, mas o hard link mantém seus bytes disponíveis.
+# Assim o backup permanece consistente sem pausar as escritas durante toda a cópia de arquivos.
 script_node='
 const Database = require(process.env.PASTA_APP + "/node_modules/better-sqlite3");
-const db = new Database(process.env.PASTA_DADOS + "/excalisidian.db", { readonly: true, fileMustExist: true });
-db.prepare("VACUUM INTO ?").run(process.env.DESTINO_DB);
-db.close();
+const fs = require("node:fs");
+const path = require("node:path");
+const origemDb = path.join(process.env.PASTA_DADOS, "excalisidian.db");
+const db = new Database(origemDb, { fileMustExist: true });
+db.pragma("busy_timeout = 30000");
+const pacotes = path.join(process.env.PASTA_DADOS, "pacotes");
+const espelho = fs.mkdtempSync(path.join(process.env.PASTA_DADOS, ".backup-pacotes-"));
+let tinhaPacotes = false;
+function criarLinks(origem, destino) {
+  fs.mkdirSync(destino, { recursive: true });
+  for (const entrada of fs.readdirSync(origem, { withFileTypes: true })) {
+    const arquivo = path.join(origem, entrada.name);
+    const copia = path.join(destino, entrada.name);
+    if (entrada.isDirectory()) criarLinks(arquivo, copia);
+    else if (entrada.isFile()) fs.linkSync(arquivo, copia);
+    else throw new Error("tipo de arquivo inesperado nos pacotes do backup");
+  }
+}
+try {
+  db.exec("BEGIN IMMEDIATE");
+  try {
+    const leitura = new Database(origemDb, { readonly: true, fileMustExist: true });
+    try {
+      leitura.prepare("VACUUM INTO ?").run(process.env.DESTINO_DB);
+    } finally {
+      leitura.close();
+    }
+    tinhaPacotes = fs.existsSync(pacotes);
+    if (tinhaPacotes) criarLinks(pacotes, espelho);
+    db.exec("COMMIT");
+  } catch (erro) {
+    db.exec("ROLLBACK");
+    throw erro;
+  }
+  if (tinhaPacotes) fs.cpSync(espelho, path.join(process.env.DESTINO, "pacotes"), { recursive: true });
+} finally {
+  db.close();
+  fs.rmSync(espelho, { recursive: true, force: true });
+}
 '
-PASTA_APP="$PASTA_APP" PASTA_DADOS="$PASTA_DADOS" DESTINO_DB="${destino}/excalisidian.db" \
+PASTA_APP="$PASTA_APP" PASTA_DADOS="$PASTA_DADOS" DESTINO="$destino" DESTINO_DB="${destino}/excalisidian.db" \
 	/usr/bin/node -e "$script_node"
 
-# 2. Pacotes: cópia recursiva da pasta de arquivos (metadados já estão no VACUUM INTO acima).
-if [ -d "${PASTA_DADOS}/pacotes" ]; then
-	cp -a "${PASTA_DADOS}/pacotes" "${destino}/pacotes"
-fi
-
-# 3. Retenção: apaga pastas de backup com mais de RETENCAO_DIAS dias (pelo horário em que
+# Retenção: apaga pastas de backup com mais de RETENCAO_DIAS dias (pelo horário em que
 # foram criadas, não pelo nome — funciona mesmo que o relógio da VPS mude de fuso).
 find "$PASTA_BACKUPS" -mindepth 1 -maxdepth 1 -type d -mtime "+${RETENCAO_DIAS}" -exec rm -rf -- {} +
 
