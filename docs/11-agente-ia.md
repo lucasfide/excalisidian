@@ -330,7 +330,9 @@ por nota e cresce a cada falha seguida: **5 s → 30 s → 2 min → 10 min**
 (`ESPERAS_APOS_FALHA_MS`, `src/agente/tentativas.ts`). Passada a última, o agente desiste da
 nota até ela crescer (gateiro: +50%; ciclo: 200 caracteres novos desde o último ciclo).
 Uma resposta boa zera o contador. Offline por horas, isso dá no máximo cinco pedidos por nota
-e depois silêncio. O contador vive só em memória: reiniciar o app recomeça.
+e depois silêncio — no ciclo também, porque o primeiro resumo que falha por rede, sessão, plano, cota,
+créditos, provedor, escopo ou chave interrompe a rodada inteira (só `modelo`/`resposta` caem no trecho
+cru). O contador vive só em memória: reiniciar o app recomeça.
 
 **Créditos esgotados** (`creditos`, provedor próprio, em qualquer caminho): o segundo plano
 inteiro pausa — nenhum gateiro nem ciclo roda — e o painel mostra a mensagem de créditos. O

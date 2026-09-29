@@ -86,12 +86,13 @@ vi.mock("./documentosStore", () => ({
 
 // vaultStore: o ciclo lê indice/links/adapter daqui.
 const indice = new Map<string, { mtimeMs: number; size: number; title: string; outLinks: []; embeds: [] }>();
+const backlinksTeste = new Map<string, { origem: string }[]>();
 vi.mock("./vaultStore", () => ({
   useVaultStore: {
     getState: () => ({
       adapter: { lerTexto: async (p: string) => indice.get(p)?.title ?? "conteudo de " + p },
       indice,
-      links: { backlinks: new Map(), naoResolvidos: new Map() },
+      links: { backlinks: backlinksTeste, naoResolvidos: new Map() },
       resolver: () => null,
     }),
   },
@@ -659,6 +660,45 @@ describe("agenteStore — espera crescente entre falhas", () => {
   });
 });
 
+describe("agenteStore — resumos do ciclo", () => {
+  function prepararVizinhas() {
+    backlinksTeste.clear();
+    indice.clear();
+    const origens = ["A.md", "B.md", "C.md", "D.md"];
+    for (const o of origens) {
+      indice.set(o, { mtimeMs: 1, size: 1, title: o, outLinks: [], embeds: [] });
+    }
+    backlinksTeste.set("Nota.md", origens.map((origem) => ({ origem })));
+  }
+
+  it("offline: o primeiro resumo com 'rede' interrompe o ciclo — um pedido, não quatro", async () => {
+    prepararVizinhas();
+    vi.mocked(completar).mockRejectedValue(new FalhaAgente("rede"));
+    await prepararNota();
+    useAgenteStore.setState({ participacao: { "Nota.md": "aceito" } });
+    for (const f of dispararDocs.lista) f();
+
+    await vi.advanceTimersByTimeAsync(10_100);
+    expect(completar).toHaveBeenCalledTimes(1);
+    backlinksTeste.clear();
+    indice.clear();
+  });
+
+  it("resumo que falha só por resposta ilegível segue para o trecho cru e o pedido principal", async () => {
+    prepararVizinhas();
+    vi.mocked(completar).mockRejectedValue(new FalhaAgente("resposta"));
+    await prepararNota();
+    useAgenteStore.setState({ participacao: { "Nota.md": "aceito" } });
+    for (const f of dispararDocs.lista) f();
+
+    await vi.advanceTimersByTimeAsync(10_100);
+    // 3 resumos (RESUMOS_POR_CICLO) + o pedido principal
+    expect(completar).toHaveBeenCalledTimes(4);
+    backlinksTeste.clear();
+    indice.clear();
+  });
+});
+
 describe("agenteStore — créditos esgotados pausam o segundo plano", () => {
   it("gateiro com 'creditos': erro visível e nenhuma chamada nova, mesmo com o tempo passando", async () => {
     vi.mocked(completar).mockRejectedValue(new FalhaAgente("creditos"));
@@ -714,6 +754,22 @@ describe("agenteStore — créditos esgotados pausam o segundo plano", () => {
 
     await vi.advanceTimersByTimeAsync(31 * 60_000);
     expect(buscarSaldoMock.mock.calls.length).toBeGreaterThanOrEqual(1);
+  });
+
+  it("limparConversa e retomar não apagam o motivo da pausa por créditos", async () => {
+    vi.mocked(completar).mockRejectedValue(new FalhaAgente("creditos"));
+    await prepararNota(CONFIG_PROPRIA);
+    await vi.advanceTimersByTimeAsync(6_000);
+    expect(st().erroAtual).toBe("erro simulado");
+
+    st().limparConversa();
+    expect(st().erroAtual).toBe("erro simulado");
+    expect(st().status).toBe("erro");
+
+    st().pausar();
+    st().retomar();
+    expect(st().status).toBe("erro");
+    expect(st().erroAtual).toBe("erro simulado");
   });
 
   it("o chat continua permitido durante a pausa e uma resposta boa sai dela", async () => {

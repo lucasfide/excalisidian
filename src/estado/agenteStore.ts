@@ -273,15 +273,21 @@ export const useAgenteStore = create<AgenteState>((set, get) => {
     }, 1000);
   }
 
+  // Texto da pausa por créditos: limpar a conversa ou retomar não pode apagar o motivo enquanto
+  // a pausa durar — o agente ficaria parado sem dizer por quê.
+  let textoPausaCreditos: string | null = null;
+
   function sairDaPausaPorCreditos() {
     pausaPorCreditos = false;
+    textoPausaCreditos = null;
     window.clearInterval(timerSaldoPausa);
     timerSaldoPausa = undefined;
   }
 
   function entrarPausaPorCreditos(e: unknown) {
     pausaPorCreditos = true;
-    set({ status: "erro", erroAtual: textoDoErro(e) });
+    textoPausaCreditos = textoDoErro(e);
+    set({ status: "erro", erroAtual: textoPausaCreditos });
     if (timerSaldoPausa === undefined) {
       timerSaldoPausa = window.setInterval(() => void get().atualizarSaldo(), CONSULTA_SALDO_PAUSA_MS);
     }
@@ -542,8 +548,11 @@ export const useAgenteStore = create<AgenteState>((set, get) => {
               agendarPersistirResumos();
             }
           } catch (e) {
-            // sem créditos não adianta seguir para o pedido principal: aborta o ciclo
-            if (e instanceof FalhaAgente && e.codigo === "creditos") throw e;
+            // Só "modelo" e "resposta" (o modelo falhou neste resumo) caem no trecho cru. Qualquer
+            // outra falha (rede, sessão, plano, cota, créditos, provedor, escopo, chave) vale
+            // para o pedido principal também: aborta o ciclo, que já aplica espera/definitivo/
+            // pausa. Sem isso, offline o ciclo faria até 4 pedidos por rodada.
+            if (e instanceof FalhaAgente && e.codigo !== "modelo" && e.codigo !== "resposta") throw e;
             // sem resumo: o trecho cru mesmo assim (doc 11 §5.5)
           }
         }
@@ -713,6 +722,7 @@ export const useAgenteStore = create<AgenteState>((set, get) => {
     retomar() {
       set((s) => {
         const pausado = false;
+        if (pausaPorCreditos) return { pausado, status: "erro" as const, erroAtual: textoPausaCreditos };
         return { pausado, status: statusBase({ config: s.config, pausado }) };
       });
       agendar();
@@ -786,7 +796,7 @@ export const useAgenteStore = create<AgenteState>((set, get) => {
     limparConversa() {
       const ativa = notaAtivaAtual();
       const chave = ativa ? ativa.path : "";
-      set((s) => ({ conversas: { ...s.conversas, [chave]: [] }, erroAtual: null }));
+      set((s) => ({ conversas: { ...s.conversas, [chave]: [] }, erroAtual: pausaPorCreditos ? textoPausaCreditos : null }));
       agendarPersistirConversas();
     },
 
