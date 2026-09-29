@@ -32,8 +32,9 @@ export interface UsoFornecedor {
  * o real, porque o teto impede provedor mais caro. */
 export function custoMicroUsd(uso: UsoFornecedor, custoUsd?: number): number {
   if (typeof custoUsd === "number" && Number.isFinite(custoUsd) && custoUsd >= 0) {
-    // Passa por nano-dólares inteiros antes da taxa: 0,0002 × 1e6 × 1,055 daria 211,00000000000003.
-    const nano = Math.round(custoUsd * 1e9);
+    // Passa por nano-dólares inteiros antes da taxa (0,0002 × 1e6 × 1,055 daria 211,00000000000003).
+    // O teto nunca arredonda um custo positivo para baixo; o 1e-6 só absorve o ruído do ponto flutuante.
+    const nano = Math.max(0, Math.ceil(custoUsd * 1e9 - 1e-6));
     return Math.ceil((nano * TAXA_COMPRA_CREDITOS_MILESIMOS) / 1_000_000);
   }
   const nano =

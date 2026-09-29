@@ -1030,8 +1030,8 @@ Trate cada item abaixo como suposição a validar antes de depender dele.
 33. **`usage.cost` na resposta real do OpenRouter.** A documentação diz que a resposta traz sempre `usage.cost` (custo cobrado, em US$); o servidor cobra por ele × 1,055 (ADR-44). Confirmar na primeira chamada real, na implantação, que o campo vem: o script da chave imprime a resposta completa. Sem ele o servidor cobra pelo teto de preço (US$ 0,30 / 1,20 por milhão, sem desconto de cache), o que nunca cobra menos que o real, mas gasta os créditos do usuário mais depressa. O lugar do detalhe de cache (`cached_tokens`) também vale conferir; o servidor lê todos os lugares conhecidos.
 34. **Câmbio do plano em reais.** A conta de preços do ADR-43 supõe R$ 5,50 por US$, sem verificação. O custo de IA é em dólar; o anual em reais dá prejuízo no pior caso com o dólar acima de ~R$ 6,27 (premium) e ~R$ 6,08 (superior).
 35. **Imposto sobre consumo no Brasil.** Não se sabe se o preço em reais leva o imposto incluso ou somado; conferir com o intermediário de pagamento antes de cobrar.
-36. **GDPR do fornecedor de IA.** Já registrado no item 31, que continua valendo: as notas passam por um fornecedor chinês. Não bloqueia uso no Brasil.
-37. **Estimativas de uso por crédito** (leitura rápida ~1 crédito, rodada do acompanhamento 2–3, mensagem de chat ~2; 3.000 créditos ≈ 120 h de escrita intensa no pior horário, ~300 h de dia) são cálculo sobre a tabela de preços, não medição. Medir com uso real.
+36. **GDPR do fornecedor de IA.** Já registrado no item 31, que continua valendo: o roteamento do OpenRouter pode escolher provedores fora da China, mas isso não é garantido. Não bloqueia uso no Brasil.
+37. **Estimativas de uso por crédito** (leitura rápida ~1 crédito, rodada do acompanhamento 2–3, mensagem de chat ~2; 3.000 créditos ≈ 120 h de escrita intensa) são cálculo pelo pior caso, o teto de preço (US$ 0,30 / 1,20 por milhão × 1,055), não medição. O custo real costuma ser menor (provedores mais baratos, cache, promoções). Medir com uso real, com `excalisidian-admin uso`.
 
 ---
 
@@ -2028,7 +2028,7 @@ intensa com acompanhamento no pior horário, ~300 h de dia.
 **Consequências:** o texto das notas passa pelo servidor, sem ser guardado; a transferência a um
 fornecedor chinês segue pendente de GDPR (Parte 3, item 31), sem bloquear o uso no Brasil. A
 checagem é antes e o débito depois; no máximo 3 pedidos em andamento por conta (o 4º recebe 429
-`limite`) limitam o excesso do fim do mês a 3 pedidos — até ~250 créditos no pior caso
+`limite`) limitam o excesso do fim do mês a 3 pedidos — até ~270 créditos no pior caso
 fabricado (corpo de 256 KiB no pico), poucos no uso normal. Sem chave do fornecedor na VPS,
 só a IA responde 503. Mudar cotas ou preços é atualizar o servidor, não o app. Fica pendente
 confirmar o lugar do detalhe de cache com uma chamada real (Parte 3, item 33).

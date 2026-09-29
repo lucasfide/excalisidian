@@ -26,6 +26,12 @@ describe("custoMicroUsd", () => {
     expect(custoMicroUsd({ entradaSemCache: 1000, entradaComCache: 0, saida: 100 }, 0.000123)).toBe(130);
   });
 
+  it("custo informado minúsculo (1e-12) nunca vira 0: cobra 1 µ$; 0,0002 → 211", () => {
+    const uso = { entradaSemCache: 1, entradaComCache: 0, saida: 1 };
+    expect(custoMicroUsd(uso, 1e-12)).toBe(1);
+    expect(custoMicroUsd(uso, 0.0002)).toBe(211);
+  });
+
   it("custo informado 0 → 0", () => {
     expect(custoMicroUsd({ entradaSemCache: 1000, entradaComCache: 0, saida: 100 }, 0)).toBe(0);
   });

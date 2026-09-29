@@ -133,7 +133,7 @@ qualquer outro campo do fornecedor.
 
 A checagem de créditos é antes da chamada ao fornecedor e o débito é depois. Para o excesso no fim
 do mês não crescer, cada conta tem no máximo 3 pedidos em andamento (o 4º recebe 429
-`{"codigo":"limite"}`); o excesso fica limitado a 3 pedidos — até ~250 créditos no pior caso
+`{"codigo":"limite"}`); o excesso fica limitado a 3 pedidos — até ~270 créditos no pior caso
 fabricado (corpo de 256 KiB, cobrado pelo teto de preço), poucos créditos no uso normal do app.
 
 **`GET /v1/creditos`** → 200 `{usados, total, renovaEm}`, inteiros, `renovaEm` em milissegundos.
