@@ -34,9 +34,10 @@ vi.mock("../agente/cliente", () => ({
   textoDoErro: vi.fn(() => "erro simulado"),
 }));
 
-const { buscarSaldoMock } = vi.hoisted(() => ({ buscarSaldoMock: vi.fn() }));
+const { buscarSaldoMock, consultarMock } = vi.hoisted(() => ({ buscarSaldoMock: vi.fn(), consultarMock: vi.fn() }));
 vi.mock("../servico/saldoCreditos", () => ({
   buscarSaldoCreditos: (...a: unknown[]) => buscarSaldoMock(...a),
+  consultarCreditos: (...a: unknown[]) => consultarMock(...a),
 }));
 
 const notaAberta = {
@@ -145,6 +146,7 @@ beforeEach(() => {
     analises: {},
     sugestoes: {},
     fatos: [],
+    saldoCreditos: null,
   });
 });
 
@@ -278,6 +280,7 @@ describe("agenteStore", () => {
 
   it("testar conexão do provedor próprio não chama listarModelos", async () => {
     definirTokenDaSessao("tok-valido");
+    consultarMock.mockResolvedValue({ ok: true, saldo: { usados: 1, total: 10, renovaEm: 1 } });
     vi.mocked(listarModelos).mockClear();
     await useAgenteStore.getState().testarConexao({
       ...CONFIG,
@@ -894,5 +897,161 @@ describe("agenteStore — 401 com token trocado por outra janela", () => {
     expect(sincronizarMock).toHaveBeenCalledTimes(1);
     expect(completar).toHaveBeenCalledTimes(2); // a repetição aconteceu de fato
     expect(st().status).not.toBe("erro");
+  });
+});
+
+// ——— saldo sempre atual e "Testar conexão" de verdade (plano 16, tarefa 3) ———
+
+const CONFIG_PROPRIA_T3: ConfigAgente = {
+  ...CONFIG,
+  provedor: "excalisidian",
+  chaves: {},
+  baseUrls: { excalisidian: BASE_URL_SERVICO },
+  modeloGateiro: MODELO_LEITURA,
+};
+
+describe("agenteStore — saldo sem valor velho", () => {
+  const umaHora = 3_600_000;
+
+  beforeEach(() => {
+    vi.useFakeTimers();
+    vi.stubEnv("VITE_SERVIDOR", "real");
+    definirTokenDaSessao("tok");
+    buscarSaldoMock.mockReset();
+    consultarMock.mockReset();
+    useAgenteStore.setState({ saldoCreditos: null, painelAberto: false });
+  });
+
+  it("duas respostas fora de ordem: vale a da chamada mais recente", async () => {
+    await st().aplicarConfig(CONFIG_PROPRIA_T3);
+    let liberarPrimeira: (v: unknown) => void = () => {};
+    buscarSaldoMock.mockImplementationOnce(() => new Promise((r) => (liberarPrimeira = r)));
+    buscarSaldoMock.mockResolvedValueOnce({ usados: 2, total: 100, renovaEm: Date.now() + umaHora });
+    const primeira = st().atualizarSaldo();
+    await st().atualizarSaldo();
+    expect(st().saldoCreditos?.usados).toBe(2);
+    liberarPrimeira({ usados: 99, total: 100, renovaEm: Date.now() + umaHora });
+    await primeira;
+    expect(st().saldoCreditos?.usados).toBe(2);
+  });
+
+  it("trocar de provedor zera o saldo na hora e descarta resposta em voo", async () => {
+    await st().aplicarConfig(CONFIG_PROPRIA_T3);
+    buscarSaldoMock.mockResolvedValue({ usados: 10, total: 100, renovaEm: Date.now() + umaHora });
+    await st().atualizarSaldo();
+    expect(st().saldoCreditos).not.toBeNull();
+
+    let liberar: (v: unknown) => void = () => {};
+    buscarSaldoMock.mockImplementationOnce(() => new Promise((r) => (liberar = r)));
+    const emVoo = st().atualizarSaldo();
+    await st().aplicarConfig(CONFIG);
+    expect(st().saldoCreditos).toBeNull();
+    liberar({ usados: 10, total: 100, renovaEm: Date.now() + umaHora });
+    await emVoo;
+    expect(st().saldoCreditos).toBeNull();
+  });
+
+  it("desligar o agente zera o saldo e cancela o timer de renovação", async () => {
+    await st().aplicarConfig(CONFIG_PROPRIA_T3);
+    buscarSaldoMock.mockResolvedValue({ usados: 10, total: 100, renovaEm: Date.now() + umaHora });
+    await st().atualizarSaldo();
+    await st().definirHabilitado(false);
+    expect(st().saldoCreditos).toBeNull();
+    buscarSaldoMock.mockClear();
+    await vi.advanceTimersByTimeAsync(3 * umaHora);
+    expect(buscarSaldoMock).not.toHaveBeenCalled();
+  });
+
+  it("mudança de sessão zera o saldo e, com o painel aberto, busca de novo", async () => {
+    await st().aplicarConfig(CONFIG_PROPRIA_T3);
+    st().conectarGatilhos();
+    const renovaEm = Date.now() + umaHora;
+    buscarSaldoMock.mockResolvedValue({ usados: 10, total: 100, renovaEm });
+    await st().atualizarSaldo();
+    useAgenteStore.setState({ painelAberto: true });
+    buscarSaldoMock.mockClear();
+    buscarSaldoMock.mockResolvedValue({ usados: 50, total: 100, renovaEm });
+    for (const cb of dispararConta.lista) cb({ sessao: { token: "novo" } }, { sessao: null });
+    expect(st().saldoCreditos).toBeNull();
+    await vi.advanceTimersByTimeAsync(0);
+    expect(buscarSaldoMock).toHaveBeenCalledTimes(1);
+    expect(st().saldoCreditos?.usados).toBe(50);
+  });
+
+  it("agenda uma busca para renovaEm + 1 min", async () => {
+    await st().aplicarConfig(CONFIG_PROPRIA_T3);
+    const renovaEm = Date.now() + 10 * 60_000;
+    buscarSaldoMock.mockResolvedValue({ usados: 1, total: 100, renovaEm });
+    await st().atualizarSaldo();
+    await st().atualizarSaldo(); // saldo novo substitui o timer: continua uma busca só, na hora
+    buscarSaldoMock.mockClear();
+    buscarSaldoMock.mockResolvedValue({ usados: 0, total: 100, renovaEm: renovaEm + 30 * 24 * umaHora });
+    await vi.advanceTimersByTimeAsync(10 * 60_000);
+    expect(buscarSaldoMock).not.toHaveBeenCalled();
+    await vi.advanceTimersByTimeAsync(60_000);
+    expect(buscarSaldoMock).toHaveBeenCalledTimes(1);
+    expect(st().saldoCreditos?.usados).toBe(0);
+  });
+
+  it("renovação a mais de 25 dias não dispara na hora (limite do setTimeout)", async () => {
+    await st().aplicarConfig(CONFIG_PROPRIA_T3);
+    buscarSaldoMock.mockResolvedValue({ usados: 1, total: 100, renovaEm: Date.now() + 30 * 24 * umaHora });
+    await st().atualizarSaldo();
+    buscarSaldoMock.mockClear();
+    await vi.advanceTimersByTimeAsync(60_000);
+    expect(buscarSaldoMock).not.toHaveBeenCalled();
+  });
+});
+
+describe("agenteStore — testar conexão do provedor próprio consulta o servidor", () => {
+  beforeEach(async () => {
+    vi.stubEnv("VITE_SERVIDOR", "real");
+    consultarMock.mockReset();
+    await st().aplicarConfig(CONFIG_PROPRIA_T3);
+  });
+
+  async function textoErroMock() {
+    const { textoDoErro } = await import("../agente/cliente");
+    vi.mocked(textoDoErro).mockClear();
+    return textoDoErro;
+  }
+
+  it("200: null (sucesso) e o saldo vai para o store", async () => {
+    definirTokenDaSessao("tok");
+    const saldo = { usados: 3, total: 100, renovaEm: Date.now() + 3_600_000 };
+    consultarMock.mockResolvedValue({ ok: true, saldo });
+    expect(await st().testarConexao()).toBeNull();
+    expect(consultarMock).toHaveBeenCalledWith("tok");
+    expect(st().saldoCreditos).toEqual(saldo);
+  });
+
+  it("401: texto de sessão, nunca sucesso", async () => {
+    definirTokenDaSessao("tok");
+    const textoDoErro = await textoErroMock();
+    consultarMock.mockResolvedValue({ ok: false, motivo: "sessao" });
+    expect(await st().testarConexao()).toBe("erro simulado");
+    expect(textoDoErro).toHaveBeenCalledWith(expect.objectContaining({ codigo: "sessao" }));
+  });
+
+  it("403: texto de plano", async () => {
+    definirTokenDaSessao("tok");
+    const textoDoErro = await textoErroMock();
+    consultarMock.mockResolvedValue({ ok: false, motivo: "plano" });
+    expect(await st().testarConexao()).toBe("erro simulado");
+    expect(textoDoErro).toHaveBeenCalledWith(expect.objectContaining({ codigo: "plano" }));
+  });
+
+  it("rede: texto de rede", async () => {
+    definirTokenDaSessao("tok");
+    const textoDoErro = await textoErroMock();
+    consultarMock.mockResolvedValue({ ok: false, motivo: "rede" });
+    expect(await st().testarConexao()).toBe("erro simulado");
+    expect(textoDoErro).toHaveBeenCalledWith(expect.objectContaining({ codigo: "rede" }));
+  });
+
+  it("sem token: texto de sessão, sem ir à rede", async () => {
+    definirTokenDaSessao(null);
+    expect(await st().testarConexao()).toBe("erro simulado");
+    expect(consultarMock).not.toHaveBeenCalled();
   });
 });

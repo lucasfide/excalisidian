@@ -24,7 +24,7 @@ import { baseUrlEfetiva, provedorDe, PROVEDORES } from "../agente/provedores";
 import { completar, listarModelos, textoDoErro } from "../agente/cliente";
 import { traduzirAgora } from "../i18n/traduzirAgora";
 import { tokenDaSessaoAtual } from "../servico/sessao";
-import { buscarSaldoCreditos } from "../servico/saldoCreditos";
+import { buscarSaldoCreditos, consultarCreditos } from "../servico/saldoCreditos";
 import type { SaldoCreditos } from "../servico/creditos";
 import { decidirModoServidor } from "../servico/modoServidor";
 import { somarUso, usoVazio } from "../agente/orcamento";
@@ -196,6 +196,14 @@ let bloqueadoAte: Record<string, number> = {};
 // Créditos da IA própria esgotados: segundo plano parado até haver saldo (entrarPausaPorCreditos).
 let pausaPorCreditos = false;
 let timerSaldoPausa: number | undefined;
+// Saldo de créditos: só a resposta da chamada mais recente grava (`seqSaldo`); um timer só,
+// para a renovação do mês, substituído a cada saldo novo.
+let seqSaldo = 0;
+let timerRenovacaoSaldo: number | undefined;
+// setTimeout estoura em 2^31-1 ms (~24,8 dias) e dispara na hora; acima disso, espera o teto e
+// a busca seguinte reagenda o resto.
+const TETO_TIMER_MS = 2_147_483_647;
+const MARGEM_RENOVACAO_MS = 60_000;
 let gatilhosLigados = false;
 let resumosCache: Record<string, Resumo> = {};
 let timerPersistirParticipacao: number | undefined;
@@ -294,6 +302,33 @@ export const useAgenteStore = create<AgenteState>((set, get) => {
     set({ status: "erro", erroAtual: textoPausaCreditos });
     if (timerSaldoPausa === undefined) {
       timerSaldoPausa = window.setInterval(() => void get().atualizarSaldo(), CONSULTA_SALDO_PAUSA_MS);
+    }
+  }
+
+  /** Saldo some na hora (provedor trocado, agente desligado, sessão mudou): invalida respostas
+   * em voo e cancela a busca agendada — mostrar número de outra conta seria mentir. */
+  function zerarSaldo() {
+    seqSaldo++;
+    window.clearTimeout(timerRenovacaoSaldo);
+    timerRenovacaoSaldo = undefined;
+    set({ saldoCreditos: null });
+  }
+
+  /** Grava um saldo novo, agenda a busca de `renovaEm + 1 min` (substitui a anterior) e sai da
+   * pausa por créditos se voltou a haver saldo. */
+  function registrarSaldo(saldo: SaldoCreditos) {
+    set({ saldoCreditos: saldo });
+    window.clearTimeout(timerRenovacaoSaldo);
+    const espera = Math.min(
+      Math.max(saldo.renovaEm + MARGEM_RENOVACAO_MS - Date.now(), MARGEM_RENOVACAO_MS),
+      TETO_TIMER_MS,
+    );
+    timerRenovacaoSaldo = window.setTimeout(() => void get().atualizarSaldo(), espera);
+    // voltou a haver crédito (renovação do mês ou recarga): sai da pausa sozinho
+    if (pausaPorCreditos && saldo.usados < saldo.total) {
+      sairDaPausaPorCreditos();
+      set((s) => ({ status: statusBase(s), erroAtual: null }));
+      agendar();
     }
   }
 
@@ -644,18 +679,18 @@ export const useAgenteStore = create<AgenteState>((set, get) => {
         decidirModoServidor({ dev: import.meta.env.DEV, variavelServidor: import.meta.env.VITE_SERVIDOR }) ===
           "local";
       const token = tokenDaSessaoAtual();
-      if (!cfg || !provedorDe(cfg.provedor).exigeConta || modoLocal || !token) {
+      if (!cfg || !cfg.habilitado || !provedorDe(cfg.provedor).exigeConta || modoLocal || !token) {
+        zerarSaldo();
+        return;
+      }
+      const minha = ++seqSaldo;
+      const saldo = await buscarSaldoCreditos(token);
+      if (minha !== seqSaldo) return; // uma chamada mais nova (ou um reset) já valeu
+      if (!saldo) {
         set({ saldoCreditos: null });
         return;
       }
-      const saldo = await buscarSaldoCreditos(token);
-      set({ saldoCreditos: saldo });
-      // voltou a haver crédito (renovação do mês ou recarga): sai da pausa sozinho
-      if (pausaPorCreditos && saldo && saldo.usados < saldo.total) {
-        sairDaPausaPorCreditos();
-        set((s) => ({ status: statusBase(s), erroAtual: null }));
-        agendar();
-      }
+      registrarSaldo(saldo);
     },
 
     raiz: null,
@@ -685,6 +720,7 @@ export const useAgenteStore = create<AgenteState>((set, get) => {
     async aplicarConfig(config) {
       erroDefinitivo = false;
       sairDaPausaPorCreditos();
+      if (!config.habilitado || !provedorDe(config.provedor).exigeConta) zerarSaldo();
       set({ config, erroAtual: null });
       set((s) => ({ status: statusBase(s) }));
       const store = await load("settings.json", { autoSave: false });
@@ -736,13 +772,20 @@ export const useAgenteStore = create<AgenteState>((set, get) => {
       const cfg = config ?? get().config;
       if (!cfg) return "Configure o provedor primeiro.";
       const provedor = provedorDe(cfg.provedor);
-      // Provedor por conta: não há GET /models a bater (doc 11 §3) — o que existe para
-      // testar é a sessão. Devolver "funcionando" sem checar nada seria um sucesso
-      // maquiado; aqui falha com a mensagem traduzida de erro de sessão quando não há
-      // sessão (mesmo mecanismo dos outros ramos — textoDoErro), e não bate no endpoint
-      // de listagem que o serviço não expõe quando há.
+      // Provedor por conta: não há GET /models (doc 11 §3). Testar de verdade é consultar o
+      // saldo com a sessão atual: 401 = sessão vencida, 403 = plano grátis, o resto = rede.
+      // Nunca "funcionando" sem o servidor ter respondido 200.
       if (provedor.exigeConta) {
-        return tokenDaSessaoAtual() ? null : textoDoErro(new FalhaAgente("sessao"));
+        const token = tokenDaSessaoAtual();
+        if (!token) return textoDoErro(new FalhaAgente("sessao"));
+        const minha = ++seqSaldo;
+        const r = await consultarCreditos(token);
+        if (!r.ok) return textoDoErro(new FalhaAgente(r.motivo));
+        const atual = get().config;
+        if (minha === seqSaldo && atual?.habilitado && provedorDe(atual.provedor).exigeConta) {
+          registrarSaldo(r.saldo);
+        }
+        return null;
       }
       try {
         await listarModelos({
@@ -847,6 +890,11 @@ export const useAgenteStore = create<AgenteState>((set, get) => {
       // definitivo (sessao/plano): reavalia. Isto só lê e reage a `useContaStore` — nunca
       // escreve nele — então não pode disparar este mesmo assinante de volta (sem laço).
       useContaStore.subscribe((state, prev) => {
+        if (state.sessao !== prev.sessao) {
+          // o saldo é da conta anterior: some já e, com o painel aberto, é buscado de novo
+          zerarSaldo();
+          if (get().painelAberto) void get().atualizarSaldo();
+        }
         if (state.sessao !== prev.sessao && (erroDefinitivo || pausaPorCreditos)) {
           erroDefinitivo = false;
           sairDaPausaPorCreditos();

@@ -4,7 +4,31 @@ import { describe, expect, it, vi } from "vitest";
 
 vi.mock("@tauri-apps/plugin-http", () => ({ fetch: vi.fn() }));
 
-import { buscarSaldoCreditos } from "./saldoCreditos";
+import { buscarSaldoCreditos, consultarCreditos } from "./saldoCreditos";
+
+describe("consultarCreditos", () => {
+  it("200 válido devolve ok com o saldo", async () => {
+    const r = await consultarCreditos("tok", "https://x/v1", resposta(200, { usados: 1, total: 2, renovaEm: 3 }));
+    expect(r).toEqual({ ok: true, saldo: { usados: 1, total: 2, renovaEm: 3 } });
+  });
+
+  it("401 é sessão, 403 é plano, o resto é rede", async () => {
+    expect(await consultarCreditos("t", "https://x/v1", resposta(401, {}))).toEqual({ ok: false, motivo: "sessao" });
+    expect(await consultarCreditos("t", "https://x/v1", resposta(403, {}))).toEqual({ ok: false, motivo: "plano" });
+    expect(await consultarCreditos("t", "https://x/v1", resposta(500, {}))).toEqual({ ok: false, motivo: "rede" });
+    expect(await consultarCreditos("t", "https://x/v1", resposta(200, { usados: "1" }))).toEqual({
+      ok: false,
+      motivo: "rede",
+    });
+  });
+
+  it("erro de rede é rede", async () => {
+    const f = vi.fn(async () => {
+      throw new Error("offline");
+    }) as unknown as typeof fetch;
+    expect(await consultarCreditos("t", "https://x/v1", f)).toEqual({ ok: false, motivo: "rede" });
+  });
+});
 
 function resposta(status: number, corpo: unknown) {
   return vi.fn(async () => new Response(JSON.stringify(corpo), { status })) as unknown as typeof fetch;
