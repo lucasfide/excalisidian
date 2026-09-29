@@ -184,8 +184,8 @@ Confere: `excalisidian-admin contas` mostra a coluna da faixa.
 
 ### 1. Pré-requisito (dono do produto)
 
-Conta no fornecedor, saldo pré-pago e uma chave de API criada no painel dele. Ninguém além do
-dono do produto vê a chave.
+Conta no OpenRouter com créditos comprados e uma chave de API criada em
+`openrouter.ai/settings/keys`. Ninguém além do dono do produto vê a chave.
 
 ### 2. Instalar o serviço atualizado e o script **[muda a VPS]**
 
@@ -228,7 +228,8 @@ com o fornecedor ou outro status) e não grava nada.
 **Atenção:** o script sobrescreve o arquivo `/etc/excalisidian/ia.env` inteiro; ele guarda só a
 chave. Para trocar o endereço ou o modelo do fornecedor, edite o arquivo à mão depois
 (`sudo nano /etc/excalisidian/ia.env`), acrescentando as linhas `EXCALISIDIAN_IA_URL=...` e
-`EXCALISIDIAN_IA_MODELO=...`, e reinicie o serviço (`sudo systemctl restart excalisidian-api`).
+`EXCALISIDIAN_IA_MODELO=...` (os padrões são `https://openrouter.ai/api/v1` e
+`deepseek/deepseek-v4.1-flash`), e reinicie o serviço (`sudo systemctl restart excalisidian-api`).
 Rodar o script de novo apaga essas linhas — acrescente-as outra vez.
 
 ### 4. Conferir

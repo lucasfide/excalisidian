@@ -14,8 +14,8 @@ if [[ ${EUID} -ne 0 ]]; then
 	exit 1
 fi
 
-URL="${EXCALISIDIAN_IA_URL:-https://api.deepseek.com}"
-MODELO="${EXCALISIDIAN_IA_MODELO:-deepseek-flash}"
+URL="${EXCALISIDIAN_IA_URL:-https://openrouter.ai/api/v1}"
+MODELO="${EXCALISIDIAN_IA_MODELO:-deepseek/deepseek-v4.1-flash}"
 
 read -rsp "Cole a chave da IA e aperte Enter (nada aparece na tela): " CHAVE
 echo
@@ -26,7 +26,7 @@ if [[ -z "${CHAVE}" ]]; then
 fi
 
 echo "Testando a chave com uma pergunta mínima..."
-CORPO_PEDIDO="{\"model\":\"${MODELO}\",\"messages\":[{\"role\":\"user\",\"content\":\"Responda apenas: ok\"}],\"max_tokens\":5,\"thinking\":{\"type\":\"disabled\"}}"
+CORPO_PEDIDO="{\"model\":\"${MODELO}\",\"messages\":[{\"role\":\"user\",\"content\":\"Responda apenas: ok\"}],\"max_tokens\":5,\"reasoning\":{\"enabled\":false}}"
 SAIDA="$(printf 'Authorization: Bearer %s\n' "${CHAVE}" |
 	curl -sS --max-time 60 -H @- -H 'content-type: application/json' \
 		-d "${CORPO_PEDIDO}" -w '\n%{http_code}' "${URL}/chat/completions" || true)"

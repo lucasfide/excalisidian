@@ -959,7 +959,18 @@ Verificado nesta terceira rodada:
 - **`.draw` não tem tipo MIME registrado na IANA nem software vivo associado** — só o DrawFile do RISC OS, plataforma extinta. `.board` e `.tela` também estão livres; `.drawing` é do Mapdiva Artboard, descontinuado.
 - **Marcas:** EXCALIDRAW tem pedido nos EUA (serial 97010906, Excalidraw s.r.o., classe 042, 2021) e a licença MIT do código não trata de marca. OBSIDIAN é marca da Dynalist Inc. (serial 98063360) com política pública que proíbe nomear produtos como "Obsidian XYZ". Não encontrei trademark policy publicada pelo Excalidraw.
 
-Verificado em 28/09/2026 em `api-docs.deepseek.com` (fornecedor da IA do Excalisidian, ADR-43; o nome do fornecedor não aparece na interface, só neste documento técnico):
+Verificado em 28/09/2026 em `openrouter.ai/docs` (fornecedor da IA do Excalisidian, ADR-44; o nome do fornecedor não aparece na interface, só neste documento técnico):
+
+- Base compatível com o dialeto OpenAI: `https://openrouter.ai/api/v1` (rota `/chat/completions`). Modelo `deepseek/deepseek-v4.1-flash`, contexto de 1M tokens.
+- Raciocínio desliga com `"reasoning": {"enabled": false}` no corpo; tokens de raciocínio são cobrados como saída. O campo `thinking` do DeepSeek direto não vale aqui.
+- A resposta traz sempre `usage.cost`: o que foi cobrado da conta, em créditos do OpenRouter (1 crédito = US$ 1). Cache: `usage.prompt_tokens_details.cached_tokens` (o exemplo da doc também mostra `usage.cached_tokens` no topo).
+- Sem margem sobre o preço dos provedores; o OpenRouter cobra 5,5% na compra de créditos (cartão).
+- Roteamento: por padrão o mais barato ganha mais tráfego, entre cerca de 30 provedores. O objeto `provider` do corpo aceita `data_collection: "deny"` (só provedores que não guardam nem treinam com os dados) e `max_price: {prompt, completion}` em US$ por milhão de tokens (teto).
+- Preços em 28/09/2026: de US$ 0,03 a 0,45 por milhão de entrada e de 0,39 a 1,80 de saída, conforme o provedor (um provedor anuncia saída absurda; o teto de preço evita cair nele). DeepSeek direto via OpenRouter: 0,15 / 0,60.
+
+O fornecedor passou a ser o OpenRouter (ADR-44); o bloco a seguir, do DeepSeek direto, fica como histórico.
+
+Verificado em 28/09/2026 em `api-docs.deepseek.com` (histórico: fornecedor do ADR-43 até o ADR-44; o nome do fornecedor não aparece na interface, só neste documento técnico):
 
 - Modelo `deepseek-flash`, base `https://api.deepseek.com`, compatível com o dialeto OpenAI (rota `/chat/completions`), contexto de 1M tokens.
 - Preço por milhão de tokens, fora de pico: entrada com cache US$ 0,003, entrada sem cache US$ 0,15, saída US$ 0,60. No pico: 0,006 / 0,30 / 1,20.
@@ -1016,7 +1027,7 @@ Trate cada item abaixo como suposição a validar antes de depender dele.
 30. **Sem renovação automática de sessão.** Um token que expira durante o uso não é renovado sozinho; o usuário precisa entrar de novo.
 31. **Fornecedor de IA e GDPR.** O modelo previsto no estudo de viabilidade para a IA do Excalisidian é de um fornecedor chinês. Mandar notas de um usuário europeu para lá é transferência internacional de dados sob o GDPR. Verificar se existe hospedagem ocidental do mesmo modelo antes de anunciar preço para esse serviço.
 32. ~~**Endpoint de saldo de créditos não existe.**~~ **Resolvido (28/09/2026):** o servidor expõe `GET /v1/creditos` (doc 18 §5, ADR-43). O medidor segue oculto sempre que a busca falha — mostrar zero seria mentir sobre dinheiro.
-33. **Onde a resposta real do fornecedor traz o detalhe de cache.** A documentação lista `prompt_cache_hit_tokens` / `prompt_cache_miss_tokens` dentro de `prompt_tokens_details`; historicamente vinham no topo de `usage`. Não foi confirmado qual lugar a resposta real usa. O servidor lê os dois e, sem nenhum, trata toda a entrada como sem cache (cobra mais, nunca menos). Confirmar com uma chamada real na implantação.
+33. **`usage.cost` na resposta real do OpenRouter.** A documentação diz que a resposta traz sempre `usage.cost` (custo cobrado, em US$); o servidor cobra por ele × 1,055 (ADR-44). Confirmar na primeira chamada real, na implantação, que o campo vem: o script da chave imprime a resposta completa. Sem ele o servidor cobra pelo teto de preço (US$ 0,30 / 1,20 por milhão, sem desconto de cache), o que nunca cobra menos que o real, mas gasta os créditos do usuário mais depressa. O lugar do detalhe de cache (`cached_tokens`) também vale conferir; o servidor lê todos os lugares conhecidos.
 34. **Câmbio do plano em reais.** A conta de preços do ADR-43 supõe R$ 5,50 por US$, sem verificação. O custo de IA é em dólar; o anual em reais dá prejuízo no pior caso com o dólar acima de ~R$ 6,27 (premium) e ~R$ 6,08 (superior).
 35. **Imposto sobre consumo no Brasil.** Não se sabe se o preço em reais leva o imposto incluso ou somado; conferir com o intermediário de pagamento antes de cobrar.
 36. **GDPR do fornecedor de IA.** Já registrado no item 31, que continua valendo: as notas passam por um fornecedor chinês. Não bloqueia uso no Brasil.
@@ -2021,3 +2032,41 @@ checagem é antes e o débito depois; no máximo 3 pedidos em andamento por cont
 fabricado (corpo de 256 KiB no pico), poucos no uso normal. Sem chave do fornecedor na VPS,
 só a IA responde 503. Mudar cotas ou preços é atualizar o servidor, não o app. Fica pendente
 confirmar o lugar do detalhe de cache com uma chamada real (Parte 3, item 33).
+
+Cálculo do custo e fornecedor substituídos pelo ADR-44 (28/09/2026).
+
+### ADR-44 · Fornecedor da IA via OpenRouter
+
+**Contexto:** o dono do produto (28/09/2026) achou promoções melhores no OpenRouter do que no
+DeepSeek direto, para o mesmo modelo (DeepSeek V4.1 Flash). O app não muda. Fatos verificados na
+Parte 2 (bloco de 28/09/2026 em `openrouter.ai/docs`).
+
+**Decisão:**
+
+1. **Cobrança pelo custo informado.** 1 crédito continua sendo US$ 0,001 de custo real. O custo
+   real de um pedido é `usage.cost` × 1,055 (a taxa de 5,5% da compra de créditos), em
+   micro-dólares arredondado para cima. Promoções e o provedor escolhido entram sozinhos.
+2. **Sem `usage.cost` válido** (ausente, não numérico, negativo, não finito): cobra pelo teto de
+   preço, sem desconto de cache — entrada (todos os tokens) a US$ 0,30 por milhão e saída a
+   US$ 1,20, × 1,055. Nunca cobra menos que o real, porque o teto de preço (item 3) impede
+   provedor mais caro.
+3. **Corpo enviado ao fornecedor:** `model`, `messages`, `max_tokens`, `stream: false`,
+   `reasoning: {enabled: false}` e `provider: {data_collection: "deny", max_price: {prompt: 0.3,
+   completion: 1.2}}`. O campo `thinking` sai.
+4. **Fim da regra de horário de pico** (era do DeepSeek direto): a tabela pico/fora de pico e o
+   início do pedido deixam de existir no cálculo.
+5. **Padrões:** URL `https://openrouter.ai/api/v1` e modelo `deepseek/deepseek-v4.1-flash`, no
+   servidor e no script da chave.
+
+**Alternativas rejeitadas:**
+
+| Opção | Por que não |
+|---|---|
+| DeepSeek direto | Preço fixo com horário de pico, sem promoções, só servidores na China. |
+| Manter a tabela de preços | Não acompanha promoção nem troca de provedor. |
+
+**Consequências:** os créditos rendem mais quando há provedor barato. A margem do ADR-43 não
+piora, porque o crédito passa a ser o custo real já com a taxa. `data_collection: deny` pode
+excluir alguns provedores. O roteamento pode escolher provedores fora da China, o que pode ajudar
+no GDPR, mas não é garantido — o item 31 da Parte 3 segue aberto. O nome do fornecedor continua
+fora da interface.
