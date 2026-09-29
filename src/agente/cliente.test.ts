@@ -208,6 +208,43 @@ describe("cliente — completar", () => {
     expect(erro2.codigo).toBe("escopo");
   });
 
+  const pedidoSimples = () => ({
+    ...contexto("openai"),
+    system: "s",
+    mensagens: [{ papel: "usuario" as const, texto: "x" }],
+  });
+
+  it("queda de rede do reqwest (mensagem com 'url') vira 'rede', não 'escopo'", async () => {
+    fetchMock.mockRejectedValueOnce(
+      new Error("error sending request for url (https://api.excalisidian.com/v1/chat/completions)"),
+    );
+    const erro = await completar(pedidoSimples()).catch((e) => e);
+    expect(erro).toBeInstanceOf(FalhaAgente);
+    expect(erro.codigo).toBe("rede");
+  });
+
+  it("erro de escopo do plugin http vira 'escopo'", async () => {
+    fetchMock.mockRejectedValueOnce(
+      new Error("url not allowed on the configured scope: https://x.exemplo/"),
+    );
+    const erro = await completar(pedidoSimples()).catch((e) => e);
+    expect(erro.codigo).toBe("escopo");
+  });
+
+  it("repassa um signal ao fetch (tempo máximo do pedido)", async () => {
+    fetchMock.mockResolvedValue(respostaHTTP(200, { choices: [{ message: { content: "x" } }] }));
+    await completar(pedidoSimples());
+    const [, init] = fetchMock.mock.calls[0];
+    expect(init.signal).toBeInstanceOf(AbortSignal);
+  });
+
+  it.each(["TimeoutError", "AbortError"])("%s vira 'rede'", async (nome) => {
+    fetchMock.mockRejectedValueOnce(new DOMException("tempo esgotado", nome));
+    const erro = await completar(pedidoSimples()).catch((e) => e);
+    expect(erro).toBeInstanceOf(FalhaAgente);
+    expect(erro.codigo).toBe("rede");
+  });
+
   it("corpo sem resposta decifrável vira 'resposta'", async () => {
     fetchMock.mockResolvedValue(respostaHTTP(200, { choices: [] }));
     const erro = await completar({

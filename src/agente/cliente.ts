@@ -17,6 +17,9 @@ import { tokenDaSessaoAtual } from "../servico/sessao";
 import { traduzirAgora } from "../i18n/traduzirAgora";
 
 const TIMEOUT_CONEXAO_MS = 20_000;
+// Acima dos 90 s do servidor (doc 18 §5.1), para o servidor responder primeiro; libera o
+// agente se a conexão morrer no meio do pedido (notebook dormiu).
+const TEMPO_MAXIMO_MS = 100_000;
 
 export interface ContextoChamada {
   provedor: ProvedorInfo;
@@ -60,12 +63,17 @@ async function lancar(
 ): Promise<{ status: number; corpo: unknown }> {
   let res: Response;
   try {
-    res = await fetch(url, { ...init, connectTimeout: TIMEOUT_CONEXAO_MS });
+    res = await fetch(url, {
+      ...init,
+      connectTimeout: TIMEOUT_CONEXAO_MS,
+      signal: AbortSignal.timeout(TEMPO_MAXIMO_MS),
+    });
   } catch (e) {
     const msg = e instanceof Error ? e.message : String(e);
     // O capability escopa por host: base URL fora do escopo morre aqui, com erro do
-    // reqwest/Tauri (doc 11 §3 — avisar e apontar para o campo Avançado).
-    if (/scope|not allowed|url/i.test(msg)) {
+    // plugin http (doc 11 §3 — avisar e apontar para o campo Avançado). Só esse texto
+    // conta: o reqwest cita "url" em toda queda de rede ("error sending request for url").
+    if (/not allowed on the configured scope/i.test(msg)) {
       throw new FalhaAgente("escopo", msg);
     }
     throw new FalhaAgente("rede", msg);
