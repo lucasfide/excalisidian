@@ -177,6 +177,9 @@ export const useContaStore = create<ContaState>((set, get) => {
   // Guarda a geração em que começou: um sair/entrar no meio invalida a trava, para que uma
   // renovação que nunca volta (rede pendurada) não bloqueie a sessão seguinte.
   let renovandoNaGeracao: number | null = null;
+  // Guarda contra tempestade: se o servidor devolve uma sessão ainda a menos de 7 dias de vencer,
+  // as conferências seguintes não renovam de novo antes de um intervalo do timer (0 = nunca).
+  let ultimaRenovacaoEm = 0;
 
   function pararTimerRenovacao(): void {
     if (timerRenovacao !== null) clearInterval(timerRenovacao);
@@ -203,6 +206,15 @@ export const useContaStore = create<ContaState>((set, get) => {
       if (geracao !== minhaGeracao || velho()) return;
       definirTokenDaSessao(sessao.token);
       await gravarToken(sessao.token);
+      if (geracao !== minhaGeracao) {
+        // sair/entrar rodou durante a gravação no cofre: o que gravamos pode ter sobrescrito a
+        // decisão mais recente. Reconcilia o cofre e o porta-token com a sessão de agora.
+        const atual = get().sessao;
+        definirTokenDaSessao(atual?.token ?? null);
+        await gravarToken(atual?.token ?? null);
+        return;
+      }
+      ultimaRenovacaoEm = Date.now();
       set({ sessao, carregado: true });
       // Fora do tratamento de erro do renovar: uma falha do emit não desloga ninguém.
       void emit(EVENTO_PREFS_MUDOU).catch(() => {});
@@ -251,6 +263,8 @@ export const useContaStore = create<ContaState>((set, get) => {
       return;
     }
     if (sessao.expiraEm - Date.now() >= RENOVAR_QUANDO_FALTAR_MENOS_DE_MS) return;
+    const desdeUltima = Date.now() - ultimaRenovacaoEm;
+    if (desdeUltima >= 0 && desdeUltima < INTERVALO_RENOVACAO_MS) return;
     if (renovandoNaGeracao === geracao) return;
     const minhaGeracao = geracao;
     renovandoNaGeracao = minhaGeracao;
@@ -416,6 +430,7 @@ export const useContaStore = create<ContaState>((set, get) => {
         await gravarChaveDeEnvelope(sessao.email, chaveDeEnvelope);
         set({ sessao, ocupado: false });
         await emit(EVENTO_PREFS_MUDOU);
+        ultimaRenovacaoEm = 0;
         sessaoAdotada();
         return true;
       } catch (e) {
@@ -438,6 +453,7 @@ export const useContaStore = create<ContaState>((set, get) => {
         await gravarChaveDeEnvelope(sessao.email, chaveDeEnvelope);
         set({ sessao, ocupado: false });
         await emit(EVENTO_PREFS_MUDOU);
+        ultimaRenovacaoEm = 0;
         sessaoAdotada();
         return true;
       } catch (e) {
@@ -459,6 +475,7 @@ export const useContaStore = create<ContaState>((set, get) => {
         const token = get().sessao?.token;
         sessaoSoEmMemoria = false;
         set({ sessao: null });
+        ultimaRenovacaoEm = 0;
         pararTimerRenovacao();
         definirTokenDaSessao(null);
         await gravarToken(null);

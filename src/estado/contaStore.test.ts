@@ -815,5 +815,45 @@ describe("contaStore", () => {
       expect(cofre.token).toBeNull();
       expect(tokenDaSessaoAtual()).toBeNull();
     });
+
+    it("sair durante a gravação da renovação no cofre: não restaura a sessão e o cofre fica vazio", async () => {
+      const servico = montar(3 * DIA);
+      await useContaStore.getState().entrar("ana@exemplo.com", "x");
+      // Deixa o check do entrar concluir com o cofre normal; agora segura só a próxima gravação.
+      await vi.advanceTimersByTimeAsync(0);
+      servico.renovar.mockClear();
+      const atual = useContaStore.getState().sessao!;
+      useContaStore.setState({ sessao: { ...atual, expiraEm: Date.now() + 2 * DIA } });
+      servico.renovar.mockResolvedValueOnce({ token: "tok-tarde", email: "ana@exemplo.com", plano: "premium", expiraEm: Date.now() + 2 * DIA });
+      let liberar!: () => void;
+      const gravarOriginal = cofre.gravar.bind(cofre);
+      cofre.gravar = async (t: string) => {
+        await new Promise<void>((r) => (liberar = r));
+        await gravarOriginal(t);
+      };
+      const tique = vi.advanceTimersByTimeAsync(SEIS_HORAS);
+      await vi.waitFor(() => expect(liberar).toBeDefined());
+      cofre.gravar = gravarOriginal;
+      await useContaStore.getState().sair();
+      liberar();
+      await tique;
+      await vi.advanceTimersByTimeAsync(0);
+      expect(useContaStore.getState().sessao).toBeNull();
+      expect(cofre.token).toBeNull();
+      expect(tokenDaSessaoAtual()).toBeNull();
+    });
+
+    it("renovação que ainda deixa a sessão perto de vencer não gera tempestade: adoção logo depois não renova de novo", async () => {
+      const servico = montar(3 * DIA);
+      servico.renovar.mockImplementation(async (_t: string) => ({ token: "tok-curta", email: "ana@exemplo.com", plano: "premium" as const, expiraEm: Date.now() + 2 * DIA }));
+      await useContaStore.getState().entrar("ana@exemplo.com", "x");
+      await vi.advanceTimersByTimeAsync(0);
+      expect(servico.renovar).toHaveBeenCalledTimes(1);
+      cofre.token = "tok-de-outra-janela"; // outra janela gravou: esta adota e confere de novo
+      servico.consultar.mockResolvedValueOnce({ email: "ana@exemplo.com", plano: "premium", expiraEm: Date.now() + 2 * DIA });
+      await useContaStore.getState().sincronizarComCofre();
+      await vi.advanceTimersByTimeAsync(0);
+      expect(servico.renovar).toHaveBeenCalledTimes(1);
+    });
   });
 });
