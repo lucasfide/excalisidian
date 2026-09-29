@@ -4,7 +4,7 @@
 import fs from "node:fs";
 import os from "node:os";
 import path from "node:path";
-import { afterEach, beforeEach, describe, expect, it } from "vitest";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import type { FastifyInstance } from "fastify";
 
 import { criarApp } from "./app";
@@ -62,5 +62,25 @@ describe("GET /v1/sessoes/atual", () => {
     const nova = renovarSessao(app.banco, token)!;
     expect((await consultar(token)).statusCode).toBe(401);
     expect((await consultar(nova.token)).statusCode).toBe(200);
+  });
+});
+
+describe("GET /v1/sessoes/atual, saída concorrente", () => {
+  it("401 (não 500) se a sessão some entre o preHandler e a leitura", async () => {
+    const { token } = criarConta("a@exemplo.com");
+    const banco = app.banco;
+    const original = banco.prepare.bind(banco);
+    let apagou = false;
+    // Apaga a linha logo depois de o preHandler resolver a sessão (primeira leitura de `sessoes`
+    // com join) e antes do select de `expira_em`.
+    vi.spyOn(banco, "prepare").mockImplementation(((sql: string) => {
+      if (!apagou && sql.includes("select expira_em as expiraEm")) {
+        apagou = true;
+        original("delete from sessoes").run();
+      }
+      return original(sql);
+    }) as typeof banco.prepare);
+    const r = await consultar(token);
+    expect(r.statusCode).toBe(401);
   });
 });
