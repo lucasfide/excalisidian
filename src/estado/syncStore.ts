@@ -356,6 +356,7 @@ export const useSyncStore = create<SyncStoreState>((set) => {
   async function reregistrarConflitosPendentes(
     depsAtuais: DepsSyncStore,
     estado: EstadoSync,
+    minhaGeracao: number,
   ): Promise<void> {
     const entradas = new Map<string, EntradaArquivo>();
     try {
@@ -365,12 +366,14 @@ export const useSyncStore = create<SyncStoreState>((set) => {
     }
 
     for (const [caminho, pendente] of Object.entries(estado.conflitosPendentes)) {
+      if (minhaGeracao !== geracao) return;
       let localTexto: string;
       try {
         localTexto = await depsAtuais.adaptador.lerTexto(caminho);
       } catch {
         continue; // não registra este agora; o pendente continua em conflitosPendentes
       }
+      if (minhaGeracao !== geracao) return;
       const entrada = entradas.get(caminho);
       const conflito: Conflito = {
         caminho,
@@ -403,6 +406,7 @@ export const useSyncStore = create<SyncStoreState>((set) => {
       // geração anterior e qualquer agendamento antigo.
       limparAgendamento();
       geracao += 1;
+      const minhaGeracao = geracao;
       cicloEmAndamento = false;
       pedidoDeNovo = false;
       paradoPorErroPersistente = false;
@@ -411,6 +415,7 @@ export const useSyncStore = create<SyncStoreState>((set) => {
       raizAtual = raiz;
 
       const estado = await carregarEstadoSync(raiz);
+      if (minhaGeracao !== geracao) return;
       estadoEmMemoria = estado;
 
       if (!estado) {
@@ -418,7 +423,8 @@ export const useSyncStore = create<SyncStoreState>((set) => {
         return;
       }
 
-      await reregistrarConflitosPendentes(novasDeps, estado);
+      await reregistrarConflitosPendentes(novasDeps, estado, minhaGeracao);
+      if (minhaGeracao !== geracao) return;
 
       set({ raiz, status: "desligado", ultimoCiclo: null, foraDaSincronizacao: [] });
 

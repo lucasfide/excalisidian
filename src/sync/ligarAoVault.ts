@@ -47,11 +47,8 @@ import { decidirLigar } from "./decisaoLigar";
  * que só existe depois que `syncStore.iniciar()` roda de verdade). */
 const RETRY_SEM_CONEXAO_MS = 60_000;
 
-/** Estado do temporizador de retry — módulo só, fora do zustand (mesmo padrão de
- * `cancelarWatcher` em `vaultStore.ts` e dos temporizadores em `syncStore.ts`): não há
- * "geração" para invalidar porque toda nova tentativa (`iniciarSincronizacaoDoVaultAberto`,
- * de onde quer que venha) cancela qualquer retry pendente antes de rodar a sua própria — nunca
- * há dois temporizadores vivos ao mesmo tempo. */
+/** Uma tentativa nova invalida respostas antigas de disco, cofre e servidor. */
+let tentativaAtual = 0;
 let timerRetryConexao: ReturnType<typeof setTimeout> | undefined;
 
 function pararRetryDeConexao(): void {
@@ -68,21 +65,26 @@ export async function iniciarSincronizacaoDoVaultAberto(): Promise<void> {
   // Uma tentativa nova sempre supera um retry de "rede" agendado por uma tentativa anterior —
   // senão duas tentativas concorrentes de "listarVaults" poderiam rodar ao mesmo tempo.
   pararRetryDeConexao();
+  const minhaTentativa = ++tentativaAtual;
   try {
-    await tentar();
+    await tentar(minhaTentativa);
   } catch {
     // (c) nunca escapa: qualquer coisa inesperada não coberta pelos try/catch de dentro de
     // `tentar()` (disco, um efeito colateral de terceiros) vira no-op silencioso aqui.
   }
 }
 
-async function tentar(): Promise<void> {
+async function tentar(minhaTentativa: number): Promise<void> {
   const vault = useVaultStore.getState();
   const vaultAberto = vault.adapter !== null;
   const raiz = vault.raiz;
+  const vaultAtual = () => minhaTentativa === tentativaAtual &&
+    useVaultStore.getState().adapter === vault.adapter && useVaultStore.getState().raiz === raiz;
   const estadoSalvo = vaultAberto ? await carregarEstadoSync(raiz) : null;
+  if (!vaultAtual()) return;
 
   const conta = useContaStore.getState();
+  const contaAtual = () => vaultAtual() && useContaStore.getState().sessao === conta.sessao;
   const contaCarregada = conta.carregado;
   const premium = conta.plano() === "premium";
 
@@ -92,6 +94,7 @@ async function tentar(): Promise<void> {
     vaultAberto && estadoSalvo !== null && contaCarregada && premium
       ? await conta.chaveDeEnvelopeAtual()
       : null;
+  if (!contaAtual()) return;
 
   const decisao = decidirLigar({
     vaultAberto,
@@ -108,6 +111,7 @@ async function tentar(): Promise<void> {
   try {
     vaults = await servico.listarVaults();
   } catch (e) {
+    if (!contaAtual()) return;
     // (a) `rede`: marca "sem conexão" (sem deps — ver JSDoc de `iniciarPendente`) e tenta de
     // novo sozinho a cada 60 s. Qualquer outro código (`servidor`, `sessao`, `plano`,
     // `espaco`...) não tem tratamento especial aqui: não insiste sozinho, porque não é um
@@ -122,6 +126,7 @@ async function tentar(): Promise<void> {
     }
     return;
   }
+  if (!contaAtual()) return;
 
   const registro = vaults.find((v) => v.id === estadoSalvo!.idDoVault);
   if (!registro) return; // vault foi apagado do servidor, ou a lista não o traz mais
@@ -130,6 +135,7 @@ async function tentar(): Promise<void> {
   try {
     chaveDoVault = await abrirEnvelope(chaveDeEnvelope!, registro.envelope, registro.id);
   } catch {
+    if (!contaAtual()) return;
     // (b) A `chaveDeEnvelope` desta conta não abre o envelope deste vault — este vault foi
     // criado com a senha de outra conta (plano 13 Task 2). A chave continua valendo para os
     // demais vaults, então NÃO apaga do cofre: grava `ultimoErro: "outra-senha"` no
@@ -139,8 +145,10 @@ async function tentar(): Promise<void> {
     await salvarEstadoSync(raiz, estadoSalvo!).catch(() => {});
     return;
   }
+  if (!contaAtual()) return;
 
   const nomeDesteComputador = await lerNomeDoComputador();
+  if (!contaAtual()) return;
 
   const deps: DepsSyncStore = {
     adaptador: vault.adapter!,

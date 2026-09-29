@@ -6,7 +6,8 @@
 //
 // Em segundo plano os efeitos de tela são nulos (`efeitosNulos()`, `sync/motor.ts`) — não há
 // árvore, índice nem aba desse vault nesta janela para atualizar — e um conflito nunca entra na
-// fila da tela: `registrarConflito`/`flushTudo` são no-ops e `conflitosAbertos` é sempre vazio,
+// fila da tela: `registrarConflito`/`flushTudo` são no-ops; `conflitosAbertos` lê os pendentes
+// persistidos para que a falta de uma fila visual não pareça uma resolução do usuário,
 // então um conflito que o motor encontrar fica só em `estado.conflitosPendentes` (persistido por
 // `executarCiclo`, doc 17 §5) e aparece na lista "Seus vaults" como "N conflitos — abra o vault
 // para resolver" (Task 4/6). Quando o usuário abre esse vault numa janela, ela re-registra os
@@ -169,7 +170,7 @@ async function sincronizarUmVault(
       // motor). `flushTudo` não faz nada: não há aba deste vault nesta janela para gravar.
       registrarConflito: () => {},
       flushTudo: async () => {},
-      conflitosAbertos: () => new Set(),
+      conflitosAbertos: () => new Set(Object.keys(estado.conflitosPendentes)),
       agora: deps.agora,
     };
 

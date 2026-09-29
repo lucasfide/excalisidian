@@ -233,6 +233,29 @@ describe("executarRodada", () => {
     expect(estadoSalvo.conflitosPendentes["nota.md"]).toBeDefined();
   });
 
+  it("ciclo seguinte mantém o conflito pendente enquanto o vault está fechado", async () => {
+    const estado = estadoBase("vault-1");
+    estado.conflitosPendentes["nota.md"] = {
+      hashRemoto: "hash-remoto",
+      conteudo: "versão remota",
+      dispositivo: "outro computador",
+      criadoEm: "2026-09-28T11:00:00.000Z",
+    };
+    const executarCiclo = vi.fn(async (ctx: ContextoCiclo): Promise<ResultadoCiclo> => {
+      expect(ctx.conflitosAbertos()).toEqual(new Set(["nota.md"]));
+      return { ok: true, foraDaSincronizacao: [] };
+    });
+    const deps = depsBase({
+      carregarEstadoSync: async () => estado,
+      executarCiclo,
+    });
+
+    await rodarVault(deps, "C:/Vaults/Casa", [{ id: "vault-1", envelope: new Uint8Array() }],
+      new Uint8Array([1]), "Notebook", () => new Date());
+    expect(executarCiclo).toHaveBeenCalledTimes(1);
+    expect(estado.conflitosPendentes["nota.md"]).toBeDefined();
+  });
+
   it("trava é liberada mesmo se o ciclo lançar uma exceção", async () => {
     const estado = estadoBase("vault-1");
     const liberarTravaSync = vi.fn(async () => {});

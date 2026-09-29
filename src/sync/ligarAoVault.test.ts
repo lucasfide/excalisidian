@@ -170,6 +170,24 @@ describe("iniciarSincronizacaoDoVaultAberto", () => {
     expect(syncStoreMock.iniciarPendente).not.toHaveBeenCalled();
   });
 
+  it("resposta de listagem após sair da conta não reativa o vault", async () => {
+    vaultStoreState.adapter = ADAPTER_FAKE;
+    carregarEstadoSyncMock.mockResolvedValue(ESTADO_SALVO);
+    useContaStore.setState({ carregado: true, sessao: SESSAO_PREMIUM });
+    await useContaStore.getState().cofreChaveDeEnvelope.gravar(SESSAO_PREMIUM.email, new Uint8Array([1]));
+    let responder: (valor: unknown[]) => void = () => {};
+    listarVaultsMock.mockImplementation(() => new Promise<unknown[]>((resolve) => { responder = resolve; }));
+
+    const inicio = iniciarSincronizacaoDoVaultAberto();
+    for (let i = 0; i < 20; i++) await Promise.resolve();
+    expect(listarVaultsMock).toHaveBeenCalledTimes(1);
+    useContaStore.setState({ sessao: null });
+    responder([{ id: "vault-1", nomeCifrado: new Uint8Array(), envelope: new Uint8Array([9]) }]);
+    await inicio;
+
+    expect(syncStoreMock.iniciar).not.toHaveBeenCalled();
+  });
+
   it("vault do EstadoSync não está mais na lista do servidor (apagado): não faz nada", async () => {
     vaultStoreState.adapter = ADAPTER_FAKE;
     carregarEstadoSyncMock.mockResolvedValue(ESTADO_SALVO);

@@ -15,9 +15,13 @@ const guardados: Record<string, unknown> = {};
 /** Liga/desliga por teste — permite simular `salvarEstadoSync` lançando (disco cheio,
  * permissão), sem precisar mockar `sync/estadoSync.ts` inteiro. */
 let salvarDeveFalhar = false;
+let esperarLeitura: Promise<void> | null = null;
 vi.mock("@tauri-apps/plugin-store", () => ({
   load: async () => ({
-    get: async (k: string) => guardados[k],
+    get: async (k: string) => {
+      if (esperarLeitura) await esperarLeitura;
+      return guardados[k];
+    },
     set: async (k: string, v: unknown) => {
       guardados[k] = v;
     },
@@ -194,6 +198,7 @@ describe("syncStore", () => {
   beforeEach(() => {
     for (const k of Object.keys(guardados)) delete guardados[k];
     salvarDeveFalhar = false;
+    esperarLeitura = null;
     useSyncStore.getState().parar();
     vi.useFakeTimers();
   });
@@ -201,6 +206,23 @@ describe("syncStore", () => {
   it("iniciar sem estado salvo fica desligado e não chama executarCiclo", async () => {
     const { deps, exec } = montarDeps();
     await useSyncStore.getState().iniciar(RAIZ, deps);
+    expect(useSyncStore.getState().status).toBe("desligado");
+    expect(exec.chamadas).toHaveLength(0);
+  });
+
+  it("parar durante a leitura do estado impede uma inicialização tardia", async () => {
+    await salvarEstadoSync(RAIZ, estadoBase());
+    let liberarLeitura: () => void = () => {};
+    esperarLeitura = new Promise<void>((resolve) => { liberarLeitura = resolve; });
+    const { deps, exec } = montarDeps();
+    const inicio = useSyncStore.getState().iniciar(RAIZ, deps);
+    await drenar();
+
+    useSyncStore.getState().parar();
+    liberarLeitura();
+    await inicio;
+
+    expect(useSyncStore.getState().raiz).toBeNull();
     expect(useSyncStore.getState().status).toBe("desligado");
     expect(exec.chamadas).toHaveLength(0);
   });

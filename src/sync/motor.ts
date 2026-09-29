@@ -542,6 +542,7 @@ export async function executarCiclo(ctx: ContextoCiclo): Promise<ResultadoCiclo>
     const mudancas = await mudancasParaEnviar(ctx, atual);
 
     if (mudancas.length === 0) {
+      await talvezEnviarRetrato(ctx, resultadoBaixar.ultimoRetrato);
       return { ok: true, foraDaSincronizacao: foraDaSincronizacaoAcumulado };
     }
 

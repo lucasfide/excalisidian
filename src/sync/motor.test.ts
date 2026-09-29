@@ -284,6 +284,21 @@ describe("executarCiclo — falhas do servidor", () => {
 });
 
 describe("executarCiclo — retrato automático", () => {
+  it("tenta novamente o retrato após uma falha, mesmo sem nova edição", async () => {
+    const servico = new ServicoSyncFake();
+    const adaptador = new VaultAdapterMemoria();
+    const { estado, chaveDoVault } = await montarVaultComId(adaptador, servico);
+    await adaptador.escreverTexto("nota.md", "conteúdo");
+    const enviarRetratoSpy = vi.spyOn(servico, "enviarRetrato").mockRejectedValueOnce(new Error("falha temporária"));
+    const contexto = () => ctxDe({ adaptador, servico, chave: chaveDoVault, estado, limiarRetrato: { lotes: 1 } });
+
+    expect((await executarCiclo(contexto())).ok).toBe(true);
+    expect((await servico.baixar(estado.idDoVault, 0)).retrato).toBeUndefined();
+    expect((await executarCiclo(contexto())).ok).toBe(true);
+    expect(enviarRetratoSpy).toHaveBeenCalledTimes(2);
+    expect((await servico.baixar(estado.idDoVault, 0)).retrato).toBeDefined();
+  });
+
   it("cursor além do limiar injetado: manda enviarRetrato depois de enviar", async () => {
     const servico = new ServicoSyncFake();
     const adaptador = new VaultAdapterMemoria();

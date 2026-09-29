@@ -17,10 +17,8 @@
 //     sem tentar ligar de novo — não há mais sessão premium pra ligar nada.
 //
 // Também instala o segundo plano (doc 17 §8.1, plano 12 Task 5) — a sincronização dos vaults
-// sincronizados e FECHADOS nesta janela, se ela vier a ser a designada. Uma instalação só, na
-// abertura desta janela (o segundo plano já reavalia sessão/premium/chave a cada rodada, então
-// não precisa reinstalar quando a conta muda); pára junto com "sair da conta", mesma linha de
-// `useSyncStore.getState().parar()`.
+// sincronizados e FECHADOS nesta janela, se ela vier a ser a designada. Para ao sair da conta
+// e reinicia ao entrar novamente, sem exigir reiniciar o app.
 
 import { useVaultStore } from "../estado/vaultStore";
 import { useContaStore } from "../estado/contaStore";
@@ -29,7 +27,7 @@ import { iniciarSincronizacaoDoVaultAberto } from "./ligarAoVault";
 import { iniciarSegundoPlanoReal } from "./segundoPlano";
 
 export function instalarCicloDeVidaSync(): () => void {
-  const pararSegundoPlano = iniciarSegundoPlanoReal();
+  let pararSegundoPlano: (() => void) | null = iniciarSegundoPlanoReal();
 
   const cancelarVault = useVaultStore.subscribe((estado, anterior) => {
     if (estado.adapter === anterior.adapter) return;
@@ -43,10 +41,12 @@ export function instalarCicloDeVidaSync(): () => void {
     if (anterior.sessao && !estado.sessao) {
       // Sair da conta (doc 17 §2: quem sai não deixa a chave nem a sincronização rodando).
       useSyncStore.getState().parar();
-      pararSegundoPlano();
+      pararSegundoPlano?.();
+      pararSegundoPlano = null;
       return;
     }
     if (estado.carregado !== anterior.carregado || estado.sessao !== anterior.sessao) {
+      if (estado.sessao && !pararSegundoPlano) pararSegundoPlano = iniciarSegundoPlanoReal();
       // A conta terminou de carregar, ou a sessão mudou (entrou, criou, renovou): tenta de
       // novo — "sessão chega tarde" (doc 17 §7, plano 10 Task 5).
       void iniciarSincronizacaoDoVaultAberto();
@@ -62,6 +62,7 @@ export function instalarCicloDeVidaSync(): () => void {
   return () => {
     cancelarVault();
     cancelarConta();
-    pararSegundoPlano();
+    pararSegundoPlano?.();
+    pararSegundoPlano = null;
   };
 }

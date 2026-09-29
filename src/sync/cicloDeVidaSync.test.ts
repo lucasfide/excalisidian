@@ -183,6 +183,20 @@ describe("instalarCicloDeVidaSync", () => {
     cancelar();
   });
 
+  it("entrar novamente após sair reinicia o segundo plano", async () => {
+    contaStoreFalso.setState({ carregado: true, sessao: { plano: "premium" } });
+    const cancelar = instalarCicloDeVidaSync();
+
+    contaStoreFalso.setState({ sessao: null });
+    expect(pararSegundoPlanoMock).toHaveBeenCalledTimes(1);
+    contaStoreFalso.setState({ sessao: { plano: "premium" } });
+    await drenar();
+
+    expect(iniciarSegundoPlanoRealMock).toHaveBeenCalledTimes(2);
+    cancelar();
+    expect(pararSegundoPlanoMock).toHaveBeenCalledTimes(2);
+  });
+
   it("cancelar() desliga as duas assinaturas e o segundo plano: mudanças depois disso não chamam mais nada", async () => {
     const cancelar = instalarCicloDeVidaSync();
     pararMock.mockClear();
