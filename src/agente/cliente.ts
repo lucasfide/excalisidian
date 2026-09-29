@@ -17,9 +17,16 @@ import { tokenDaSessaoAtual } from "../servico/sessao";
 import { traduzirAgora } from "../i18n/traduzirAgora";
 
 const TIMEOUT_CONEXAO_MS = 20_000;
-// Acima dos 90 s do servidor (doc 18 §5.1), para o servidor responder primeiro; libera o
-// agente se a conexão morrer no meio do pedido (notebook dormiu).
-const TEMPO_MAXIMO_MS = 100_000;
+// Tempo máximo do pedido inteiro; libera o agente se a conexão morrer no meio (notebook
+// dormiu). Provedor próprio: 100 s, acima dos 90 s do servidor (doc 18 §5.1), para o servidor
+// responder primeiro. Chave própria: 300 s, porque respostas longas com raciocínio alto
+// passam de 100 s e ali não há servidor nosso para limitar.
+const TEMPO_MAXIMO_PROPRIO_MS = 100_000;
+const TEMPO_MAXIMO_CHAVE_PROPRIA_MS = 300_000;
+
+function tempoMaximoMs(ctx: ContextoChamada): number {
+  return ctx.provedor.exigeConta ? TEMPO_MAXIMO_PROPRIO_MS : TEMPO_MAXIMO_CHAVE_PROPRIA_MS;
+}
 
 export interface ContextoChamada {
   provedor: ProvedorInfo;
@@ -60,13 +67,14 @@ export function cabecalhosBase(ctx: ContextoChamada): Record<string, string> {
 async function lancar(
   url: string,
   init: RequestInit,
+  tempoMaximo: number = TEMPO_MAXIMO_CHAVE_PROPRIA_MS,
 ): Promise<{ status: number; corpo: unknown }> {
   let res: Response;
   try {
     res = await fetch(url, {
       ...init,
       connectTimeout: TIMEOUT_CONEXAO_MS,
-      signal: AbortSignal.timeout(TEMPO_MAXIMO_MS),
+      signal: AbortSignal.timeout(tempoMaximo),
     });
   } catch (e) {
     const msg = e instanceof Error ? e.message : String(e);
@@ -153,6 +161,7 @@ async function completarOpenAI(p: PedidoComplecao): Promise<RespostaComplecao> {
   const { status, corpo: res } = await lancar(
     `${p.baseUrl}/chat/completions`,
     { method: "POST", headers: cabecalhosBase(p), body: JSON.stringify(corpo) },
+    tempoMaximoMs(p),
   );
   if (status < 200 || status >= 300) throw erroDeStatus(status, res, p);
   const escolha = (res as { choices?: { message?: { content?: string } }[] })?.choices?.[0];
@@ -181,6 +190,7 @@ async function completarAnthropic(p: PedidoComplecao): Promise<RespostaComplecao
   const { status, corpo: res } = await lancar(
     `${p.baseUrl}/v1/messages`,
     { method: "POST", headers: cabecalhosBase(p), body: JSON.stringify(corpo) },
+    tempoMaximoMs(p),
   );
   if (status < 200 || status >= 300) throw erroDeStatus(status, res, p);
   const blocos = (res as { content?: { type?: string; text?: string }[] })?.content ?? [];
@@ -212,7 +222,7 @@ async function completarGemini(p: PedidoComplecao): Promise<RespostaComplecao> {
     method: "POST",
     headers: cabecalhosBase(p),
     body: JSON.stringify(corpo),
-  });
+  }, tempoMaximoMs(p));
   if (status < 200 || status >= 300) throw erroDeStatus(status, res, p);
   const partes =
     (res as {

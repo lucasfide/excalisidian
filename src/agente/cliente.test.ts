@@ -238,6 +238,17 @@ describe("cliente — completar", () => {
     expect(init.signal).toBeInstanceOf(AbortSignal);
   });
 
+  it("tempo máximo: 100 s no provedor próprio, 300 s na chave própria", async () => {
+    definirTokenDaSessao("tok");
+    const espia = vi.spyOn(AbortSignal, "timeout");
+    fetchMock.mockResolvedValue(respostaHTTP(200, { choices: [{ message: { content: "x" } }] }));
+    await completar({ ...contexto("openai"), provedor: provedorDe("excalisidian"), baseUrl: BASE_URL_SERVICO, system: "s", mensagens: [{ papel: "usuario", texto: "x" }] });
+    await completar(pedidoSimples());
+    expect(espia.mock.calls.map((c) => c[0])).toEqual([100_000, 300_000]);
+    espia.mockRestore();
+    definirTokenDaSessao(null);
+  });
+
   it.each(["TimeoutError", "AbortError"])("%s vira 'rede'", async (nome) => {
     fetchMock.mockRejectedValueOnce(new DOMException("tempo esgotado", nome));
     const erro = await completar(pedidoSimples()).catch((e) => e);
