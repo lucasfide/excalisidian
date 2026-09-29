@@ -23,6 +23,7 @@ import type { ConfigAgente, ProvedorId, Thinking } from "../../agente/tipos";
 import { useTexto } from "../../i18n/useTexto";
 import { useContaStore } from "../../estado/contaStore";
 import { CONTA_DISPONIVEL } from "../../servico/base";
+import { trocarProvedor } from "./rascunhoAgente";
 
 // "Mínimo" fora da lista: a família gpt-5.6 recusa reasoning_effort "minimal" (verificado
 // na API em 13/09 — aceita none/low/medium/high/xhigh). O valor continua no tipo e no
@@ -129,6 +130,9 @@ export default function DialogoAgente({ aoAbrirConta }: Props) {
   // início via esse alerta com o botão desabilitado, mesmo tendo sessão.
   const aguardandoConta = provedor.exigeConta && !carregado;
   const semSessao = provedor.exigeConta && carregado && sessao === null;
+  // Conta grátis não usa a IA paga: barra aqui em vez de descobrir no primeiro pedido.
+  const planoInsuficiente =
+    provedor.exigeConta && carregado && sessao !== null && sessao.plano !== "premium";
   const rotulosPasso = provedor.exigeConta
     ? [
         t("agente.passo.provedor"),
@@ -158,7 +162,7 @@ export default function DialogoAgente({ aoAbrirConta }: Props) {
       // Defensivo: o botão "Continuar" já fica desabilitado com `semSessao`/`aguardandoConta`,
       // então isto não deveria disparar. `erroChave` não é exibido neste ramo (o alerta do
       // passo de conta é quem mostra o estado) — nada a escrever na tela aqui.
-      if (semSessao || aguardandoConta) return;
+      if (semSessao || planoInsuficiente || aguardandoConta) return;
     } else {
       if (erroBase) {
         setErroChave(erroBase);
@@ -219,7 +223,7 @@ export default function DialogoAgente({ aoAbrirConta }: Props) {
       provedor: r.provedor,
       chaves: {
         ...(config?.chaves ?? {}),
-        ...(r.chave.trim() ? { [r.provedor]: r.chave.trim() } : {}),
+        ...(provedor.precisaChave && r.chave.trim() ? { [r.provedor]: r.chave.trim() } : {}),
       },
       // Provedor por conta sempre usa BASE_URL_SERVICO (doc 11): nunca persiste base URL
       // customizada para ele, nem mantém uma entrada antiga (evita apontar o Authorization
@@ -258,7 +262,7 @@ export default function DialogoAgente({ aoAbrirConta }: Props) {
           {(etapa === 1 || etapa === 2) && (
             <Botao
               variante="primario"
-              disabled={etapa === 2 && (carregando || semSessao || aguardandoConta)}
+              disabled={etapa === 2 && (carregando || semSessao || planoInsuficiente || aguardandoConta)}
               carregando={etapa === 2 && carregando}
               onClick={() => {
                 if (etapa === 1) irParaChave();
@@ -295,7 +299,7 @@ export default function DialogoAgente({ aoAbrirConta }: Props) {
         {etapa === 1 && (
           <PassoProvedor
             valor={r.provedor}
-            onEscolher={(provedorId) => setR((x) => ({ ...x, provedor: provedorId }))}
+            onEscolher={(provedorId) => setR((x) => trocarProvedor(x, provedorId, config))}
           />
         )}
 
@@ -308,9 +312,15 @@ export default function DialogoAgente({ aoAbrirConta }: Props) {
               </p>
             ) : (
               <>
-                <p className="text-pequeno text-tinta-media">
-                  {t("agente.passo.contaExplicacao")}
-                </p>
+                {planoInsuficiente ? (
+                  <p className="text-pequeno text-bordo" role="alert">
+                    {t("agente.erro.plano")}
+                  </p>
+                ) : (
+                  <p className="text-pequeno text-tinta-media">
+                    {t("agente.passo.contaExplicacao")}
+                  </p>
+                )}
                 {semSessao && (
                   <>
                     <p className="text-pequeno text-bordo" role="alert">
