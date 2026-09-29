@@ -1,5 +1,5 @@
 // servidor/src/creditosIa.test.ts
-// Créditos da IA (doc 18 §5.2): preço por faixa de horário, custo em micro-dólares inteiros,
+// Créditos da IA (doc 18 §5.2): custo em micro-dólares inteiros (informado pelo fornecedor ou pelo teto de preço),
 // mês civil de Brasília, saldo e débito no SQLite.
 
 import fs from "node:fs";
@@ -13,7 +13,6 @@ import {
   creditosDeMicroUsd,
   custoMicroUsd,
   debitar,
-  ehHorarioDePico,
   periodoDe,
   renovaEmDe,
   saldoDaConta,
@@ -21,62 +20,30 @@ import {
 
 // 28/09/2026 é segunda-feira.
 const SEGUNDA_12H_UTC = Date.UTC(2026, 8, 28, 12, 0, 0);
-const SEGUNDA_02H_UTC = Date.UTC(2026, 8, 28, 2, 0, 0);
-const SEGUNDA_07H_UTC = Date.UTC(2026, 8, 28, 7, 30, 0);
-const SEGUNDA_04H_UTC = Date.UTC(2026, 8, 28, 4, 0, 0);
-const SABADO_02H_UTC = Date.UTC(2026, 8, 26, 2, 0, 0);
-
-describe("ehHorarioDePico", () => {
-  it("é pico de segunda a sexta entre 01h e 04h e entre 06h e 10h UTC", () => {
-    expect(ehHorarioDePico(SEGUNDA_02H_UTC)).toBe(true);
-    expect(ehHorarioDePico(SEGUNDA_07H_UTC)).toBe(true);
-  });
-
-  it("04:00 em ponto já é fora de pico, e meio-dia também", () => {
-    expect(ehHorarioDePico(SEGUNDA_04H_UTC)).toBe(false);
-    expect(ehHorarioDePico(SEGUNDA_12H_UTC)).toBe(false);
-  });
-
-  it("fim de semana nunca é pico", () => {
-    expect(ehHorarioDePico(SABADO_02H_UTC)).toBe(false);
-  });
-});
 
 describe("custoMicroUsd", () => {
-  it("fora de pico: 1000 sem cache + 1000 com cache + 100 de saída", () => {
-    // 1000*0,15 + 1000*0,003 + 100*0,60 = 150 + 3 + 60 = 213 micro-dólares
-    expect(
-      custoMicroUsd({ entradaSemCache: 1000, entradaComCache: 1000, saida: 100 }, SEGUNDA_12H_UTC),
-    ).toBe(213);
+  it("custo informado 0,000123 US$ → 130 µ$ (123 × 1,055 arredondado para cima)", () => {
+    expect(custoMicroUsd({ entradaSemCache: 1000, entradaComCache: 0, saida: 100 }, 0.000123)).toBe(130);
   });
 
-  it("no pico custa o dobro", () => {
-    expect(
-      custoMicroUsd({ entradaSemCache: 1000, entradaComCache: 1000, saida: 100 }, SEGUNDA_02H_UTC),
-    ).toBe(426);
+  it("custo informado 0 → 0", () => {
+    expect(custoMicroUsd({ entradaSemCache: 1000, entradaComCache: 0, saida: 100 }, 0)).toBe(0);
   });
 
-  it("pedido que começa no pico e termina fora dele (03:59 → 04:01) paga o preço de pico", () => {
-    const inicio = Date.UTC(2026, 8, 28, 3, 59, 0);
-    const fim = Date.UTC(2026, 8, 28, 4, 1, 0);
-    const uso = { entradaSemCache: 1000, entradaComCache: 1000, saida: 100 };
-    expect(custoMicroUsd(uso, fim, inicio)).toBe(426);
-    expect(custoMicroUsd(uso, fim)).toBe(213);
-    // começa fora e termina no pico (00:59 → 01:01): também pico
-    expect(custoMicroUsd(uso, Date.UTC(2026, 8, 28, 1, 1, 0), Date.UTC(2026, 8, 28, 0, 59, 0))).toBe(426);
+  it("sem custo: cobra pelo teto de preço, sem desconto de cache (500+500 entrada, 100 saída → 444 µ$)", () => {
+    // nano = 1000*300 + 100*1200 = 420000; × 1,055 = 443100 nano → 444 µ$
+    expect(custoMicroUsd({ entradaSemCache: 500, entradaComCache: 500, saida: 100 })).toBe(444);
   });
 
-  it("arredonda para cima, nunca para baixo", () => {
-    // 1 token com cache fora de pico = 0,003 micro-dólar → 1
-    expect(custoMicroUsd({ entradaSemCache: 0, entradaComCache: 1, saida: 0 }, SEGUNDA_12H_UTC)).toBe(1);
+  it("custo inválido (NaN, negativo, infinito) cai no teto", () => {
+    const uso = { entradaSemCache: 500, entradaComCache: 500, saida: 100 };
+    expect(custoMicroUsd(uso, Number.NaN)).toBe(444);
+    expect(custoMicroUsd(uso, -1)).toBe(444);
+    expect(custoMicroUsd(uso, Number.POSITIVE_INFINITY)).toBe(444);
   });
 
-  it("não sofre erro de ponto flutuante (1000 tokens sem cache = 150 exatos)", () => {
-    expect(custoMicroUsd({ entradaSemCache: 1000, entradaComCache: 0, saida: 0 }, SEGUNDA_12H_UTC)).toBe(150);
-  });
-
-  it("uso zero custa zero", () => {
-    expect(custoMicroUsd({ entradaSemCache: 0, entradaComCache: 0, saida: 0 }, SEGUNDA_12H_UTC)).toBe(0);
+  it("uso zero sem custo custa zero", () => {
+    expect(custoMicroUsd({ entradaSemCache: 0, entradaComCache: 0, saida: 0 })).toBe(0);
   });
 });
 
@@ -140,13 +107,13 @@ describe("saldo e débito no banco", () => {
   });
 
   it("debitar acumula custo, pedidos e tokens no mês", () => {
-    debitar(banco, contaId, SEGUNDA_12H_UTC, { entradaSemCache: 10_000, entradaComCache: 0, saida: 0 }); // 1500 µ$
-    debitar(banco, contaId, SEGUNDA_12H_UTC, { entradaSemCache: 0, entradaComCache: 0, saida: 1000 }); // 600 µ$
+    debitar(banco, contaId, SEGUNDA_12H_UTC, { entradaSemCache: 10_000, entradaComCache: 0, saida: 0 }, 0.001); // 1055 µ$
+    debitar(banco, contaId, SEGUNDA_12H_UTC, { entradaSemCache: 0, entradaComCache: 0, saida: 1000 }, 0.0005); // 528 µ$
     const linha = banco
       .prepare(`select custo_micro_usd, pedidos, tokens_entrada, tokens_saida from uso_ia where conta_id = ?`)
       .get(contaId);
-    expect(linha).toEqual({ custo_micro_usd: 2100, pedidos: 2, tokens_entrada: 10_000, tokens_saida: 1000 });
-    expect(saldoDaConta(banco, contaId, SEGUNDA_12H_UTC).usados).toBe(3); // teto(2100/1000)
+    expect(linha).toEqual({ custo_micro_usd: 1583, pedidos: 2, tokens_entrada: 10_000, tokens_saida: 1000 });
+    expect(saldoDaConta(banco, contaId, SEGUNDA_12H_UTC).usados).toBe(2); // teto(1583/1000)
   });
 
   it("uso de um mês não conta no mês seguinte", () => {
@@ -154,13 +121,8 @@ describe("saldo e débito no banco", () => {
     expect(saldoDaConta(banco, contaId, Date.UTC(2026, 9, 5, 12, 0, 0)).usados).toBe(0);
   });
 
-  it("debitar com início no pico cobra pico", () => {
-    const inicio = Date.UTC(2026, 8, 28, 3, 59, 0);
-    const fim = Date.UTC(2026, 8, 28, 4, 1, 0);
-    expect(debitar(banco, contaId, fim, { entradaSemCache: 1000, entradaComCache: 0, saida: 0 }, inicio)).toBe(300);
-  });
-
-  it("debitar devolve o custo do pedido em micro-dólares", () => {
-    expect(debitar(banco, contaId, SEGUNDA_12H_UTC, { entradaSemCache: 1000, entradaComCache: 0, saida: 0 })).toBe(150);
+  it("debitar devolve o custo do pedido em micro-dólares (informado ou pelo teto)", () => {
+    expect(debitar(banco, contaId, SEGUNDA_12H_UTC, { entradaSemCache: 1000, entradaComCache: 0, saida: 0 }, 0.0001)).toBe(106);
+    expect(debitar(banco, contaId, SEGUNDA_12H_UTC, { entradaSemCache: 1000, entradaComCache: 0, saida: 0 })).toBe(317);
   });
 });

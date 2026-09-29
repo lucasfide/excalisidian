@@ -48,8 +48,9 @@ describe("chamarFornecedor — pedido", () => {
       model: "modelo-real",
       messages: MENSAGENS,
       max_tokens: 500,
-      thinking: { type: "disabled" },
       stream: false,
+      reasoning: { enabled: false },
+      provider: { data_collection: "deny", max_price: { prompt: 0.3, completion: 1.2 } },
     });
   });
 });
@@ -99,6 +100,37 @@ describe("chamarFornecedor — leitura do usage", () => {
     const f = fetchQueResponde(200, corpoOk({ prompt_tokens: 10, completion_tokens: 1, prompt_cache_hit_tokens: 99 }));
     const r = await chamarFornecedor({ ia: IA, fetchImpl: f as unknown as typeof fetch, mensagens: MENSAGENS, maxTokens: 500 });
     expect(r.uso).toEqual({ entradaComCache: 10, entradaSemCache: 0, saida: 1 });
+  });
+});
+
+describe("chamarFornecedor — custo informado", () => {
+  const chamar = (usage: unknown) =>
+    chamarFornecedor({
+      ia: IA,
+      fetchImpl: fetchQueResponde(200, corpoOk(usage)) as unknown as typeof fetch,
+      mensagens: MENSAGENS,
+      maxTokens: 500,
+    });
+
+  it("lê usage.cost como custoUsd", async () => {
+    expect((await chamar({ prompt_tokens: 10, completion_tokens: 2, cost: 0.000123 })).custoUsd).toBe(0.000123);
+    expect((await chamar({ prompt_tokens: 10, completion_tokens: 2, cost: 0 })).custoUsd).toBe(0);
+  });
+
+  it("cost ausente ou inválido → undefined", async () => {
+    expect((await chamar({ prompt_tokens: 10, completion_tokens: 2 })).custoUsd).toBeUndefined();
+    expect((await chamar({ prompt_tokens: 10, completion_tokens: 2, cost: "0,1" })).custoUsd).toBeUndefined();
+    expect((await chamar({ prompt_tokens: 10, completion_tokens: 2, cost: -0.1 })).custoUsd).toBeUndefined();
+    expect((await chamar(undefined)).custoUsd).toBeUndefined();
+  });
+
+  it("cost vale mesmo sem contagem de tokens no usage", async () => {
+    expect((await chamar({ cost: 0.5 })).custoUsd).toBe(0.5);
+  });
+
+  it("cached_tokens no topo de usage", async () => {
+    const r = await chamar({ prompt_tokens: 100, completion_tokens: 20, cached_tokens: 40 });
+    expect(r.uso.entradaComCache).toBe(40);
   });
 });
 

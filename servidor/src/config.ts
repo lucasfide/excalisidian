@@ -30,8 +30,8 @@ export function carregarConfig(env: NodeJS.ProcessEnv = process.env): Config {
   const pastaDados = env.EXCALISIDIAN_DADOS ?? path.join(process.cwd(), ".dados");
   const ia: ConfigIa = {
     chave: (env.EXCALISIDIAN_IA_CHAVE ?? "").trim(),
-    url: (env.EXCALISIDIAN_IA_URL ?? "https://api.deepseek.com").replace(/\/+$/, ""),
-    modelo: env.EXCALISIDIAN_IA_MODELO ?? "deepseek-flash",
+    url: (env.EXCALISIDIAN_IA_URL ?? "https://openrouter.ai/api/v1").replace(/\/+$/, ""),
+    modelo: env.EXCALISIDIAN_IA_MODELO ?? "deepseek/deepseek-v4.1-flash",
   };
   return { porta, pastaDados, ia };
 }

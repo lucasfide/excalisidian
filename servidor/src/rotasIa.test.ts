@@ -19,7 +19,7 @@ import { buscarSaldoCreditos } from "../../src/servico/saldoCreditos";
 
 vi.mock("@tauri-apps/plugin-http", () => ({ fetch: vi.fn() }));
 
-const SEGUNDA_12H_UTC = Date.UTC(2026, 8, 28, 12, 0, 0); // fora de pico
+const SEGUNDA_12H_UTC = Date.UTC(2026, 8, 28, 12, 0, 0);
 const IA = { chave: "sk-secreta-do-fornecedor", url: "https://fornecedor.exemplo", modelo: "modelo-real" };
 
 let pasta: string;
@@ -154,11 +154,21 @@ describe("POST /v1/chat/completions — sucesso e falha do fornecedor", () => {
     expect(corpo.extra).toBeUndefined();
   });
 
-  it("debita pelo uso real: 1000 entrada + 100 saída fora de pico = 210 µ$ = 1 crédito", async () => {
+  it("sem usage.cost debita pelo teto de preço: 1000 entrada + 100 saída = 444 µ$", async () => {
     const { id, token } = criarConta("a@x.com");
     await pedir(token, CORPO);
     const linha = app.banco.prepare(`select custo_micro_usd as micro, pedidos from uso_ia where conta_id = ?`).get(id);
-    expect(linha).toEqual({ micro: 210, pedidos: 1 });
+    expect(linha).toEqual({ micro: 444, pedidos: 1 });
+  });
+
+  it("com usage.cost 0,0002 debita 211 µ$ (200 × 1,055 para cima)", async () => {
+    const { id, token } = criarConta("a@x.com");
+    fornecedor.mockImplementationOnce(async () =>
+      respostaFornecedor({ prompt_tokens: 1000, completion_tokens: 100, cost: 0.0002 }),
+    );
+    await pedir(token, CORPO);
+    const linha = app.banco.prepare(`select custo_micro_usd as micro, pedidos from uso_ia where conta_id = ?`).get(id);
+    expect(linha).toEqual({ micro: 211, pedidos: 1 });
   });
 
   it("fornecedor falha → 502 e nada é cobrado", async () => {

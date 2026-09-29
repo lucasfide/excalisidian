@@ -87,7 +87,6 @@ export function registrarRotasIa(
 
       let resposta;
       try {
-        const inicio = opcoes.agora();
         try {
           resposta = await chamarFornecedor({
             ia: opcoes.ia,
@@ -100,7 +99,7 @@ export function registrarRotasIa(
           throw erro;
         }
 
-        debitar(banco, conta.id, opcoes.agora(), resposta.uso, inicio);
+        debitar(banco, conta.id, opcoes.agora(), resposta.uso, resposta.custoUsd);
       } finally {
         const restante = (emAndamento.get(conta.id) ?? 1) - 1;
         if (restante <= 0) emAndamento.delete(conta.id);

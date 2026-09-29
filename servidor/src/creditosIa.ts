@@ -1,9 +1,8 @@
 // servidor/src/creditosIa.ts
-// Créditos da IA do Excalisidian (doc 18 §5.2, ADR-43). 1 crédito = US$ 0,001 de custo real
-// do fornecedor. Toda a conta é feita em inteiros: o preço em US$ por milhão de tokens é o
-// mesmo número que micro-dólares por token; multiplicado por 1000 vira nano-dólares por
-// token, inteiro para os seis preços — assim não há erro de ponto flutuante (1000 × 0,15 dá
-// 150 exatos, não 150,00000000000003).
+// Créditos da IA do Excalisidian (doc 18 §5.2, ADR-44). 1 crédito = US$ 0,001 de custo real.
+// O custo real de um pedido é o `usage.cost` que o OpenRouter informa, mais a taxa de 5,5% da
+// compra de créditos; sem esse valor, cobra-se pelo teto de preço enviado ao fornecedor. Toda a
+// conta é feita em inteiros (nano-dólares), sem erro de ponto flutuante.
 
 import type { BancoSqlite } from "./banco";
 
@@ -12,12 +11,12 @@ export type FaixaIa = "padrao" | "superior";
 /** Créditos por mês de cada faixa. Mudar aqui é atualizar o servidor, não o app. */
 export const COTA_POR_FAIXA: Record<FaixaIa, number> = { padrao: 3000, superior: 10_000 };
 
-/** Preços do fornecedor verificados em 28/09/2026 (doc 09, Parte 2), em nano-dólares por
- * token (= US$ por milhão × 1000). */
-const PRECOS_NANO_USD = {
-  foraDePico: { entradaComCache: 3, entradaSemCache: 150, saida: 600 },
-  pico: { entradaComCache: 6, entradaSemCache: 300, saida: 1200 },
-} as const;
+/** Taxa de 5,5% que o OpenRouter cobra na compra de créditos, em milésimos (1055 = × 1,055). */
+export const TAXA_COMPRA_CREDITOS_MILESIMOS = 1055;
+
+/** Teto de preço enviado ao fornecedor (`max_price`), em nano-dólares por token
+ * (= US$ por milhão × 1000): entrada 0,30 e saída 1,20. Tem de bater com `fornecedorIa.ts`. */
+const TETO_NANO_USD = { entrada: 300, saida: 1200 } as const;
 
 /** Brasília é UTC−3 fixo (sem horário de verão desde 2019). */
 const DESLOCAMENTO_BRASILIA_MS = 3 * 60 * 60 * 1000;
@@ -28,26 +27,18 @@ export interface UsoFornecedor {
   saida: number;
 }
 
-/** Pico do fornecedor: segunda a sexta, 01:00–04:00 e 06:00–10:00 UTC. Feriado chinês é
- * tratado como dia comum — cobra no máximo o preço de pico, nunca menos que o real. */
-export function ehHorarioDePico(agoraMs: number): boolean {
-  const d = new Date(agoraMs);
-  const dia = d.getUTCDay(); // 0 = domingo, 6 = sábado
-  if (dia === 0 || dia === 6) return false;
-  const hora = d.getUTCHours();
-  return (hora >= 1 && hora < 4) || (hora >= 6 && hora < 10);
-}
-
-/** Custo do pedido em micro-dólares, arredondado para cima. Um pedido demora até 90 s: vale o
- * preço de pico se o início OU o fim caiu no pico (nunca cobra menos que o real). */
-export function custoMicroUsd(uso: UsoFornecedor, agoraMs: number, inicioMs?: number): number {
-  const pico = ehHorarioDePico(agoraMs) || (inicioMs !== undefined && ehHorarioDePico(inicioMs));
-  const p = pico ? PRECOS_NANO_USD.pico : PRECOS_NANO_USD.foraDePico;
+/** Custo do pedido em micro-dólares, arredondado para cima. Com `custoUsd` (finito e ≥ 0) vale
+ * esse custo × 1,055. Sem ele, cobra pelo teto de preço, sem desconto de cache — nunca menos que
+ * o real, porque o teto impede provedor mais caro. */
+export function custoMicroUsd(uso: UsoFornecedor, custoUsd?: number): number {
+  if (typeof custoUsd === "number" && Number.isFinite(custoUsd) && custoUsd >= 0) {
+    // Passa por nano-dólares inteiros antes da taxa: 0,0002 × 1e6 × 1,055 daria 211,00000000000003.
+    const nano = Math.round(custoUsd * 1e9);
+    return Math.ceil((nano * TAXA_COMPRA_CREDITOS_MILESIMOS) / 1_000_000);
+  }
   const nano =
-    uso.entradaComCache * p.entradaComCache +
-    uso.entradaSemCache * p.entradaSemCache +
-    uso.saida * p.saida;
-  return Math.ceil(nano / 1000);
+    (uso.entradaComCache + uso.entradaSemCache) * TETO_NANO_USD.entrada + uso.saida * TETO_NANO_USD.saida;
+  return Math.ceil((nano * TAXA_COMPRA_CREDITOS_MILESIMOS) / 1_000_000);
 }
 
 /** "AAAA-MM" do mês civil de Brasília que contém `agoraMs`. */
@@ -89,16 +80,16 @@ export function saldoDaConta(banco: BancoSqlite, contaId: number, agoraMs: numbe
   };
 }
 
-/** Soma o pedido ao mês corrente da conta (período e saldo pelo fim do pedido, `agoraMs`).
+/** Soma o pedido ao mês corrente da conta (período pelo fim do pedido, `agoraMs`).
  * Devolve o custo do pedido em micro-dólares. */
 export function debitar(
   banco: BancoSqlite,
   contaId: number,
   agoraMs: number,
   uso: UsoFornecedor,
-  inicioMs?: number,
+  custoUsd?: number,
 ): number {
-  const micro = custoMicroUsd(uso, agoraMs, inicioMs);
+  const micro = custoMicroUsd(uso, custoUsd);
   banco
     .prepare(
       `insert into uso_ia (conta_id, periodo, custo_micro_usd, pedidos, tokens_entrada, tokens_saida)
