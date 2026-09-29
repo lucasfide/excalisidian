@@ -581,6 +581,11 @@ function SecaoConta({ idsVisiveis }: { idsVisiveis?: Set<string> }) {
     }
   }, [sessao]);
 
+  // O plano muda no servidor (assinatura pelo site): reconsulta ao abrir a seção.
+  useEffect(() => {
+    void useContaStore.getState().atualizarPlano();
+  }, []);
+
   // Erro de uma tentativa anterior não pode sobreviver a fechar e reabrir as preferências:
   // sem isto, errar a senha, fechar e reabrir mostrava "E-mail ou senha não conferem." sob um
   // campo vazio, como se a tentativa nova já tivesse falhado.

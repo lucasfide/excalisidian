@@ -90,6 +90,10 @@ interface ContaState {
    * janelas fazem ao receber `app://prefs-mudou`: `carregar()` renovaria e invalidaria o token
    * das outras janelas e de qualquer pedido do agente em andamento. */
   sincronizarComCofre(): Promise<void>;
+  /** Reconsulta o plano da sessão atual (`consultar`, sem renovar). O plano muda no servidor
+   * quando o usuário assina pelo site; chamado ao abrir o passo Conta do assistente e a seção
+   * Conta das preferências. Nunca rejeita. */
+  atualizarPlano(): Promise<void>;
   entrar(email: string, senha: string): Promise<boolean>;
   criar(email: string, senha: string): Promise<boolean>;
   sair(): Promise<void>;
@@ -115,11 +119,18 @@ export const useContaStore = create<ContaState>((set, get) => {
   // cofre falhar (loja ausente, permissão negada, token maior que o limite do Windows), a
   // sessão desta abertura continua valendo em memória — só um aviso técnico no console, nunca
   // um erro de login para o usuário.
+  // Marca que esta janela tem uma sessão que o cofre nunca recebeu (a gravação falhou). Sem
+  // ela, o evento de outra janela leria o cofre vazio e concluiria "alguém saiu", derrubando
+  // uma sessão que a decisão 2 mandou manter em memória.
+  let sessaoSoEmMemoria = false;
+
   async function gravarToken(token: string | null): Promise<void> {
     try {
       if (token) await get().cofre.gravar(token);
       else await get().cofre.apagar();
+      sessaoSoEmMemoria = false;
     } catch (e) {
+      if (token) sessaoSoEmMemoria = true;
       console.warn("Não foi possível gravar o token da conta no cofre do sistema.", e);
     }
   }
@@ -236,6 +247,8 @@ export const useContaStore = create<ContaState>((set, get) => {
       }
       if (geracao !== minhaGeracao) return;
       if (!token) {
+        // A gravação desta sessão no cofre falhou: cofre vazio não prova que outra janela saiu.
+        if (sessaoSoEmMemoria && get().sessao) return;
         // Outra janela saiu (ou nunca houve sessão): esta também fica sem sessão.
         definirTokenDaSessao(null);
         set({ sessao: null, carregado: true });
@@ -251,6 +264,25 @@ export const useContaStore = create<ContaState>((set, get) => {
         if (geracao !== minhaGeracao || (get().sessao?.token ?? null) !== tokenAntes) return;
         // Só "expirada" zera a sessão, e sem apagar o cofre: outra janela pode ter gravado um
         // token novo nesse meio-tempo. `rede`/`servidor` mantêm o que já há.
+        if (codigoDe(e) === "expirada") {
+          definirTokenDaSessao(null);
+          set({ sessao: null });
+        }
+      }
+    },
+
+    async atualizarPlano() {
+      const minhaGeracao = geracao;
+      const sessao = get().sessao;
+      if (!sessao) return;
+      const tokenAntes = sessao.token;
+      try {
+        const dados = await get().servico.consultar(tokenAntes);
+        if (geracao !== minhaGeracao || get().sessao?.token !== tokenAntes) return;
+        set({ sessao: { ...dados, token: tokenAntes } });
+      } catch (e) {
+        if (geracao !== minhaGeracao || get().sessao?.token !== tokenAntes) return;
+        // Mesmo tratamento de `sincronizarComCofre`: só "expirada" zera, sem apagar o cofre.
         if (codigoDe(e) === "expirada") {
           definirTokenDaSessao(null);
           set({ sessao: null });
@@ -307,6 +339,7 @@ export const useContaStore = create<ContaState>((set, get) => {
       try {
         geracao++;
         const token = get().sessao?.token;
+        sessaoSoEmMemoria = false;
         set({ sessao: null });
         definirTokenDaSessao(null);
         await gravarToken(null);

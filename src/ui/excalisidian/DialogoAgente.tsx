@@ -3,7 +3,7 @@
 // "Ativar agente"; fechar no meio não deixa configuração pela metade. A busca de modelos
 // no passo 2 É o teste de conexão: chave errada aparece ali, no ato.
 
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { toast } from "sonner";
 import { ArrowRight } from "lucide-react";
 
@@ -133,6 +133,11 @@ export default function DialogoAgente({ aoAbrirConta }: Props) {
   // Conta grátis não usa a IA paga: barra aqui em vez de descobrir no primeiro pedido.
   const planoInsuficiente =
     provedor.exigeConta && carregado && sessao !== null && sessao.plano !== "premium";
+  // O plano muda no servidor (o usuário assina pelo site com o app aberto): ao cair no aviso
+  // de plano insuficiente no passo Conta, reconsulta uma vez. Se virou premium, o aviso some.
+  useEffect(() => {
+    if (etapa === 2 && planoInsuficiente) void useContaStore.getState().atualizarPlano();
+  }, [etapa, planoInsuficiente]);
   const rotulosPasso = provedor.exigeConta
     ? [
         t("agente.passo.provedor"),

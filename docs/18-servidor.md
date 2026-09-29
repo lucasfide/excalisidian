@@ -91,8 +91,9 @@ Onde o servidor e esses contratos divergirem, o servidor está errado.
   token já substituído por `renovar`). É como uma janela do app adota o token que outra janela
   gravou no cofre: só a abertura da janela renova (`renovar`); mudança de preferência, entrar e
   sair em outra janela só consultam. Consequência: o plano (`plano`) mostrado numa janela só é
-  atualizado ao abrir o app, ao entrar, ou quando o token de outra janela muda (a renovação de uma
-  janela avisa as demais) — não mais a cada mudança de preferência.
+  atualizado ao abrir o app, ao entrar, quando o token de outra janela muda (a renovação de uma
+  janela avisa as demais), ao abrir o passo Conta do assistente com plano insuficiente e ao abrir a
+  seção Conta das preferências (`atualizarPlano`, que consulta sem renovar) — não mais a cada mudança de preferência.
 - **Atualizar:** o app é empacotado nesta máquina, copiado pela rede privada (Tailscale) e o
   serviço é reiniciado. Passo a passo no `servidor/LEIAME.md`.
 - O `Caddyfile` padrão que veio com o Caddy foi guardado em

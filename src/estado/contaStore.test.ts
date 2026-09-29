@@ -444,6 +444,76 @@ describe("contaStore", () => {
     expect(tokenDaSessaoAtual()).toBe(sessaoAnterior?.token);
   });
 
+  describe("atualizarPlano", () => {
+    it("plano muda de grátis para premium sem renovar nem trocar o token", async () => {
+      const servico = comConta();
+      useContaStore.getState().definirServico(servico);
+      await useContaStore.getState().entrar("ana@exemplo.com", "segredo123");
+      const token = useContaStore.getState().sessao!.token;
+      useContaStore.setState({ sessao: { ...useContaStore.getState().sessao!, plano: "gratis" } });
+      const renovar = vi.spyOn(servico, "renovar");
+      await useContaStore.getState().atualizarPlano();
+      expect(renovar).not.toHaveBeenCalled();
+      expect(useContaStore.getState().plano()).toBe("premium");
+      expect(useContaStore.getState().sessao?.token).toBe(token);
+    });
+
+    it("token trocado no meio da consulta descarta o resultado", async () => {
+      await useContaStore.getState().entrar("ana@exemplo.com", "segredo123");
+      const servico = useContaStore.getState().servico;
+      let liberar!: (d: Omit<Sessao, "token">) => void;
+      vi.spyOn(servico, "consultar").mockImplementation(() => new Promise((r) => { liberar = r; }));
+      const atualizando = useContaStore.getState().atualizarPlano();
+      const outra = { ...useContaStore.getState().sessao!, token: "tok-de-outra-janela" };
+      useContaStore.setState({ sessao: outra });
+      liberar({ email: "ana@exemplo.com", plano: "gratis", expiraEm: 1 });
+      await atualizando;
+      expect(useContaStore.getState().sessao).toEqual(outra);
+    });
+
+    it("expirada zera a sessão e o porta-token", async () => {
+      await useContaStore.getState().entrar("ana@exemplo.com", "segredo123");
+      vi.spyOn(useContaStore.getState().servico, "consultar").mockRejectedValue(new FalhaConta("expirada"));
+      await useContaStore.getState().atualizarPlano();
+      expect(useContaStore.getState().sessao).toBeNull();
+      expect(tokenDaSessaoAtual()).toBeNull();
+    });
+
+    it("rede mantém a sessão e nunca rejeita", async () => {
+      await useContaStore.getState().entrar("ana@exemplo.com", "segredo123");
+      const antes = useContaStore.getState().sessao;
+      vi.spyOn(useContaStore.getState().servico, "consultar").mockRejectedValue(new FalhaConta("rede"));
+      await expect(useContaStore.getState().atualizarPlano()).resolves.toBeUndefined();
+      expect(useContaStore.getState().sessao).toEqual(antes);
+    });
+
+    it("sem sessão não faz nada", async () => {
+      const consultar = vi.spyOn(useContaStore.getState().servico, "consultar");
+      await useContaStore.getState().atualizarPlano();
+      expect(consultar).not.toHaveBeenCalled();
+    });
+  });
+
+  it("cofre que falhou ao gravar: evento de outra janela não zera a sessão só em memória", async () => {
+    cofre.falhar = true;
+    await useContaStore.getState().entrar("ana@exemplo.com", "segredo123");
+    cofre.falhar = false; // cofre volta, mas vazio
+    await useContaStore.getState().sincronizarComCofre();
+    expect(useContaStore.getState().sessao).not.toBeNull();
+    expect(tokenDaSessaoAtual()).toBe(useContaStore.getState().sessao?.token);
+  });
+
+  it("depois de gravar no cofre com sucesso, cofre vazio volta a significar 'outra janela saiu'", async () => {
+    cofre.falhar = true;
+    await useContaStore.getState().entrar("ana@exemplo.com", "segredo123");
+    cofre.falhar = false;
+    await useContaStore.getState().sair();
+    await useContaStore.getState().entrar("ana@exemplo.com", "segredo123");
+    cofre.token = null;
+    await useContaStore.getState().sincronizarComCofre();
+    expect(useContaStore.getState().sessao).toBeNull();
+  });
+
   describe("sincronizarComCofre", () => {
     it("sem token no cofre zera a sessão e o porta-token", async () => {
       await useContaStore.getState().entrar("ana@exemplo.com", "segredo123");
