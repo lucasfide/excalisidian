@@ -18,7 +18,7 @@ Onde o servidor e esses contratos divergirem, o servidor está errado.
 
 - O servidor roda na VPS do dono do produto, no endereço `https://api.excalisidian.com`. Todas
   as rotas ficam sob `/v1` (o app usa `https://api.excalisidian.com/v1` como base, em
-  `src/servico/base.ts`): `/v1/contas`, `/v1/sessoes`, `/v1/sync/vaults`, `/v1/chat/completions`, `/v1/creditos`,
+  `src/servico/base.ts`): `/v1/contas`, `/v1/sessoes`, `/v1/sessoes/atual`, `/v1/sync/vaults`, `/v1/chat/completions`, `/v1/creditos`,
   `/v1/saude`.
 - Ele guarda três coisas: as contas (e-mail, plano, faixa de IA e uma versão embaralhada da
   prova de identidade — nunca a senha), as sessões de quem está conectado, e os pacotes lacrados
@@ -86,6 +86,11 @@ Onde o servidor e esses contratos divergirem, o servidor está errado.
   120 s e um `renovar` repetido nessa janela devolve de novo a mesma sessão nova, em vez de
   401. Depois disso, ou se a sessão nova já foi ela mesma substituída, 401. `sair` encerra a
   sessão atual e as que ela substituiu.
+- **Consultar sem trocar:** `GET /v1/sessoes/atual` (Bearer) devolve `{ email, plano, expiraEm }`
+  da sessão do token, **sem trocá-lo** e sem nunca devolver token; 401 sem sessão válida (inclusive
+  token já substituído por `renovar`). É como uma janela do app adota o token que outra janela
+  gravou no cofre: só a abertura da janela renova (`renovar`); mudança de preferência, entrar e
+  sair em outra janela só consultam.
 - **Atualizar:** o app é empacotado nesta máquina, copiado pela rede privada (Tailscale) e o
   serviço é reiniciado. Passo a passo no `servidor/LEIAME.md`.
 - O `Caddyfile` padrão que veio com o Caddy foi guardado em

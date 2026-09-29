@@ -269,6 +269,12 @@ própria:
   medidor **oculto**: nunca se mostra número inventado, e zero seria mentir sobre dinheiro.
 - **Créditos esgotados:** 429 com corpo `{"codigo":"creditos"}` vira o código de erro
   `creditos`. Um 429 sem esse corpo continua sendo `cota` (limite momentâneo).
+- **401 com o token trocado por outra janela:** duas janelas compartilham o token pelo cofre; se
+  outra janela renovou ou entrou enquanto um pedido voava com o token velho, o 401 não significa
+  "deslogado". Num `sessao` do provedor próprio o agente adota o token do cofre
+  (`contaStore.sincronizarComCofre`, que consulta e nunca renova) e, se o token mudou para outro
+  não nulo, repete o pedido **uma vez**. Token igual, sem token ou segundo 401: erro definitivo
+  como antes. O mesmo ponto único (`completarComSessao`) cobre gateiro, resumo, ciclo e chat.
 - **"Testar conexão"** verifica a sessão em vez de responder "funcionando" sem testar nada.
 - O modo com chave própria (os seis provedores acima) continua **gratuito e intacto**.
   Vende-se conveniência, não exclusividade.
