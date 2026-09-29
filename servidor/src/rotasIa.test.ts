@@ -173,9 +173,9 @@ describe("POST /v1/chat/completions — sucesso e falha do fornecedor", () => {
 
   it("fornecedor falha → 502 e nada é cobrado", async () => {
     const { id, token } = criarConta("a@x.com");
-    fornecedor.mockImplementationOnce(async () => new Response("{}", { status: 500 }));
+    fornecedor.mockImplementation(async () => new Response("{}", { status: 500 }));
     expect((await pedir(token, CORPO)).statusCode).toBe(502);
-    fornecedor.mockImplementationOnce(async () => {
+    fornecedor.mockImplementation(async () => {
       throw new TypeError("fetch failed");
     });
     expect((await pedir(token, CORPO)).statusCode).toBe(502);
@@ -192,6 +192,177 @@ describe("POST /v1/chat/completions — sucesso e falha do fornecedor", () => {
     expect(tudo).not.toContain("texto secreto da nota");
     expect(tudo).not.toContain(token);
     expect(tudo).not.toContain("sk-secreta-do-fornecedor");
+  });
+});
+
+describe("POST /v1/chat/completions — registro da chamada e nova tentativa", () => {
+  const ECO = "TEXTO-SECRETO-DA-NOTA";
+  const EMAIL = "dono.privado@exemplo.com";
+
+  /** Roda `fazer` com console.log espionado; devolve todas as linhas e só os registros de IA. */
+  async function capturar(fazer: () => Promise<unknown>) {
+    const espiao = vi.spyOn(console, "log").mockImplementation(() => {});
+    try {
+      await fazer();
+    } finally {
+      // restaurado abaixo, depois de ler as chamadas
+    }
+    const linhas = espiao.mock.calls.map((c) => String(c[0]));
+    espiao.mockRestore();
+    const ia = linhas.map((l) => JSON.parse(l) as Record<string, unknown>).filter((o) => o.evento === "ia");
+    return { linhas, ia, tudo: linhas.join("\n") };
+  }
+
+  function semSegredos(tudo: string, token: string) {
+    for (const proibido of [ECO, "texto secreto da nota", token, EMAIL, "sk-secreta-do-fornecedor", "modelo-real"]) {
+      expect(tudo).not.toContain(proibido);
+    }
+  }
+
+  const corpoErro = (code: number) => ({
+    error: { code, message: `entrada inválida: ${ECO}`, metadata: { provider_name: "Fireworks", raw: ECO } },
+  });
+
+  it("sucesso: uma linha evento ia com os campos, além da linha da requisição, sem segredos", async () => {
+    const { id, token } = criarConta(EMAIL);
+    fornecedor.mockImplementationOnce(
+      async () =>
+        new Response(
+          JSON.stringify({
+            id: "gen-abc123",
+            provider: "Together",
+            choices: [{ message: { role: "assistant", content: "resposta" }, finish_reason: "stop" }],
+            usage: { prompt_tokens: 1000, completion_tokens: 100, cost: 0.0002, prompt_tokens_details: { cached_tokens: 300 } },
+          }),
+          { status: 200 },
+        ),
+    );
+    const { linhas, ia, tudo } = await capturar(() => pedir(token, CORPO));
+    expect(linhas.length).toBe(2);
+    expect(ia).toHaveLength(1);
+    expect(ia[0]).toMatchObject({
+      evento: "ia",
+      modelo: "leitura-rapida",
+      resultado: "ok",
+      provedorEscolhido: "Together",
+      idGeracao: "gen-abc123",
+      motivoFim: "stop",
+      tokensEntrada: 1000,
+      tokensSaida: 100,
+      tokensCache: 300,
+      custoMicroUsd: 211,
+      tentativas: 1,
+    });
+    expect(typeof ia[0].duracaoFornecedorMs).toBe("number");
+    expect(ia[0]).not.toHaveProperty("motivo");
+    expect(Object.keys(ia[0]).sort()).toEqual(
+      [
+        "custoMicroUsd", "duracaoFornecedorMs", "evento", "idGeracao", "modelo", "motivoFim", "provedorEscolhido",
+        "resultado", "tentativas", "tokensCache", "tokensEntrada", "tokensSaida",
+      ].sort(),
+    );
+    expect(app.banco.prepare(`select custo_micro_usd as micro from uso_ia where conta_id = ?`).get(id)).toEqual({ micro: 211 });
+    semSegredos(tudo, token);
+  });
+
+  it("falha http com corpo de erro que ecoa o texto: só status, código e provedor; nunca message nem raw", async () => {
+    const { token } = criarConta(EMAIL);
+    fornecedor.mockImplementation(async () => new Response(JSON.stringify(corpoErro(502)), { status: 502 }));
+    const { ia, tudo } = await capturar(async () => expect((await pedir(token, CORPO)).statusCode).toBe(502));
+    expect(ia).toHaveLength(1);
+    expect(ia[0]).toMatchObject({
+      evento: "ia",
+      modelo: "leitura-rapida",
+      resultado: "falha",
+      motivo: "http",
+      statusFornecedor: 502,
+      codigoErroFornecedor: 502,
+      provedorEscolhido: "Fireworks",
+      tentativas: 2,
+    });
+    expect(typeof ia[0].duracaoFornecedorMs).toBe("number");
+    semSegredos(tudo, token);
+  });
+
+  it("falhas de rede, tempo, json e sem texto registram o motivo certo, sem segredos", async () => {
+    const { token } = criarConta(EMAIL);
+    const casos: Array<[string, () => Promise<Response>]> = [
+      ["rede", async () => { throw new TypeError(`fetch failed ${ECO}`); }],
+      ["tempo", async () => { throw new DOMException(ECO, "TimeoutError"); }],
+      ["json", async () => new Response(`não é json ${ECO}`, { status: 200 })],
+      [
+        "sem_texto",
+        async () =>
+          new Response(
+            JSON.stringify({ id: "gen-zzz", provider: "Fireworks", choices: [{ message: { content: "" }, finish_reason: "length" }], usage: { prompt_tokens: 5, completion_tokens: 9 } }),
+            { status: 200 },
+          ),
+      ],
+    ];
+    for (const [motivo, resposta] of casos) {
+      fornecedor.mockImplementation(resposta);
+      const { ia, tudo } = await capturar(async () => expect((await pedir(token, CORPO)).statusCode).toBe(502));
+      expect(ia).toHaveLength(1);
+      expect(ia[0]).toMatchObject({ resultado: "falha", motivo, tentativas: motivo === "rede" || motivo === "tempo" ? 2 : 1 });
+      semSegredos(tudo, token);
+    }
+  });
+
+  it("502 rápido e depois sucesso: 200, duas chamadas, um único débito, tentativas 2", async () => {
+    const { id, token } = criarConta(EMAIL);
+    fornecedor
+      .mockImplementationOnce(async () => new Response(JSON.stringify(corpoErro(502)), { status: 502 }))
+      .mockImplementationOnce(async () => respostaFornecedor());
+    const { ia } = await capturar(async () => expect((await pedir(token, CORPO)).statusCode).toBe(200));
+    expect(fornecedor).toHaveBeenCalledTimes(2);
+    expect(ia).toHaveLength(1);
+    expect(ia[0]).toMatchObject({ resultado: "ok", tentativas: 2, custoMicroUsd: 444 });
+    expect(app.banco.prepare(`select custo_micro_usd as micro, pedidos from uso_ia where conta_id = ?`).get(id)).toEqual({ micro: 444, pedidos: 1 });
+  });
+
+  it("duas falhas seguidas: 502 e nada cobrado", async () => {
+    const { id, token } = criarConta(EMAIL);
+    fornecedor.mockImplementation(async () => new Response("{}", { status: 503 }));
+    expect((await pedir(token, CORPO)).statusCode).toBe(502);
+    expect(fornecedor).toHaveBeenCalledTimes(2);
+    expect(app.banco.prepare(`select count(*) as n from uso_ia where conta_id = ?`).get(id)).toEqual({ n: 0 });
+  });
+
+  it("400 do fornecedor não tenta de novo", async () => {
+    const { token } = criarConta(EMAIL);
+    fornecedor.mockImplementation(async () => new Response(JSON.stringify(corpoErro(400)), { status: 400 }));
+    const { ia } = await capturar(async () => expect((await pedir(token, CORPO)).statusCode).toBe(502));
+    expect(fornecedor).toHaveBeenCalledTimes(1);
+    expect(ia[0]).toMatchObject({ motivo: "http", statusFornecedor: 400, tentativas: 1 });
+  });
+
+  it("falha depois de 15 s não tenta de novo", async () => {
+    const { token } = criarConta(EMAIL);
+    let agora = 0;
+    const relogio = vi.spyOn(performance, "now").mockImplementation(() => agora);
+    fornecedor.mockImplementation(async () => {
+      agora += 16_000;
+      return new Response("{}", { status: 502 });
+    });
+    try {
+      expect((await pedir(token, CORPO)).statusCode).toBe(502);
+    } finally {
+      relogio.mockRestore();
+    }
+    expect(fornecedor).toHaveBeenCalledTimes(1);
+  });
+
+  it("a vaga de pedido em andamento continua ocupada durante a nova tentativa", async () => {
+    const { token } = criarConta(EMAIL);
+    const liberar: Array<(r: Response) => void> = [];
+    fornecedor.mockImplementation(() => new Promise<Response>((resolve) => liberar.push(resolve)));
+    const pedidos = [1, 2, 3].map(() => pedir(token, CORPO));
+    await vi.waitFor(() => expect(liberar.length).toBe(3));
+    liberar.forEach((l) => l(new Response("{}", { status: 502 })));
+    await vi.waitFor(() => expect(liberar.length).toBe(6));
+    expect((await pedir(token, CORPO)).statusCode).toBe(429);
+    liberar.slice(3).forEach((l) => l(respostaFornecedor()));
+    expect((await Promise.all(pedidos)).map((r) => r.statusCode)).toEqual([200, 200, 200]);
   });
 });
 
@@ -230,6 +401,9 @@ describe("POST /v1/chat/completions — pedidos simultâneos por conta", () => {
     const pedidos = [1, 2, 3].map(() => pedir(token, CORPO));
     await vi.waitFor(() => expect(liberar.length).toBe(3));
     liberar.forEach((l) => l(new TypeError("fetch failed")));
+    // Falha de rede rápida tem uma nova tentativa (a vaga continua ocupada); a segunda também falha.
+    await vi.waitFor(() => expect(liberar.length).toBe(6));
+    liberar.slice(3).forEach((l) => l(new TypeError("fetch failed")));
     expect((await Promise.all(pedidos)).map((r) => r.statusCode)).toEqual([502, 502, 502]);
 
     fornecedor.mockImplementation(async () => respostaFornecedor());

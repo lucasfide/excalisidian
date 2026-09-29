@@ -5,15 +5,17 @@
 // chave do fornecedor, fornecedor. Só se debita depois de uma resposta boa do fornecedor.
 //
 // O texto das mensagens atravessa esta rota e vai ao fornecedor; nunca é guardado nem logado
-// (o log de log.ts só vê método, rota, status e duração).
+// (o log de log.ts só vê método, rota, status e duração; o registro de IA, `registrarEventoIa`,
+// só leva números, códigos e nomes de provedor conferidos — doc 18 §3).
 
 import type { FastifyInstance } from "fastify";
 
 import type { BancoSqlite } from "./banco";
 import type { ConfigIa } from "./config";
 import { debitar, saldoDaConta } from "./creditosIa";
-import { chamarFornecedor, ehModeloLogico, FalhaFornecedor, tetoDeSaida, type MensagemIa } from "./fornecedorIa";
+import { chamarComTentativa, ehModeloLogico, FalhaFornecedor, tetoDeSaida, type MensagemIa } from "./fornecedorIa";
 import { LimiteDeTentativas } from "./limiteDeTentativas";
+import { registrarEventoIa } from "./log";
 import { exigirPremium, exigirSessao } from "./sessao";
 
 const LIMITE_CORPO_BYTES = 256 * 1024;
@@ -87,19 +89,56 @@ export function registrarRotasIa(
 
       let resposta;
       try {
+        let resultado;
         try {
-          resposta = await chamarFornecedor({
+          resultado = await chamarComTentativa({
             ia: opcoes.ia,
             fetchImpl: opcoes.fetchFornecedor,
             mensagens: messages.map((m) => ({ role: m.role, content: m.content })),
             maxTokens: tetoDeSaida(max_completion_tokens),
           });
         } catch (erro) {
-          if (erro instanceof FalhaFornecedor) return reply.code(502).send();
+          if (erro instanceof FalhaFornecedor) {
+            // Só campos de diagnóstico conferidos (motivo, status, código, provedor, tokens):
+            // nada do texto do pedido nem do corpo de erro do fornecedor.
+            registrarEventoIa({
+              evento: "ia",
+              modelo: model,
+              resultado: "falha",
+              motivo: erro.motivo,
+              statusFornecedor: erro.statusFornecedor,
+              codigoErroFornecedor: erro.codigoErroFornecedor,
+              provedorEscolhido: erro.provedorEscolhido,
+              idGeracao: erro.idGeracao,
+              motivoFim: erro.motivoFim,
+              tokensEntrada: erro.tokensEntrada,
+              tokensSaida: erro.tokensSaida,
+              tokensCache: erro.tokensCache,
+              duracaoFornecedorMs: erro.duracaoMs ?? 0,
+              tentativas: erro.tentativas ?? 1,
+            });
+            return reply.code(502).send();
+          }
           throw erro;
         }
+        resposta = resultado.resposta;
 
-        debitar(banco, conta.id, opcoes.agora(), resposta.uso, resposta.custoUsd);
+        // Debita uma vez só, pela tentativa boa.
+        const custoMicroUsd = debitar(banco, conta.id, opcoes.agora(), resposta.uso, resposta.custoUsd);
+        registrarEventoIa({
+          evento: "ia",
+          modelo: model,
+          resultado: "ok",
+          provedorEscolhido: resposta.detalhe.provedorEscolhido,
+          idGeracao: resposta.detalhe.idGeracao,
+          motivoFim: resposta.detalhe.motivoFim,
+          tokensEntrada: resposta.tokensEntrada,
+          tokensSaida: resposta.tokensSaida,
+          tokensCache: resposta.detalhe.tokensCache,
+          custoMicroUsd,
+          duracaoFornecedorMs: resultado.duracaoMs,
+          tentativas: resultado.tentativas,
+        });
       } finally {
         const restante = (emAndamento.get(conta.id) ?? 1) - 1;
         if (restante <= 0) emAndamento.delete(conta.id);
