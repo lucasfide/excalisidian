@@ -206,6 +206,18 @@ let timerRenovacaoSaldo: number | undefined;
 // a busca seguinte reagenda o resto.
 const TETO_TIMER_MS = 2_147_483_647;
 const MARGEM_RENOVACAO_MS = 60_000;
+// Piso da espera: relógio do cliente adiantado em relação ao servidor não pode gerar busca a cada minuto.
+const PISO_RENOVACAO_MS = 10 * 60_000;
+
+/** Igualdade de config sem depender da ordem das chaves (o settings.json devolve ordenado). */
+function mesmaConfig(a: unknown, b: unknown): boolean {
+  if (a === b) return true;
+  if (typeof a !== "object" || typeof b !== "object" || !a || !b) return false;
+  const ka = Object.keys(a);
+  const kb = Object.keys(b);
+  if (ka.length !== kb.length) return false;
+  return ka.every((k) => k in b && mesmaConfig((a as Record<string, unknown>)[k], (b as Record<string, unknown>)[k]));
+}
 let gatilhosLigados = false;
 let resumosCache: Record<string, Resumo> = {};
 let timerPersistirParticipacao: number | undefined;
@@ -322,7 +334,7 @@ export const useAgenteStore = create<AgenteState>((set, get) => {
     set({ saldoCreditos: saldo });
     window.clearTimeout(timerRenovacaoSaldo);
     const espera = Math.min(
-      Math.max(saldo.renovaEm + MARGEM_RENOVACAO_MS - Date.now(), MARGEM_RENOVACAO_MS),
+      Math.max(saldo.renovaEm + MARGEM_RENOVACAO_MS - Date.now(), PISO_RENOVACAO_MS),
       TETO_TIMER_MS,
     );
     timerRenovacaoSaldo = window.setTimeout(() => void get().atualizarSaldo(), espera);
@@ -709,7 +721,7 @@ export const useAgenteStore = create<AgenteState>((set, get) => {
         const salva = await store.get<ConfigAgente>(CHAVE_CONFIG);
         if (ehConfigAgente(salva)) {
           const atual = get().config;
-          const mudou = !atual || JSON.stringify(atual) !== JSON.stringify(salva);
+          const mudou = !atual || !mesmaConfig(atual, salva);
           if (mudou) {
             // Config diferente: vale o mesmo que aplicarConfig (o motivo do erro era da config antiga).
             erroDefinitivo = false;
@@ -717,10 +729,8 @@ export const useAgenteStore = create<AgenteState>((set, get) => {
             if (!salva.habilitado || !provedorDe(salva.provedor).exigeConta) zerarSaldo();
             set({ config: salva, erroAtual: null });
             set((s) => ({ status: statusBase(s) }));
-          } else if (!erroDefinitivo && !pausaPorCreditos) {
-            set((s) => ({ status: statusBase(s) }));
           }
-          // mesma config com erro definitivo ou pausa: o motivo continua valendo, nada a tocar
+          // mesma config: nada a tocar (status, erro visível e pausa continuam valendo)
         }
       } catch {
         // sem configuração salva: agente simplesmente não existe
@@ -792,11 +802,13 @@ export const useAgenteStore = create<AgenteState>((set, get) => {
       if (provedor.exigeConta) {
         const token = tokenDaSessaoAtual();
         if (!token) return textoDoErro(new FalhaAgente("sessao"));
-        const minha = ++seqSaldo;
+        const antes = seqSaldo;
         const r = await consultarCreditos(token);
         if (!r.ok) return textoDoErro(new FalhaAgente(r.motivo));
         const atual = get().config;
-        if (minha === seqSaldo && atual?.habilitado && provedorDe(atual.provedor).exigeConta) {
+        // só o sucesso invalida buscas em voo; falha não descarta nada
+        if (antes === seqSaldo && atual?.habilitado && provedorDe(atual.provedor).exigeConta) {
+          seqSaldo++;
           registrarSaldo(r.saldo);
         }
         return null;
@@ -820,7 +832,7 @@ export const useAgenteStore = create<AgenteState>((set, get) => {
       const envio = texto.trim();
       if (!cfg || !cfg.habilitado || get().pausado || !envio || get().enviandoChat) return;
       if (envio.length > LIMITE_MENSAGEM_CHARS) {
-        set({ erroAtual: traduzirAgora("agente.erro.mensagemLonga") });
+        if (!pausaPorCreditos) set({ erroAtual: traduzirAgora("agente.erro.mensagemLonga") });
         return "longa";
       }
       const ativa = notaAtivaAtual();

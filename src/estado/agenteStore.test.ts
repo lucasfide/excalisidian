@@ -1118,3 +1118,67 @@ describe("agenteStore — carregar() entre janelas não apaga o motivo do erro",
     expect(st().config?.thinking).toBe("alto");
   });
 });
+
+// ——— ajustes da revisão final (plano 16, tarefa 4) ———
+
+describe("agenteStore — ajustes da revisão final", () => {
+  it("carregar() com a mesma config não mexe no status nem no erro visível", async () => {
+    await st().aplicarConfig(CONFIG);
+    useAgenteStore.setState({ status: "pensando" });
+    await st().carregar();
+    expect(st().status).toBe("pensando");
+    useAgenteStore.setState({ status: "erro", erroAtual: "falha de rede" });
+    await st().carregar();
+    expect(st().status).toBe("erro");
+    expect(st().erroAtual).toBe("falha de rede");
+  });
+
+  it("carregar() com a mesma config em outra ordem de chaves conta como igual", async () => {
+    await st().aplicarConfig(CONFIG);
+    const embaralhada = Object.fromEntries(Object.entries(CONFIG).reverse());
+    stores.get("settings.json")!.set("agente", embaralhada);
+    useAgenteStore.setState({ status: "erro", erroAtual: "falha de rede" });
+    await st().carregar();
+    expect(st().erroAtual).toBe("falha de rede");
+  });
+
+  it("busca de renovação do saldo espera no mínimo 10 min", async () => {
+    vi.useFakeTimers();
+    vi.stubEnv("VITE_SERVIDOR", "real");
+    definirTokenDaSessao("tok");
+    await st().aplicarConfig(CONFIG_PROPRIA);
+    buscarSaldoMock.mockReset();
+    buscarSaldoMock.mockResolvedValue({ usados: 1, total: 100, renovaEm: 1 });
+    await st().atualizarSaldo();
+    buscarSaldoMock.mockClear();
+    await vi.advanceTimersByTimeAsync(9 * 60_000);
+    expect(buscarSaldoMock).not.toHaveBeenCalled();
+    await vi.advanceTimersByTimeAsync(2 * 60_000);
+    expect(buscarSaldoMock).toHaveBeenCalledTimes(1);
+  });
+
+  it("mensagem longa na pausa por créditos mantém o motivo da pausa", async () => {
+    await prepararNota(CONFIG_PROPRIA);
+    vi.mocked(completar).mockRejectedValue(new FalhaAgente("creditos"));
+    await vi.advanceTimersByTimeAsync(6_000);
+    expect(st().erroAtual).toBe("erro simulado");
+    const r = await st().enviarMensagem("x".repeat(100_001));
+    expect(r).toBe("longa");
+    expect(st().erroAtual).toBe("erro simulado");
+  });
+
+  it("testar conexão que falha não descarta uma busca de saldo em voo", async () => {
+    vi.stubEnv("VITE_SERVIDOR", "real");
+    definirTokenDaSessao("tok");
+    await st().aplicarConfig(CONFIG_PROPRIA);
+    let liberar: (v: unknown) => void = () => {};
+    buscarSaldoMock.mockReset();
+    buscarSaldoMock.mockImplementation(() => new Promise((res) => void (liberar = res)));
+    const busca = st().atualizarSaldo();
+    consultarMock.mockResolvedValue({ ok: false, motivo: "rede" });
+    await st().testarConexao();
+    liberar({ usados: 5, total: 100, renovaEm: Date.now() + 3_600_000 });
+    await busca;
+    expect(st().saldoCreditos?.usados).toBe(5);
+  });
+});
