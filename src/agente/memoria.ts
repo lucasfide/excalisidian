@@ -10,7 +10,7 @@
 import { load } from "@tauri-apps/plugin-store";
 
 import { hashVault } from "../indice/cache";
-import type { CandidatoFato, Fato } from "./tipos";
+import type { CandidatoFato, Fato, MensagemConversaAgente } from "./tipos";
 import {
   contarCodePoints,
   MAX_FATO_CHARS,
@@ -351,4 +351,26 @@ export async function limparMemoria(raiz: string): Promise<void> {
 /** Caminho humano da pasta, para "Abrir pasta do agente" (doc 11 §6.3). */
 export function pastaAgenteRelativa(raiz: string): string {
   return `agente/${hashVault(raiz)}`;
+}
+
+/** Máximo de análises automáticas guardadas por nota (plano 21, tarefa 2.1). */
+export const MAX_ANALISES_POR_NOTA = 20;
+
+/**
+ * Remove as análises mais antigas além de `max`, preservando a ordem do resto. Mensagens do
+ * usuário e respostas do chat nunca são cortadas; análise em andamento nunca é removida.
+ */
+export function podarAnalises(
+  mensagens: MensagemConversaAgente[],
+  max = MAX_ANALISES_POR_NOTA,
+): MensagemConversaAgente[] {
+  let excesso = mensagens.filter((m) => m.tipo === "analise").length - max;
+  if (excesso <= 0) return mensagens;
+  return mensagens.filter((m) => {
+    if (excesso > 0 && m.tipo === "analise" && m.estado !== "em-andamento") {
+      excesso -= 1;
+      return false;
+    }
+    return true;
+  });
 }

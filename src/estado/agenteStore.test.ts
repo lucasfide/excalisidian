@@ -888,6 +888,38 @@ describe("agenteStore — memória de longo prazo", () => {
     });
   });
 
+  it("a 21ª análise de uma nota descarta a mais antiga e mantém as mensagens do chat", async () => {
+    vi.useFakeTimers();
+    vi.mocked(completar).mockImplementation(async (p) => respostaPorPapel(p));
+    notaAberta.conteudoEditor = "x".repeat(150);
+    await st().aplicarConfig(CONFIG);
+    const analises = Array.from({ length: 20 }, (_, i) => ({
+      id: `analise-antiga-${i}`,
+      papel: "assistente",
+      texto: `análise ${i}`,
+      tipo: "analise",
+      estado: "concluido",
+    }));
+    stores.set(`agente/${hashVault("C:/vault")}/conversas.json`, new Map([["dados", {
+      version: 1,
+      dados: { "Nota.md": {
+        atualizadaEm: "2026-10-01",
+        mensagens: [{ papel: "usuario", texto: "pergunta do chat" }, ...analises],
+      } },
+    }]]));
+    await st().aoAbrirVault("C:/vault");
+    await vi.advanceTimersByTimeAsync(6000);
+    st().responderConvite("aceitar");
+    await vi.advanceTimersByTimeAsync(0);
+
+    const msgs = st().conversas["Nota.md"];
+    const lista = msgs.filter((m) => m.tipo === "analise");
+    expect(lista).toHaveLength(20);
+    expect(lista.some((m) => m.id === "analise-antiga-0")).toBe(false);
+    expect(lista.some((m) => m.id === "analise-antiga-1")).toBe(true);
+    expect(msgs[0].texto).toBe("pergunta do chat");
+  });
+
   it("limparMemoria esvazia estado e disco (doc 11 §6.3)", async () => {
     await st().aplicarConfig(CONFIG);
     await st().aoAbrirVault("C:/vault");

@@ -37,6 +37,7 @@ import {
   salvarParticipacao,
   salvarResumos,
   pastaAgenteRelativa,
+  podarAnalises,
 } from "./memoria";
 import { hashVault } from "../indice/cache";
 
@@ -253,5 +254,37 @@ describe("memoria", () => {
     expect(await carregarConversas(RAIZ)).toEqual({});
     expect(await carregarParticipacao(RAIZ)).toEqual({});
     expect(await carregarResumos(RAIZ)).toEqual({});
+  });
+});
+
+describe("podarAnalises", () => {
+  const analise = (n: number, estado: "concluido" | "em-andamento" = "concluido") => ({
+    id: `a${n}`, papel: "assistente" as const, texto: `a${n}`, tipo: "analise" as const, estado,
+  });
+
+  it("abaixo do limite não muda nada", () => {
+    const msgs = [analise(1), { papel: "usuario" as const, texto: "oi" }, analise(2)];
+    expect(podarAnalises(msgs, 20)).toEqual(msgs);
+  });
+
+  it("corta só análises, as mais antigas, e mantém a ordem do resto", () => {
+    const msgs = [
+      analise(1), { papel: "usuario" as const, texto: "u1" },
+      analise(2), { papel: "assistente" as const, texto: "r1", tipo: "mensagem" as const },
+      analise(3), analise(4),
+    ];
+    expect(podarAnalises(msgs, 2).map((m) => m.texto)).toEqual(["u1", "r1", "a3", "a4"]);
+  });
+
+  it("usa 20 como limite padrão", () => {
+    const msgs = Array.from({ length: 25 }, (_, i) => analise(i));
+    const r = podarAnalises(msgs);
+    expect(r).toHaveLength(20);
+    expect(r[0].id).toBe("a5");
+  });
+
+  it("nunca remove análise em andamento", () => {
+    const msgs = [analise(1, "em-andamento"), analise(2), analise(3)];
+    expect(podarAnalises(msgs, 1).map((m) => m.id)).toEqual(["a1"]);
   });
 });

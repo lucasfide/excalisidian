@@ -65,6 +65,7 @@ import {
   salvarParticipacao,
   salvarResumos,
   pastaAgenteRelativa,
+  podarAnalises,
   type ConversaSalva,
   type Fato,
   type Participacao,
@@ -750,7 +751,7 @@ export const useAgenteStore = create<AgenteState>((set, get) => {
     set((st) => ({
       conversas: {
         ...st.conversas,
-        [path]: [
+        [path]: podarAnalises([
           ...(st.conversas[path] ?? []),
           {
             id: analiseId,
@@ -761,7 +762,7 @@ export const useAgenteStore = create<AgenteState>((set, get) => {
             estado: "em-andamento",
             criadoEm: new Date().toISOString(),
           },
-        ],
+        ]),
       },
     }));
     agendarPersistirConversas();
@@ -1278,9 +1279,9 @@ export const useAgenteStore = create<AgenteState>((set, get) => {
         conversas: Object.fromEntries(
           Object.entries(conversasSalvas).map(([k, v]) => [
             k,
-            v.mensagens.map((mensagem) => mensagem.estado === "em-andamento"
+            podarAnalises(v.mensagens.map((mensagem) => mensagem.estado === "em-andamento"
               ? { ...mensagem, estado: "erro" as const, texto: "Análise interrompida ao fechar o aplicativo." }
-              : mensagem),
+              : mensagem)),
           ]),
         ),
       });

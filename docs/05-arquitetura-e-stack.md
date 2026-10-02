@@ -109,7 +109,10 @@ src/
 ├── servico/                 cliente do serviço online (conta, créditos) — doc 09, ADR-31/34/35
 │   ├── base.ts              BASE_URL_SERVICO, CONTA_DISPONIVEL
 │   ├── sessao.ts             token de sessão em memória ("porta-token"); ver seção 7 abaixo
-│   └── creditos.ts           interpreta o saldo de créditos que o servidor manda
+│   ├── creditos.ts           interpreta o saldo de créditos que o servidor manda
+│   ├── saldoCreditos.ts      busca o saldo no servidor; qualquer falha devolve null/motivo, nunca um número velho
+│   ├── estadoCreditosConta.ts regras puras do estado do saldo (verificando, sem sessão, consultando, disponível, indisponível…) e da recuperação após 401
+│   └── useSaldoCreditosConta.ts hook React que consulta o saldo e expõe o estado à interface (`CreditosAgente`, agente)
 ├── conta/                   conta do usuário — doc 09, ADR-31/33/34
 │   ├── tipos.ts
 │   ├── ServicoConta.ts       contrato: entrar, criar, renovar, sair
@@ -154,7 +157,8 @@ src/
 │   ├── gateiro.ts             análise inicial e convite
 │   ├── assistente.ts          ciclo de sugestões estruturadas
 │   ├── recuperacao.ts         top-k local (minisearch + backlinks)
-│   └── memoria.ts             pasta de memória em %APPDATA% (escrita atômica)
+│   ├── regrasMemoria.ts       limites da memória (`MAX_FATO_CHARS`, orçamento do prompt) e normalização de texto para comparação (puro)
+│   └── memoria.ts             pasta de memória em %APPDATA% (escrita atômica); poda das análises da conversa (máx. 20 por nota)
 ├── editor/
 │   ├── EditorNota.tsx
 │   ├── editorAtivo.ts, useAutosave.ts

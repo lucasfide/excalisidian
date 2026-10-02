@@ -530,8 +530,11 @@ Altura padrão 36px, compacto 30px, ícone 32×32.
 | `AmostraSimbolo` | coluna "Fica assim" do glossário: desenha a sintaxe markdown com os estilos que o editor aplica (negrito, código, citação etc.); amostra `comportamento` não desenha nada (só texto) |
 | `ConfirmacaoDestrutiva` | diálogo com a contagem real do que será perdido |
 | `FaixaConflito` | faixa no topo do editor com as duas ações |
-| `BalaoAgente` | balão flutuante do agente de IA, canto inferior direito (doc 11 §6.1) — só existe com o agente habilitado |
-| `PainelAgente` | cartão flutuante do agente: convite, sugestões, conversa, medidor de uso (doc 11 §6.2) |
+| `PainelLateral` | coluna à direita da área de documentos, fora do dockview, que divide o espaço entre `PainelTarefas` e `PainelAgente` (um por vez); largura e divisória de `PainelTarefas` (ver "Painel lateral do agente de IA") |
+| `CabecalhoPainelLateral` | cabeçalho de 34px com as abas "Agente" e "Tarefas" e o botão de recolher (`panel-right-close`); `acoes` opcional à direita das abas (o agente põe ali o menu `…`) |
+| `PainelAgente` | conteúdo do painel do agente: convite, conversa com blocos de análise, "O que o agente lembra", medidor de uso e campo de pergunta (doc 11 §6.2) |
+| `ConviteAgente` | convite do agente como toast (sonner), sem componente visual próprio — ver "Painel lateral do agente de IA" |
+| `CreditosAgente` | cartão de saldo de créditos da IA do Excalisidian (e-mail da conta opcional) nas configurações e preferências do agente |
 | `IconeSincronizacao` | ícone de estado da sincronização no rodapé da sidebar (doc 17 §8) — ver "Ícone de sincronização no rodapé da sidebar", abaixo |
 | `DialogoAgente` | assistente de configuração do agente em etapas — provedor, chave, modelo da leitura inicial, modelo do acompanhamento, revisão (doc 11 §6.3); a seção "Agente de IA" das Configurações o abre |
 
@@ -596,23 +599,43 @@ Ordem dos blocos, de cima para baixo:
 **Largura da tela:** `max-w-md` — a mesma que a tela `sem-vault` antiga já usava. Registrado
 aqui, não um valor novo.
 
-### Balão e painel do agente de IA
+### Painel lateral do agente de IA
 
-Especificado no doc 11 (§6); os valores visuais normativos moram aqui. Só existem quando o
-agente está habilitado — o produto sem agente não tem nenhum destes elementos.
+Especificado no doc 11 (§6); os valores visuais normativos moram aqui. Só existe quando o
+agente está habilitado — o produto sem agente não tem nenhum destes elementos, nem as abas
+no cabeçalho de Tarefas. Não há balão flutuante.
 
-- **Balão**: canto inferior direito, `position: fixed`, 16px das bordas, redondo de 40px
-  (`raio-pilula`), fundo `superficie`, hairline `regua`, `sombra-ficha`, ícone `bot` 18px.
-  O Toaster (sonner) sobe para não ficar atrás dele.
-- **Estados do balão**: ocioso `tinta-suave`; observando `tinta-media`; pensando com anel
-  `ocre` em pulso de 1,6s; convite/sugestões com badge `cristal`; pausado a 50% de opacidade;
-  erro `bordo`.
-- **Painel**: cartão flutuante ancorado acima do balão, 360px de largura, máx. 60vh com
-  scroll, fundo `superficie`, `raio-ficha`, `sombra-sobreposicao`, hairline `regua` no
-  escuro (regra geral de superfície flutuante). Fora do dockview.
+- **Posição**: painel encaixado à direita da área de documentos (`PainelLateral`), fora do
+  dockview, dividindo o espaço com Tarefas — só um dos dois aparece por vez. Largura e
+  divisória são as de Tarefas (320px por padrão, redimensionável entre 280 e 480px pela
+  alça de 8px na borda esquerda, com setas do teclado em passos de 16px; hairline `regua` à
+  esquerda quando o agente está aberto).
+- **Abaixo de 1024px (`lg`)**: o agente vira painel inferior — `position: fixed`, largura
+  total, altura `min(80dvh, 42rem)`, z 90, hairline `regua` no topo, `sombra-sobreposicao`;
+  a alça de largura some. Tarefas não muda.
+- **Cabeçalho** (`CabecalhoPainelLateral`): 34px, fundo `superficie`, hairline `regua`
+  embaixo, duas abas "Agente" e "Tarefas" (`meta`, ocupam a largura, sublinhado de 2px
+  `cristal` com texto `tinta` na ativa; `tinta-suave` com hover `tinta` na inativa) e o botão
+  `panel-right-close` para recolher. No agente, o menu `…` (`more-horizontal`) fica entre as
+  abas e o botão de recolher; abre um menu com "O que o agente lembra" e "Pausar
+  acompanhamento"/"Retomar acompanhamento" (`rounded-controle`, hairline `regua`,
+  `shadow-ficha`).
+- **Corpo**: fundo `superficie`. A conversa é a tela principal; cada análise automática é um
+  bloco do agente na conversa (rótulo "Agente" em `meta`, fase ou resultado), mensagens do
+  usuário em fundo `lavagem` e do agente com filete esquerdo `cristal` de 2px. Sugestões são
+  cartões `lavagem` com hairline `regua`. Campo de pergunta e medidor de uso no rodapé; erros
+  em `bordo`, avisos em `tinta-media`.
+- **Convite**: toast do sonner (`ConviteAgente`) com "Permitir" e "Agora não", 10s; ao
+  permitir, o painel do agente abre. O mesmo convite também aparece dentro do painel, no
+  topo da conversa, num bloco `lavagem` com hairline `regua` e os botões "Aceitar",
+  "Agora não" e "Recusar".
+- **"O que o agente lembra"**: tela secundária dentro do próprio painel (menu `…`), com
+  "← Voltar à conversa"; lista memórias com ações de confirmar, rejeitar, editar e apagar.
+- **Pausado**: o estado só aparece no texto do item de menu ("Retomar acompanhamento").
 - **Realce de termo de busca** (PainelBusca e trechos do agente): fundo
   `color-mix(in srgb, var(--color-ocre) 30%, transparent)`, texto `tinta` — o mesmo realce
   do search do editor (`tokens-excalisidian.css`).
+
 
 ### Ícone de sincronização no rodapé da sidebar
 
@@ -630,7 +653,7 @@ Cor por estado — só tokens que já existem em `globals.css`, nenhum novo:
 | `sincronizado` | `tinta-media` | repouso — a mesma cor do ícone de Configurações ao lado; nada chama atenção porque não há nada para o usuário fazer |
 | `sincronizando` | `tinta-media` | mesmo repouso; a tabela "Movimento" não define um spinner genérico fora do agente de IA, então esta task não inventa um — o ícone muda de forma (ver doc 04/catálogo), não de cor |
 | `sem-conexao` | `ocre` | é o token de "atenção" (doc 06, Paleta) — tenta de novo sozinho, não é erro que trava |
-| `pausado` | `tinta-media` a 50% de opacidade | mesmo padrão já usado no balão do agente pausado (acima, "Balão e painel do agente de IA") |
+| `pausado` | `tinta-media` a 50% de opacidade | padrão de "desligado/em pausa" do app: `tinta-media` a 50% (o agente pausado só aparece no texto do menu, ver "Painel lateral do agente de IA") |
 | `{ erro: "sessao" \| "plano" \| "espaco" }` (doc 17 §8: erros que pedem ação) | `bordo` | é o token de "erro" (doc 06, Paleta) |
 
 Ícones (`lucide-react`, mesmo traço 1.5 da tabela "Ícones", abaixo): `cloud-check` (sincronizado),
@@ -683,7 +706,7 @@ Cor por estado — só tokens que já existem em `globals.css`, nenhum novo:
 | alinhar coluna à esquerda / centro / direita | `align-left` / `align-center` / `align-right` |
 | largura automática (menu da tabela) | `move-horizontal` |
 | excluir linha / coluna / tabela | `trash-2` |
-| agente de IA (balão) | `bot` — demais ícones do agente no doc 11 §8 |
+| agente de IA (painel lateral, convite) | `bot` — demais ícones do agente no doc 11 §8 |
 | vault atual no menu do seletor | `check` |
 | remover da lista de recentes | `x` |
 | criar vault | `folder-plus` |

@@ -18,7 +18,7 @@ traz conteúdo e (quando o provedor suportar) pesquisa na web.
 O fluxo tem dois estágios, cada um com seu modelo configurável:
 
 1. **Gateiro** (modelo barato): lê o começo da nota uma única vez, identifica o assunto e
-   decide se vale convidar o usuário. O convite aparece no balão; sem aceite, nada mais
+   decide se vale convidar o usuário. O convite aparece como toast (§6.1); sem aceite, nada mais
    acontece.
 2. **Assistente** (modelo forte): só depois do aceite, acompanha a escrita em ciclos
    disparados por inatividade, lê o diff desde o último ciclo, recupera notas relacionadas
@@ -27,7 +27,7 @@ O fluxo tem dois estágios, cada um com seu modelo configurável:
 ### Princípios
 
 - **Desligado por padrão, e fica desligado.** Sem configuração, nenhum traço do agente
-  aparece na UI — nem balão, nem comando, nem aviso. O produto não pede, não insiste, não
+  aparece na UI — nem painel, nem comando, nem aviso. O produto não pede, não insiste, não
   interrompe para sugerir que o agente seja ligado. A única menção permitida é discreta:
   a IA do Excalisidian aparece como mais uma opção na lista de provedores do assistente de
   configuração (§3.2), ao lado dos provedores de chave própria — não como anúncio recorrente
@@ -383,7 +383,7 @@ Entrada: até os primeiros 2.000 caracteres da nota (sem frontmatter). Saída JS
 { "valeParticipar": true, "tema": "orçamento de 2026", "confianca": 0.8 }
 ```
 
-O modelo não escreve a pergunta do convite: o texto do balão vem do catálogo de interface, com
+O modelo não escreve a pergunta do convite: o texto do convite vem do catálogo de interface, com
 o `tema` detectado (`convite` guarda só `{ path, tema }`).
 
 Parse defensivo. `valeParticipar: false` ou `confianca < 0.5`: não convida, e o rodapé do
@@ -391,7 +391,7 @@ painel diz por quê — "O agente leu esta nota e decidiu não participar por en
 (revisão 13/09: a decisão era invisível, e invisível parecia bug). Nova tentativa só se a
 nota crescer >50%. Falha de rede ou JSON inválido: mesma linha de status em versão de erro,
 e a tentativa fica liberada depois da espera crescente do §5.0 (pane não consome a
-espera de +50%; esgotadas as esperas, vale a regra de +50%). O convite, quando vem, aparece no balão (§6.1) com o tema detectado.
+espera de +50%; esgotadas as esperas, vale a regra de +50%). O convite, quando vem, aparece como toast (§6.1) com o tema detectado.
 
 ### 5.2 Convite
 
@@ -451,45 +451,39 @@ fica sem web search na v1). Desligado por padrão na configuração.
 - Contador local: tokens de entrada/saída do `usage` de cada resposta + custo estimado
   (§3.1), por sessão e por dia (`uso.json`).
 - Visível no painel: "12,4 mil tokens · ~US$ 0,03 hoje".
-- `tetoDiarioUsd` configurado e atingido → status `pausado`, balão cinza, toast único:
+- `tetoDiarioUsd` configurado e atingido → status `pausado`, toast único:
   "Limite diário do agente atingido. Ele volta amanhã, ou você pode ajustar o limite."
   **Não implementado:** o campo "Limite diário de gasto em US$ (opcional)" é gravado, e
   `atingiuTeto`/`podeChamar` existem em `src/agente/orcamento.ts`, mas ninguém os chama —
   o teto não é aplicado e o toast nunca aparece. Como `precos` está vazio (§3.1), o custo
   estimado também é sempre zero.
-- Sem teto por padrão: só o medidor. Pausa manual sempre disponível (balão → "Pausar").
+- Sem teto por padrão: só o medidor. Pausa manual sempre disponível (menu `…` do painel → "Pausar acompanhamento").
 
 ---
 
 ## 6. Interface
 
-### 6.1 Balão
+### 6.1 Abertura do painel e convite
 
-Canto inferior direito, `position: fixed`, 16px das bordas, **acima do Toaster** (o sonner
-ganha `offset` para não sobrepor). Redondo, 40px, `raio-pilula`, fundo `superficie`,
-hairline `regua`, `sombra-ficha`; no tema escuro a hairline é obrigatória (regra geral do
-doc 06). Ícone `bot` (lucide), 18px.
+Revisto em 01/10/2026: o balão flutuante saiu. Não há botão fixo no canto da tela; o canto
+inferior direito só tem os toasts.
 
-Só existe quando `habilitado`. Estados:
+Só existe quando `habilitado`. O painel do agente se abre de três formas: pela aba "Agente" no
+cabeçalho do painel lateral (a aba aparece junto da aba "Tarefas" quando o agente está
+habilitado — doc 06, "Painel lateral do agente de IA"), ao permitir o convite no toast, ou
+ao aceitar o convite dentro do painel já aberto.
 
-| Estado | Aparência |
-|---|---|
-| `ocioso` | ícone `tinta-suave` |
-| `observando` | ícone `tinta-media` — **não implementado**: o tipo e o visual existem (`BalaoAgente.tsx`), mas nada no `agenteStore.ts` emite este status hoje; uma nota com participação aceita e sem ciclo em voo fica em `ocioso` mesmo depois do aceite |
-| `pensando` | ícone + anel `ocre` pulsando (animação "pulso", 1,6s) |
-| `convite` | badge `cristal` com `!` para convite da nota ativa + convite no painel (§6.2) |
-| atualização | ponto temporário para novas sugestões ou nova resposta do agente na nota ativa desde a última abertura do painel |
-| `pausado` | ícone `tinta-suave` + barra diagonal (lucide `bot-off` quando existir; senão opacidade 50%) |
-| `erro` | ícone `bordo`; clique mostra o erro no painel |
+O convite da nota ativa aparece como **toast** (`ConviteAgente`): "Posso ajudar com esta nota?",
+com o tema detectado na descrição, botões "Permitir" e "Agora não", e 10 segundos de
+duração. "Permitir" aceita o convite e abre o painel. "Agora não", fechar o toast ou deixá-lo
+expirar adia o convite. O convite só aparece se for da nota ativa. Quando o painel está
+aberto na nota do convite, o mesmo convite também aparece no topo da conversa (§6.2).
 
-Clique alterna o painel. O convite da nota ativa tem prioridade sobre o ponto de atualização,
-que tem prioridade sobre o estado. Abrir o painel reconhece as atualizações da nota ativa e
-remove o ponto, sem marcar cada item como lido nem apagar conteúdo. Sugestões e respostas
-novas enquanto o painel já está aberto na nota ativa não acendem o ponto. Notas inativas não
-são agregadas. Mensagens do usuário, fatos da memória, crédito, status, erros e sugestões
-dispensadas não criam atualização. Lotes idênticos de sugestões não recriam o ponto. O nome
-acessível/tooltip explica quando há novas sugestões, nova resposta ou ambos; sem atualização,
-continua mostrando o estado.
+O estado interno do agente (`ocioso`, `pensando`, `pausado`, `erro`) continua no
+`agenteStore`, mas hoje não tem indicador visual fora do painel: o erro aparece no rodapé do
+painel, e a pausa só no texto do item de menu ("Pausar acompanhamento"/"Retomar
+acompanhamento"). O status `observando` continua sem ser emitido por nada. Também não há mais
+ponto de "atualização" — o agente não sinaliza fora do painel que chegaram sugestões novas.
 
 ### 6.2 Painel
 
@@ -497,13 +491,15 @@ Revisto em 01/10/2026 (opção A, plano 20): painel lateral direito, fora das ab
 documentos, com Agente/Tarefas alternando o mesmo espaço. Em desktop (lg, 1024px em diante)
 usa altura disponível e largura fluida de 20–27rem. Abaixo de lg, somente o agente vira
 painel inferior. Sem alteração global de sm/md/xl. Clicar no editor não fecha o agente.
-Esc dentro do painel, fechar e balão preservam o rascunho. Cabeçalho compacto, sem nome
+Esc dentro do painel, fechar e trocar para a aba Tarefas preservam o rascunho. Cabeçalho compacto, sem nome
 da nota nem faixa vazia; contexto “Nota atual” junto ao campo.
 
 A conversa é a tela principal, sem abas Sugestões/Memória. Histórico manual identifica
 “Você” e “Agente”. Cada análise automática começa como um bloco do agente: mostra fase
 real de leitura/consulta local/preparação e termina com sugestões ou erro no mesmo bloco.
-Resultados anteriores são recolhíveis. Cada sugestão mantém copiar, dispensar e abrir nota
+Resultados anteriores são recolhíveis. Cada nota guarda no máximo as 20 análises mais
+recentes (as mais antigas são descartadas ao anexar uma nova e ao reabrir o vault; análise
+em andamento nunca é descartada); mensagens do usuário e respostas do chat não entram nesse limite. Cada sugestão mantém copiar, dispensar e abrir nota
 relacionada, sem escrever automaticamente no editor. Memória candidata é indicada para
 revisão, sem anúncio de aprendizado confirmado. Pesquisa web continua indisponível.
 
@@ -608,15 +604,15 @@ não apaga a configuração, volta a ligar sem reconfigurar), "Reconfigurar" (re
 assistente), "Testar conexão" (só com o agente ligado), "Abrir pasta do agente" e "Limpar
 memória" (confirmação: "Apagar resumos, fatos, participações e conversas do agente? As
 notas não são afetadas."). **Não implementado:** "Pausar agente"/"Retomar agente" nesta
-seção — a pausa só existe pelo balão e pelo cabeçalho do painel (§6.1, §6.2), não nas
+seção — a pausa só existe pelo menu `…` do cabeçalho do painel (§6.2), não nas
 Configurações.
 
 ### 6.4 Comandos e atalhos
 
 - **Não implementado:** nenhum comando do agente existe na paleta hoje — nem "Agente:
   configurar", nem "Agente: pausar/retomar", nem "Agente: abrir painel". Os pontos de
-  entrada reais são a seção "Agente de IA" das Configurações (§6.3) e o balão (§6.1).
-- Sem atalho de teclado novo na v1 (o balão é o ponto de entrada; evitar colisão com o
+  entrada reais são a seção "Agente de IA" das Configurações (§6.3) e o painel lateral (§6.1).
+- Sem atalho de teclado novo na v1 (a aba "Agente" do painel lateral é o ponto de entrada; evitar colisão com o
   mapa existente).
 
 ---
@@ -672,8 +668,8 @@ Português do Brasil, sentence case, sem emoji (doc 06, Voz da interface).
 | Listagem de modelos falhou (rede) | "Não foi possível listar os modelos do provedor. Você pode escolher um sugerido ou digitar o nome." |
 | Listagem de modelos falhou (chave) | o texto de "Chave inválida" acima, no ato, sem sair do passo |
 
-Erros nunca bloqueiam a escrita: o agente falha em silêncio relativo (estado `erro` no
-balão), e o editor segue intocado.
+Erros nunca bloqueiam a escrita: o agente falha em silêncio relativo (estado `erro`,
+mostrado no rodapé do painel), e o editor segue intocado.
 
 ---
 
@@ -683,7 +679,7 @@ Estende a tabela do doc 06 (lucide, traço 1.5):
 
 | Uso | Ícone |
 |---|---|
-| balão do agente | `bot` |
+| agente (painel lateral, convite) | `bot` |
 | pausar / retomar | `pause` / `play` |
 | fechar painel | `x` |
 | sugestão: pergunta | `help-circle` |
@@ -714,9 +710,9 @@ Estende a tabela do doc 06 (lucide, traço 1.5):
 | RF11.10 | Memória estruturada proposta como candidata; confirmação/edição/rejeição pelo usuário em “O que o agente lembra”, acessível pelo menu, sem aba permanente ou FIFO de confirmados. | P1 |
 | RF11.11 | Pasta de memória em `%APPDATA%` por vault, com "Abrir pasta do agente" e "Limpar memória" nas configurações. | P1 |
 | RF11.12 | Web search pelo tool nativo do provedor, desligado por padrão, máx. 1 por ciclo. | P2 |
-| RF11.13 | Balão com os estados e atualização temporária da nota ativa descritos no §6.1, acima do Toaster, só visível com o agente habilitado; abrir reconhece atualizações da nota sem apagar ou declarar lidos seus itens. | P0 |
+| RF11.13 | Painel lateral com abas Agente/Tarefas e convite por toast (§6.1), só visíveis com o agente habilitado. (O balão com estados e ponto de atualização foi removido em 01/10/2026.) | P0 |
 | RF11.14 | Pausar/retomar acompanhamento pelo menu do agente; chat manual permanece disponível. Paleta de comandos: não implementado (§6.4). | P1 |
-| RF11.15 | Falha de rede/provedor nunca bloqueia a edição nem perde conteúdo; erro visível só no balão/painel. | P0 |
+| RF11.15 | Falha de rede/provedor nunca bloqueia a edição nem perde conteúdo; erro visível só no painel. | P0 |
 | RF11.16 | Base URL editável por provedor (gateways próprios, Ollama remoto). | P2 |
 | RF11.17 | Lista de modelos buscada do provedor (endpoint por dialeto, §3), com filtro, sugeridos no topo e fallback estático quando a listagem falha. | P0 |
 
@@ -795,12 +791,15 @@ Segue a estrutura do doc 05.
 | `src/agente/memoria.ts` | persistência local, candidatos/evidência/escopo, confirmação/substituição e seleção de memória. |
 | `src/agente/webSearch.ts` | **não implementado** — arquivo não existe ainda; a ativação do tool nativo por dialeto (§5.4) é a fase 5 (§13), ainda pendente. |
 | `src/estado/agenteStore.ts` | estado + ações (§4). |
-| `src/ui/excalisidian/BalaoAgente.tsx` | balão e estados (§6.1). |
-| `src/ui/excalisidian/PainelAgente.tsx` | painel (§6.2). |
+| `src/ui/excalisidian/PainelLateral.tsx` | coluna lateral que divide o espaço entre Tarefas e agente, com largura redimensionável (§6.2). |
+| `src/ui/excalisidian/CabecalhoPainelLateral.tsx` | cabeçalho de 34px com as abas Agente/Tarefas, ações e recolher. |
+| `src/ui/excalisidian/ConviteAgente.tsx` | convite como toast (§6.1). |
+| `src/ui/excalisidian/CreditosAgente.tsx` | cartão de saldo de créditos nas configurações e preferências do agente. |
+| `src/ui/excalisidian/PainelAgente.tsx` | conteúdo do painel do agente (§6.2). |
 | `src/ui/excalisidian/DialogoAgente.tsx` | assistente de configuração em etapas (§6.3) + a seção "Agente de IA" das Configurações que o abre. |
 
-Montagem: `BalaoAgente` e `PainelAgente` entram no `App.tsx` dentro do `LimiteDeErro` do
-shell (como `PainelTarefas`); o `Toaster` ganha `offset` dinâmico quando o balão existe.
+Montagem: `PainelLateral` (que contém `PainelTarefas` e `PainelAgente`) e `ConviteAgente` entram
+no `App.tsx`.
 `agenteStore.carregar()` roda no boot junto com `prefsStore`; a participação e os gatilhos
 assinam `workspaceStore.caminhoAtivo` e `documentosStore.editar` por `subscribe` — sem
 alterar os stores existentes.
@@ -849,7 +848,7 @@ Na linha do doc 05 §10 — poucos, mas estes:
 
 | Fase | Entrega | Pronto quando | Status |
 |---|---|---|---|
-| 1 | Infra: plugin-http escopado, assistente de configuração (§6.3) com `listarModelos`, `cliente.ts` (3 dialetas), conversa manual no painel, balão mínimo | configurar do zero pelo assistente em < 1 minuto sem digitar nome de modelo; "Perguntar sobre esta nota" responde com tokens contados; chave inválida é recusada no passo 2 com o texto do §7; sem config, zero traço na UI | **feita 13/09/2026** (testada em tela pelo usuário) |
+| 1 | Infra: plugin-http escopado, assistente de configuração (§6.3) com `listarModelos`, `cliente.ts` (3 dialetas), conversa manual no painel, ponto de entrada mínimo (na época, um balão; hoje a aba "Agente") | configurar do zero pelo assistente em < 1 minuto sem digitar nome de modelo; "Perguntar sobre esta nota" responde com tokens contados; chave inválida é recusada no passo 2 com o texto do §7; sem config, zero traço na UI | **feita 13/09/2026** (testada em tela pelo usuário) |
 | 2 | Gateiro + convite + participação persistida | convite 1× por nota/sessão; recusar silencia para sempre | **feita 13/09/2026** — falta validar em tela |
 | 3 | Pipeline contínuo: gatilhos, diff, recuperação, resumos, orçamento | sugestões aparecem sem estourar teto; medidor bate com o billing; pausar corta tudo | **feita 13/09/2026** — falta validar em tela |
 | 4 | Memória de longo prazo (fatos), conversas persistidas, pasta do agente nas configurações | apagar a pasta não quebra nada; fatos entram no contexto | **feita 13/09/2026** — falta validar em tela |
