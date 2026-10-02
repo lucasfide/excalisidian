@@ -87,7 +87,7 @@ de gravar.
 | `provedor` | id do catálogo (§3). |
 | `chaves` | uma API key por provedor, para trocar sem redigitar. |
 | `baseUrls` | override opcional por provedor (passo "Avançado" do assistente); ausente = URL do catálogo. |
-| `modeloGateiro` / `modeloAssistente` | escolhidos da lista do provedor no assistente (§6.3); o mesmo modelo pode ocupar os dois. |
+| `modeloGateiro` / `modeloAssistente` | provedores externos: escolhidos da lista no assistente (§6.3), podendo ser o mesmo modelo. IA do Excalisidian: recebem automaticamente os identificadores lógicos `leitura-rapida` e `acompanhamento`; não são editáveis na interface. |
 | `thinking` | profundidade de raciocínio, só tem efeito em modelos que suportam (`gpt-5*`/`o*` via `reasoning_effort`): `padrao` (não envia o parâmetro), `baixo`, `medio`, `alto`. `minimal` existe no tipo por compatibilidade mas saiu da UI: a família gpt-5.6 recusa o valor (verificado na API 13/09 — ela aceita `none`/`low`/`medium`/`high`/`xhigh`). Anthropic/Gemini ignoram o campo na v1. |
 | `webSearch` | liga o tool nativo do provedor (§5.4). Só aparece se o provedor suportar. |
 | `tetoDiarioUsd` | `null` = sem teto (padrão). Número = pausa automática ao atingir. |
@@ -147,10 +147,19 @@ uso); estourou, descarta as menos usadas — é cache, não dado.
                "notaOrigem": "Projetos/Nota.md", "criadoEm": "…" } ] }
 ```
 
-Append-only, deduplicado por texto idêntico, teto de 100 fatos (FIFO: o mais antigo sai).
-Entra no prompt do assistente como bloco único de até ~1.200 tokens (corta pelos mais
-recentes). O assistente propõe fatos na saída estruturada (§5.3); o app grava sem perguntar
-— mas o painel lista os fatos e o usuário pode apagar qualquer um.
+Revisto em 01/10/2026 (plano 20): o formato legado acima permanece legível. Registros novos
+incluem categoria (preferência/glossário/convenção), escopo (vault/projeto), chave, fonte,
+evidência e estado (pendente/confirmado/substituído/rejeitado). Origem e data são preservadas.
+O modelo propõe candidatos; evidência deve ocorrer literalmente na nota fornecida.
+Somente confirmação explícita promove candidato para o contexto. Registros antigos sem
+estado ficam disponíveis para revisão e não são confirmados automaticamente.
+Até 100 candidatos pendentes são admitidos sem apagar anteriores; confirmados não sofrem
+FIFO. Mesma chave/categoria/escopo substitui a versão confirmada anterior somente após
+confirmação, preservando-a arquivada. Igualdade textual normalizada impede duplicatas exatas;
+paráfrases com chaves diferentes não são fundidas automaticamente.
+Chat e acompanhamento selecionam apenas confirmados aplicáveis ao escopo da nota,
+inteiros, até 500 caracteres Unicode cada e 4.800 caracteres por contexto. Preferência
+salva ou editada pelo usuário tem fonte explícita, sem evidência inventada de uma nota.
 
 #### `conversas.json`
 
@@ -163,8 +172,11 @@ Uma conversa por nota na v1 (a chave é o caminho; nota nenhuma aberta = chave `
 Revisto na fase 4: o plano original era uma pasta com um arquivo por conversa — um único
 arquivo com índice embutido simplifica a restauração no boot e o "limpar memória" sem
 ganho perceptível do outro formato. "Limpar memória" apaga tudo. Cada envio manda só as
-últimas 12 mensagens da conversa como histórico (`agenteStore.ts`); mais antigas continuam
-salvas em disco, só não voltam ao contexto da próxima chamada.
+últimas 12 mensagens manuais como histórico (`agenteStore.ts`); blocos automáticos de análise
+não são enviados como falsas mensagens de chat. Mais antigas continuam salvas em disco.
+Uma seleção limitada de trechos anteriores pode dar continuidade, identificada como histórico
+anterior: não equivale a um resumo semântico produzido pelo modelo. Blocos de análise têm
+identidade, fase/estado e sugestões; dados anteriores sem esses campos continuam legíveis.
 
 ### 2.3 Escrita e leitura
 
@@ -257,16 +269,27 @@ própria:
 - **Identificadores lógicos de modelo** (`leitura-rapida`, `acompanhamento`), não nomes de
   modelo de um fornecedor específico — para poder trocar o modelo real por trás sem
   atualizar o app. **O nome do fornecedor de IA nunca aparece na interface.**
-- **Assistente de configuração** (§6.3) tem passos diferentes para este provedor: o passo da
-  chave vira passo de conta (sem campo de chave), a listagem de modelos não vai à rede, o
-  campo "Avançado · Base URL" some, e o passo de revisão esconde chave e limite de gasto.
+- **Assistente de configuração** (§6.3) usa dois passos para este provedor: Provedor → Sua
+  conta. Os identificadores lógicos de modelo são preenchidos automaticamente; não há passos
+  de chave, escolha de modelos ou revisão. O campo "Avançado · Base URL" também não aparece.
 - **Cota mensal em créditos, contada no servidor** (doc 18 §5) — o cliente só interpreta o
   saldo que chega (`src/servico/creditos.ts`), nunca conta localmente. Premium: 3.000
   créditos por mês; plano superior: 10.000 (o app não distingue, só mostra o total). O
-  servidor existe e expõe `GET /creditos`. O app busca o saldo ao abrir o painel do agente e
+  servidor existe e expõe `GET /creditos`. O motor do agente busca o saldo ao abrir o painel e
   depois de cada resposta do provedor próprio; com a conta de teste do modo de
   desenvolvimento (servidor local) não busca. Qualquer falha deixa o saldo em `null` e o
   medidor **oculto**: nunca se mostra número inventado, e zero seria mentir sobre dinheiro.
+- As superfícies de configuração e preferências também consultam `GET /creditos`, por meio de
+  `consultarCreditos`, sem exigir agente configurado ou ligado. Consultam ao abrir a superfície
+  ou quando a identidade da sessão muda; não fazem polling. Respostas atrasadas de outra sessão
+  são descartadas. Saldo válido igual a zero continua sendo exibido.
+- Na consulta de apresentação, `403` significa plano sem acesso. `401` inicia uma única
+  recuperação limitada pela sincronização do cofre e pela validação do plano: token novo permite
+  uma consulta, expiração confirmada volta ao estado sem sessão, e recusa inconclusiva bloqueia
+  ativação até nova tentativa. Uma falha de rede sem recusa de autenticação anterior omite saldo
+  e renovação, mas permite salvar se a sessão premium já estiver carregada. Rede durante a
+  recuperação de um `401` não libera ativação. Essa consulta não altera a política de saldo do
+  motor do agente.
 - **Créditos esgotados:** 429 com corpo `{"codigo":"creditos"}` vira o código de erro
   `creditos`. Um 429 sem esse corpo continua sendo `cota` (limite momentâneo). Só no provedor próprio: 429 `{"codigo":"limite"}` vira `limite`; 413 vira `tamanho`; 502/503/504 viram `instavel`. Os três são transitórios para a política de tentativas (não param o segundo plano). Provedores de chave própria mantêm `cota`/`provedor`.
 - **401 com o token trocado por outra janela:** duas janelas compartilham o token pelo cofre; se
@@ -454,32 +477,70 @@ Só existe quando `habilitado`. Estados:
 | `ocioso` | ícone `tinta-suave` |
 | `observando` | ícone `tinta-media` — **não implementado**: o tipo e o visual existem (`BalaoAgente.tsx`), mas nada no `agenteStore.ts` emite este status hoje; uma nota com participação aceita e sem ciclo em voo fica em `ocioso` mesmo depois do aceite |
 | `pensando` | ícone + anel `ocre` pulsando (animação "pulso", 1,6s) |
-| `convite` | badge `cristal` com `!` + card de convite aberto (§6.2) |
-| `sugestões` | badge `cristal` com o número |
+| `convite` | badge `cristal` com `!` para convite da nota ativa + convite no painel (§6.2) |
+| atualização | ponto temporário para novas sugestões ou nova resposta do agente na nota ativa desde a última abertura do painel |
 | `pausado` | ícone `tinta-suave` + barra diagonal (lucide `bot-off` quando existir; senão opacidade 50%) |
 | `erro` | ícone `bordo`; clique mostra o erro no painel |
 
-Clique alterna o painel. Tooltip com o estado (`title`, como os `BotaoIcone`).
+Clique alterna o painel. O convite da nota ativa tem prioridade sobre o ponto de atualização,
+que tem prioridade sobre o estado. Abrir o painel reconhece as atualizações da nota ativa e
+remove o ponto, sem marcar cada item como lido nem apagar conteúdo. Sugestões e respostas
+novas enquanto o painel já está aberto na nota ativa não acendem o ponto. Notas inativas não
+são agregadas. Mensagens do usuário, fatos da memória, crédito, status, erros e sugestões
+dispensadas não criam atualização. Lotes idênticos de sugestões não recriam o ponto. O nome
+acessível/tooltip explica quando há novas sugestões, nova resposta ou ambos; sem atualização,
+continua mostrando o estado.
 
 ### 6.2 Painel
 
-Cartão flutuante ancorado acima do balão, 360px de largura, máx. 60vh de altura com scroll,
-fundo `superficie`, `raio-ficha`, `sombra-sobreposicao`, hairline `regua` no escuro. Fora
-do dockview de propósito (mesma razão do painel de tarefas, doc 10 §10.4): utilitário não
-compete com abas. Fecha por Esc, clique fora, ou no balão.
+Revisto em 01/10/2026 (opção A, plano 20): painel lateral direito, fora das abas de
+documentos, com Agente/Tarefas alternando o mesmo espaço. Em desktop (lg, 1024px em diante)
+usa altura disponível e largura fluida de 20–27rem. Abaixo de lg, somente o agente vira
+painel inferior. Sem alteração global de sm/md/xl. Clicar no editor não fecha o agente.
+Esc dentro do painel, fechar e balão preservam o rascunho. Cabeçalho compacto, sem nome
+da nota nem faixa vazia; contexto “Nota atual” junto ao campo.
 
-De cima para baixo:
+A conversa é a tela principal, sem abas Sugestões/Memória. Histórico manual identifica
+“Você” e “Agente”. Cada análise automática começa como um bloco do agente: mostra fase
+real de leitura/consulta local/preparação e termina com sugestões ou erro no mesmo bloco.
+Resultados anteriores são recolhíveis. Cada sugestão mantém copiar, dispensar e abrir nota
+relacionada, sem escrever automaticamente no editor. Memória candidata é indicada para
+revisão, sem anúncio de aprendizado confirmado. Pesquisa web continua indisponível.
 
-1. **Cabeçalho**: "Agente" + estado + botão pausar/retomar (`pause`/`play`) + fechar (`x`).
-2. **Convite** (quando há): "Esta nota parece tratar de **{tema}**. Quer que eu acompanhe?"
-   + botões "Aceitar" (primário) / "Agora não" (fantasma) / "Recusar" (fantasma, `tinta-suave`).
-3. **Sugestões**: lista; cada item com ícone por tipo (`help-circle` pergunta, `file-text`
-   conteúdo, `search-check` gap? — ver §8, `corner-down-left` nota relacionada, `globe`
-   achadoWeb), texto, e ação por item: "Copiar" (insere na área de transferência) e
-   "Dispensar". Nota relacionada é clicável como `LinkInterno`.
-4. **Conversa**: histórico da conversa manual da nota ativa + campo "Perguntar sobre esta
-   nota" (Enter envia, Shift+Enter quebra linha).
-5. **Rodapé**: medidor de uso (§5.6) em `meta`/`tinta-suave`.
+“O que o agente lembra” fica no menu e abre gerenciamento secundário com voltar à conversa.
+Lista confirmados, candidatos, registros antigos a revisar e versões arquivadas; permite
+confirmar/rejeitar, editar e apagar. Origem, evidência, escopo e data contextualizam a
+lembrança. O botão explícito “Lembrar esta preferência” numa mensagem do usuário registra
+uma preferência confirmada localmente; não extrai todas as mensagens automaticamente.
+Não há contagem permanente de memórias no cabeçalho.
+
+Convite mantém “Aceitar”, “Agora não” e “Recusar” no fluxo da conversa. Campo de pergunta
+no rodapé, Enter envia e Shift+Enter quebra linha; entrada 16px e alvos mínimos de 44px.
+Pausar acompanhamento suspende os gatilhos automáticos e mantém o chat manual disponível.
+Rodapé mantém créditos/uso (§5.6) e ações de conta existentes. Atividades são independentes
+por operação, nota e geração do vault; concluir uma não oculta outra ainda em andamento.
+
+Desenhos e documentos ainda indisponíveis usam a conversa geral, como no motor; título,
+histórico e avisos compartilham essa chave. Rascunhos são locais e separados por conversa e
+espaço de trabalho. Quando uma resposta está em andamento em outra nota, isso é informado
+sem mostrar o spinner como resposta da nota atual; permanece o bloqueio de pedidos
+simultâneos existente. Trocar espaço de trabalho ou limpar memória invalida resultados
+antigos, evitando que resposta/aviso anterior apareça na nova sessão.
+
+Ao abrir/reabrir ou trocar de nota, a conversa mostra as mensagens recentes. Enviar uma mensagem
+leva ao fim da conversa correspondente. Ao chegar resposta, acompanha automaticamente apenas
+se a pessoa já estava perto do fim (48 px); caso esteja lendo acima, preserva a posição e mostra
+“Nova atividade”. Voltar do gerenciamento de memória mostra o fim. Mudanças de crédito
+não deslocam a conversa; novos blocos/resultados acompanham só quem já estava no fim.
+A rolagem deve atuar no contêiner da conversa,
+sem mover editor ou página; resposta tardia de outra nota não altera contexto nem posição atuais.
+
+Quando o provedor é a IA do Excalisidian e a sessão está ausente ou foi recusada, o painel
+oferece **Entrar na conta** e abre Preferências → Conta. O sinal de sessão recusada é distinto
+de erro de rede, plano ou créditos; esses erros não exibem esse botão. O fluxo de abertura da
+Conta valida a sessão antes de mostrar o formulário de entrada. Se a sessão ainda estiver
+presente, o painel tenta recuperá-la: token novo retoma o fluxo, expiração confirmada abre a
+entrada, e recusa inconclusiva oferece nova tentativa sem alegar que a pessoa está deslogada.
 
 ### 6.3 Configuração — assistente por etapas
 
@@ -497,7 +558,11 @@ a única exceção é o provedor próprio aparecendo como mais uma opção no pa
   um único botão primário: "Configurar agente".
 - Paleta de comandos: "Agente: configurar".
 
-**Etapas do assistente:**
+**Etapas do assistente:** a IA do Excalisidian usa dois passos, **Provedor → Sua conta**. Na
+primeira configuração, ela já vem selecionada quando está disponível; se a conta estiver
+desativada no build, a seleção inicial é OpenAI. Na reconfiguração, o provedor salvo é mantido
+e o assistente abre no segundo passo. Os provedores de chave própria mantêm os cinco passos
+descritos na tabela.
 
 | # | Passo | Conteúdo |
 |---|---|---|
@@ -506,6 +571,17 @@ a única exceção é o provedor próprio aparecendo como mais uma opção no pa
 | 3 | **Modelo da leitura inicial** | Lista de modelos do provedor (buscada no passo 2, §3), com filtro por texto, os sugeridos para o papel no topo com selo "Sugerido", e "Outro modelo…" no fim (campo livre, para modelo que a listagem não trouxe). Rótulo em linguagem de produto: "Modelo da leitura inicial — barato e rápido, só decide se vale convidar". |
 | 4 | **Modelo do acompanhamento** | Mesma lista, selos de sugerido para o papel, rótulo: "Modelo do acompanhamento — o que lê a nota e traz as sugestões". Pode ser o mesmo do passo 3 (seleção prévia se o usuário quiser). |
 | 5 | **Revisão** | Resumo (provedor, chave mascarada `sk-…abcd`, os dois modelos), opcional "Pensamento (reasoning)" — só aparece quando o modelo da leitura inicial ou do acompanhamento é `gpt-5*`/`o*` no dialeto `openai` (§2.1) —, web search (toggle, só se o provedor suporta) e limite diário de gasto (número, vazio = sem limite). Botão final: "Ativar agente". |
+
+Para a IA do Excalisidian, o passo **Sua conta** é terminal e substitui os passos de chave,
+modelos e revisão. Mostra, conforme o estado: “Verificando sua conta…”; a instrução neutra
+para entrar e o botão “Entrar na conta”; a mensagem do plano grátis e o link “Usar outro
+provedor”; ou, em conta premium, e-mail, créditos restantes/total e data de renovação quando
+o saldo foi confirmado. A explicação informa que cada pedido consome créditos conforme o
+tamanho do texto enviado e da resposta. Saldo indisponível por rede fica omitido, sem valor
+estimado. A ação final diz “Ativar agente” numa configuração nova e “Salvar” na reconfiguração.
+Conta grátis volta ao passo Provedor; conta sem sessão abre Preferências → Conta por cima do
+assistente e atualiza o estado ao retornar. Um `401` inconclusivo oferece “Tentar novamente”
+e bloqueia a ação final; não é tratado como falta de internet.
 
 - Navegação: "Voltar"/"Continuar" nos passos, Enter avança, Esc fecha o assistente inteiro
   (nada é gravado até o "Ativar agente" — fechar no meio não deixa configuração pela
@@ -518,6 +594,13 @@ a única exceção é o provedor próprio aparecendo como mais uma opção no pa
   do provedor. Você pode escolher um sugerido ou digitar o nome."
 - Reabrir o assistente com configuração existente: todos os passos vêm preenchidos, a
   chave mascarada (campo vazio = manter a atual; digitar = substituir).
+
+Em Preferências → Agente, a IA do Excalisidian apresenta a linha **Créditos** com o mesmo
+saldo e explicação, inclusive se o agente estiver desligado; “Reconfigurar” permanece
+disponível quando a consulta falha. Provedores externos continuam mostrando **Modelos**.
+O estado de conexão no painel deve oferecer acesso a Preferências → Conta conforme §6.2.
+Essa entrada aparece somente diante de sessão ausente ou recusada e segue a recuperação
+limitada descrita em §6.2.
 
 **Depois de configurado**, a seção "Agente de IA" das Configurações mostra o resumo
 (provedor, modelos) e as ações: "Desligar agente"/"Ligar agente" (o master switch — desligar
@@ -571,8 +654,15 @@ Português do Brasil, sentence case, sem emoji (doc 06, Voz da interface).
 | Limpar memória (confirmação) | "Apagar resumos, fatos, participações e conversas do agente? As notas não são afetadas." |
 | Aviso da seção de configurações | "Opcional. Nada é enviado sem a sua configuração, e o agente só acompanha uma nota depois que você aceita o convite." |
 | Assistente — botão da seção sem config | "Configurar agente" |
-| Assistente — passos | "Provedor" · "Chave da API" · "Leitura inicial" · "Acompanhamento" · "Revisão" (no provedor próprio, o segundo passo é "Conta" no lugar de "Chave da API") |
-| Assistente — navegação | "Voltar" / "Continuar" / "Ativar agente" |
+| Assistente — passos da IA do Excalisidian | "Provedor" · "Sua conta" |
+| Assistente — passos de provedor externo | "Provedor" · "Chave da API" · "Leitura inicial" · "Acompanhamento" · "Revisão" |
+| Assistente — navegação externa | "Voltar" / "Continuar" / "Ativar agente"; na reconfiguração, "Salvar" |
+| Assistente — conta sem sessão | "Entre na sua conta do Excalisidian para usar a IA incluída no plano." + "Entrar na conta" |
+| Assistente — conta grátis | "A IA do Excalisidian faz parte do plano premium. Sua conta está no plano grátis." + "Usar outro provedor" |
+| Assistente — conta premium | e-mail, saldo restante/total e renovação quando confirmados; explicação de consumo de créditos; ação "Ativar agente" ou "Salvar" |
+| Preferências — IA do Excalisidian | linha "Créditos", saldo/data quando confirmados e explicação; "Reconfigurar" continua disponível |
+| Preferências — provedores externos | linha "Modelos" |
+| Painel — sessão ausente/recusada da IA do Excalisidian | "Entrar na conta" abre Preferências → Conta após validar/recuperar a sessão |
 | Assistente — passo 2, link | "Onde consigo uma chave?" |
 | Assistente — passo 3, rótulo | "Modelo da leitura inicial — barato e rápido, só decide se vale convidar" |
 | Assistente — passo 4, rótulo | "Modelo do acompanhamento — o que lê a nota e traz as sugestões" |
@@ -612,20 +702,20 @@ Estende a tabela do doc 06 (lucide, traço 1.5):
 
 | RF | Descrição | Prioridade |
 |---|---|---|
-| RF11.1 | Configurar o agente por um assistente em etapas (provedor → chave → modelo da leitura inicial → modelo do acompanhamento → revisão), sem editar arquivo nem digitar nome de modelo no escuro; a busca de modelos valida a chave no ato. | P0 |
-| RF11.2 | Com o agente desabilitado ou não configurado, nenhum traço dele aparece na UI e nenhuma chamada de rede é feita. | P0 |
+| RF11.1 | Configurar sem editar arquivo: IA do Excalisidian em dois passos (provedor → conta), com sessão premium confirmada antes de ativar; indisponibilidade de saldo por rede não bloqueia se não houve recusa de autenticação. Provedores externos usam cinco passos (provedor → chave → leitura inicial → acompanhamento → revisão), com busca de modelos validando a chave no ato. Na reconfiguração, a ação final é “Salvar”. | P0 |
+| RF11.2 | Com o agente desabilitado ou não configurado, nenhum traço do agente aparece na UI nem pedido é enviado à IA. A consulta de créditos só ocorre quando a pessoa abre explicitamente o assistente ou Preferências, e serve apenas para apresentar saldo/estado da conta. | P0 |
 | RF11.3 | Gateiro: analisar a nota ativa uma vez por sessão e convidar o usuário a participar, com o tema detectado. | P0 |
 | RF11.4 | Convite com Aceitar / Agora não / Recusar; recusar é definitivo por nota; a decisão persiste entre sessões. | P0 |
 | RF11.5 | Assistente: ciclos disparados por inatividade (10 s) + volume de diff (200 chars), nunca por linha digitada. | P0 |
-| RF11.6 | Sugestões estruturadas (pergunta, conteúdo, gap, nota relacionada, achado web) no painel, com copiar e dispensar. | P0 |
+| RF11.6 | Sugestões estruturadas (pergunta, conteúdo, gap, nota relacionada) no mesmo bloco de análise da conversa, com copiar, dispensar e fonte. | P0 |
 | RF11.7 | Recuperação local por minisearch + backlinks, com resumos em cache invalidados por mtime+size. | P0 |
 | RF11.8 | Medidor de tokens e custo estimado por sessão/dia no painel; teto diário opcional com pausa automática. | P1 |
-| RF11.9 | Conversa manual sobre a nota ativa no painel, persistida em `conversas.json` (uma por nota na v1). | P1 |
-| RF11.10 | Memória de longo prazo (fatos) proposta pelo assistente, listada e apagável pelo usuário. | P1 |
+| RF11.9 | Conversa sobre a nota ativa (ou geral), persistida em `conversas.json`; análises automáticas e chat no mesmo fluxo, com leitura preservada ao chegar conteúdo e memória confirmada no contexto. | P1 |
+| RF11.10 | Memória estruturada proposta como candidata; confirmação/edição/rejeição pelo usuário em “O que o agente lembra”, acessível pelo menu, sem aba permanente ou FIFO de confirmados. | P1 |
 | RF11.11 | Pasta de memória em `%APPDATA%` por vault, com "Abrir pasta do agente" e "Limpar memória" nas configurações. | P1 |
 | RF11.12 | Web search pelo tool nativo do provedor, desligado por padrão, máx. 1 por ciclo. | P2 |
-| RF11.13 | Balão com os estados do §6.1, acima do Toaster, só visível com o agente habilitado. | P0 |
-| RF11.14 | Pausar/retomar o agente pelo balão. Paleta de comandos: não implementado (§6.4). | P1 |
+| RF11.13 | Balão com os estados e atualização temporária da nota ativa descritos no §6.1, acima do Toaster, só visível com o agente habilitado; abrir reconhece atualizações da nota sem apagar ou declarar lidos seus itens. | P0 |
+| RF11.14 | Pausar/retomar acompanhamento pelo menu do agente; chat manual permanece disponível. Paleta de comandos: não implementado (§6.4). | P1 |
 | RF11.15 | Falha de rede/provedor nunca bloqueia a edição nem perde conteúdo; erro visível só no balão/painel. | P0 |
 | RF11.16 | Base URL editável por provedor (gateways próprios, Ollama remoto). | P2 |
 | RF11.17 | Lista de modelos buscada do provedor (endpoint por dialeto, §3), com filtro, sugeridos no topo e fallback estático quando a listagem falha. | P0 |
@@ -702,7 +792,7 @@ Segue a estrutura do doc 05.
 | `src/agente/gateiro.ts` | prompt + parse defensivo da saída (§5.1). |
 | `src/agente/assistente.ts` | montagem do prompt com tetos (§5.3), parse da saída, ciclo. |
 | `src/agente/recuperacao.ts` | top-k local (§5.5) sobre `buscarConteudo` + `vaultStore.links`. |
-| `src/agente/memoria.ts` | persistência da pasta de memória via plugin-store (§2.2–2.3), dedupe/FIFO de fatos, migração de rename. |
+| `src/agente/memoria.ts` | persistência local, candidatos/evidência/escopo, confirmação/substituição e seleção de memória. |
 | `src/agente/webSearch.ts` | **não implementado** — arquivo não existe ainda; a ativação do tool nativo por dialeto (§5.4) é a fase 5 (§13), ainda pendente. |
 | `src/estado/agenteStore.ts` | estado + ações (§4). |
 | `src/ui/excalisidian/BalaoAgente.tsx` | balão e estados (§6.1). |
@@ -741,6 +831,17 @@ Na linha do doc 05 §10 — poucos, mas estes:
 7. `orcamento.ts`: contagem e custo por dialeto; teto atingido → `podeChamar() === false`.
 8. `recuperacao.ts`: exclui a própria nota, dedupe entre minisearch e backlinks, prioriza
    participação aceita.
+9. Fluxo de créditos de apresentação: premium com saldo zero continua sendo saldo válido;
+   respostas de outra sessão são descartadas; `401` recupera uma vez, `403` bloqueia por plano,
+   e falha de rede sem recusa anterior omite o saldo. Rede durante recuperação de `401` não
+   libera a ação final. Cobrir a regra pura e os handlers que a usam, sem teste de renderização.
+10. Assistente: IA própria tem dois passos e modelos lógicos preenchidos; provedores externos
+    preservam cinco passos e os dados de chave/base URL ao trocar provedor; a regra usada pelo
+    handler diferencia ativar de salvar. Cobrir navegação e autorização com funções puras/store,
+    não só uma lista de rótulos.
+11. Preferências: busca escolhe “Créditos” para IA própria e “Modelos” para externos; saldo
+    indisponível não remove “Reconfigurar”. O painel e o layout/portal precisam de conferência
+    manual, pois o Vitest usa ambiente Node sem DOM.
 
 ---
 

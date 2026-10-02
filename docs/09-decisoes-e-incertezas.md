@@ -2074,3 +2074,42 @@ piora, porque o crédito passa a ser o custo real já com a taxa. `data_collecti
 excluir alguns provedores. O roteamento pode escolher provedores fora da China, o que pode ajudar
 no GDPR, mas não é garantido — o item 31 da Parte 3 segue aberto. O nome do fornecedor continua
 fora da interface.
+
+### ADR-45 · Configuração da IA do Excalisidian em dois passos
+
+**Contexto:** o fluxo comum de cinco passos deixa sem função os passos de modelos e revisão
+quando o provedor é a IA do Excalisidian. A pessoa precisa autenticar uma conta e pode precisar
+entender o saldo de créditos antes de ativar. Contas sem sessão, no plano grátis ou com consulta
+de saldo indisponível também precisam de uma saída clara.
+
+**Decisão:** a configuração própria usa **Provedor → Sua conta**. Na primeira configuração,
+seleciona a IA do Excalisidian se ela estiver disponível; na reconfiguração, mantém o provedor
+salvo e abre o segundo passo. A conta premium mostra o e-mail e o saldo restante/total com a
+data de renovação apenas quando o servidor confirmou esses dados. A linha explica que cada
+pedido consome créditos conforme o tamanho do texto enviado e da resposta. Saldo zero é um
+valor válido. A consulta ocorre ao abrir a configuração ou preferências e quando muda a sessão;
+não cria polling nem altera a rotina do motor do agente.
+
+`403` bloqueia por plano. `401` permite uma recuperação limitada pela sincronização da sessão
+e validação da conta: token novo permite uma consulta, expiração confirmada leva ao estado sem
+sessão e recusa inconclusiva exige nova tentativa manual. Uma falha de rede sem recusa de
+autenticação anterior omite saldo e renovação, mas deixa salvar se a sessão premium já estiver
+carregada. Falha de rede durante a recuperação de `401` não libera a ativação.
+
+Os provedores externos conservam os cinco passos existentes. Reconfigurar qualquer provedor
+usa a ação final “Salvar”. Preferências apresentam “Créditos” para IA própria e “Modelos” para
+provedores externos; o painel oferece entrada para Conta somente diante de sessão ausente ou
+recusada, nunca para erro de rede, plano ou créditos.
+
+**Alternativa rejeitada:** manter os cinco passos próprios e ocultar os controles sem uso. Isso
+preserva uma revisão vazia e não explica o estado da conta nem o saldo.
+
+**Consequências:** a interface não inventa números durante falhas de rede e não confunde
+indisponibilidade com autenticação recusada. A consulta adicional serve às superfícies de
+apresentação; a pausa e a atualização de saldo do motor permanecem sob a política existente.
+A entrada do painel é integrada com Preferências → Conta e valida/recupera a sessão antes de
+abrir o formulário.
+
+**Condição de reversão:** se a IA própria voltar a expor escolhas configuráveis de modelo,
+web search ou limite que justifiquem uma revisão, reavaliar o fluxo de dois passos; não adicionar
+esses controles enquanto o servidor mantiver modelos lógicos e ausência de limite em dólar.
