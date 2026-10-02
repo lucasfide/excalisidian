@@ -232,19 +232,27 @@ describe("cliente — completar", () => {
   });
 
   it("repassa um signal ao fetch (tempo máximo do pedido)", async () => {
-    fetchMock.mockResolvedValue(respostaHTTP(200, { choices: [{ message: { content: "x" } }] }));
-    await completar(pedidoSimples());
-    const [, init] = fetchMock.mock.calls[0];
-    expect(init.signal).toBeInstanceOf(AbortSignal);
+    vi.useFakeTimers();
+    try {
+      fetchMock.mockResolvedValue(respostaHTTP(200, { choices: [{ message: { content: "x" } }] }));
+      await completar(pedidoSimples());
+      const [, init] = fetchMock.mock.calls[0];
+      expect(init.signal).toBeInstanceOf(AbortSignal);
+      expect(vi.getTimerCount()).toBe(0);
+      await vi.advanceTimersByTimeAsync(300_000);
+      expect(init.signal.aborted).toBe(false);
+    } finally {
+      vi.useRealTimers();
+    }
   });
 
   it("tempo máximo: 100 s no provedor próprio, 300 s na chave própria", async () => {
     definirTokenDaSessao("tok");
-    const espia = vi.spyOn(AbortSignal, "timeout");
+    const espia = vi.spyOn(globalThis, "setTimeout");
     fetchMock.mockResolvedValue(respostaHTTP(200, { choices: [{ message: { content: "x" } }] }));
     await completar({ ...contexto("openai"), provedor: provedorDe("excalisidian"), baseUrl: BASE_URL_SERVICO, system: "s", mensagens: [{ papel: "usuario", texto: "x" }] });
     await completar(pedidoSimples());
-    expect(espia.mock.calls.map((c) => c[0])).toEqual([100_000, 300_000]);
+    expect(espia.mock.calls.map((c) => c[1])).toEqual([100_000, 300_000]);
     espia.mockRestore();
     definirTokenDaSessao(null);
   });

@@ -69,30 +69,38 @@ async function lancar(
   init: RequestInit,
   tempoMaximo: number = TEMPO_MAXIMO_CHAVE_PROPRIA_MS,
 ): Promise<{ status: number; corpo: unknown }> {
-  let res: Response;
+  const controlador = new AbortController();
+  const temporizador = setTimeout(() => controlador.abort(), tempoMaximo);
   try {
-    res = await fetch(url, {
-      ...init,
-      connectTimeout: TIMEOUT_CONEXAO_MS,
-      signal: AbortSignal.timeout(tempoMaximo),
-    });
-  } catch (e) {
-    const msg = e instanceof Error ? e.message : String(e);
-    // O capability escopa por host: base URL fora do escopo morre aqui, com erro do
-    // plugin http (doc 11 §3 — avisar e apontar para o campo Avançado). Só esse texto
-    // conta: o reqwest cita "url" em toda queda de rede ("error sending request for url").
-    if (/not allowed on the configured scope/i.test(msg)) {
-      throw new FalhaAgente("escopo", msg);
+    let res: Response;
+    try {
+      res = await fetch(url, {
+        ...init,
+        connectTimeout: TIMEOUT_CONEXAO_MS,
+        signal: controlador.signal,
+      });
+    } catch (e) {
+      const msg = e instanceof Error ? e.message : String(e);
+      // O capability escopa por host: base URL fora do escopo morre aqui, com erro do
+      // plugin http (doc 11 §3 — avisar e apontar para o campo Avançado). Só esse texto
+      // conta: o reqwest cita "url" em toda queda de rede ("error sending request for url").
+      if (/not allowed on the configured scope/i.test(msg)) {
+        throw new FalhaAgente("escopo", msg);
+      }
+      throw new FalhaAgente("rede", msg);
     }
-    throw new FalhaAgente("rede", msg);
+    let corpo: unknown = null;
+    try {
+      corpo = await res.json();
+    } catch {
+      // respostas de erro às vezes vêm vazias/não-JSON
+    }
+    return { status: res.status, corpo };
+  } finally {
+    // O plugin mantém listeners de abort após consumir o corpo. Não deixar o
+    // timeout tentar cancelar um recurso Rust que a resposta já encerrou.
+    clearTimeout(temporizador);
   }
-  let corpo: unknown = null;
-  try {
-    corpo = await res.json();
-  } catch {
-    // respostas de erro às vezes vêm vazias/não-JSON
-  }
-  return { status: res.status, corpo };
 }
 
 function erroDeStatus(status: number, corpo: unknown, ctx: ContextoChamada): FalhaAgente {
