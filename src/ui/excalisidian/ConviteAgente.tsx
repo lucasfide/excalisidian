@@ -3,15 +3,29 @@ import { toast } from "sonner";
 import { chaveConversaAgente, useAgenteStore } from "../../estado/agenteStore";
 import { useDocumentosStore } from "../../estado/documentosStore";
 import { useWorkspaceStore } from "../../estado/workspaceStore";
+import { deveMostrarConviteEmAviso } from "./localConvite";
 
+// Abrir o painel com o aviso na tela tira o aviso (limpeza do efeito, sem contar como
+// "Agora não"); o convite continua pendente e aparece dentro do painel.
 export default function ConviteAgente() {
   const convite = useAgenteStore((s) => s.convite);
   const habilitado = useAgenteStore((s) => s.config?.habilitado ?? false);
+  const painelAberto = useAgenteStore((s) => s.painelAberto);
   const caminhoAtivo = useWorkspaceStore((s) => s.caminhoAtivo);
   const caminhoConversa = useDocumentosStore((s) => chaveConversaAgente(caminhoAtivo, s.docs));
 
   useEffect(() => {
-    if (!habilitado || !convite || convite.path !== caminhoConversa) return;
+    if (
+      !convite ||
+      !deveMostrarConviteEmAviso({
+        habilitado,
+        painelAberto,
+        caminhoConvite: convite.path,
+        caminhoConversa,
+      })
+    ) {
+      return;
+    }
     let ativo = true;
     const responder = (resposta: "aceitar" | "adiar") => {
       if (!ativo || useAgenteStore.getState().convite !== convite) return;
@@ -36,7 +50,7 @@ export default function ConviteAgente() {
       ativo = false;
       toast.dismiss(id);
     };
-  }, [convite, habilitado, caminhoConversa]);
+  }, [convite, habilitado, painelAberto, caminhoConversa]);
 
   return null;
 }

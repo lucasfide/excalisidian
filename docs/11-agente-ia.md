@@ -476,8 +476,10 @@ ao aceitar o convite dentro do painel já aberto.
 O convite da nota ativa aparece como **toast** (`ConviteAgente`): "Posso ajudar com esta nota?",
 com o tema detectado na descrição, botões "Permitir" e "Agora não", e 10 segundos de
 duração. "Permitir" aceita o convite e abre o painel. "Agora não", fechar o toast ou deixá-lo
-expirar adia o convite. O convite só aparece se for da nota ativa. Quando o painel está
-aberto na nota do convite, o mesmo convite também aparece no topo da conversa (§6.2).
+expirar adia o convite. O convite só aparece se for da nota ativa, e num lugar só (decisão do
+dono, 01/10/2026): o toast vale só com o painel do agente fechado; com ele aberto, o convite
+fica apenas no topo da conversa (§6.2). Abrir o painel com o toast na tela tira o toast sem
+responder o convite (`localConvite.ts`).
 
 O estado interno do agente (`ocioso`, `pensando`, `pausado`, `erro`) continua no
 `agenteStore`, mas hoje não tem indicador visual fora do painel: o erro aparece no rodapé do

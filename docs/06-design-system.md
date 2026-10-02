@@ -625,10 +625,11 @@ no cabeçalho de Tarefas. Não há balão flutuante.
   usuário em fundo `lavagem` e do agente com filete esquerdo `cristal` de 2px. Sugestões são
   cartões `lavagem` com hairline `regua`. Campo de pergunta e medidor de uso no rodapé; erros
   em `bordo`, avisos em `tinta-media`.
-- **Convite**: toast do sonner (`ConviteAgente`) com "Permitir" e "Agora não", 10s; ao
-  permitir, o painel do agente abre. O mesmo convite também aparece dentro do painel, no
-  topo da conversa, num bloco `lavagem` com hairline `regua` e os botões "Aceitar",
-  "Agora não" e "Recusar".
+- **Convite**: aparece num lugar só (decisão do dono, 01/10/2026). Com o painel do agente
+  fechado, toast do sonner (`ConviteAgente`) com "Permitir" e "Agora não", 10s; ao permitir,
+  o painel do agente abre. Com o painel do agente aberto, só dentro dele, no topo da
+  conversa, num bloco `lavagem` com hairline `regua` e os botões "Aceitar", "Agora não" e
+  "Recusar"; abrir o painel com o toast na tela tira o toast sem responder o convite.
 - **"O que o agente lembra"**: tela secundária dentro do próprio painel (menu `…`), com
   "← Voltar à conversa"; lista memórias com ações de confirmar, rejeitar, editar e apagar.
 - **Pausado**: o estado só aparece no texto do item de menu ("Retomar acompanhamento").
