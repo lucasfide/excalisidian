@@ -9,8 +9,10 @@ import type { ReactNode } from "react";
 import { Bot } from "lucide-react";
 
 import { cn } from "../../ui";
-import { useAgenteStore } from "../../estado/agenteStore";
+import { chaveConversaAgente, useAgenteStore } from "../../estado/agenteStore";
+import { useDocumentosStore } from "../../estado/documentosStore";
 import { useWorkspaceStore } from "../../estado/workspaceStore";
+import "./balao-agente.css";
 
 const TOOLTIP: Record<string, string> = {
   desligado: "Agente",
@@ -26,16 +28,31 @@ export default function BalaoAgente(): ReactNode {
   const status = useAgenteStore((s) => s.status);
   const painelAberto = useAgenteStore((s) => s.painelAberto);
   const convite = useAgenteStore((s) => s.convite);
-  const sugestoes = useAgenteStore((s) => s.sugestoes);
+  const novidades = useAgenteStore((s) => s.novidades);
+  const atividades = useAgenteStore((s) => s.atividades);
   const caminhoAtivo = useWorkspaceStore((s) => s.caminhoAtivo);
-  const sugestoesAtivas = caminhoAtivo ? (sugestoes[caminhoAtivo] ?? []) : [];
+  const caminhoAtualizacoes = useDocumentosStore((s) => chaveConversaAgente(caminhoAtivo, s.docs));
+  const conviteAqui = convite?.path === caminhoAtualizacoes ? convite : null;
+  const atualizacoes = novidades[caminhoAtualizacoes];
+  const novasSugestoes = atualizacoes?.sugestoes ?? false;
+  const novaResposta = atualizacoes?.resposta ?? false;
+  const trabalhandoAqui = Object.values(atividades).some((atividade) => atividade.path === caminhoAtualizacoes);
+  const statusVisual = trabalhandoAqui && status !== "erro" && status !== "pausado" ? "pensando" : status;
 
   if (!habilitado) return null;
 
-  const rotulo = convite ? "convite" : sugestoesAtivas.length > 0 ? "sugestões" : status;
-  const tooltip = convite
+  const tooltipAtualizacoes = novasSugestoes && novaResposta
+    ? "novas sugestões e resposta"
+    : novasSugestoes
+      ? "novas sugestões"
+      : novaResposta
+        ? "nova resposta"
+        : null;
+  const tooltip = conviteAqui
     ? "Agente — convite para acompanhar a nota"
-    : (TOOLTIP[status] ?? "Agente");
+    : tooltipAtualizacoes
+      ? `Agente — ${tooltipAtualizacoes}`
+      : (TOOLTIP[statusVisual] ?? "Agente");
 
   return (
     <button
@@ -47,11 +64,11 @@ export default function BalaoAgente(): ReactNode {
       onClick={() => useAgenteStore.getState().alternarPainel()}
       className={cn(
         "fixed bottom-4 right-4 z-[90] flex h-10 w-10 items-center justify-center",
-        "rounded-pilula border border-regua bg-superficie shadow-ficha",
+        "balao-agente rounded-pilula border border-border bg-background shadow-ficha",
         "transition-colors duration-[140ms] ease-caderno",
-        status === "pensando" &&
+        statusVisual === "pensando" &&
           "motion-safe:animate-[pulsoAgente_1.6s_ease-in-out_infinite]",
-        painelAberto && "border-regua-forte",
+        painelAberto && "border-primary",
       )}
     >
       <Bot
@@ -59,35 +76,33 @@ export default function BalaoAgente(): ReactNode {
         strokeWidth={1.5}
         aria-hidden
         className={cn(
-          status === "erro" && "text-bordo",
-          status === "pensando" && "text-ocre-tinta",
+          status === "erro" && "text-destructive",
+          statusVisual === "pensando" && "text-warning-foreground",
           status === "pausado" && "opacity-50",
-          (status === "ocioso" || status === "desligado") && "text-tinta-suave",
-          status === "observando" && "text-tinta-media",
+          (statusVisual === "ocioso" || statusVisual === "desligado") && "text-muted-foreground",
+          statusVisual === "observando" && "text-foreground",
         )}
       />
-      {rotulo === "convite" && (
+      {conviteAqui && (
         <span
           aria-hidden
-          className="absolute -right-1 -top-1 flex h-4 min-w-4 items-center justify-center rounded-pilula bg-cristal px-1 meta text-superficie"
+          className="absolute -right-1 -top-1 flex h-4 min-w-4 items-center justify-center rounded-pilula bg-primary px-1 meta text-primary-foreground"
         >
           !
         </span>
       )}
-      {rotulo === "sugestões" && (
+      {!conviteAqui && tooltipAtualizacoes && (
         <span
           aria-hidden
-          className="absolute -right-1 -top-1 flex h-4 min-w-4 items-center justify-center rounded-pilula bg-cristal px-1 [font-size:9px] [line-height:1] font-medium text-superficie"
-        >
-          {sugestoesAtivas.length}
-        </span>
+          className="absolute -right-0.5 -top-0.5 h-2.5 w-2.5 rounded-pilula bg-primary"
+        />
       )}
-      {(status === "observando" || status === "pensando") && !convite && sugestoesAtivas.length === 0 && (
+      {(statusVisual === "observando" || statusVisual === "pensando") && !conviteAqui && !tooltipAtualizacoes && (
         <span
           aria-hidden
           className={cn(
             "absolute right-1 top-1 h-2 w-2 rounded-pilula",
-            status === "pensando" ? "bg-ocre" : "bg-cristal",
+            statusVisual === "pensando" ? "bg-warning" : "bg-primary",
           )}
         />
       )}

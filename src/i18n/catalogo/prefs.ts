@@ -58,6 +58,7 @@ export const PT_BR_PREFS = {
   "prefs.agente.linha.agente.ligar": "Ligar agente",
   "prefs.agente.linha.agente.desligar": "Desligar agente",
   "prefs.agente.linha.modelos.titulo": "Modelos",
+  "prefs.agente.linha.creditos.titulo": "Créditos",
   "prefs.agente.linha.modelos.botao": "Reconfigurar",
   "prefs.agente.linha.conexao.titulo": "Conexão",
   "prefs.agente.linha.conexao.descricao": "Confere se o provedor responde com a sua chave.",
@@ -93,6 +94,7 @@ export const PT_BR_PREFS = {
   "prefs.busca.termos.sincronizacao": "sincronização sync nuvem backup computadores vault",
   "prefs.busca.termos.licencas": "licenças créditos open source mit terceiros excalidraw",
   "prefs.busca.termos.agente": "ia inteligência artificial agente chave api provedor modelo",
+  "prefs.busca.termos.creditos": "créditos crédito saldo cota renovação",
 } as const;
 
 // Partial, como o EN geral em catalogo.ts: uma tradução faltando não trava a edição, cai no
@@ -148,6 +150,7 @@ export const EN_PREFS: Partial<Record<keyof typeof PT_BR_PREFS, string>> = {
   "prefs.agente.linha.agente.ligar": "Turn on agent",
   "prefs.agente.linha.agente.desligar": "Turn off agent",
   "prefs.agente.linha.modelos.titulo": "Models",
+  "prefs.agente.linha.creditos.titulo": "Credits",
   "prefs.agente.linha.modelos.botao": "Reconfigure",
   "prefs.agente.linha.conexao.titulo": "Connection",
   "prefs.agente.linha.conexao.descricao": "Checks that the provider answers with your key.",
@@ -180,4 +183,5 @@ export const EN_PREFS: Partial<Record<keyof typeof PT_BR_PREFS, string>> = {
   "prefs.busca.termos.sincronizacao": "sync cloud backup computers vault",
   "prefs.busca.termos.licencas": "licenses credits open source mit third party excalidraw",
   "prefs.busca.termos.agente": "ai artificial intelligence agent key api provider model",
+  "prefs.busca.termos.creditos": "credits credit balance quota renewal",
 };

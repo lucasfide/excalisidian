@@ -1,0 +1,39 @@
+.balao-agente.bg-background {
+  background-color: var(--color-superficie);
+}
+
+.balao-agente.border-border {
+  border-color: var(--color-regua);
+}
+
+.balao-agente.border-primary {
+  border-color: var(--color-cristal);
+}
+
+.balao-agente .bg-primary {
+  background-color: var(--color-cristal);
+}
+
+.balao-agente .bg-warning {
+  background-color: var(--color-ocre);
+}
+
+.balao-agente .text-primary-foreground {
+  color: var(--color-superficie);
+}
+
+.balao-agente .text-muted-foreground {
+  color: var(--color-tinta-suave);
+}
+
+.balao-agente .text-foreground {
+  color: var(--color-tinta-media);
+}
+
+.balao-agente .text-warning-foreground {
+  color: var(--color-ocre-tinta);
+}
+
+.balao-agente .text-destructive {
+  color: var(--color-bordo);
+}

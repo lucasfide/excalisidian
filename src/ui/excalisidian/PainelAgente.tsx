@@ -1,29 +1,30 @@
-// Painel do agente (doc 11 §6.2): cartão flutuante ancorado acima do balão, fora do
-// dockview. Convite para acompanhar a nota, sugestões do ciclo contínuo (copiar /
-// dispensar / abrir nota relacionada) e conversa manual. O agente não toca na nota —
-// sugestão é texto aqui, e copiar é a única saída dela (doc 11 §10.6). Fecha por Esc,
-// clique fora ou pelo balão.
+// Painel lateral dockado do agente: conversa e análises vivem no mesmo fluxo; a memória
+// fica numa tela secundária acessível pelo menu. O agente nunca escreve na nota.
 
 import { useEffect, useMemo, useRef, useState } from "react";
 import { toast } from "sonner";
 import {
-  ChevronDown,
-  ChevronRight,
   CircleAlert,
   Copy,
   CornerDownLeft,
   FileText,
   Globe,
   HelpCircle,
-  Pause,
-  Play,
   Send,
   X,
+  MoreHorizontal,
+  LoaderCircle,
+  ChevronDown,
+  BookmarkPlus,
+  BookmarkCheck,
 } from "lucide-react";
 
 import { Botao, cn } from "../../ui";
 import BotaoIcone from "../../ui/BotaoIcone";
-import { useAgenteStore } from "../../estado/agenteStore";
+import CabecalhoPainelLateral from "../../components/features/cabecalho-painel-lateral";
+import { chaveConversaAgente, useAgenteStore } from "../../estado/agenteStore";
+import { useContaStore } from "../../estado/contaStore";
+import { useDocumentosStore } from "../../estado/documentosStore";
 import { useWorkspaceStore } from "../../estado/workspaceStore";
 import { formatarUso } from "../../agente/orcamento";
 import { provedorDe } from "../../agente/provedores";
@@ -32,6 +33,22 @@ import { useTexto } from "../../i18n/useTexto";
 import { type Idioma } from "../../i18n/idioma";
 import { usePrefsStore } from "../../estado/prefsStore";
 import type { TipoSugestao } from "../../agente/assistente";
+import type { FaseAtividadeAgente } from "../../types/atividade-agente";
+import type { Fato } from "../../types/memoria-agente";
+import { recuperarSessaoApos401 } from "../../hooks/use-saldo-creditos-conta";
+import { normalizarFatoParaComparacao } from "../../agente/regras-memoria";
+import {
+  acaoDepoisRecuperacaoSessao,
+  deveMostrarBotaoContaPainel,
+  tokenMudouDuranteRecuperacao,
+} from "./acao-conta-painel";
+import "./painel-agente.css";
+
+export interface PainelAgenteProps {
+  aoAbrirConta(): void;
+  aoMostrarTarefas(): void;
+  aoFecharPainel(): void;
+}
 
 const ICONES_TIPO: Record<TipoSugestao, typeof HelpCircle> = {
   pergunta: HelpCircle,
@@ -41,73 +58,162 @@ const ICONES_TIPO: Record<TipoSugestao, typeof HelpCircle> = {
   achadoWeb: Globe,
 };
 
-export default function PainelAgente() {
+const ROTULOS_TIPO: Record<TipoSugestao, string> = {
+  pergunta: "Pergunta",
+  conteudo: "Trecho para aproveitar",
+  gap: "Lacuna",
+  notaRelacionada: "Nota relacionada",
+  achadoWeb: "Pesquisa na web",
+};
+
+const ROTULOS_ATIVIDADE: Record<FaseAtividadeAgente, string> = {
+  "leitura-inicial": "Analisando a nota…",
+  "buscando-notas-relacionadas": "Consultando notas relacionadas…",
+  "preparando-contexto": "Preparando o contexto…",
+  "gerando-sugestoes": "Preparando sugestões…",
+  respondendo: "Respondendo…",
+};
+
+export default function PainelAgente({ aoAbrirConta, aoMostrarTarefas, aoFecharPainel }: PainelAgenteProps) {
   const t = useTexto();
   const idioma = usePrefsStore((s) => s.idioma);
   const habilitado = useAgenteStore((s) => s.config?.habilitado ?? false);
   const provedorId = useAgenteStore((s) => s.config?.provedor);
   const aberto = useAgenteStore((s) => s.painelAberto);
   const conversas = useAgenteStore((s) => s.conversas);
-  const status = useAgenteStore((s) => s.status);
   const enviandoChat = useAgenteStore((s) => s.enviandoChat);
+  const caminhoChatEmVoo = useAgenteStore((s) => s.caminhoChatEmVoo);
   const erroAtual = useAgenteStore((s) => s.erroAtual);
+  const erroDeSessao = useAgenteStore((s) => s.erroDeSessao);
+  const contaCarregada = useContaStore((s) => s.carregado);
+  const sessao = useContaStore((s) => s.sessao);
   const pausado = useAgenteStore((s) => s.pausado);
   const uso = useAgenteStore((s) => s.usoSessao);
+  const raizAgente = useAgenteStore((s) => s.raiz);
   const convite = useAgenteStore((s) => s.convite);
   const analises = useAgenteStore((s) => s.analises);
   const sugestoesPorPath = useAgenteStore((s) => s.sugestoes);
   const fatos = useAgenteStore((s) => s.fatos);
+  const atividades = useAgenteStore((s) => s.atividades);
   const caminhoAtivo = useWorkspaceStore((s) => s.caminhoAtivo);
-  const conviteAqui = convite && convite.path === caminhoAtivo ? convite : null;
-  const sugestoes = caminhoAtivo ? (sugestoesPorPath[caminhoAtivo] ?? []) : [];
-  const conversa = conversas[caminhoAtivo ?? ""] ?? [];
-  const [fatosAbertos, setFatosAbertos] = useState(false);
-  const [rascunho, setRascunho] = useState("");
-  const fimRef = useRef<HTMLDivElement | null>(null);
+  const chaveConversa = useDocumentosStore((s) => chaveConversaAgente(caminhoAtivo, s.docs));
+  const caminhoConversa = chaveConversa || null;
+  const conviteAqui = convite && convite.path === caminhoConversa ? convite : null;
+  const sugestoes = caminhoConversa ? (sugestoesPorPath[chaveConversa] ?? []) : [];
+  const conversa = conversas[chaveConversa] ?? [];
+  const enviandoChatNestaNota = enviandoChat && caminhoChatEmVoo === chaveConversa;
+  const respondendoOutraNota = enviandoChat && !enviandoChatNestaNota;
+  const rotulosAtivos = useMemo(() => {
+    const atuais = Object.values(atividades)
+      .filter((atividade) => atividade.path === chaveConversa && atividade.fase !== "respondendo")
+      .sort((a, b) => b.iniciadoEm - a.iniciadoEm);
+    return [...new Set(atuais.map((atividade) => ROTULOS_ATIVIDADE[atividade.fase]))];
+  }, [atividades, chaveConversa]);
+  const chaveNotaUI = `${raizAgente ?? ""}\u0000${chaveConversa}`;
+  const [mostrarMemoria, setMostrarMemoria] = useState(false);
+  const [menuAberto, setMenuAberto] = useState(false);
+  const [memoriasEmEdicao, setMemoriasEmEdicao] = useState<Record<string, string>>({});
+  const [rascunhosPorNota, setRascunhosPorNota] = useState<Record<string, string>>({});
+  const rascunho = rascunhosPorNota[chaveNotaUI] ?? "";
+  const [acessoNaoConfirmado, setAcessoNaoConfirmado] = useState(false);
+  const [verificandoConta, setVerificandoConta] = useState(false);
+  const recuperandoContaRef = useRef(false);
+  const [mostrarRespostaRecente, setMostrarRespostaRecente] = useState(false);
+  const [mensagensLongas, setMensagensLongas] = useState<Record<string, string>>({});
+  const mensagemLonga = mensagensLongas[chaveNotaUI] ?? null;
+  const idsSugestoesEmConversa = new Set(conversa.flatMap((mensagem) => mensagem.sugestoes?.map((sugestao) => sugestao.id) ?? []));
+  const sugestoesSemBloco = sugestoes.filter((sugestao) => !idsSugestoesEmConversa.has(sugestao.id));
+  const memoriasPendentes = fatos.filter((fato) => fato.estado === "pendente");
+  const memoriasLegadas = fatos.filter((fato) => fato.estado === undefined);
+  const memoriasConfirmadas = fatos.filter((fato) => fato.estado === "confirmado");
+  const memoriasArquivadas = fatos.filter((fato) => fato.estado === "substituido" || fato.estado === "rejeitado");
+  const temAnaliseAtivaNaConversa = conversa.some((mensagem) => mensagem.tipo === "analise" && mensagem.estado === "em-andamento");
+  const ultimaAnaliseConcluidaId = [...conversa].reverse().find((mensagem) => mensagem.tipo === "analise" && mensagem.estado !== "em-andamento")?.id;
+  const rolagemRef = useRef<HTMLDivElement | null>(null);
   const raizRef = useRef<HTMLDivElement | null>(null);
+  const rolarAoFimRef = useRef(false);
+  const estavaNoFimRef = useRef(true);
+  const conversaAnteriorRef = useRef(conversa);
+  const formatadorDataMemoria = useMemo(
+    () => new Intl.DateTimeFormat(idioma, { day: "numeric", month: "short", year: "numeric" }),
+    [idioma],
+  );
 
   const enviar = () => {
     const texto = rascunho.trim();
     if (!texto || enviandoChat) return;
-    setRascunho("");
+    const caminhoEnvio = chaveNotaUI;
+    setRascunhosPorNota((atual) => ({ ...atual, [caminhoEnvio]: "" }));
+    setMensagensLongas((atual) => {
+      const proximo = { ...atual };
+      delete proximo[caminhoEnvio];
+      return proximo;
+    });
+    setMostrarMemoria(false);
+    rolarAoFimRef.current = true;
+    setMostrarRespostaRecente(false);
     // Mensagem longa demais não sai: o texto volta para o campo, com o aviso no rodapé.
     void useAgenteStore.getState().enviarMensagem(texto).then((r) => {
-      if (r === "longa") setRascunho((atual) => atual || rascunho);
+      if (r === "longa") {
+        setRascunhosPorNota((atual) => ({
+          ...atual,
+          [caminhoEnvio]: atual[caminhoEnvio] || texto,
+        }));
+        setMensagensLongas((atual) => ({
+          ...atual,
+          [caminhoEnvio]: "Mensagem longa demais para o agente (máximo de 100 mil caracteres).",
+        }));
+      }
     });
   };
 
-  // Esc fecha; clique fora fecha. O Dialog tem a mesma mecânica — replicada aqui porque
-  // o painel não é modal (a escrita embaixo continua acontecendo).
+  // Esc fecha a tela secundária/menu antes de fechar o painel. O painel é dockado,
+  // portanto cliques na nota não devem fechá-lo.
   useEffect(() => {
     if (!aberto) return;
     const aoTeclar = (e: KeyboardEvent) => {
-      if (e.key === "Escape") {
+      if (e.key === "Escape" && raizRef.current?.contains(document.activeElement)) {
         e.preventDefault();
         e.stopPropagation();
-        useAgenteStore.getState().alternarPainel();
-      }
-    };
-    const aoPonteiro = (e: PointerEvent) => {
-      const alvo = e.target as Element;
-      // O balão tem o próprio onClick que alterna o painel; tratar o pointerdown dele
-      // aqui fecharia e o clique reabriria.
-      if (alvo.closest?.("[data-balao-agente]")) return;
-      if (!raizRef.current?.contains(alvo)) {
-        useAgenteStore.getState().alternarPainel();
+        if (menuAberto) setMenuAberto(false);
+        else if (mostrarMemoria) setMostrarMemoria(false);
+        else useAgenteStore.getState().alternarPainel();
       }
     };
     window.addEventListener("keydown", aoTeclar, true);
-    // pointerdown em capturar: o clique fora é detectado antes de qualquer stopPropagation.
-    window.addEventListener("pointerdown", aoPonteiro, true);
     return () => {
       window.removeEventListener("keydown", aoTeclar, true);
-      window.removeEventListener("pointerdown", aoPonteiro, true);
     };
-  }, [aberto]);
+  }, [aberto, menuAberto, mostrarMemoria]);
 
   useEffect(() => {
-    fimRef.current?.scrollIntoView({ block: "end" });
-  }, [conversa.length, status, enviandoChat]);
+    if (!aberto) return;
+    setMostrarMemoria(false);
+    setMostrarRespostaRecente(false);
+    rolarAoFimRef.current = true;
+    // A API de reconhecimento por nota é fornecida pelo store; manter o acknowledge
+    // ligado ao ato explícito de abrir/trocar o painel.
+    useAgenteStore.getState().reconhecerAtualizacoes(chaveConversa);
+  }, [aberto, chaveConversa, raizAgente]);
+
+  useEffect(() => {
+    const conversaAnterior = conversaAnteriorRef.current;
+    conversaAnteriorRef.current = conversa;
+    if (!aberto || mostrarMemoria) return;
+    if (rolarAoFimRef.current) {
+      if (rolagemRef.current) rolagemRef.current.scrollTop = rolagemRef.current.scrollHeight;
+      rolarAoFimRef.current = false;
+      estavaNoFimRef.current = true;
+      return;
+    }
+    if (conversa !== conversaAnterior || rotulosAtivos.length > 0) {
+      if (estavaNoFimRef.current) {
+        if (rolagemRef.current) rolagemRef.current.scrollTop = rolagemRef.current.scrollHeight;
+      } else {
+        setMostrarRespostaRecente(true);
+      }
+    }
+  }, [aberto, mostrarMemoria, chaveConversa, conversa, conversa.length, rotulosAtivos, raizAgente]);
 
   const textoMedidor = useMemo(() => formatarUso(uso, null), [uso]);
 
@@ -116,6 +222,78 @@ export default function PainelAgente() {
   // fica `null` quando a busca falha — o medidor some, nunca um número inventado no lugar.
   const usaCreditos = provedorId ? provedorDe(provedorId).exigeConta : false;
   const saldo = useAgenteStore((s) => s.saldoCreditos);
+  const mostrarBotaoConta = deveMostrarBotaoContaPainel({
+    usaProvedorComConta: usaCreditos,
+    contaCarregada,
+    sessaoPresente: sessao !== null,
+    erroDeSessao,
+  });
+
+  useEffect(() => {
+    setAcessoNaoConfirmado(false);
+  }, [sessao?.token]);
+
+  useEffect(() => {
+    if (!aberto) setAcessoNaoConfirmado(false);
+  }, [aberto]);
+
+  const abrirConta = () => {
+    const store = useAgenteStore.getState();
+    const configAtual = store.config;
+    if (
+      !store.painelAberto ||
+      configAtual?.habilitado !== true ||
+      !provedorDe(configAtual.provedor).exigeConta
+    ) return;
+    store.alternarPainel();
+    aoAbrirConta();
+  };
+
+  const painelAindaPedeConta = () => {
+    const store = useAgenteStore.getState();
+    const configAtual = store.config;
+    return store.painelAberto && configAtual?.habilitado === true &&
+      provedorDe(configAtual.provedor).exigeConta;
+  };
+
+  const entrarNaConta = async () => {
+    if (recuperandoContaRef.current) return;
+    recuperandoContaRef.current = true;
+    setVerificandoConta(true);
+    const sessaoAntes = useContaStore.getState().sessao;
+    if (!sessaoAntes) {
+      abrirConta();
+      recuperandoContaRef.current = false;
+      setVerificandoConta(false);
+      return;
+    }
+    if (!useAgenteStore.getState().erroDeSessao) {
+      recuperandoContaRef.current = false;
+      setVerificandoConta(false);
+      return;
+    }
+    try {
+      const resultado = await recuperarSessaoApos401(sessaoAntes.token);
+      const sessaoDepois = useContaStore.getState().sessao;
+      const podeAbrirConta = painelAindaPedeConta();
+      if (tokenMudouDuranteRecuperacao(sessaoAntes.token, sessaoDepois)) {
+        setAcessoNaoConfirmado(false);
+        return;
+      }
+      const acao = acaoDepoisRecuperacaoSessao(resultado);
+      if (acao === "abrir-conta" && !sessaoDepois && podeAbrirConta) {
+        setAcessoNaoConfirmado(false);
+        abrirConta();
+      } else {
+        setAcessoNaoConfirmado(acao === "tentar-novamente" && podeAbrirConta);
+      }
+    } catch {
+      setAcessoNaoConfirmado(painelAindaPedeConta());
+    } finally {
+      recuperandoContaRef.current = false;
+      setVerificandoConta(false);
+    }
+  };
 
   // Atualiza o saldo ao abrir o painel e depois de cada resposta (o `uso` da sessão muda a cada
   // resposta bem-sucedida) ou erro (créditos esgotados mudam o medidor para "esgotado").
@@ -128,193 +306,155 @@ export default function PainelAgente() {
   return (
     <div
       ref={raizRef}
-      role="dialog"
+      role="region"
       aria-label="Agente"
       className={cn(
-        "fixed bottom-16 right-4 z-[90] flex max-h-[60vh] w-[360px] flex-col",
-        "rounded-ficha border border-regua bg-superficie shadow-sobreposicao",
-        "motion-safe:animate-[surgir_160ms_var(--ease-caderno)]",
+        "painel-agente flex h-full min-h-0 w-full flex-col bg-background",
       )}
     >
-      <header className="flex items-center gap-1 border-b border-regua px-3 py-1.5">
-        <span className="meta text-tinta-suave">Agente</span>
-        <div className="ml-auto flex items-center gap-1">
-          <BotaoIcone
-            Icone={pausado ? Play : Pause}
-            titulo={pausado ? "Retomar agente" : "Pausar agente"}
-            onClick={() =>
-              pausado
-                ? useAgenteStore.getState().retomar()
-                : useAgenteStore.getState().pausar()
-            }
-          />
-          <BotaoIcone
-            Icone={X}
-            titulo="Fechar"
-            onClick={() => useAgenteStore.getState().alternarPainel()}
-          />
-        </div>
-      </header>
-
-      <div className="flex min-h-0 flex-1 flex-col gap-2 overflow-y-auto p-3">
-        {conviteAqui && (
-          <div className="rounded-controle border border-regua bg-lavagem p-3">
-            <p className="text-[13px] leading-relaxed text-tinta [text-wrap:pretty]">
-              Esta nota parece tratar de{" "}
-              <span className="font-medium">{conviteAqui.tema}</span>. Quer que eu acompanhe?
-            </p>
-            <div className="mt-2 flex gap-2">
-              <Botao
-                variante="primario"
-                tamanho="compacto"
-                onClick={() => useAgenteStore.getState().responderConvite("aceitar")}
-              >
-                Aceitar
-              </Botao>
-              <Botao
-                variante="fantasma"
-                tamanho="compacto"
-                onClick={() => useAgenteStore.getState().responderConvite("adiar")}
-              >
-                Agora não
-              </Botao>
-              <Botao
-                variante="fantasma"
-                tamanho="compacto"
-                className="text-tinta-suave"
-                onClick={() => useAgenteStore.getState().responderConvite("recusar")}
-              >
-                Recusar
-              </Botao>
-            </div>
+      <CabecalhoPainelLateral
+        ativo="agente"
+        aoMostrarAgente={() => setMostrarMemoria(false)}
+        aoMostrarTarefas={aoMostrarTarefas}
+        aoFechar={aoFecharPainel}
+        acoes={
+          <div className="relative">
+            <BotaoIcone Icone={MoreHorizontal} titulo="Mais opções do agente" className="h-11 w-11" onClick={() => setMenuAberto((atual) => !atual)} />
+            {menuAberto && <div role="menu" className="painel-agente__menu absolute right-0 top-full z-10 mt-1 min-w-52 rounded-controle border border-border bg-popover p-1 shadow-ficha">
+              <button role="menuitem" type="button" className="painel-agente__item" onClick={() => { setMostrarMemoria(true); setMenuAberto(false); }}>O que o agente lembra</button>
+              <button role="menuitem" type="button" className="painel-agente__item" onClick={() => { pausado ? useAgenteStore.getState().retomar() : useAgenteStore.getState().pausar(); setMenuAberto(false); }}>{pausado ? "Retomar acompanhamento" : "Pausar acompanhamento"}</button>
+            </div>}
           </div>
-        )}
+        }
+      />
 
-        {sugestoes.length > 0 && (
-          <section className="flex flex-col gap-1">
-            <div className="meta text-tinta-suave">Sugestões</div>
-            {sugestoes.map((s) => {
-              const Icone = ICONES_TIPO[s.tipo];
-              return (
-                <div
-                  key={s.id}
-                  className="group flex items-start gap-2 rounded-controle px-2 py-1.5 hover:bg-lavagem"
-                >
-                  <Icone
-                    size={14}
-                    strokeWidth={1.5}
-                    aria-hidden
-                    className="mt-0.5 shrink-0 text-tinta-suave"
-                  />
-                  <div className="min-w-0 flex-1">
-                    <p className="text-[13px] leading-relaxed text-tinta [text-wrap:pretty] whitespace-pre-wrap">
-                      {s.texto}
-                    </p>
-                    {s.caminhoNota && (
-                      <button
-                        type="button"
-                        className="meta mt-0.5 text-cristal underline-offset-2 hover:underline"
-                        onClick={() =>
-                          useWorkspaceStore.getState().abrirDocumento(s.caminhoNota!)
-                        }
-                      >
-                        {s.caminhoNota}
-                      </button>
-                    )}
-                  </div>
-                  <div className="flex shrink-0 gap-0.5 opacity-0 transition-opacity duration-[140ms] group-hover:opacity-100 focus-within:opacity-100">
-                    <BotaoIcone
-                      Icone={Copy}
-                      titulo="Copiar"
-                      tamanho={16}
-                      onClick={() => {
-                        void navigator.clipboard
-                          .writeText(s.texto)
-                          .then(() => toast("Sugestão copiada."))
-                          .catch(() => toast("Não foi possível copiar."));
-                      }}
-                    />
-                    <BotaoIcone
-                      Icone={X}
-                      titulo="Dispensar"
-                      tamanho={16}
-                      onClick={() => useAgenteStore.getState().dispensarSugestao(s.id)}
-                    />
-                  </div>
-                </div>
-              );
-            })}
-          </section>
-        )}
+      {respondendoOutraNota && <p role="status" className="border-b border-border px-3 py-1 text-pequeno text-muted-foreground">Respondendo em outra conversa…</p>}
 
-        {fatos.length > 0 && (
-          <section className="flex flex-col gap-1">
-            <button
-              type="button"
-              aria-expanded={fatosAbertos}
-              className="meta flex items-center gap-1 text-tinta-suave hover:text-tinta"
-              onClick={() => setFatosAbertos((v) => !v)}
-            >
-              {fatosAbertos ? (
-                <ChevronDown size={12} strokeWidth={1.5} aria-hidden />
-              ) : (
-                <ChevronRight size={12} strokeWidth={1.5} aria-hidden />
-              )}
-              O que o agente aprendeu ({fatos.length})
-            </button>
-            {fatosAbertos && (
-              <ul className="flex flex-col gap-0.5">
-                {[...fatos].reverse().map((f) => (
-                  <li key={f.id} className="group flex items-start gap-2 px-2 py-1">
-                    <span className="min-w-0 flex-1 text-pequeno text-tinta-media [text-wrap:pretty]">
-                      {f.texto}
-                    </span>
-                    <BotaoIcone
-                      Icone={X}
-                      titulo="Apagar fato"
-                      tamanho={16}
-                      className="shrink-0 opacity-0 transition-opacity duration-[140ms] group-hover:opacity-100 focus-visible:opacity-100"
-                      onClick={() => useAgenteStore.getState().apagarFato(f.id)}
-                    />
-                  </li>
-                ))}
-              </ul>
-            )}
-          </section>
-        )}
-
-        {conversa.length === 0 && sugestoes.length === 0 && !conviteAqui && !enviandoChat && (
-          <p className="mt-auto mb-auto px-1 text-center text-pequeno text-tinta-suave">
-            Pergunte algo sobre a nota aberta.
+      {conviteAqui && (
+        <div className="mx-3 mt-2 rounded-controle border border-border bg-muted p-3">
+          <p className="text-[13px] leading-relaxed text-foreground [text-wrap:pretty] [overflow-wrap:anywhere]">
+            Esta nota parece tratar de <span className="font-medium">{conviteAqui.tema}</span>. Quer que eu acompanhe?
           </p>
-        )}
-        {conversa.map((m, i) => (
-          <div
-            key={i}
-            className={cn(
-              "text-[13px] leading-relaxed [text-wrap:pretty] whitespace-pre-wrap",
-              m.papel === "usuario" ? "text-tinta-media" : "text-tinta",
-            )}
-          >
-            {m.papel === "assistente" && (
-              <div className="meta mb-0.5 text-tinta-suave">agente</div>
-            )}
-            {m.texto}
+          <div className="mt-2 flex flex-wrap gap-2">
+            <Botao variante="primario" tamanho="compacto" onClick={() => useAgenteStore.getState().responderConvite("aceitar")}>Aceitar</Botao>
+            <Botao variante="fantasma" tamanho="compacto" onClick={() => useAgenteStore.getState().responderConvite("adiar")}>Agora não</Botao>
+            <Botao variante="fantasma" tamanho="compacto" className="text-muted-foreground" onClick={() => useAgenteStore.getState().responderConvite("recusar")}>Recusar</Botao>
           </div>
-        ))}
-        {enviandoChat && (
-          <div className="meta animate-pulse text-tinta-suave">pensando…</div>
+        </div>
+      )}
+
+        <div className="relative flex min-h-0 flex-1 flex-col">
+        <div
+          ref={rolagemRef}
+          onScroll={(e) => {
+            const elemento = e.currentTarget;
+            estavaNoFimRef.current = elemento.scrollHeight - elemento.scrollTop - elemento.clientHeight <= 48;
+            if (estavaNoFimRef.current) setMostrarRespostaRecente(false);
+          }}
+          id="painel-agente-conteudo"
+          aria-label={mostrarMemoria ? "Memória do agente" : "Conversa com o agente"}
+          tabIndex={0}
+          className="flex min-h-0 flex-1 flex-col overflow-y-auto p-3"
+        >
+        {!mostrarMemoria && (
+          <div className="flex min-h-full flex-col gap-3">
+            {conversa.length === 0 && !enviandoChatNestaNota && (
+              <p className="my-auto px-1 text-center text-pequeno text-muted-foreground">
+            {caminhoConversa ? "Pergunte algo sobre esta nota." : "Pergunte qualquer coisa ao agente."}
+              </p>
+            )}
+            {conversa.map((m, i) => m.tipo === "analise" ? (
+              <details
+                key={m.id ?? `${chaveConversa}-${i}`}
+                open={m.estado === "em-andamento" || m.id === ultimaAnaliseConcluidaId}
+                aria-live={m.estado === "em-andamento" ? "polite" : undefined}
+                className="rounded-controle border border-border bg-card p-3"
+              >
+                <summary className="flex cursor-pointer list-none items-start gap-2 text-pequeno text-muted-foreground">
+                  {m.estado === "em-andamento" && <LoaderCircle size={16} className="mt-0.5 shrink-0 motion-safe:animate-spin" aria-hidden />}
+                  {m.estado === "erro" && <CircleAlert size={16} className="mt-0.5 shrink-0 text-destructive" aria-hidden />}
+                  <span className="min-w-0"><span className="meta block text-foreground">Agente</span>{m.estado === "em-andamento" ? (m.fase ? ROTULOS_ATIVIDADE[m.fase] : "Analisando a nota…") : m.texto}</span>
+                  {m.estado !== "em-andamento" && <ChevronDown size={14} className="ml-auto mt-1 shrink-0" aria-hidden />}
+                </summary>
+                {m.sugestoes && m.sugestoes.length > 0 && <div className="mt-2 flex flex-col gap-2">{m.sugestoes.map((s) => <SugestaoInline key={s.id} sugestao={s} />)}</div>}
+                {m.idsMemoria?.some((id) => fatos.some((fato) => fato.id === id && (fato.estado === "pendente" || fato.estado === undefined))) && <button type="button" className="meta mt-2 min-h-11 text-primary underline-offset-2 hover:underline" onClick={() => setMostrarMemoria(true)}>Revisar lembrança sugerida</button>}
+              </details>
+            ) : (
+              <div key={m.id ?? `${chaveConversa}-${i}`} className={cn("flex flex-col gap-1", m.papel === "usuario" ? "items-end" : "items-start")}>
+                <div className="flex items-center gap-1">
+                  <span className="meta px-1 text-muted-foreground">{m.papel === "usuario" ? "Você" : "Agente"}</span>
+                  {m.papel === "usuario" && (
+                    <BotaoIcone
+                      Icone={preferenciaJaSalva(fatos, m.texto) ? BookmarkCheck : BookmarkPlus}
+                      titulo={preferenciaJaSalva(fatos, m.texto) ? "Já está na memória" : "Lembrar esta preferência"}
+                      disabled={preferenciaJaSalva(fatos, m.texto)}
+                      onClick={() => lembrarPreferenciaDaMensagem(m.texto)}
+                    />
+                  )}
+                </div>
+                <p className={cn("max-w-[92%] whitespace-pre-wrap [overflow-wrap:anywhere] rounded-controle px-2.5 py-2 text-[13px] leading-relaxed [text-wrap:pretty]", m.papel === "usuario" ? "bg-muted text-foreground" : "border-l-2 border-primary bg-background text-foreground")}>{m.texto}</p>
+              </div>
+            ))}
+            {enviandoChatNestaNota && <div role="status" className="flex items-start gap-2 rounded-controle border border-border bg-card p-3 text-pequeno text-muted-foreground"><LoaderCircle size={16} className="mt-0.5 shrink-0 motion-safe:animate-spin" aria-hidden /><div><span className="meta block text-foreground">Agente</span>Respondendo…</div></div>}
+            {!temAnaliseAtivaNaConversa && rotulosAtivos.length > 0 && <div role="status" aria-live="polite" className="flex items-start gap-2 rounded-controle border border-border bg-card p-3 text-pequeno text-muted-foreground"><LoaderCircle size={16} className="mt-0.5 shrink-0 motion-safe:animate-spin" aria-hidden /><div><span className="meta block text-foreground">Agente</span>{rotulosAtivos[0]}</div></div>}
+            {sugestoesSemBloco.length > 0 && <details><summary className="meta cursor-pointer text-muted-foreground">Sugestões anteriores ({sugestoesSemBloco.length})</summary><div className="mt-2 flex flex-col gap-2">{sugestoesSemBloco.map((s) => <SugestaoInline key={s.id} sugestao={s} />)}</div></details>}
+            <div />
+          </div>
         )}
-        <div ref={fimRef} />
+        {mostrarMemoria && <section className="flex flex-col gap-4">
+          <div className="flex items-center gap-2"><Botao variante="fantasma" tamanho="compacto" className="min-h-11" onClick={() => { rolarAoFimRef.current = true; setMostrarMemoria(false); }}>← Voltar à conversa</Botao><h2 className="meta text-foreground">O que o agente lembra</h2></div>
+          <p className="text-pequeno text-muted-foreground">Sugestões de memória só entram no contexto depois da sua confirmação. Ao confirmar uma atualização, a versão anterior fica arquivada.</p>
+          {fatos.length === 0 && <p className="px-1 text-pequeno text-muted-foreground">Nenhuma memória neste espaço de trabalho.</p>}
+          {memoriasPendentes.length > 0 && <MemoryGroup title="Para revisar" facts={memoriasPendentes} formatDate={formatadorDataMemoria} onConfirm={(id) => useAgenteStore.getState().confirmarMemoria(id)} onReject={(id) => useAgenteStore.getState().rejeitarMemoria(id)} onDelete={(id) => useAgenteStore.getState().apagarFato(id)} onEdit={(id, texto) => useAgenteStore.getState().editarMemoria(id, texto)} />}
+          {memoriasLegadas.length > 0 && <MemoryGroup title="Registros antigos — revisar" facts={memoriasLegadas} formatDate={formatadorDataMemoria} onConfirm={(id) => useAgenteStore.getState().confirmarMemoria(id)} onReject={(id) => useAgenteStore.getState().rejeitarMemoria(id)} onDelete={(id) => useAgenteStore.getState().apagarFato(id)} onEdit={(id, texto) => useAgenteStore.getState().editarMemoria(id, texto)} />}
+          {memoriasConfirmadas.length > 0 && <section><h3 className="meta mb-2 text-muted-foreground">Memórias confirmadas</h3><ul className="flex flex-col gap-2">{memoriasConfirmadas.map((f) => <li key={f.id} className="rounded-controle border border-border p-3">
+            {memoriasEmEdicao[f.id] !== undefined ? <div className="flex flex-col gap-2"><textarea aria-label="Editar memória" value={memoriasEmEdicao[f.id]} onChange={(e) => setMemoriasEmEdicao((state) => ({ ...state, [f.id]: e.target.value }))} rows={3} className="min-h-20 w-full resize-y rounded-controle border border-input bg-background p-2 text-base text-foreground" />{Array.from(memoriasEmEdicao[f.id]).length > 500 && <p role="alert" className="text-pequeno text-destructive">A memória não pode passar de 500 caracteres.</p>}<div className="flex gap-2"><Botao variante="primario" tamanho="compacto" className="min-h-11" onClick={() => { if (!useAgenteStore.getState().editarMemoria(f.id, memoriasEmEdicao[f.id])) { toast("A memória não foi atualizada. Verifique o limite de tamanho."); return; } setMemoriasEmEdicao((state) => { const next = { ...state }; delete next[f.id]; return next; }); }}>Salvar</Botao><Botao variante="fantasma" tamanho="compacto" className="min-h-11" onClick={() => setMemoriasEmEdicao((state) => { const next = { ...state }; delete next[f.id]; return next; })}>Cancelar</Botao></div></div> : <p className="text-pequeno text-foreground [overflow-wrap:anywhere]">{f.texto}</p>}
+            <MemoryMeta fact={f} formatDate={formatadorDataMemoria} />
+            <div className="mt-2 flex flex-wrap gap-2"><Botao variante="fantasma" tamanho="compacto" className="min-h-11" onClick={() => setMemoriasEmEdicao((state) => ({ ...state, [f.id]: f.texto }))}>Editar</Botao><Botao variante="fantasma" tamanho="compacto" className="min-h-11" onClick={() => useAgenteStore.getState().apagarFato(f.id)}>Apagar</Botao></div>
+          </li>)}</ul></section>}
+          {memoriasArquivadas.length > 0 && <details><summary className="meta cursor-pointer text-muted-foreground">Arquivadas ({memoriasArquivadas.length})</summary><ul className="mt-2 flex flex-col gap-2">{memoriasArquivadas.map((fato) => <li key={fato.id} className="rounded-controle border border-border p-3"><p className="text-pequeno text-foreground">{fato.texto}</p><MemoryMeta fact={fato} formatDate={formatadorDataMemoria} /><Botao variante="fantasma" tamanho="compacto" className="mt-2 min-h-11" onClick={() => useAgenteStore.getState().apagarFato(fato.id)}>Apagar</Botao></li>)}</ul></details>}
+        </section>}
+        </div>
+        {!mostrarMemoria && mostrarRespostaRecente && (
+          <button
+            type="button"
+            className="absolute bottom-2 left-1/2 -translate-x-1/2 rounded-pilula border border-border bg-background px-3 py-1.5 text-pequeno text-foreground shadow-ficha focus-visible:outline-2 focus-visible:outline-primary"
+            onClick={() => {
+              if (rolagemRef.current) rolagemRef.current.scrollTop = rolagemRef.current.scrollHeight;
+              estavaNoFimRef.current = true;
+              setMostrarRespostaRecente(false);
+            }}
+          >
+            Nova atividade ↓
+          </button>
+        )}
       </div>
 
-      {erroAtual && <p className="border-t border-regua px-3 py-1.5 text-pequeno text-bordo">{erroAtual}</p>}
+      {mensagemLonga && <p role="status" className="border-t border-border px-3 py-1.5 text-pequeno text-destructive [overflow-wrap:anywhere]">{mensagemLonga}</p>}
 
-      <footer className="border-t border-regua p-2">
+      {(erroAtual || mostrarBotaoConta || acessoNaoConfirmado) && (
+        <div className="painel-agente__erro border-border flex flex-col gap-2 border-t px-3 py-2">
+          {erroAtual && !erroDeSessao && <p className="painel-agente__erro-mensagem text-destructive">{erroAtual}</p>}
+          {mostrarBotaoConta && <p className="painel-agente__erro-conta text-muted-foreground">{t("agente.erro.sessao")}</p>}
+          {acessoNaoConfirmado && (
+            <p className="painel-agente__erro-conta text-muted-foreground" role="status">
+              {t("agente.passo.acessoNaoConfirmado")}
+            </p>
+          )}
+          {mostrarBotaoConta && (
+            <Botao variante="primario" tamanho="compacto" className="self-start" disabled={verificandoConta} aria-busy={verificandoConta} onClick={() => void entrarNaConta()}>
+              {t(verificandoConta ? "agente.passo.contaCarregando" : acessoNaoConfirmado ? "agente.passo.entrarNovamente" : "agente.passo.abrirConta")}
+            </Botao>
+          )}
+        </div>
+      )}
+
+      {!mostrarMemoria && <footer className="border-t border-border p-2">
+        {caminhoConversa && <p className="mb-1 px-1 meta text-muted-foreground">Nota atual</p>}
         <div className="flex items-end gap-2">
           <textarea
             value={rascunho}
-            onChange={(e) => setRascunho(e.target.value)}
+            onChange={(e) => setRascunhosPorNota((atual) => ({ ...atual, [chaveNotaUI]: e.target.value }))}
             onKeyDown={(e) => {
               if (e.key === "Enter" && !e.shiftKey) {
                 e.preventDefault();
@@ -322,78 +462,187 @@ export default function PainelAgente() {
               }
             }}
             rows={1}
-            placeholder="Perguntar sobre esta nota"
-            aria-label="Perguntar sobre esta nota"
+            placeholder={caminhoConversa ? "Perguntar sobre esta nota" : "Perguntar ao agente"}
+            aria-label={caminhoConversa ? "Perguntar sobre esta nota" : "Perguntar ao agente"}
             className={cn(
-              "max-h-24 min-h-9 w-full flex-1 resize-none rounded-controle border border-regua-forte",
-              "bg-superficie px-2 py-1.5 text-corpo text-tinta placeholder:text-tinta-suave",
-              "transition-colors duration-[140ms] ease-caderno focus:outline-none focus-visible:outline-2 focus-visible:outline-cristal",
+              "max-h-24 min-h-11 w-full flex-1 resize-none rounded-controle border border-input",
+              "bg-background px-2 py-1.5 text-base text-foreground placeholder:text-muted-foreground",
+              "transition-colors duration-[140ms] ease-caderno focus:outline-none focus-visible:outline-2 focus-visible:outline-primary",
             )}
           />
           <BotaoIcone
             Icone={Send}
             titulo="Enviar"
-            disabled={!rascunho.trim() || enviandoChat || pausado}
+            disabled={!rascunho.trim() || enviandoChat}
             onClick={enviar}
-            className="h-9 w-9"
+            className="h-11 w-11"
           />
         </div>
         <div className="mt-1 flex items-baseline justify-between gap-2 px-1">
           {usaCreditos && saldo ? (
             <MedidorCreditos saldo={saldo} t={t} idioma={idioma} />
           ) : usaCreditos ? null : (
-            <span className="meta text-tinta-suave">{textoMedidor}</span>
+            <span className="meta text-muted-foreground">{textoMedidor}</span>
           )}
           {/* A decisão do gateiro nunca some sem dizer nada (doc 11 §5.1, revisado
               13/09): "não vale" e "falhou" aparecem aqui. */}
-          {caminhoAtivo && analises[caminhoAtivo] === "nao-vale" && (
-            <span className="meta text-tinta-suave">
+      {caminhoConversa && analises[caminhoConversa] === "nao-vale" && (
+            <span className="meta text-muted-foreground">
               O agente leu esta nota e decidiu não participar por enquanto.
             </span>
           )}
-          {caminhoAtivo && analises[caminhoAtivo] === "erro" && (
-            <span className="meta text-tinta-suave">
-              A análise desta nota falhou. O agente tenta de novo quando você escrever mais.
-            </span>
-          )}
         </div>
-      </footer>
+      </footer>}
     </div>
   );
 }
 
 /** Medidor de créditos do provedor próprio (doc 11 §5.6, revisado): substitui o medidor de
  * tokens quando a conta do usuário é quem paga, não uma chave própria. */
-function MedidorCreditos({
-  saldo,
-  t,
-  idioma,
-}: {
+interface MedidorCreditosProps {
   saldo: SaldoCreditos;
   t: ReturnType<typeof useTexto>;
   idioma: Idioma;
-}) {
+}
+
+function MedidorCreditos({ saldo, t, idioma }: MedidorCreditosProps) {
   const nivel = nivelDeAviso(saldo);
   const sobra = restantes(saldo);
   return (
     <span className="meta flex items-baseline gap-2">
       {nivel !== "esgotado" && (
-        <span className={cn(nivel === "acabando" ? "text-ocre-tinta" : "text-tinta-suave")}>
+        <span className={cn(nivel === "acabando" ? "text-warning" : "text-muted-foreground")}>
           {Math.floor(sobra) === 1
             ? t("agente.creditos.restante")
             : t("agente.creditos.restantes", { restantes: formatarCreditos(sobra, idioma) })}
         </span>
       )}
       {nivel === "acabando" && (
-        <span className="text-ocre-tinta">{t("agente.creditos.acabando")}</span>
+        <span className="text-warning">{t("agente.creditos.acabando")}</span>
       )}
       {nivel === "esgotado" && (
-        <span className="text-bordo">
+        <span className="text-destructive">
           {t("agente.creditos.esgotado", {
             data: formatarRenovacao(saldo.renovaEm, idioma),
           })}
         </span>
       )}
     </span>
+  );
+}
+
+interface SugestaoInlineProps {
+  sugestao: import("../../agente/assistente").SugestaoAgente;
+}
+
+function SugestaoInline({ sugestao }: SugestaoInlineProps) {
+  const Icone = ICONES_TIPO[sugestao.tipo];
+  return <article className="flex items-start gap-2 rounded-controle border border-border bg-card px-3 py-2"><Icone size={14} strokeWidth={1.5} aria-hidden className="mt-0.5 shrink-0 text-muted-foreground" /><div className="min-w-0 flex-1"><div className="meta mb-1 text-muted-foreground">{ROTULOS_TIPO[sugestao.tipo]}</div><p className="whitespace-pre-wrap [overflow-wrap:anywhere] text-pequeno leading-relaxed text-foreground">{sugestao.texto}</p>{sugestao.caminhoNota && <button type="button" className="meta mt-1 min-h-11 text-primary underline-offset-2 hover:underline" onClick={() => useWorkspaceStore.getState().abrirDocumento(sugestao.caminhoNota!)}>Abrir {sugestao.caminhoNota}</button>}<div className="mt-2 flex gap-2"><BotaoIcone Icone={Copy} titulo="Copiar sugestão" tamanho={16} className="h-11 w-11" onClick={() => { void navigator.clipboard.writeText(sugestao.texto).then(() => toast("Sugestão copiada.")).catch(() => toast("Não foi possível copiar.")); }} /><BotaoIcone Icone={X} titulo="Dispensar sugestão" tamanho={16} className="h-11 w-11" onClick={() => useAgenteStore.getState().dispensarSugestao(sugestao.id)} /></div></div></article>;
+}
+
+function preferenciaJaSalva(fatos: Fato[], texto: string): boolean {
+  const chave = normalizarFatoParaComparacao(texto);
+  return fatos.some((fato) => fato.estado === "confirmado" && normalizarFatoParaComparacao(fato.texto) === chave);
+}
+
+function lembrarPreferenciaDaMensagem(texto: string): void {
+  const storeAntes = useAgenteStore.getState();
+  const raizOrigem = storeAntes.raiz;
+  const id = storeAntes.lembrarPreferencia(texto);
+  if (id) {
+    toast("Preferência salva na memória do agente.", {
+      action: {
+        label: "Desfazer",
+        onClick: () => {
+          const storeAtual = useAgenteStore.getState();
+          if (storeAtual.raiz === raizOrigem) storeAtual.apagarFato(id);
+        },
+      },
+    });
+    return;
+  }
+  if (preferenciaJaSalva(useAgenteStore.getState().fatos, texto)) {
+    toast("Essa preferência já está salva na memória.");
+  } else {
+    toast("Não foi possível salvar. A preferência pode exceder o limite de tamanho.");
+  }
+}
+
+interface MemoryMetaProps {
+  fact: Fato;
+  formatDate: Intl.DateTimeFormat;
+}
+
+function MemoryMeta({ fact, formatDate }: MemoryMetaProps) {
+  const source = fact.fonte === "usuario" ? "Salva por você" : fact.fonte === "conversa" ? "Da conversa" : fact.fonte === "nota" ? "Da nota" : "Registro antigo";
+  const category = fact.categoria === "preferencia" ? "Preferência" : fact.categoria === "glossario" ? "Glossário" : fact.categoria === "convencao" ? "Convenção" : undefined;
+  return <div className="mt-1 flex flex-col gap-1 text-pequeno text-muted-foreground">
+    <span>{[category, fact.escopo === "projeto" ? `Projeto: ${fact.caminhoProjeto ?? ""}` : fact.escopo === "vault" ? "Espaço de trabalho" : undefined, source].filter(Boolean).join(" · ")}</span>
+    {fact.notaOrigem && <span className="[overflow-wrap:anywhere]">Origem: {fact.notaOrigem}</span>}
+    {fact.trechoEvidencia && <span className="border-l border-border pl-2 [overflow-wrap:anywhere]">“{fact.trechoEvidencia}”</span>}
+    {Number.isFinite(Date.parse(fact.atualizadoEm ?? fact.criadoEm)) && <time dateTime={fact.atualizadoEm ?? fact.criadoEm}>{formatDate.format(new Date(fact.atualizadoEm ?? fact.criadoEm))}{fact.atualizadoEm ? " · atualizado" : ""}</time>}
+  </div>;
+}
+
+interface MemoryGroupProps {
+  title: string;
+  facts: Fato[];
+  formatDate: Intl.DateTimeFormat;
+  onConfirm(id: string): void;
+  onReject(id: string): void;
+  onDelete(id: string): void;
+  onEdit(id: string, texto: string): boolean;
+}
+
+function MemoryGroup({ title, facts, formatDate, onConfirm, onReject, onDelete, onEdit }: MemoryGroupProps) {
+  const [drafts, setDrafts] = useState<Record<string, string>>({});
+  const [erroDrafts, setErroDrafts] = useState<Record<string, string>>({});
+  return (
+    <section>
+      {title && <h3 className="meta mb-2 text-muted-foreground">{title}</h3>}
+      <ul className="flex flex-col gap-2">
+        {[...facts].reverse().map((fact) => {
+          const legadoGrande = fact.estado === undefined && Array.from(fact.texto).length > 500;
+          const textoAcimaDoLimite = Array.from(drafts[fact.id] ?? "").length > 500;
+          return (
+            <li key={fact.id} className="rounded-controle border border-border p-3">
+              {drafts[fact.id] !== undefined ? (
+                <div className="flex flex-col gap-2">
+                  <textarea
+                    aria-label="Editar memória"
+                    value={drafts[fact.id]}
+                    onChange={(e) => setDrafts((state) => ({ ...state, [fact.id]: e.target.value }))}
+                    rows={3}
+                    className="min-h-20 w-full resize-y rounded-controle border border-input bg-background p-2 text-base text-foreground"
+                  />
+                  {textoAcimaDoLimite && <p role="alert" className="text-pequeno text-destructive">A memória não pode passar de 500 caracteres.</p>}
+                  {erroDrafts[fact.id] && <p role="alert" className="text-pequeno text-destructive">{erroDrafts[fact.id]}</p>}
+                  <div className="flex gap-2">
+                    <Botao variante="primario" tamanho="compacto" className="min-h-11" onClick={() => {
+                      if (textoAcimaDoLimite || !onEdit(fact.id, drafts[fact.id])) {
+                        setErroDrafts((state) => ({ ...state, [fact.id]: "A memória não foi atualizada. Verifique o limite de tamanho." }));
+                        return;
+                      }
+                      setDrafts((state) => { const next = { ...state }; delete next[fact.id]; return next; });
+                    }}>Salvar</Botao>
+                    <Botao variante="fantasma" tamanho="compacto" className="min-h-11" onClick={() => setDrafts((state) => { const next = { ...state }; delete next[fact.id]; return next; })}>Cancelar</Botao>
+                  </div>
+                </div>
+              ) : <p className="text-pequeno text-foreground [overflow-wrap:anywhere]">{fact.texto}</p>}
+              <MemoryMeta fact={fact} formatDate={formatDate} />
+              {legadoGrande && <p className="mt-2 text-pequeno text-muted-foreground">Edite para até 500 caracteres antes de confirmar.</p>}
+              <div className="mt-2 flex flex-wrap gap-2">
+                {fact.estado !== "confirmado" && <>
+                  <Botao variante="primario" tamanho="compacto" className="min-h-11" disabled={legadoGrande} onClick={() => onConfirm(fact.id)}>Confirmar</Botao>
+                  <Botao variante="fantasma" tamanho="compacto" className="min-h-11" onClick={() => onReject(fact.id)}>Rejeitar</Botao>
+                </>}
+                <Botao variante="fantasma" tamanho="compacto" className="min-h-11" onClick={() => setDrafts((state) => ({ ...state, [fact.id]: fact.texto }))}>Editar</Botao>
+                <Botao variante="fantasma" tamanho="compacto" className="min-h-11" onClick={() => onDelete(fact.id)}>Apagar</Botao>
+              </div>
+            </li>
+          );
+        })}
+      </ul>
+    </section>
   );
 }

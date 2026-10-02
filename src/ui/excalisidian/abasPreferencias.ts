@@ -134,7 +134,7 @@ export function agruparResultadosBusca(
  * no registro, senão um grupo apareceria com um id que não renderiza nada. */
 export function entradasBusca(
   t: TradutorDoApp,
-  opts: { agenteConfigurado: boolean; agenteHabilitado: boolean },
+  opts: { agenteConfigurado: boolean; agenteHabilitado: boolean; agenteUsaCreditos?: boolean },
 ): EntradaBusca[] {
   const entradas: EntradaBusca[] = [
     {
@@ -217,7 +217,10 @@ export function entradasBusca(
   entradas.push({
     id: "agente.modelos",
     aba: "agente",
-    textos: [t("prefs.agente.linha.modelos.titulo"), t("prefs.busca.termos.agente")],
+    textos: [
+      t(opts.agenteUsaCreditos ? "prefs.agente.linha.creditos.titulo" : "prefs.agente.linha.modelos.titulo"),
+      t(opts.agenteUsaCreditos ? "prefs.busca.termos.creditos" : "prefs.busca.termos.agente"),
+    ],
   });
   if (opts.agenteHabilitado) {
     entradas.push({

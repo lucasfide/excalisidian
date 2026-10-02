@@ -29,6 +29,7 @@ import { Botao, BotaoIcone, Campo, Dialog, GrupoBotoes, cn, type OpcaoGrupo } fr
 import { usePrefsStore, type Tema, type LarguraNota } from "../../estado/prefsStore";
 import { useAgenteStore } from "../../estado/agenteStore";
 import { useContaStore } from "../../estado/contaStore";
+import { useSaldoCreditosConta } from "../../hooks/use-saldo-creditos-conta";
 import { confirmar } from "../../estado/dialogoStore";
 import { provedorDe } from "../../agente/provedores";
 import { verificarAtualizacao } from "../../app/atualizacao";
@@ -37,6 +38,8 @@ import type { ChaveTexto, TradutorDoApp } from "../../i18n/catalogo";
 import { useTexto } from "../../i18n/useTexto";
 import DialogoGlossario from "./DialogoGlossario";
 import SecaoSincronizacao from "./SecaoSincronizacao";
+import { CreditosAgente } from "../../components/features/creditos-agente";
+import "./preferencias-agente.css";
 import {
   ABAS_PREFERENCIAS,
   abaInicial,
@@ -112,6 +115,7 @@ export default function DialogoPreferencias({ onFechar, secaoInicial }: Props) {
       entradasBusca(t, {
         agenteConfigurado: !!config,
         agenteHabilitado: !!config?.habilitado,
+        agenteUsaCreditos: Boolean(config && provedorDe(config.provedor).exigeConta),
       }),
     [t, config],
   );
@@ -712,9 +716,15 @@ function AbaSincronizacao({ idsVisiveis }: { idsVisiveis?: Set<string> }) {
 // entrada só na busca); com configuração, uma `LinhaConfig` por ação. Ver `AbaGeral` sobre
 // `idsVisiveis`. O provedor "IA do Excalisidian" (ADR-35) é só mais um item de
 // `provedorDe(config.provedor)` — nada aqui precisa saber seu nome.
-function AbaAgente({ idsVisiveis }: { idsVisiveis?: Set<string> }) {
+interface AbaAgenteProps {
+  idsVisiveis?: Set<string>;
+}
+
+function AbaAgente({ idsVisiveis }: AbaAgenteProps) {
   const t = useTexto();
   const config = useAgenteStore((s) => s.config);
+  const usaCreditos = config ? provedorDe(config.provedor).exigeConta : false;
+  const creditos = useSaldoCreditosConta(Boolean(config && usaCreditos));
   const [testando, setTestando] = useState(false);
   const [resultadoTeste, setResultadoTeste] = useState<{ ok: boolean; texto: string } | null>(
     null,
@@ -781,11 +791,20 @@ function AbaAgente({ idsVisiveis }: { idsVisiveis?: Set<string> }) {
       {mostrar("agente.modelos") && (
         <LinhaConfig
           id="agente.modelos"
-          titulo={t("prefs.agente.linha.modelos.titulo")}
+          titulo={t(usaCreditos ? "prefs.agente.linha.creditos.titulo" : "prefs.agente.linha.modelos.titulo")}
           descricao={
-            <span className="meta truncate text-tinta-suave">
-              {config.modeloGateiro} · {config.modeloAssistente}
-            </span>
+            usaCreditos ? (
+              <div className="flex flex-col gap-1.5">
+                <CreditosAgente estado={creditos.estado} saldo={creditos.saldo} />
+                <p className="preferencias-agente__explicacao text-muted-foreground text-pequeno">
+                  {t("agente.passo.explicacaoCreditos")}
+                </p>
+              </div>
+            ) : (
+              <span className="meta truncate text-tinta-suave">
+                {config.modeloGateiro} · {config.modeloAssistente}
+              </span>
+            )
           }
         >
           <Botao tamanho="compacto" onClick={() => useAgenteStore.getState().abrirAssistente()}>

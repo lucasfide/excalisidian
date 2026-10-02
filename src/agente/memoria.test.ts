@@ -19,6 +19,14 @@ vi.mock("@tauri-apps/plugin-store", () => ({
 
 import {
   adicionarFatos,
+  proporFatos,
+  confirmarFato,
+  atualizarFato,
+  rejeitarFato,
+  criarPreferenciaUsuario,
+  selecionarFatosRelevantes,
+  MAX_FATO_CHARS,
+  ORCAMENTO_FATOS_PROMPT,
   carregarConversas,
   carregarFatos,
   carregarParticipacao,
@@ -82,15 +90,152 @@ describe("memoria", () => {
     expect(await carregarParticipacao(RAIZ)).toEqual({});
   });
 
-  it("adicionarFatos deduplica por texto e aplica FIFO no teto de 100", () => {
-    let fatos: import("./memoria").Fato[] = [];
-    fatos = adicionarFatos(fatos, ["usa Core para o backend", "  ", "usa Core para o backend"], "N.md");
-    expect(fatos).toHaveLength(1);
-    expect(fatos[0].notaOrigem).toBe("N.md");
-    const muitos = Array.from({ length: 150 }, (_, i) => `fato ${i}`);
-    const cheios = adicionarFatos([], muitos, null);
-    expect(cheios).toHaveLength(100);
-    expect(cheios[0].texto).toBe("fato 50");
+  it("strings antigas do modelo não são gravadas como memória estruturada", () => {
+    const atuais: import("./memoria").Fato[] = [];
+    expect(adicionarFatos(atuais, ["usa Core para o backend"], "N.md")).toBe(atuais);
+  });
+
+  it("proporFatos valida a citação e cria candidatos pendentes sem substituir confirmados", () => {
+    const atuais = [{
+      id: "antigo", texto: "O editor prefere respostas breves", notaOrigem: "A.md", criadoEm: "2026-01-01",
+      categoria: "preferencia" as const, escopo: "vault" as const, caminhoProjeto: null,
+      chave: "estilo-resposta", trechoEvidencia: "Prefiro respostas breves.", fonte: "nota" as const, estado: "confirmado" as const,
+    }];
+    const resultado = proporFatos(atuais, [
+      { categoria: "preferencia", escopo: "vault", chave: "estilo-resposta", texto: "Prefere respostas detalhadas", trechoEvidencia: "Prefiro respostas detalhadas." },
+      { categoria: "preferencia", escopo: "vault", chave: "inventado", texto: "Usa Rust", trechoEvidencia: "Usa Rust." },
+      { categoria: "convencao", escopo: "projeto", caminhoProjeto: "Projetos/Outro", chave: "fora", texto: "Convenção alheia", trechoEvidencia: "Prefiro respostas detalhadas." },
+    ], "A.md", "Prefiro respostas detalhadas.", new Date("2026-09-13T00:00:00Z"));
+    expect(resultado).toHaveLength(2);
+    expect(resultado[0].estado).toBe("confirmado");
+    expect(resultado[1]).toMatchObject({ estado: "pendente", texto: "Prefere respostas detalhadas", notaOrigem: "A.md", trechoEvidencia: "Prefiro respostas detalhadas." });
+  });
+
+  it("confirma por chave e só então substitui a versão anterior", () => {
+    const antigos = [{
+      id: "old", texto: "Prefere respostas breves", notaOrigem: "A.md", criadoEm: "2026-01-01",
+      categoria: "preferencia" as const, escopo: "vault" as const, caminhoProjeto: null,
+      chave: "estilo", trechoEvidencia: "Prefiro respostas breves", estado: "confirmado" as const,
+    }];
+    const pendentes = proporFatos(antigos, [{
+      categoria: "preferencia", escopo: "vault", chave: "estilo", texto: "Prefere respostas detalhadas", trechoEvidencia: "Prefiro respostas detalhadas",
+    }], "A.md", "Prefiro respostas detalhadas", new Date("2026-09-13T00:00:00Z"));
+    const antesDeConfirmar = selecionarFatosRelevantes(pendentes, "respostas breves", 4800, "A.md");
+    expect(antesDeConfirmar).toContain("Prefere respostas breves");
+    expect(antesDeConfirmar).not.toContain("Prefere respostas detalhadas");
+    const confirmados = confirmarFato(pendentes, pendentes[1].id);
+    expect(confirmados[0].estado).toBe("substituido");
+    expect(confirmados[1].estado).toBe("confirmado");
+    expect(selecionarFatosRelevantes(confirmados, "respostas", 4800, "A.md")).toContain("Prefere respostas detalhadas");
+  });
+
+  it("promove legado somente por confirmação explícita e exige editar texto longo antes", () => {
+    const legado: import("./memoria").Fato[] = [
+      { id: "legado", texto: "Convenção histórica", notaOrigem: "N.md", criadoEm: "2025-01-01" },
+      { id: "longo", texto: "x".repeat(MAX_FATO_CHARS + 1), notaOrigem: null, criadoEm: "2025-01-01" },
+    ];
+    const confirmado = confirmarFato(legado, "legado", new Date("2026-09-13T00:00:00Z"));
+    expect(confirmado[0]).toMatchObject({ estado: "confirmado", categoria: "convencao", escopo: "vault", fonte: "usuario", trechoEvidencia: null, notaOrigem: "N.md" });
+    expect(confirmarFato(legado, "longo")).toBe(legado);
+  });
+
+  it("novos candidatos não removem fatos confirmados existentes", () => {
+    const confirmado: import("./memoria").Fato = {
+      id: "fixo", texto: "Fato durável", notaOrigem: "N.md", criadoEm: "2025-01-01",
+      categoria: "convencao", escopo: "vault", chave: "duravel", estado: "confirmado",
+    };
+    const candidatos = Array.from({ length: 101 }, (_, indice) => ({
+      categoria: "glossario" as const, escopo: "vault" as const,
+      chave: `chave-${indice}`, texto: `candidato ${indice}`, trechoEvidencia: "evidência",
+    }));
+    const resultado = proporFatos([confirmado], candidatos, "N.md", "evidência");
+    expect(resultado).toHaveLength(101);
+    expect(resultado[0]).toBe(confirmado);
+    expect(resultado.filter((fato) => fato.estado === "pendente")).toHaveLength(100);
+  });
+
+  it("normaliza caminhos do projeto ao substituir pela mesma chave", () => {
+    const atuais: import("./memoria").Fato[] = [{
+      id: "anterior", texto: "Termo anterior", notaOrigem: "Projetos/A/Nota.md", criadoEm: "2026-01-01",
+      categoria: "glossario", escopo: "projeto", caminhoProjeto: "Projetos/A", chave: "termo", estado: "confirmado",
+    }];
+    const pendentes = proporFatos(atuais, [{
+      categoria: "glossario", escopo: "projeto", caminhoProjeto: "Projetos\\A\\", chave: "termo", texto: "Termo atualizado", trechoEvidencia: "Termo atualizado",
+    }], "Projetos/A/Nota.md", "Termo atualizado");
+    const resultado = confirmarFato(pendentes, pendentes[1].id);
+    expect(resultado[0].estado).toBe("substituido");
+    expect(resultado[1].estado).toBe("confirmado");
+  });
+
+  it("não reapresenta texto idêntico já confirmado ou legado", () => {
+    const atuais: import("./memoria").Fato[] = [
+      { id: "confirmado", texto: "Termo definido no glossário", notaOrigem: "N.md", criadoEm: "2026-01-01", estado: "confirmado", categoria: "glossario", escopo: "vault", chave: "termo" },
+      { id: "legado", texto: "Convenção histórica", notaOrigem: null, criadoEm: "2025-01-01" },
+    ];
+    const resultado = proporFatos(atuais, [
+      { categoria: "glossario", escopo: "vault", chave: "novo", texto: "  termo definido NO glossário ", trechoEvidencia: "termo definido no glossário" },
+      { categoria: "convencao", escopo: "vault", chave: "outra", texto: "Convenção histórica", trechoEvidencia: "Convenção histórica" },
+    ], "N.md", "termo definido no glossário; Convenção histórica");
+    expect(resultado).toBe(atuais);
+  });
+
+  it("rejeita fatos acima de 500 code points sem truncar os demais", () => {
+    const longo = "x".repeat(MAX_FATO_CHARS + 1);
+    const emoji = "😀".repeat(MAX_FATO_CHARS + 1);
+    const resultado = proporFatos([], [
+      { categoria: "glossario", escopo: "vault", chave: "curto", texto: "Fato curto", trechoEvidencia: "curto" },
+      { categoria: "glossario", escopo: "vault", chave: "longo", texto: longo, trechoEvidencia: "curto" },
+      { categoria: "glossario", escopo: "vault", chave: "emoji", texto: emoji, trechoEvidencia: "curto" },
+    ], "A.md", "curto");
+    expect(resultado.map((fato) => fato.texto)).toEqual(["Fato curto"]);
+  });
+
+  it("seleciona fatos relevantes inteiros e desempata por recência dentro do orçamento", () => {
+    const fatos: import("./memoria").Fato[] = [
+      { id: "antigo", texto: "Convenção do backend Core", notaOrigem: null, criadoEm: "2026-01-01", estado: "confirmado", categoria: "convencao", escopo: "vault", chave: "backend" },
+      { id: "recente", texto: "Preferência pelo backend Core", notaOrigem: null, criadoEm: "2026-02-01", estado: "confirmado", categoria: "preferencia", escopo: "vault", chave: "backend" },
+      { id: "irrelevante", texto: "Glossário de jardinagem", notaOrigem: null, criadoEm: "2026-03-01", estado: "confirmado", categoria: "glossario", escopo: "vault", chave: "jardinagem" },
+    ];
+    expect(selecionarFatosRelevantes(fatos, "O backend Core está descrito aqui")).toEqual([
+      "Preferência pelo backend Core",
+      "Convenção do backend Core",
+      "Glossário de jardinagem",
+    ]);
+    expect(
+      selecionarFatosRelevantes(fatos, "sem termos em comum", 24),
+    ).toEqual(["Glossário de jardinagem"]);
+    expect(ORCAMENTO_FATOS_PROMPT).toBe(4800);
+  });
+
+  it("o fallback de recência respeita o orçamento sem cortar fatos", () => {
+    const fatos: import("./memoria").Fato[] = [
+      { id: "a", texto: "a".repeat(300), notaOrigem: null, criadoEm: "2026-01-01", estado: "confirmado", categoria: "convencao", escopo: "vault", chave: "a" },
+      { id: "b", texto: "b".repeat(300), notaOrigem: null, criadoEm: "2026-02-01", estado: "confirmado", categoria: "convencao", escopo: "vault", chave: "b" },
+    ];
+    expect(selecionarFatosRelevantes(fatos, "", 301)).toEqual(["b".repeat(300)]);
+  });
+
+  it("seleciona só memória confirmada no escopo da nota, respeitando a fronteira do caminho", () => {
+    const fatos: import("./memoria").Fato[] = [
+      { id: "vault", texto: "Preferência geral", notaOrigem: null, criadoEm: "2026-01-01", estado: "confirmado", categoria: "preferencia", escopo: "vault", chave: "p" },
+      { id: "projeto", texto: "Glossário do projeto", notaOrigem: null, criadoEm: "2026-02-01", estado: "confirmado", categoria: "glossario", escopo: "projeto", caminhoProjeto: "Projetos/A", chave: "x" },
+      { id: "outro", texto: "Outra pasta", notaOrigem: null, criadoEm: "2026-03-01", estado: "confirmado", categoria: "convencao", escopo: "projeto", caminhoProjeto: "Projetos/AB", chave: "x" },
+      { id: "legacy", texto: "Legado", notaOrigem: null, criadoEm: "2026-04-01" },
+      { id: "pending", texto: "Candidato", notaOrigem: null, criadoEm: "2026-05-01", estado: "pendente", categoria: "preferencia", escopo: "vault", chave: "q" },
+    ];
+    expect(selecionarFatosRelevantes(fatos, "", 4800, "Projetos/A/Nota.md")).toEqual(["Glossário do projeto", "Preferência geral"]);
+    expect(selecionarFatosRelevantes(fatos, "", 4800, "Projetos/AB/Nota.md")).toEqual(["Outra pasta", "Preferência geral"]);
+  });
+
+  it("editar e rejeitar são ações explícitas e preferência criada pelo usuário já é confirmada", () => {
+    const candidatos = proporFatos([], [{ categoria: "preferencia", escopo: "vault", chave: "tom", texto: "Prefere tom formal", trechoEvidencia: "tom formal" }], "A.md", "tom formal");
+    const rejeitado = rejeitarFato(candidatos, candidatos[0].id);
+    expect(rejeitado[0].estado).toBe("rejeitado");
+    const editado = atualizarFato(candidatos, candidatos[0].id, "Prefere tom direto");
+    expect(editado[0]).toMatchObject({ fonte: "usuario", notaOrigem: null, trechoEvidencia: null, texto: "Prefere tom direto" });
+    const usuario = criarPreferenciaUsuario([], "Prefere respostas curtas", new Date("2026-09-13T00:00:00Z"));
+    expect(usuario[0]).toMatchObject({ estado: "confirmado", fonte: "usuario", categoria: "preferencia" });
+    expect(criarPreferenciaUsuario(usuario, "  PREFERE respostas curtas ")).toBe(usuario);
   });
 
   it("fatos e conversas round-trip; limparMemoria esvazia tudo", async () => {

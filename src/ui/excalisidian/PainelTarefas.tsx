@@ -2,8 +2,8 @@
 // com as seções em ordem fixa e a divisória de largura. O estado do arraste (doc 10 §5.2)
 // mora aqui e desce por props: a árvore é rasa (Painel → Seção → Linha).
 
-import { useCallback, useMemo, useRef, useState } from "react";
-import { X } from "lucide-react";
+import { useCallback, useMemo, useRef, useState, type ReactNode } from "react";
+import { PanelRightClose } from "lucide-react";
 
 import { BotaoIcone, EstadoVazio } from "../index";
 import SecaoTarefas, { dropPermitido, type Arrasto } from "./SecaoTarefas";
@@ -53,7 +53,11 @@ function alvoNoPonto(
   return { secao, indice: linhas.length };
 }
 
-export default function PainelTarefas() {
+interface PainelTarefasProps {
+  cabecalho?: ReactNode;
+}
+
+export default function PainelTarefas({ cabecalho }: PainelTarefasProps) {
   const aberto = useTarefasStore((s) => s.painelAberto);
   const largura = useTarefasStore((s) => s.larguraPainel);
   const definirLargura = useTarefasStore((s) => s.definirLargura);
@@ -143,19 +147,19 @@ export default function PainelTarefas() {
     <aside
       id="painel-tarefas"
       className="relative flex shrink-0 flex-col border-l border-regua bg-superficie motion-safe:animate-[surgirLateral_280ms_var(--ease-caderno)_both]"
-      style={{ width: `${largura}px` }}
+      style={{ width: cabecalho ? "100%" : `${largura}px` }}
     >
       {/* divisória de largura: 1px visível, 8px de área de arraste */}
-      <div
+      {!cabecalho && <div
         onPointerDown={aoArrastarDivisoria}
         className="absolute left-0 top-0 z-10 h-full w-2 -translate-x-1/2 cursor-col-resize"
       >
         <div className="mx-auto h-full w-px bg-regua" />
-      </div>
-      <div className="flex items-center justify-between border-b border-regua px-3 py-2">
+      </div>}
+      {cabecalho ?? <div className="flex items-center justify-between border-b border-regua px-3 py-2">
         <span className="text-sm font-medium text-tinta">Tarefas</span>
-        <BotaoIcone Icone={X} titulo="Fechar" onClick={alternarPainel} />
-      </div>
+        <BotaoIcone Icone={PanelRightClose} titulo="Colapsar painel lateral" onClick={alternarPainel} />
+      </div>}
       <div className="min-h-0 flex-1 overflow-y-auto px-3 py-2">
         {vazioTotal ? (
           <EstadoVazio

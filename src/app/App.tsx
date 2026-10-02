@@ -2,7 +2,7 @@
 // O conteúdo dos arquivos vive por aba no documentosStore; a aba ativa, no workspaceStore.
 
 import { useCallback, useEffect, useRef, useState } from "react";
-import { FilePlus, Images, ListChecks, PanelLeft, Search, Settings, SquarePen, Trash2 } from "lucide-react";
+import { FilePlus, Images, PanelLeft, PanelRightOpen, Search, Settings, SquarePen, Trash2 } from "lucide-react";
 import { Toaster, toast } from "sonner";
 
 import { TauriVaultAdapter, ErroAberturaVault } from "../vault/TauriVaultAdapter";
@@ -37,9 +37,8 @@ import DialogoPreferencias from "../ui/excalisidian/DialogoPreferencias";
 import DialogoAtualizacao from "../ui/excalisidian/DialogoAtualizacao";
 import { verificarAtualizacao } from "./atualizacao";
 import PainelLixeira from "../ui/excalisidian/PainelLixeira";
-import PainelTarefas from "../ui/excalisidian/PainelTarefas";
-import BalaoAgente from "../ui/excalisidian/BalaoAgente";
-import PainelAgente from "../ui/excalisidian/PainelAgente";
+import PainelLateralAgente, { mostrarTarefasNoPainel } from "../components/features/painel-lateral-agente";
+import ConviteAgenteToast from "../components/features/convite-agente-toast";
 import FaixaConflitos from "../ui/excalisidian/FaixaConflitos";
 import DialogoAgente from "../ui/excalisidian/DialogoAgente";
 import RaizDialogos from "../ui/excalisidian/RaizDialogos";
@@ -136,7 +135,7 @@ export default function App() {
   const raiz = useVaultStore((s) => s.raiz);
   const caminhoAtivo = useWorkspaceStore((s) => s.caminhoAtivo);
   const painelTarefasAberto = useTarefasStore((s) => s.painelAberto);
-  const agenteHabilitado = useAgenteStore((s) => s.config?.habilitado ?? false);
+  const agentePainelAberto = useAgenteStore((s) => s.painelAberto && Boolean(s.config?.habilitado));
   const agenteAssistenteAberto = useAgenteStore((s) => s.assistenteAberto);
 
   // Tela de boas-vindas (doc 15 §1.1): recentes carregados só quando ela aparece (sem vault
@@ -186,7 +185,8 @@ export default function App() {
     const onKey = (e: KeyboardEvent) => {
       if ((e.ctrlKey || e.metaKey) && !e.shiftKey && e.code === "Backslash") {
         e.preventDefault();
-        useTarefasStore.getState().alternarPainel();
+        if (useAgenteStore.getState().painelAberto) mostrarTarefasNoPainel();
+        else useTarefasStore.getState().alternarPainel();
       }
     };
     window.addEventListener("keydown", onKey, true);
@@ -471,25 +471,25 @@ export default function App() {
             )}
           </aside>
 
-          <main className="min-h-0 flex-1">
+          <main className="min-h-0 min-w-0 flex-1">
             {/* key={raiz}: força o dockview a remontar do zero se esta janela trocar de
                 vault (doc 12 §4.4) — layout, painéis e listeners nascem de novo. */}
             <Workspace key={raiz} />
           </main>
-          <PainelTarefas />
+          <PainelLateralAgente aoAbrirConta={() => abrirPreferencias("conta")} />
 
           {/* Canto superior direito da janela: antes era o dropdown nativo "abas escondidas"
               do dockview ("⌄ N"), que o usuário achava inútil e confundia com contagem de
               notas abertas (desligado em Workspace.tsx). Some quando o painel já está aberto —
               o X dele já fecha. */}
-          {!painelTarefasAberto && (
+          {!painelTarefasAberto && !agentePainelAberto && (
             <div
               className="absolute right-0 top-0 z-20 flex items-center border-b border-l border-regua bg-superficie px-1"
               style={{ height: 34 /* --dv-tabs-and-actions-container-height */ }}
             >
               <BotaoIcone
-                Icone={ListChecks}
-                titulo="Tarefas"
+                Icone={PanelRightOpen}
+                titulo="Expandir painel lateral"
                 onClick={() => useTarefasStore.getState().alternarPainel()}
               />
             </div>
@@ -500,8 +500,7 @@ export default function App() {
       <BarraStatus />
       <RaizDialogos />
       <RaizSobreposicoes />
-      <BalaoAgente />
-      <PainelAgente />
+      <ConviteAgenteToast />
       <FaixaConflitos />
       <DialogoAtualizacao />
       {/* Preferências e o assistente do agente dividem o mesmo z-[100], mas Dialog renderiza
@@ -525,10 +524,6 @@ export default function App() {
       {lixeiraAberta && <PainelLixeira onFechar={() => setLixeiraAberta(false)} />}
       <Toaster
         position="bottom-right"
-        // O balão do agente mora no canto inferior direito: com ele presente, os toasts
-        // sobem 72px (40px do balão + 16 de cada margem + folga) pra não ficarem atrás
-        // (doc 06, "Balão e painel do agente").
-        offset={agenteHabilitado ? { bottom: 72 } : undefined}
         toastOptions={{
           style: {
             background: "var(--color-superficie)",

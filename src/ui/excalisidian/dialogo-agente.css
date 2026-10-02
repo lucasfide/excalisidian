@@ -1,0 +1,11 @@
+.escopo-assistente-agente .text-muted-foreground {
+  color: var(--color-tinta-media);
+}
+
+.escopo-assistente-agente .text-destructive {
+  color: var(--color-bordo);
+}
+
+.escopo-assistente-agente .text-primary {
+  color: var(--color-cristal);
+}

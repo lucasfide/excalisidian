@@ -190,6 +190,28 @@ describe("entradasBusca", () => {
     ]);
   });
 
+  it("indexa Créditos para o provedor próprio e mantém Modelos nos provedores externos", () => {
+    const creditos = entradasBusca(t, {
+      agenteConfigurado: true,
+      agenteHabilitado: false,
+      agenteUsaCreditos: true,
+    });
+    const linhaCreditos = creditos.find((entrada) => entrada.id === "agente.modelos");
+    expect(linhaCreditos?.textos).toContain("prefs.agente.linha.creditos.titulo");
+    const idsCreditos = agruparResultadosBusca("creditos", creditos)
+      .filter((grupo) => grupo.aba === "agente")
+      .flatMap((grupo) => grupo.ids);
+    expect(idsCreditos).toContain("agente.modelos");
+
+    const modelos = entradasBusca(t, { agenteConfigurado: true, agenteHabilitado: false });
+    const linhaModelos = modelos.find((entrada) => entrada.id === "agente.modelos");
+    expect(linhaModelos?.textos).toContain("prefs.agente.linha.modelos.titulo");
+    const idsModelos = agruparResultadosBusca("modelos", modelos)
+      .filter((grupo) => grupo.aba === "agente")
+      .flatMap((grupo) => grupo.ids);
+    expect(idsModelos).toContain("agente.modelos");
+  });
+
   it("geral, aparência, conta e sincronização sempre presentes, uma entrada cada exceto geral", () => {
     const entradas = entradasBusca(t, { agenteConfigurado: false, agenteHabilitado: false });
     expect(entradas.filter((e) => e.aba === "geral").map((e) => e.id)).toEqual([

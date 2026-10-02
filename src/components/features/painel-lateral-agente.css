@@ -1,0 +1,51 @@
+.painel-lateral-trabalho {
+  position: relative;
+  display: flex;
+  flex: none;
+  flex-direction: column;
+  min-height: 0;
+  width: var(--largura-painel-trabalho);
+}
+.painel-lateral-trabalho[hidden],
+.painel-lateral-trabalho__tarefas[hidden] { display: none; }
+.painel-lateral-trabalho--agente { border-left: 1px solid var(--color-regua); }
+.painel-lateral-trabalho__tarefas { display: flex; flex: 1; min-height: 0; flex-direction: column; }
+.painel-lateral-trabalho__tarefas #painel-tarefas { flex: 1; min-height: 0; }
+.painel-lateral-trabalho__cabecalho {
+  display: flex;
+  align-items: center;
+  flex-shrink: 0;
+  padding: 0 0.5rem;
+  border-bottom: 1px solid var(--color-regua);
+  background: var(--color-superficie);
+  color: var(--color-tinta-suave);
+}
+.painel-lateral-trabalho__nav { display: flex; flex: 1; min-width: 0; }
+.painel-lateral-trabalho__nav button { min-height: 2.75rem; flex: 1; border-bottom: 2px solid transparent; }
+.painel-lateral-trabalho__nav button[aria-current] { color: var(--color-tinta); border-bottom: 2px solid var(--color-cristal); }
+.painel-lateral-trabalho__nav button:focus-visible { outline: 2px solid var(--color-cristal); outline-offset: -2px; }
+.painel-lateral-trabalho__acoes { flex: none; width: 2.75rem; height: 2.75rem; }
+.painel-lateral-trabalho__divisoria {
+  position: absolute;
+  left: 0;
+  top: 0;
+  z-index: 10;
+  height: 100%;
+  width: 0.5rem;
+  transform: translateX(-50%);
+  cursor: col-resize;
+  touch-action: none;
+}
+.painel-lateral-trabalho__divisoria:focus-visible { outline: 2px solid var(--color-cristal); }
+@media (max-width: 1023px) {
+  .painel-lateral-trabalho--agente .painel-lateral-trabalho__divisoria { display: none; }
+  .painel-lateral-trabalho--agente {
+    position: fixed;
+    inset: auto 0 0;
+    z-index: 90;
+    width: 100%;
+    height: min(80dvh, 42rem);
+    border-top: 1px solid var(--color-regua);
+    box-shadow: var(--shadow-sobreposicao);
+  }
+}

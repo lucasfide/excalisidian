@@ -1,9 +1,9 @@
-// Assistente de configuração do agente (doc 11 §6.3): cinco etapas — provedor, chave,
-// modelo da leitura inicial, modelo do acompanhamento, revisão. Nada é gravado até
+// Assistente de configuração do agente (doc 11 §6.3): IA própria em dois passos; provedores
+// externos mantêm cinco. Nada é gravado até
 // "Ativar agente"; fechar no meio não deixa configuração pela metade. A busca de modelos
 // no passo 2 É o teste de conexão: chave errada aparece ali, no ato.
 
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { toast } from "sonner";
 import { ArrowRight } from "lucide-react";
 
@@ -19,11 +19,20 @@ import {
   provedorDe,
   validarBaseUrl,
 } from "../../agente/provedores";
-import type { ConfigAgente, ProvedorId, Thinking } from "../../agente/tipos";
+import type { ProvedorId, Thinking } from "../../agente/tipos";
 import { useTexto } from "../../i18n/useTexto";
 import { useContaStore } from "../../estado/contaStore";
 import { CONTA_DISPONIVEL } from "../../servico/base";
-import { trocarProvedor } from "./rascunhoAgente";
+import { podeConcluirAgentePorCreditos, useSaldoCreditosConta } from "../../hooks/use-saldo-creditos-conta";
+import { CreditosAgente } from "../../components/features/creditos-agente";
+import {
+  montarConfigAgente,
+  quantidadeEtapas,
+  rascunhoInicial,
+  trocarProvedor,
+  type CamposRascunhoAgente,
+} from "./rascunhoAgente";
+import "./dialogo-agente.css";
 
 // "Mínimo" fora da lista: a família gpt-5.6 recusa reasoning_effort "minimal" (verificado
 // na API em 13/09 — aceita none/low/medium/high/xhigh). O valor continua no tipo e no
@@ -66,37 +75,6 @@ const CLASSE_ENTRADA_ETAPA =
 const CLASSE_FADE_INTERNO =
   "motion-safe:animate-[dialogo-agente-fade_140ms_var(--ease-caderno)_both] motion-reduce:animate-none";
 
-interface Rascunho {
-  provedor: ProvedorId;
-  /** Vazio = mantém a chave existente (reconfiguração). */
-  chave: string;
-  baseUrl: string;
-  modeloGateiro: string;
-  modeloAssistente: string;
-  thinking: Thinking;
-  webSearch: boolean;
-  teto: string;
-}
-
-function rascunhoDe(config: ConfigAgente | null): Rascunho {
-  return {
-    provedor: config?.provedor ?? "openai",
-    chave: "",
-    baseUrl: config?.baseUrls?.[config.provedor] ?? "",
-    modeloGateiro: config?.modeloGateiro ?? "",
-    modeloAssistente: config?.modeloAssistente ?? "",
-    thinking: config?.thinking ?? "padrao",
-    webSearch: config?.webSearch ?? false,
-    teto: config?.tetoDiarioUsd != null ? String(config.tetoDiarioUsd) : "",
-  };
-}
-
-function omitirChave<T extends Record<string, string>>(mapa: T, chave: string): T {
-  if (!(chave in mapa)) return mapa;
-  const { [chave]: _omitida, ...resto } = mapa;
-  return resto as T;
-}
-
 interface Props {
   /** Abre as preferências na seção Conta, por cima do assistente, sem fechá-lo (T4: o passo
    * de conta era um beco sem saída — sem sessão, não havia caminho pra entrar dali). */
@@ -106,59 +84,68 @@ interface Props {
 export default function DialogoAgente({ aoAbrirConta }: Props) {
   const t = useTexto();
   const config = useAgenteStore((s) => s.config);
+  const reconfigurando = useRef(config !== null);
   const [etapa, setEtapa] = useState(config ? 2 : 1);
-  const [r, setR] = useState<Rascunho>(() => rascunhoDe(config));
+  const [r, setR] = useState<CamposRascunhoAgente>(() =>
+    rascunhoInicial(config, CONTA_DISPONIVEL),
+  );
   const [modelos, setModelos] = useState<string[] | null>(null);
   const [avisoLista, setAvisoLista] = useState<string | null>(null);
   const [erroChave, setErroChave] = useState<string | null>(null);
   const [carregando, setCarregando] = useState(false);
+  const [salvando, setSalvando] = useState(false);
+  const [erroSalvar, setErroSalvar] = useState(false);
+  const salvamentoEmCurso = useRef(false);
+  const sequenciaLista = useRef(0);
   const [avancadoAberto, setAvancadoAberto] = useState(false);
 
-  const fechar = () => useAgenteStore.getState().fecharAssistente();
+  const fechar = (forcado = false) => {
+    if (salvando && !forcado) return;
+    sequenciaLista.current++;
+    useAgenteStore.getState().fecharAssistente();
+  };
   const provedor = provedorDe(r.provedor);
+  const etapas = quantidadeEtapas(provedor.exigeConta);
   const chaveEfetiva = r.chave.trim() || config?.chaves?.[r.provedor] || "";
   const erroBase = validarBaseUrl(r.baseUrl);
+  const sessaoAtual = useContaStore((s) => s.sessao);
   // Provedor próprio: sem chave, autentica pela sessão da conta (doc 11, provedor
   // "excalisidian"). Sem sessão ativa, o passo de conta bloqueia o avanço. Lido do store
   // (reativo) em vez do porta-token de sessao.ts, que não notifica o React quando muda —
   // entrar na conta com o assistente aberto precisa refletir na hora, sem esperar outro
   // re-render.
-  const sessao = useContaStore((s) => s.sessao);
-  const carregado = useContaStore((s) => s.carregado);
-  // Enquanto `carregar()` da abertura ainda está em voo (até 20s), `sessao` é `null` mas isso
-  // ainda não é conclusão. Sem `carregado`, quem já tem conta e abre o assistente logo no
-  // início via esse alerta com o botão desabilitado, mesmo tendo sessão.
-  const aguardandoConta = provedor.exigeConta && !carregado;
-  const semSessao = provedor.exigeConta && carregado && sessao === null;
-  // Conta grátis não usa a IA paga: barra aqui em vez de descobrir no primeiro pedido.
+  const estadoCreditos = useSaldoCreditosConta(provedor.exigeConta && etapa === 2);
+  const aguardandoConta = provedor.exigeConta && estadoCreditos.estado === "verificando";
+  const semSessao = provedor.exigeConta && estadoCreditos.estado === "sem-sessao";
   const planoInsuficiente =
-    provedor.exigeConta && carregado && sessao !== null && sessao.plano !== "premium";
-  // O plano muda no servidor (o usuário assina pelo site com o app aberto): ao cair no aviso
-  // de plano insuficiente no passo Conta, reconsulta uma vez. Se virou premium, o aviso some.
+    provedor.exigeConta && estadoCreditos.estado === "plano-insuficiente";
+  const acessoNaoConfirmado =
+    provedor.exigeConta && estadoCreditos.estado === "acesso-nao-confirmado";
   useEffect(() => {
     if (etapa === 2 && planoInsuficiente) void useContaStore.getState().atualizarPlano();
   }, [etapa, planoInsuficiente]);
-  const rotulosPasso = provedor.exigeConta
-    ? [
-        t("agente.passo.provedor"),
-        t("agente.passo.conta"),
-        t("agente.passo.leituraInicial"),
-        t("agente.passo.acompanhamento"),
-        t("agente.passo.revisao"),
-      ]
-    : [
-        t("agente.passo.provedor"),
-        t("agente.passo.chave"),
-        t("agente.passo.leituraInicial"),
-        t("agente.passo.acompanhamento"),
-        t("agente.passo.revisao"),
-      ];
+  const rotulosBase = [
+    t("agente.passo.provedor"),
+    t(provedor.exigeConta ? "agente.passo.conta" : "agente.passo.chave"),
+    t("agente.passo.leituraInicial"),
+    t("agente.passo.acompanhamento"),
+    t("agente.passo.revisao"),
+  ];
+  const rotulosVisiveis = rotulosBase.slice(0, etapas);
 
   const irParaChave = () => {
+    sequenciaLista.current++;
     setErroChave(null);
     setModelos(null);
     setAvisoLista(null);
+    setCarregando(false);
     setEtapa(2);
+  };
+
+  const voltar = () => {
+    sequenciaLista.current++;
+    setCarregando(false);
+    setEtapa((n) => Math.max(1, n - 1));
   };
 
   const validarChaveEBuscarModelos = async () => {
@@ -185,6 +172,7 @@ export default function DialogoAgente({ aoAbrirConta }: Props) {
       setEtapa(3);
       return;
     }
+    const minhaLista = ++sequenciaLista.current;
     setCarregando(true);
     try {
       const lista = await listarModelos({
@@ -194,6 +182,7 @@ export default function DialogoAgente({ aoAbrirConta }: Props) {
         modelo: "_",
         thinking: r.thinking,
       });
+      if (minhaLista !== sequenciaLista.current) return;
       setModelos(lista.length > 0 ? lista : null);
       setAvisoLista(
         lista.length > 0
@@ -202,6 +191,7 @@ export default function DialogoAgente({ aoAbrirConta }: Props) {
       );
       setEtapa(3);
     } catch (e) {
+      if (minhaLista !== sequenciaLista.current) return;
       // Chave recusada: fica no passo, com a mensagem própria do erro. Sessão ausente não
       // chega aqui na prática — o provedor próprio sempre tem `modelosFixos` e retorna antes
       // desta chamada (ver acima); se chegasse, cairia no fallback abaixo, já que este passo
@@ -217,36 +207,38 @@ export default function DialogoAgente({ aoAbrirConta }: Props) {
         setEtapa(3);
       }
     } finally {
-      setCarregando(false);
+      if (minhaLista === sequenciaLista.current) setCarregando(false);
     }
   };
 
   const concluir = async () => {
-    const tetoNum = r.teto.trim() ? Number(r.teto.replace(",", ".")) : null;
-    const nova: ConfigAgente = {
-      habilitado: true,
-      provedor: r.provedor,
-      chaves: {
-        ...(config?.chaves ?? {}),
-        ...(provedor.precisaChave && r.chave.trim() ? { [r.provedor]: r.chave.trim() } : {}),
-      },
-      // Provedor por conta sempre usa BASE_URL_SERVICO (doc 11): nunca persiste base URL
-      // customizada para ele, nem mantém uma entrada antiga (evita apontar o Authorization
-      // da sessão do usuário para outro host).
-      baseUrls: provedor.exigeConta
-        ? omitirChave(config?.baseUrls ?? {}, r.provedor)
-        : r.baseUrl.trim()
-          ? { ...(config?.baseUrls ?? {}), [r.provedor]: r.baseUrl.trim() }
-          : (config?.baseUrls ?? {}),
-      modeloGateiro: r.modeloGateiro,
-      modeloAssistente: r.modeloAssistente,
-      thinking: r.thinking,
-      webSearch: provedor.suportaWebSearch ? r.webSearch : false,
-      tetoDiarioUsd: tetoNum != null && Number.isFinite(tetoNum) ? tetoNum : null,
-    };
-    await useAgenteStore.getState().aplicarConfig(nova);
-    toast(config ? "Configuração do agente salva." : "Agente ativado.");
-    fechar();
+    if (salvamentoEmCurso.current) return;
+    salvamentoEmCurso.current = true;
+    setSalvando(true);
+    setErroSalvar(false);
+    try {
+      if (provedor.exigeConta) {
+        const contaAtual = useContaStore.getState();
+        if (
+          r.provedor !== "excalisidian" ||
+          !podeConcluirAgentePorCreditos(estadoCreditos, {
+            carregado: contaAtual.carregado,
+            sessao: contaAtual.sessao,
+          })
+        ) {
+          return;
+        }
+      }
+      const nova = montarConfigAgente(r, useAgenteStore.getState().config, r.baseUrl.trim());
+      await useAgenteStore.getState().aplicarConfig(nova);
+      toast(reconfigurando.current ? "Configuração do agente salva." : "Agente ativado.");
+      fechar(true);
+    } catch {
+      setErroSalvar(true);
+    } finally {
+      salvamentoEmCurso.current = false;
+      setSalvando(false);
+    }
   };
 
   return (
@@ -254,17 +246,17 @@ export default function DialogoAgente({ aoAbrirConta }: Props) {
       titulo="Configurar agente"
       descricao="Opcional. Nada é enviado sem a sua configuração, e o agente só acompanha uma nota depois que você aceita o convite."
       onFechar={fechar}
-      className="max-w-md"
+      className="max-w-md escopo-assistente-agente"
       acoes={
         <div className="flex w-full items-center justify-between">
           <Botao
             variante="fantasma"
-            disabled={etapa === 1}
-            onClick={() => setEtapa((n) => Math.max(1, n - 1))}
+            disabled={etapa === 1 || salvando}
+            onClick={voltar}
           >
             Voltar
           </Botao>
-          {(etapa === 1 || etapa === 2) && (
+          {(etapa === 1 || (etapa === 2 && !provedor.exigeConta)) && (
             <Botao
               variante="primario"
               disabled={etapa === 2 && (carregando || semSessao || planoInsuficiente || aguardandoConta)}
@@ -277,17 +269,25 @@ export default function DialogoAgente({ aoAbrirConta }: Props) {
               Continuar
             </Botao>
           )}
-          {etapa === 5 && (
-            <Botao variante="primario" onClick={() => void concluir()}>
-              Ativar agente
+          {((provedor.exigeConta && etapa === 2 &&
+            (estadoCreditos.estado === "disponivel" || estadoCreditos.estado === "indisponivel-rede")) ||
+            (!provedor.exigeConta && etapa === 5)) && (
+            <Botao
+              variante="primario"
+              disabled={salvando}
+              carregando={salvando}
+              onClick={() => void concluir()}
+            >
+              {reconfigurando.current ? t("agente.passo.salvar") : t("agente.passo.ativar")}
             </Botao>
           )}
         </div>
       }
     >
       <style>{ESTILOS_TRANSICOES}</style>
+      <fieldset disabled={salvando} className="m-0 min-w-0 border-0 p-0" aria-busy={salvando}>
       <div className="meta mb-3 flex items-center gap-1.5 text-tinta-suave">
-        {rotulosPasso.map((rotulo, i) => {
+        {rotulosVisiveis.map((rotulo, i) => {
           const n = i + 1;
           return (
             <span key={rotulo} aria-hidden className="flex items-center gap-1.5">
@@ -301,10 +301,19 @@ export default function DialogoAgente({ aoAbrirConta }: Props) {
       </div>
 
       <div key={etapa} className={CLASSE_ENTRADA_ETAPA}>
+        {erroSalvar && (
+          <p className="mb-3 text-pequeno text-destructive" role="alert">
+            {t("agente.passo.erroSalvar")}
+          </p>
+        )}
         {etapa === 1 && (
           <PassoProvedor
             valor={r.provedor}
-            onEscolher={(provedorId) => setR((x) => trocarProvedor(x, provedorId, config))}
+            onEscolher={(provedorId) => {
+              sequenciaLista.current++;
+              setCarregando(false);
+              setR((x) => trocarProvedor(x, provedorId, config));
+            }}
           />
         )}
 
@@ -312,30 +321,69 @@ export default function DialogoAgente({ aoAbrirConta }: Props) {
         <div className="flex flex-col gap-3">
           {provedor.exigeConta ? (
             aguardandoConta ? (
-              <p className="text-pequeno text-tinta-media">
+              <p className="text-pequeno text-muted-foreground">
                 {t("agente.passo.contaCarregando")}
               </p>
             ) : (
               <>
-                {planoInsuficiente ? (
-                  <p className="text-pequeno text-bordo" role="alert">
-                    {t("agente.erro.plano")}
-                  </p>
-                ) : (
-                  <p className="text-pequeno text-tinta-media">
-                    {t("agente.passo.contaExplicacao")}
-                  </p>
-                )}
                 {semSessao && (
                   <>
-                    <p className="text-pequeno text-bordo" role="alert">
-                      {t("agente.erro.sessao")}
+                    <p className="text-pequeno text-muted-foreground">
+                      {t("agente.passo.contaSemSessao")}
                     </p>
                     {aoAbrirConta && (
-                      <Botao tamanho="compacto" className="self-start" onClick={aoAbrirConta}>
+                      <Botao
+                        variante="primario"
+                        tamanho="compacto"
+                        className="self-start"
+                        onClick={aoAbrirConta}
+                      >
                         {t("agente.passo.abrirConta")}
                       </Botao>
                     )}
+                  </>
+                )}
+                {planoInsuficiente && (
+                  <>
+                    <p className="text-pequeno text-muted-foreground">
+                      {t("agente.passo.contaPlanoGratis")}
+                    </p>
+                    <button
+                      type="button"
+                      className="self-start text-pequeno text-primary underline-offset-2 hover:underline"
+                      onClick={() => setEtapa(1)}
+                    >
+                      {t("agente.passo.usarOutroProvedor")}
+                    </button>
+                  </>
+                )}
+                {acessoNaoConfirmado && (
+                  <>
+                    <p className="text-pequeno text-muted-foreground" role="alert">
+                      {t("agente.passo.acessoNaoConfirmado")}
+                    </p>
+                    <Botao
+                      tamanho="compacto"
+                      className="self-start"
+                      onClick={estadoCreditos.tentarNovamente}
+                    >
+                      {t("agente.passo.entrarNovamente")}
+                    </Botao>
+                  </>
+                )}
+                {(estadoCreditos.estado === "disponivel" ||
+                  estadoCreditos.estado === "consultando" ||
+                  estadoCreditos.estado === "indisponivel-rede") && (
+                  <>
+                    <CreditosAgente
+                      estado={estadoCreditos.estado}
+                      saldo={estadoCreditos.saldo}
+                      email={sessaoAtual?.email}
+                      exibirEmail
+                    />
+                    <p className="text-pequeno text-muted-foreground">
+                      {t("agente.passo.explicacaoCreditos")}
+                    </p>
                   </>
                 )}
               </>
@@ -442,17 +490,17 @@ export default function DialogoAgente({ aoAbrirConta }: Props) {
           />
         )}
       </div>
+      </fieldset>
     </Dialog>
   );
 }
 
-function PassoProvedor({
-  valor,
-  onEscolher,
-}: {
+interface PassoProvedorProps {
   valor: ProvedorId;
   onEscolher(id: ProvedorId): void;
-}) {
+}
+
+function PassoProvedor({ valor, onEscolher }: PassoProvedorProps) {
   // CONTA_DISPONIVEL (servico/base.ts) é o interruptor geral: com a tela de conta pronta
   // ele é `true` e todo provedor aparece; um `false` de emergência voltaria a esconder
   // qualquer provedor que só autentica por sessão de conta, sem tirá-lo do catálogo.
@@ -483,15 +531,7 @@ function PassoProvedor({
   );
 }
 
-function PassoModelo({
-  rotulo,
-  modelos,
-  aviso,
-  sugeridos,
-  valor,
-  permiteOutro = true,
-  onEscolher,
-}: {
+interface PassoModeloProps {
   rotulo: string;
   modelos: string[] | null;
   aviso: string | null;
@@ -501,7 +541,17 @@ function PassoModelo({
    * serviço não conhece. */
   permiteOutro?: boolean;
   onEscolher(modelo: string): void;
-}) {
+}
+
+function PassoModelo({
+  rotulo,
+  modelos,
+  aviso,
+  sugeridos,
+  valor,
+  permiteOutro = true,
+  onEscolher,
+}: PassoModeloProps) {
   const [filtro, setFiltro] = useState("");
   const [outroAberto, setOutroAberto] = useState(false);
   const [outroTexto, setOutroTexto] = useState(
@@ -606,17 +656,14 @@ function PassoModelo({
   );
 }
 
-function PassoRevisao({
-  r,
-  provedor,
-  chaveMascarada,
-  onMudar,
-}: {
-  r: Rascunho;
+interface PassoRevisaoProps {
+  r: CamposRascunhoAgente;
   provedor: ReturnType<typeof provedorDe>;
   chaveMascarada: string;
-  onMudar(mudanca: Partial<Rascunho>): void;
-}) {
+  onMudar(mudanca: Partial<CamposRascunhoAgente>): void;
+}
+
+function PassoRevisao({ r, provedor, chaveMascarada, onMudar }: PassoRevisaoProps) {
   const thinkingVisivel =
     modeloComThinking(provedor.dialecto, r.modeloGateiro) ||
     modeloComThinking(provedor.dialecto, r.modeloAssistente);
@@ -668,7 +715,12 @@ function PassoRevisao({
   );
 }
 
-function Linha({ rotulo, valor }: { rotulo: string; valor: string }) {
+interface LinhaProps {
+  rotulo: string;
+  valor: string;
+}
+
+function Linha({ rotulo, valor }: LinhaProps) {
   return (
     <div className="flex items-baseline justify-between gap-3">
       <dt className="meta shrink-0 text-tinta-suave">{rotulo}</dt>

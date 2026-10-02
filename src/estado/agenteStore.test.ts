@@ -135,7 +135,9 @@ beforeEach(() => {
     carregado: false,
     status: "desligado",
     enviandoChat: false,
+    caminhoChatEmVoo: null,
     erroAtual: null,
+    erroDeSessao: false,
     pausado: false,
     painelAberto: false,
     assistenteAberto: false,
@@ -146,6 +148,12 @@ beforeEach(() => {
     convite: null,
     analises: {},
     sugestoes: {},
+    novidades: {},
+    atividades: {},
+    versoesNovidadeSugestoes: {},
+    versaoNovidadeMemoria: 0,
+    versoesVistasSugestoes: {},
+    versaoMemoriaVista: 0,
     fatos: [],
     saldoCreditos: null,
   });
@@ -199,17 +207,19 @@ describe("agenteStore", () => {
       { papel: "usuario", texto: "o que falta nesta nota?" },
       { papel: "assistente", texto: "resposta do modelo" },
     ]);
+    expect(st().novidades["Nota.md"]).toEqual({ sugestoes: false, resposta: true });
     expect(st().usoSessao).toEqual({ tokensEntrada: 40, tokensSaida: 8 });
   });
 
-  it("texto vazio não envia; pausado bloqueia envio (RF11.14)", async () => {
+  it("texto vazio não envia; pausar acompanhamento mantém o chat manual disponível", async () => {
     await st().aplicarConfig(CONFIG);
     await st().enviarMensagem("   ");
     expect(completar).not.toHaveBeenCalled();
 
     st().pausar();
     await st().enviarMensagem("agora?");
-    expect(completar).not.toHaveBeenCalled();
+    expect(completar).toHaveBeenCalledTimes(1);
+    expect(st().pausado).toBe(true);
   });
 
   it("falha do provedor: erro visível no estado, sem exceção para fora (RF11.15)", async () => {
@@ -220,7 +230,9 @@ describe("agenteStore", () => {
 
     expect(st().status).toBe("erro");
     expect(st().erroAtual).toBe("erro simulado");
+    expect(st().erroDeSessao).toBe(false);
     expect(st().conversas["Nota.md"][0]).toEqual({ papel: "usuario", texto: "oi" });
+    expect(st().novidades["Nota.md"]).toBeUndefined();
   });
 
   it("mensagem com mais de 100 mil caracteres não é enviada e avisa; devolve 'longa'", async () => {
@@ -230,6 +242,7 @@ describe("agenteStore", () => {
     expect(completar).not.toHaveBeenCalled();
     expect(st().conversas["Nota.md"] ?? []).toEqual([]);
     expect(st().erroAtual).toBe("Mensagem longa demais para o agente (máximo de 100 mil caracteres).");
+    expect(st().erroDeSessao).toBe(false);
   });
 
   it("mensagem com exatamente 100 mil caracteres ainda é enviada", async () => {
@@ -313,7 +326,189 @@ function respostaPorPapel(p: { system: string }) {
 }
 
 describe("agenteStore — gateiro, convite e ciclo", () => {
-  it("inatividade dispara o gateiro; convite abre o painel", async () => {
+  it("atividade do gateiro não apaga atividade paralela de conversa", async () => {
+    vi.useFakeTimers();
+    let concluirGateiro: (resposta: { texto: string; uso: { tokensEntrada: number; tokensSaida: number } }) => void = () => {};
+    let concluirChat: (resposta: { texto: string; uso: { tokensEntrada: number; tokensSaida: number } }) => void = () => {};
+    vi.mocked(completar).mockImplementation((pedido) => {
+      if (pedido.system.startsWith("Você analisa notas")) {
+        return new Promise((resolve) => void (concluirGateiro = resolve));
+      }
+      return new Promise((resolve) => void (concluirChat = resolve));
+    });
+    notaAberta.conteudoEditor = "x".repeat(500);
+    await st().aplicarConfig(CONFIG);
+    await st().aoAbrirVault("C:/vault");
+    await vi.advanceTimersByTimeAsync(6000);
+
+    const atividadeGateiro = Object.values(st().atividades)[0];
+    expect(atividadeGateiro?.fase).toBe("leitura-inicial");
+    const mensagem = st().enviarMensagem("oi");
+    const atividades = Object.values(st().atividades);
+    expect(atividades).toHaveLength(2);
+    expect(atividades.some((atividade) => atividade.fase === "respondendo")).toBe(true);
+
+    concluirGateiro({
+      texto: '{"valeParticipar": true, "tema": "arquitetura", "confianca": 0.9}',
+      uso: { tokensEntrada: 1, tokensSaida: 1 },
+    });
+    await vi.advanceTimersByTimeAsync(0);
+    expect(Object.values(st().atividades)).toHaveLength(1);
+    expect(Object.values(st().atividades)[0]?.fase).toBe("respondendo");
+
+    concluirChat({ texto: "resposta", uso: { tokensEntrada: 1, tokensSaida: 1 } });
+    await mensagem;
+    expect(st().atividades).toEqual({});
+  });
+
+  it("aceite de nota curta executa um primeiro ciclo e reconhece a versão consultada", async () => {
+    vi.useFakeTimers();
+    vi.mocked(completar).mockImplementation(async (p) => respostaPorPapel(p));
+    notaAberta.conteudoEditor = "x".repeat(150);
+    await st().aplicarConfig(CONFIG);
+    await st().aoAbrirVault("C:/vault");
+    await vi.advanceTimersByTimeAsync(6000);
+    expect(st().convite).not.toBeNull();
+
+    st().responderConvite("aceitar");
+    await vi.advanceTimersByTimeAsync(0);
+    expect(completar).toHaveBeenCalledTimes(2);
+    expect(st().sugestoes["Nota.md"]).toHaveLength(1);
+    expect(st().versoesNovidadeSugestoes["Nota.md"]).toBe(1);
+
+    st().reconhecerSugestoes("Nota.md", 1);
+    useAgenteStore.setState({ versoesNovidadeSugestoes: { "Nota.md": 2 } });
+    expect(st().versoesVistasSugestoes["Nota.md"]).toBe(1);
+    expect(st().versoesNovidadeSugestoes["Nota.md"]).toBe(2);
+
+    const chamadas = vi.mocked(completar).mock.calls.length;
+    await vi.advanceTimersByTimeAsync(60_000);
+    expect(completar).toHaveBeenCalledTimes(chamadas);
+  });
+
+  it("ciclo aparece na conversa no mesmo bloco, conclui esse bloco e envia só mensagens reais ao chat", async () => {
+    vi.useFakeTimers();
+    const controleCiclo: { concluir?: (resposta: { texto: string; uso: { tokensEntrada: number; tokensSaida: number } }) => void } = {};
+    vi.mocked(completar).mockImplementation((pedido) => {
+      if (pedido.system.startsWith("Você analisa notas")) {
+        return Promise.resolve({
+          texto: '{"valeParticipar":true,"tema":"arquitetura","confianca":0.9}',
+          uso: { tokensEntrada: 1, tokensSaida: 1 },
+        });
+      }
+      if (pedido.system.includes("acompanhando a nota")) {
+        return new Promise((resolve) => { controleCiclo.concluir = resolve; });
+      }
+      return Promise.resolve({ texto: "resposta do chat", uso: { tokensEntrada: 1, tokensSaida: 1 } });
+    });
+    notaAberta.conteudoEditor = "x".repeat(500);
+    await st().aplicarConfig(CONFIG);
+    await st().aoAbrirVault("C:/vault");
+    await vi.advanceTimersByTimeAsync(6000);
+    st().responderConvite("aceitar");
+    await vi.advanceTimersByTimeAsync(0);
+
+    const emAndamento = st().conversas["Nota.md"].find((mensagem) => mensagem.tipo === "analise");
+    expect(emAndamento).toMatchObject({ estado: "em-andamento", fase: "gerando-sugestoes" });
+    expect(emAndamento?.id).toBeTruthy();
+    controleCiclo.concluir?.({
+      texto: '{"sugestoes":[{"tipo":"pergunta","texto":"Falta o prazo?"}],"novosFatos":[]}',
+      uso: { tokensEntrada: 1, tokensSaida: 1 },
+    });
+    await vi.advanceTimersByTimeAsync(0);
+    const concluida = st().conversas["Nota.md"].find((mensagem) => mensagem.tipo === "analise");
+    expect(concluida?.id).toBe(emAndamento?.id);
+    expect(concluida).toMatchObject({ estado: "concluido", sugestoes: [{ texto: "Falta o prazo?" }] });
+
+    await st().enviarMensagem("oi");
+    const chamadas = vi.mocked(completar).mock.calls;
+    const mensagensEnviadas = chamadas[chamadas.length - 1]?.[0].mensagens;
+    expect(mensagensEnviadas?.every((mensagem) => !("tipo" in mensagem))).toBe(true);
+    expect(chamadas[chamadas.length - 1]?.[0].system).toContain("Última análise automática — sugestões, não fatos verificados");
+    const idSugestao = concluida?.sugestoes?.[0].id;
+    if (idSugestao) st().dispensarSugestao(idSugestao);
+    expect(st().conversas["Nota.md"].find((mensagem) => mensagem.id === concluida?.id)?.sugestoes).toEqual([]);
+    expect(st().sugestoes["Nota.md"]).toEqual([]);
+  });
+
+  it("avisa inclusão de candidato estruturado mesmo com 100 fatos legados e ignora repetição", async () => {
+    vi.useFakeTimers();
+    let ciclos = 0;
+    vi.mocked(completar).mockImplementation(async (p) => {
+      if (p.system.startsWith("Você analisa notas")) {
+        return {
+          texto: '{"valeParticipar": true, "tema": "arquitetura", "confianca": 0.9}',
+          uso: { tokensEntrada: 1, tokensSaida: 1 },
+        };
+      }
+      ciclos++;
+      return {
+      texto: '{"sugestoes":[],"novosFatos":[{"categoria":"preferencia","escopo":"vault","chave":"estilo-resposta","texto":"O autor prefere respostas breves.","trechoEvidencia":"O autor prefere respostas breves."}]}',
+        uso: { tokensEntrada: 1, tokensSaida: 1 },
+      };
+    });
+    notaAberta.conteudoEditor = "O autor prefere respostas breves. ".repeat(15);
+    await st().aplicarConfig(CONFIG);
+    await st().aoAbrirVault("C:/vault");
+    const fatosAntigos = Array.from({ length: 100 }, (_, indice) => ({
+      id: `antigo-${indice}`,
+      texto: `Fato antigo ${indice}`,
+      notaOrigem: null,
+      criadoEm: new Date(indice).toISOString(),
+    }));
+    useAgenteStore.setState({ fatos: fatosAntigos });
+    await vi.advanceTimersByTimeAsync(6000);
+    st().responderConvite("aceitar");
+    await vi.advanceTimersByTimeAsync(0);
+
+    expect(ciclos).toBe(1);
+    expect(st().fatos).toHaveLength(101);
+    expect(st().fatos.some((fato) => fato.texto === "O autor prefere respostas breves.")).toBe(true);
+    expect(st().fatos.find((fato) => fato.texto === "O autor prefere respostas breves.")?.estado).toBe("pendente");
+    expect(st().versaoNovidadeMemoria).toBe(1);
+
+    st().conectarGatilhos();
+    notaAberta.conteudoEditor = "y".repeat(900);
+    for (const disparar of dispararDocs.lista) disparar();
+    await vi.advanceTimersByTimeAsync(11_000);
+
+    expect(ciclos).toBe(2);
+    expect(st().versaoNovidadeMemoria).toBe(1);
+  });
+
+  it("ciclo inicial curto repete após a espera de falha e para ao esgotar tentativas", async () => {
+    vi.useFakeTimers();
+    vi.mocked(completar).mockImplementation(async (p) => {
+      if (p.system.startsWith("Você analisa notas")) {
+        return {
+          texto: '{"valeParticipar": true, "tema": "arquitetura", "confianca": 0.9}',
+          uso: { tokensEntrada: 1, tokensSaida: 1 },
+        };
+      }
+      throw new Error("sem rede");
+    });
+    notaAberta.conteudoEditor = "x".repeat(150);
+    await st().aplicarConfig(CONFIG);
+    await st().aoAbrirVault("C:/vault");
+    await vi.advanceTimersByTimeAsync(6000);
+    st().responderConvite("aceitar");
+    await vi.advanceTimersByTimeAsync(0);
+    expect(completar).toHaveBeenCalledTimes(2); // gateiro + primeiro ciclo aceito
+
+    await vi.advanceTimersByTimeAsync(9_999);
+    expect(completar).toHaveBeenCalledTimes(2);
+    await vi.advanceTimersByTimeAsync(1);
+    expect(completar).toHaveBeenCalledTimes(3); // retry inicial segue o timer/backoff
+
+    await vi.advanceTimersByTimeAsync(30 * 60_000);
+    const chamadasAposEsgotar = vi.mocked(completar).mock.calls.length;
+    expect(chamadasAposEsgotar).toBe(6); // cinco ciclos no total, além do gateiro
+    expect(st().atividades).toEqual({});
+    await vi.advanceTimersByTimeAsync(60 * 60_000);
+    expect(completar).toHaveBeenCalledTimes(chamadasAposEsgotar);
+  });
+
+  it("inatividade dispara o gateiro; convite mantém o painel fechado", async () => {
     vi.useFakeTimers();
     vi.mocked(completar).mockImplementation(async (p) => respostaPorPapel(p));
     notaAberta.conteudoEditor = "x".repeat(500);
@@ -326,7 +521,7 @@ describe("agenteStore — gateiro, convite e ciclo", () => {
     await vi.advanceTimersByTimeAsync(6000);
 
     expect(st().convite).toEqual({ path: "Nota.md", tema: "arquitetura" });
-    expect(st().painelAberto).toBe(true);
+    expect(st().painelAberto).toBe(false);
   });
 
   it("gateiro que decide 'não vale' registra a decisão visível, sem convite", async () => {
@@ -368,11 +563,26 @@ describe("agenteStore — gateiro, convite e ciclo", () => {
     await vi.advanceTimersByTimeAsync(6000);
     expect(st().convite).not.toBeNull();
 
+    expect(st().painelAberto).toBe(false); // aceitar com o painel fechado deve sinalizar o ciclo resultante
     st().responderConvite("aceitar");
     await vi.advanceTimersByTimeAsync(10);
 
     expect(st().sugestoes["Nota.md"]).toHaveLength(1);
     expect(st().sugestoes["Nota.md"][0].texto).toBe("Falta o prazo da entrega?");
+    expect(st().novidades["Nota.md"]).toEqual({ sugestoes: true, resposta: false });
+    st().reconhecerAtualizacoes("Nota.md");
+    expect(st().novidades["Nota.md"]).toBeUndefined();
+    expect(st().sugestoes["Nota.md"]).toHaveLength(1);
+
+    const chamadasAntesDoMesmoLote = vi.mocked(completar).mock.calls.length;
+    notaAberta.conteudoEditor = "y".repeat(800);
+    st().conectarGatilhos();
+    for (const disparar of dispararDocs.lista) disparar();
+    await vi.advanceTimersByTimeAsync(11_000);
+    expect(vi.mocked(completar)).toHaveBeenCalledTimes(chamadasAntesDoMesmoLote + 1);
+    expect(st().novidades["Nota.md"]).toBeUndefined();
+    expect(st().sugestoes["Nota.md"]).toHaveLength(1);
+
     expect(st().participacao["Nota.md"]).toBe("aceito");
     expect(st().convite).toBeNull();
 
@@ -439,6 +649,13 @@ describe("agenteStore — gateiro, convite e ciclo", () => {
     useAgenteStore.setState({
       participacao: { "antigo.md": "recusado" },
       sugestoes: { "antigo.md": [{ id: "s1", tipo: "pergunta", texto: "x" }] },
+      conversas: {
+        "antigo.md": [{ papel: "assistente", texto: "resultado", tipo: "analise", estado: "concluido", sugestoes: [{ id: "s1", tipo: "notaRelacionada", texto: "x", caminhoNota: "antigo.md" }] }],
+        "outro.md": [{ papel: "assistente", texto: "referência", tipo: "analise", estado: "concluido", sugestoes: [{ id: "s2", tipo: "notaRelacionada", texto: "x", caminhoNota: "antigo.md" }] }],
+      },
+      fatos: [{ id: "f1", texto: "preferência", notaOrigem: "antigo.md", criadoEm: "x" }],
+      versoesNovidadeSugestoes: { "antigo.md": 2 },
+      versoesVistasSugestoes: { "antigo.md": 1 },
       convite: { path: "antigo.md", tema: "t" },
     });
 
@@ -446,6 +663,12 @@ describe("agenteStore — gateiro, convite e ciclo", () => {
 
     expect(st().participacao).toEqual({ "novo.md": "recusado" });
     expect(st().sugestoes["novo.md"]).toHaveLength(1);
+    expect(st().conversas["antigo.md"]).toBeUndefined();
+    expect(st().conversas["novo.md"][0].sugestoes?.[0].caminhoNota).toBe("novo.md");
+    expect(st().conversas["outro.md"][0].sugestoes?.[0].caminhoNota).toBe("novo.md");
+    expect(st().fatos[0].notaOrigem).toBe("novo.md");
+    expect(st().versoesNovidadeSugestoes).toEqual({ "novo.md": 2 });
+    expect(st().versoesVistasSugestoes).toEqual({ "novo.md": 1 });
     expect(st().convite).toEqual({ path: "novo.md", tema: "t" });
   });
 });
@@ -463,6 +686,7 @@ describe("agenteStore — para de tentar depois de um erro definitivo", () => {
 
     await vi.advanceTimersByTimeAsync(6000);
     expect(st().status).toBe("erro");
+    expect(st().erroDeSessao).toBe(false);
     expect(st().erroAtual).toBe("erro simulado");
     const chamadasAteAqui = vi.mocked(completar).mock.calls.length;
 
@@ -475,12 +699,13 @@ describe("agenteStore — para de tentar depois de um erro definitivo", () => {
     vi.useFakeTimers();
     vi.mocked(completar).mockRejectedValue(new FalhaAgente("sessao"));
     notaAberta.conteudoEditor = "x".repeat(500);
-    await st().aplicarConfig(CONFIG);
+    await st().aplicarConfig(CONFIG_PROPRIA);
     await st().aoAbrirVault("C:/vault");
     st().conectarGatilhos();
 
     await vi.advanceTimersByTimeAsync(6000);
     expect(st().status).toBe("erro");
+    expect(st().erroDeSessao).toBe(true);
     const chamadasAntes = vi.mocked(completar).mock.calls.length;
 
     // sessão mudou (por exemplo, o usuário entrou na conta): o gateiro volta a funcionar.
@@ -491,10 +716,23 @@ describe("agenteStore — para de tentar depois de um erro definitivo", () => {
 
     expect(st().status).not.toBe("erro");
     expect(st().erroAtual).toBeNull();
+    expect(st().erroDeSessao).toBe(false);
 
     await vi.advanceTimersByTimeAsync(6000);
 
     expect(vi.mocked(completar).mock.calls.length).toBeGreaterThan(chamadasAntes);
+  });
+
+  it("erro de sessão no ciclo marca o sinal tipado e mantém plano como outro erro definitivo", async () => {
+    vi.useFakeTimers();
+    await prepararNota(CONFIG_PROPRIA);
+    useAgenteStore.setState({ participacao: { "Nota.md": "aceito" } });
+    vi.mocked(completar).mockRejectedValue(new FalhaAgente("sessao"));
+    for (const f of dispararDocs.lista) f();
+
+    await vi.advanceTimersByTimeAsync(10_100);
+    expect(st().status).toBe("erro");
+    expect(st().erroDeSessao).toBe(true);
   });
 
   it("erro NÃO definitivo (rede) continua reagendando normalmente — não regride", async () => {
@@ -527,11 +765,11 @@ describe("agenteStore — memória de longo prazo", () => {
         };
       }
       return {
-        texto: '{"sugestoes":[],"novosFatos":["o autor chama o backend de Core"]}',
+        texto: '{"sugestoes":[],"novosFatos":[{"categoria":"glossario","escopo":"vault","chave":"backend-core","texto":"o autor chama o backend de Core","trechoEvidencia":"o autor chama o backend de Core"}]}',
         uso: { tokensEntrada: 10, tokensSaida: 5 },
       };
     });
-    notaAberta.conteudoEditor = "x".repeat(500);
+    notaAberta.conteudoEditor = "o autor chama o backend de Core. ".repeat(15);
     await st().aplicarConfig(CONFIG);
     await st().aoAbrirVault("C:/vault");
     await vi.advanceTimersByTimeAsync(6000);
@@ -560,6 +798,49 @@ describe("agenteStore — memória de longo prazo", () => {
     expect(st().fatos).toEqual([]);
   });
 
+  it("memórias exigem confirmação, permitem edição ou rejeição, e preferência explícita salva confirmada", async () => {
+    await st().aplicarConfig(CONFIG);
+    await st().aoAbrirVault("C:/vault");
+    useAgenteStore.setState({
+      fatos: [{
+        id: "f-pendente",
+        texto: "resposta curta",
+        chave: "estilo-resposta",
+        categoria: "preferencia",
+        escopo: "vault",
+        notaOrigem: "Nota.md",
+        trechoEvidencia: "resposta curta",
+        criadoEm: "2026-10-01",
+        fonte: "nota",
+        estado: "pendente",
+      }],
+    });
+
+    st().confirmarMemoria("f-pendente");
+    expect(st().fatos[0].estado).toBe("confirmado");
+    st().editarMemoria("f-pendente", "Prefere respostas muito curtas");
+    expect(st().fatos[0]).toMatchObject({
+      texto: "Prefere respostas muito curtas",
+      estado: "confirmado",
+      fonte: "usuario",
+      notaOrigem: null,
+    });
+
+    useAgenteStore.setState({ fatos: [{ ...st().fatos[0], id: "f-rejeitar", estado: "pendente" }] });
+    st().rejeitarMemoria("f-rejeitar");
+    expect(st().fatos[0].estado).toBe("rejeitado");
+    st().lembrarPreferencia("  Prefere texto sem rodeios  ");
+    expect(st().fatos[1]).toMatchObject({
+      texto: "Prefere texto sem rodeios",
+      categoria: "preferencia",
+      estado: "confirmado",
+      fonte: "usuario",
+    });
+    await st().enviarMensagem("Como devo responder?");
+    expect(vi.mocked(completar).mock.calls[0]?.[0].system).toContain("Dados declarados pelo usuário");
+    expect(vi.mocked(completar).mock.calls[0]?.[0].system).toContain("Prefere texto sem rodeios");
+  });
+
   it("conversa sobrevive a reabertura do vault", async () => {
     await st().aplicarConfig(CONFIG);
     await st().aoAbrirVault("C:/vault");
@@ -579,6 +860,32 @@ describe("agenteStore — memória de longo prazo", () => {
 
     expect(st().conversas["Nota.md"][0].texto).toBe("pergunta real");
     expect(st().conversas["Nota.md"][1].texto).toBe("resposta do modelo");
+  });
+
+  it("marca análises persistidas em andamento como interrompidas ao reabrir o vault", async () => {
+    await st().aplicarConfig(CONFIG);
+    stores.set(`agente/${hashVault("C:/vault")}/conversas.json`, new Map([["dados", {
+      version: 1,
+      dados: { "Nota.md": {
+        atualizadaEm: "2026-10-01",
+        mensagens: [{
+          id: "analise-em-voo",
+          papel: "assistente",
+          texto: "Analisando a nota…",
+          tipo: "analise",
+          estado: "em-andamento",
+          fase: "gerando-sugestoes",
+        }],
+      } },
+    }]]));
+
+    await st().aoAbrirVault("C:/vault");
+
+    expect(st().conversas["Nota.md"][0]).toMatchObject({
+      id: "analise-em-voo",
+      estado: "erro",
+      texto: "Análise interrompida ao fechar o aplicativo.",
+    });
   });
 
   it("limparMemoria esvazia estado e disco (doc 11 §6.3)", async () => {
@@ -851,6 +1158,7 @@ describe("agenteStore — 401 com token trocado por outra janela", () => {
     expect(sincronizarMock).toHaveBeenCalledTimes(1);
     expect(completar).toHaveBeenCalledTimes(1);
     expect(st().status).toBe("erro");
+    expect(st().erroDeSessao).toBe(true);
   });
 
   it("chat: 401 de novo depois da repetição vira erro (só repete uma vez)", async () => {
@@ -863,6 +1171,7 @@ describe("agenteStore — 401 com token trocado por outra janela", () => {
 
     expect(completar).toHaveBeenCalledTimes(2);
     expect(st().status).toBe("erro");
+    expect(st().erroDeSessao).toBe(true);
   });
 
   it("chat: sessão zerada pela outra janela (sem token) vira erro sem repetir", async () => {
@@ -875,6 +1184,38 @@ describe("agenteStore — 401 com token trocado por outra janela", () => {
 
     expect(completar).toHaveBeenCalledTimes(1);
     expect(st().status).toBe("erro");
+    expect(st().erroDeSessao).toBe(true);
+  });
+
+  it("sinal de sessão some quando o erro atual vira outro erro ou é limpo", async () => {
+    await prepararNota(CONFIG_PROPRIA);
+    vi.mocked(completar).mockRejectedValueOnce(new FalhaAgente("sessao"));
+    await st().enviarMensagem("oi");
+    expect(st().erroDeSessao).toBe(true);
+
+    expect(await st().enviarMensagem("x".repeat(100_001))).toBe("longa");
+    expect(st().erroDeSessao).toBe(false);
+
+    vi.mocked(completar).mockRejectedValue(new FalhaAgente("creditos"));
+    await st().enviarMensagem("outra pergunta");
+    expect(st().erroDeSessao).toBe(false);
+    useAgenteStore.setState({ novidades: { "Nota.md": { sugestoes: true, resposta: true } } });
+    st().limparConversa();
+    expect(st().erroDeSessao).toBe(false);
+    expect(st().novidades["Nota.md"]).toEqual({ sugestoes: true, resposta: false });
+  });
+
+  it("erro de sessão no chat é limpo quando a sessão da conta muda", async () => {
+    await prepararNota(CONFIG_PROPRIA);
+    vi.mocked(completar).mockRejectedValueOnce(new FalhaAgente("sessao"));
+    await st().enviarMensagem("oi");
+    expect(st().erroDeSessao).toBe(true);
+
+    for (const callback of dispararConta.lista) {
+      callback({ sessao: { token: "tok-novo" } }, { sessao: { token: "tok-velho" } });
+    }
+    expect(st().erroDeSessao).toBe(false);
+    expect(st().erroAtual).toBeNull();
   });
 
   it("provedor de chave própria não consulta o cofre num 401", async () => {
@@ -886,6 +1227,7 @@ describe("agenteStore — 401 com token trocado por outra janela", () => {
 
     expect(sincronizarMock).not.toHaveBeenCalled();
     expect(completar).toHaveBeenCalledTimes(1);
+    expect(st().erroDeSessao).toBe(false);
   });
 
   it("gateiro: o mesmo caminho vale para o segundo plano", async () => {
@@ -1060,7 +1402,7 @@ describe("agenteStore — testar conexão do provedor próprio consulta o servid
 // ——— chat com estado próprio e recarga entre janelas (plano 16, tarefa 4) ———
 
 describe("agenteStore — chat com estado próprio", () => {
-  it("duas mensagens seguidas: a segunda é ignorada enquanto a primeira não termina", async () => {
+  it("resposta de chat em voo não altera estado depois da troca de vault", async () => {
     await st().aplicarConfig(CONFIG);
     let liberar: (v: { texto: string; uso: { tokensEntrada: number; tokensSaida: number } }) => void = () => {};
     vi.mocked(completar).mockImplementationOnce(
@@ -1068,13 +1410,18 @@ describe("agenteStore — chat com estado próprio", () => {
     );
     const primeira = st().enviarMensagem("primeira");
     expect(st().enviandoChat).toBe(true);
+    expect(st().caminhoChatEmVoo).toBe("Nota.md");
     await st().enviarMensagem("segunda");
     expect(completar).toHaveBeenCalledTimes(1);
+    await st().aoAbrirVault("C:/outro-vault");
+    expect(st().enviandoChat).toBe(false);
+    expect(st().caminhoChatEmVoo).toBeNull();
     liberar({ texto: "resp1", uso: { tokensEntrada: 1, tokensSaida: 1 } });
     await primeira;
     expect(st().enviandoChat).toBe(false);
-    const textos = (st().conversas["Nota.md"] ?? []).map((m) => m.texto);
-    expect(textos).toEqual(["primeira", "resp1"]);
+    expect(st().caminhoChatEmVoo).toBeNull();
+    expect(st().conversas).toEqual({});
+    expect(st().novidades).toEqual({});
   });
 
   it("depois de terminar (mesmo com erro), o chat volta a aceitar mensagem", async () => {
