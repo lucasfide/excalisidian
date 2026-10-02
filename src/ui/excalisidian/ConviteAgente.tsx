@@ -3,9 +3,8 @@ import { toast } from "sonner";
 import { chaveConversaAgente, useAgenteStore } from "../../estado/agenteStore";
 import { useDocumentosStore } from "../../estado/documentosStore";
 import { useWorkspaceStore } from "../../estado/workspaceStore";
-import "./convite-agente-toast.css";
 
-export default function ConviteAgenteToast() {
+export default function ConviteAgente() {
   const convite = useAgenteStore((s) => s.convite);
   const habilitado = useAgenteStore((s) => s.config?.habilitado ?? false);
   const caminhoAtivo = useWorkspaceStore((s) => s.caminhoAtivo);
@@ -23,8 +22,8 @@ export default function ConviteAgenteToast() {
       }
     };
 
+    // Botões com o estilo padrão dos toasts do app (mesmo de "Desfazer" em LinhaTarefa).
     const id = toast("Posso ajudar com esta nota?", {
-      className: "convite-agente-toast",
       description: `O agente pode acompanhar sua escrita sobre ${convite.tema}.`,
       duration: 10000,
       action: { label: "Permitir", onClick: () => responder("aceitar") },

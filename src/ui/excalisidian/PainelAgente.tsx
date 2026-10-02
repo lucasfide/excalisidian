@@ -21,7 +21,7 @@ import {
 
 import { Botao, cn } from "../../ui";
 import BotaoIcone from "../../ui/BotaoIcone";
-import CabecalhoPainelLateral from "../../components/features/cabecalho-painel-lateral";
+import CabecalhoPainelLateral from "./CabecalhoPainelLateral";
 import { chaveConversaAgente, useAgenteStore } from "../../estado/agenteStore";
 import { useContaStore } from "../../estado/contaStore";
 import { useDocumentosStore } from "../../estado/documentosStore";
@@ -33,16 +33,14 @@ import { useTexto } from "../../i18n/useTexto";
 import { type Idioma } from "../../i18n/idioma";
 import { usePrefsStore } from "../../estado/prefsStore";
 import type { TipoSugestao } from "../../agente/assistente";
-import type { FaseAtividadeAgente } from "../../types/atividade-agente";
-import type { Fato } from "../../types/memoria-agente";
-import { recuperarSessaoApos401 } from "../../hooks/use-saldo-creditos-conta";
-import { normalizarFatoParaComparacao } from "../../agente/regras-memoria";
+import type { FaseAtividadeAgente, Fato } from "../../agente/tipos";
+import { recuperarSessaoApos401 } from "../../servico/useSaldoCreditosConta";
+import { normalizarFatoParaComparacao } from "../../agente/regrasMemoria";
 import {
   acaoDepoisRecuperacaoSessao,
   deveMostrarBotaoContaPainel,
   tokenMudouDuranteRecuperacao,
-} from "./acao-conta-painel";
-import "./painel-agente.css";
+} from "./acaoContaPainel";
 
 export interface PainelAgenteProps {
   aoAbrirConta(): void;
@@ -57,6 +55,9 @@ const ICONES_TIPO: Record<TipoSugestao, typeof HelpCircle> = {
   notaRelacionada: CornerDownLeft,
   achadoWeb: Globe,
 };
+
+const CLASSE_ITEM_MENU =
+  "flex w-full items-center rounded-controle px-3 py-1.5 text-left text-pequeno text-tinta hover:bg-lavagem focus-visible:bg-lavagem";
 
 const ROTULOS_TIPO: Record<TipoSugestao, string> = {
   pergunta: "Pergunta",
@@ -309,7 +310,7 @@ export default function PainelAgente({ aoAbrirConta, aoMostrarTarefas, aoFecharP
       role="region"
       aria-label="Agente"
       className={cn(
-        "painel-agente flex h-full min-h-0 w-full flex-col bg-background",
+        "flex h-full min-h-0 w-full flex-col bg-superficie",
       )}
     >
       <CabecalhoPainelLateral
@@ -319,26 +320,26 @@ export default function PainelAgente({ aoAbrirConta, aoMostrarTarefas, aoFecharP
         aoFechar={aoFecharPainel}
         acoes={
           <div className="relative">
-            <BotaoIcone Icone={MoreHorizontal} titulo="Mais opções do agente" className="h-11 w-11" onClick={() => setMenuAberto((atual) => !atual)} />
-            {menuAberto && <div role="menu" className="painel-agente__menu absolute right-0 top-full z-10 mt-1 min-w-52 rounded-controle border border-border bg-popover p-1 shadow-ficha">
-              <button role="menuitem" type="button" className="painel-agente__item" onClick={() => { setMostrarMemoria(true); setMenuAberto(false); }}>O que o agente lembra</button>
-              <button role="menuitem" type="button" className="painel-agente__item" onClick={() => { pausado ? useAgenteStore.getState().retomar() : useAgenteStore.getState().pausar(); setMenuAberto(false); }}>{pausado ? "Retomar acompanhamento" : "Pausar acompanhamento"}</button>
+            <BotaoIcone Icone={MoreHorizontal} titulo="Mais opções do agente" onClick={() => setMenuAberto((atual) => !atual)} />
+            {menuAberto && <div role="menu" className="absolute right-0 top-full z-10 mt-1 min-w-52 rounded-controle border border-regua bg-superficie p-1 text-tinta shadow-ficha">
+              <button role="menuitem" type="button" className={CLASSE_ITEM_MENU} onClick={() => { setMostrarMemoria(true); setMenuAberto(false); }}>O que o agente lembra</button>
+              <button role="menuitem" type="button" className={CLASSE_ITEM_MENU} onClick={() => { pausado ? useAgenteStore.getState().retomar() : useAgenteStore.getState().pausar(); setMenuAberto(false); }}>{pausado ? "Retomar acompanhamento" : "Pausar acompanhamento"}</button>
             </div>}
           </div>
         }
       />
 
-      {respondendoOutraNota && <p role="status" className="border-b border-border px-3 py-1 text-pequeno text-muted-foreground">Respondendo em outra conversa…</p>}
+      {respondendoOutraNota && <p role="status" className="border-b border-regua px-3 py-1 text-pequeno text-tinta-suave">Respondendo em outra conversa…</p>}
 
       {conviteAqui && (
-        <div className="mx-3 mt-2 rounded-controle border border-border bg-muted p-3">
-          <p className="text-[13px] leading-relaxed text-foreground [text-wrap:pretty] [overflow-wrap:anywhere]">
+        <div className="mx-3 mt-2 rounded-controle border border-regua bg-lavagem p-3">
+          <p className="text-[13px] leading-relaxed text-tinta [text-wrap:pretty] [overflow-wrap:anywhere]">
             Esta nota parece tratar de <span className="font-medium">{conviteAqui.tema}</span>. Quer que eu acompanhe?
           </p>
           <div className="mt-2 flex flex-wrap gap-2">
             <Botao variante="primario" tamanho="compacto" onClick={() => useAgenteStore.getState().responderConvite("aceitar")}>Aceitar</Botao>
             <Botao variante="fantasma" tamanho="compacto" onClick={() => useAgenteStore.getState().responderConvite("adiar")}>Agora não</Botao>
-            <Botao variante="fantasma" tamanho="compacto" className="text-muted-foreground" onClick={() => useAgenteStore.getState().responderConvite("recusar")}>Recusar</Botao>
+            <Botao variante="fantasma" tamanho="compacto" className="text-tinta-suave" onClick={() => useAgenteStore.getState().responderConvite("recusar")}>Recusar</Botao>
           </div>
         </div>
       )}
@@ -359,7 +360,7 @@ export default function PainelAgente({ aoAbrirConta, aoMostrarTarefas, aoFecharP
         {!mostrarMemoria && (
           <div className="flex min-h-full flex-col gap-3">
             {conversa.length === 0 && !enviandoChatNestaNota && (
-              <p className="my-auto px-1 text-center text-pequeno text-muted-foreground">
+              <p className="my-auto px-1 text-center text-pequeno text-tinta-suave">
             {caminhoConversa ? "Pergunte algo sobre esta nota." : "Pergunte qualquer coisa ao agente."}
               </p>
             )}
@@ -368,21 +369,21 @@ export default function PainelAgente({ aoAbrirConta, aoMostrarTarefas, aoFecharP
                 key={m.id ?? `${chaveConversa}-${i}`}
                 open={m.estado === "em-andamento" || m.id === ultimaAnaliseConcluidaId}
                 aria-live={m.estado === "em-andamento" ? "polite" : undefined}
-                className="rounded-controle border border-border bg-card p-3"
+                className="rounded-controle border border-regua bg-lavagem p-3"
               >
-                <summary className="flex cursor-pointer list-none items-start gap-2 text-pequeno text-muted-foreground">
+                <summary className="flex cursor-pointer list-none items-start gap-2 text-pequeno text-tinta-suave">
                   {m.estado === "em-andamento" && <LoaderCircle size={16} className="mt-0.5 shrink-0 motion-safe:animate-spin" aria-hidden />}
-                  {m.estado === "erro" && <CircleAlert size={16} className="mt-0.5 shrink-0 text-destructive" aria-hidden />}
-                  <span className="min-w-0"><span className="meta block text-foreground">Agente</span>{m.estado === "em-andamento" ? (m.fase ? ROTULOS_ATIVIDADE[m.fase] : "Analisando a nota…") : m.texto}</span>
+                  {m.estado === "erro" && <CircleAlert size={16} className="mt-0.5 shrink-0 text-bordo" aria-hidden />}
+                  <span className="min-w-0"><span className="meta block text-tinta">Agente</span>{m.estado === "em-andamento" ? (m.fase ? ROTULOS_ATIVIDADE[m.fase] : "Analisando a nota…") : m.texto}</span>
                   {m.estado !== "em-andamento" && <ChevronDown size={14} className="ml-auto mt-1 shrink-0" aria-hidden />}
                 </summary>
                 {m.sugestoes && m.sugestoes.length > 0 && <div className="mt-2 flex flex-col gap-2">{m.sugestoes.map((s) => <SugestaoInline key={s.id} sugestao={s} />)}</div>}
-                {m.idsMemoria?.some((id) => fatos.some((fato) => fato.id === id && (fato.estado === "pendente" || fato.estado === undefined))) && <button type="button" className="meta mt-2 min-h-11 text-primary underline-offset-2 hover:underline" onClick={() => setMostrarMemoria(true)}>Revisar lembrança sugerida</button>}
+                {m.idsMemoria?.some((id) => fatos.some((fato) => fato.id === id && (fato.estado === "pendente" || fato.estado === undefined))) && <button type="button" className="meta mt-2 text-cristal underline-offset-2 hover:underline" onClick={() => setMostrarMemoria(true)}>Revisar lembrança sugerida</button>}
               </details>
             ) : (
               <div key={m.id ?? `${chaveConversa}-${i}`} className={cn("flex flex-col gap-1", m.papel === "usuario" ? "items-end" : "items-start")}>
                 <div className="flex items-center gap-1">
-                  <span className="meta px-1 text-muted-foreground">{m.papel === "usuario" ? "Você" : "Agente"}</span>
+                  <span className="meta px-1 text-tinta-suave">{m.papel === "usuario" ? "Você" : "Agente"}</span>
                   {m.papel === "usuario" && (
                     <BotaoIcone
                       Icone={preferenciaJaSalva(fatos, m.texto) ? BookmarkCheck : BookmarkPlus}
@@ -392,33 +393,33 @@ export default function PainelAgente({ aoAbrirConta, aoMostrarTarefas, aoFecharP
                     />
                   )}
                 </div>
-                <p className={cn("max-w-[92%] whitespace-pre-wrap [overflow-wrap:anywhere] rounded-controle px-2.5 py-2 text-[13px] leading-relaxed [text-wrap:pretty]", m.papel === "usuario" ? "bg-muted text-foreground" : "border-l-2 border-primary bg-background text-foreground")}>{m.texto}</p>
+                <p className={cn("max-w-[92%] whitespace-pre-wrap [overflow-wrap:anywhere] rounded-controle px-2.5 py-2 text-[13px] leading-relaxed [text-wrap:pretty]", m.papel === "usuario" ? "bg-lavagem text-tinta" : "border-l-2 border-cristal bg-superficie text-tinta")}>{m.texto}</p>
               </div>
             ))}
-            {enviandoChatNestaNota && <div role="status" className="flex items-start gap-2 rounded-controle border border-border bg-card p-3 text-pequeno text-muted-foreground"><LoaderCircle size={16} className="mt-0.5 shrink-0 motion-safe:animate-spin" aria-hidden /><div><span className="meta block text-foreground">Agente</span>Respondendo…</div></div>}
-            {!temAnaliseAtivaNaConversa && rotulosAtivos.length > 0 && <div role="status" aria-live="polite" className="flex items-start gap-2 rounded-controle border border-border bg-card p-3 text-pequeno text-muted-foreground"><LoaderCircle size={16} className="mt-0.5 shrink-0 motion-safe:animate-spin" aria-hidden /><div><span className="meta block text-foreground">Agente</span>{rotulosAtivos[0]}</div></div>}
-            {sugestoesSemBloco.length > 0 && <details><summary className="meta cursor-pointer text-muted-foreground">Sugestões anteriores ({sugestoesSemBloco.length})</summary><div className="mt-2 flex flex-col gap-2">{sugestoesSemBloco.map((s) => <SugestaoInline key={s.id} sugestao={s} />)}</div></details>}
+            {enviandoChatNestaNota && <div role="status" className="flex items-start gap-2 rounded-controle border border-regua bg-lavagem p-3 text-pequeno text-tinta-suave"><LoaderCircle size={16} className="mt-0.5 shrink-0 motion-safe:animate-spin" aria-hidden /><div><span className="meta block text-tinta">Agente</span>Respondendo…</div></div>}
+            {!temAnaliseAtivaNaConversa && rotulosAtivos.length > 0 && <div role="status" aria-live="polite" className="flex items-start gap-2 rounded-controle border border-regua bg-lavagem p-3 text-pequeno text-tinta-suave"><LoaderCircle size={16} className="mt-0.5 shrink-0 motion-safe:animate-spin" aria-hidden /><div><span className="meta block text-tinta">Agente</span>{rotulosAtivos[0]}</div></div>}
+            {sugestoesSemBloco.length > 0 && <details><summary className="meta cursor-pointer text-tinta-suave">Sugestões anteriores ({sugestoesSemBloco.length})</summary><div className="mt-2 flex flex-col gap-2">{sugestoesSemBloco.map((s) => <SugestaoInline key={s.id} sugestao={s} />)}</div></details>}
             <div />
           </div>
         )}
         {mostrarMemoria && <section className="flex flex-col gap-4">
-          <div className="flex items-center gap-2"><Botao variante="fantasma" tamanho="compacto" className="min-h-11" onClick={() => { rolarAoFimRef.current = true; setMostrarMemoria(false); }}>← Voltar à conversa</Botao><h2 className="meta text-foreground">O que o agente lembra</h2></div>
-          <p className="text-pequeno text-muted-foreground">Sugestões de memória só entram no contexto depois da sua confirmação. Ao confirmar uma atualização, a versão anterior fica arquivada.</p>
-          {fatos.length === 0 && <p className="px-1 text-pequeno text-muted-foreground">Nenhuma memória neste espaço de trabalho.</p>}
-          {memoriasPendentes.length > 0 && <MemoryGroup title="Para revisar" facts={memoriasPendentes} formatDate={formatadorDataMemoria} onConfirm={(id) => useAgenteStore.getState().confirmarMemoria(id)} onReject={(id) => useAgenteStore.getState().rejeitarMemoria(id)} onDelete={(id) => useAgenteStore.getState().apagarFato(id)} onEdit={(id, texto) => useAgenteStore.getState().editarMemoria(id, texto)} />}
-          {memoriasLegadas.length > 0 && <MemoryGroup title="Registros antigos — revisar" facts={memoriasLegadas} formatDate={formatadorDataMemoria} onConfirm={(id) => useAgenteStore.getState().confirmarMemoria(id)} onReject={(id) => useAgenteStore.getState().rejeitarMemoria(id)} onDelete={(id) => useAgenteStore.getState().apagarFato(id)} onEdit={(id, texto) => useAgenteStore.getState().editarMemoria(id, texto)} />}
-          {memoriasConfirmadas.length > 0 && <section><h3 className="meta mb-2 text-muted-foreground">Memórias confirmadas</h3><ul className="flex flex-col gap-2">{memoriasConfirmadas.map((f) => <li key={f.id} className="rounded-controle border border-border p-3">
-            {memoriasEmEdicao[f.id] !== undefined ? <div className="flex flex-col gap-2"><textarea aria-label="Editar memória" value={memoriasEmEdicao[f.id]} onChange={(e) => setMemoriasEmEdicao((state) => ({ ...state, [f.id]: e.target.value }))} rows={3} className="min-h-20 w-full resize-y rounded-controle border border-input bg-background p-2 text-base text-foreground" />{Array.from(memoriasEmEdicao[f.id]).length > 500 && <p role="alert" className="text-pequeno text-destructive">A memória não pode passar de 500 caracteres.</p>}<div className="flex gap-2"><Botao variante="primario" tamanho="compacto" className="min-h-11" onClick={() => { if (!useAgenteStore.getState().editarMemoria(f.id, memoriasEmEdicao[f.id])) { toast("A memória não foi atualizada. Verifique o limite de tamanho."); return; } setMemoriasEmEdicao((state) => { const next = { ...state }; delete next[f.id]; return next; }); }}>Salvar</Botao><Botao variante="fantasma" tamanho="compacto" className="min-h-11" onClick={() => setMemoriasEmEdicao((state) => { const next = { ...state }; delete next[f.id]; return next; })}>Cancelar</Botao></div></div> : <p className="text-pequeno text-foreground [overflow-wrap:anywhere]">{f.texto}</p>}
-            <MemoryMeta fact={f} formatDate={formatadorDataMemoria} />
-            <div className="mt-2 flex flex-wrap gap-2"><Botao variante="fantasma" tamanho="compacto" className="min-h-11" onClick={() => setMemoriasEmEdicao((state) => ({ ...state, [f.id]: f.texto }))}>Editar</Botao><Botao variante="fantasma" tamanho="compacto" className="min-h-11" onClick={() => useAgenteStore.getState().apagarFato(f.id)}>Apagar</Botao></div>
+          <div className="flex items-center gap-2"><Botao variante="fantasma" tamanho="compacto" onClick={() => { rolarAoFimRef.current = true; setMostrarMemoria(false); }}>← Voltar à conversa</Botao><h2 className="meta text-tinta">O que o agente lembra</h2></div>
+          <p className="text-pequeno text-tinta-suave">Sugestões de memória só entram no contexto depois da sua confirmação. Ao confirmar uma atualização, a versão anterior fica arquivada.</p>
+          {fatos.length === 0 && <p className="px-1 text-pequeno text-tinta-suave">Nenhuma memória neste espaço de trabalho.</p>}
+          {memoriasPendentes.length > 0 && <GrupoMemorias titulo="Para revisar" fatos={memoriasPendentes} formatarData={formatadorDataMemoria} aoConfirmar={(id) => useAgenteStore.getState().confirmarMemoria(id)} aoRejeitar={(id) => useAgenteStore.getState().rejeitarMemoria(id)} aoApagar={(id) => useAgenteStore.getState().apagarFato(id)} aoEditar={(id, texto) => useAgenteStore.getState().editarMemoria(id, texto)} />}
+          {memoriasLegadas.length > 0 && <GrupoMemorias titulo="Registros antigos — revisar" fatos={memoriasLegadas} formatarData={formatadorDataMemoria} aoConfirmar={(id) => useAgenteStore.getState().confirmarMemoria(id)} aoRejeitar={(id) => useAgenteStore.getState().rejeitarMemoria(id)} aoApagar={(id) => useAgenteStore.getState().apagarFato(id)} aoEditar={(id, texto) => useAgenteStore.getState().editarMemoria(id, texto)} />}
+          {memoriasConfirmadas.length > 0 && <section><h3 className="meta mb-2 text-tinta-suave">Memórias confirmadas</h3><ul className="flex flex-col gap-2">{memoriasConfirmadas.map((f) => <li key={f.id} className="rounded-controle border border-regua p-3">
+            {memoriasEmEdicao[f.id] !== undefined ? <div className="flex flex-col gap-2"><textarea aria-label="Editar memória" value={memoriasEmEdicao[f.id]} onChange={(e) => setMemoriasEmEdicao((atual) => ({ ...atual, [f.id]: e.target.value }))} rows={3} className="w-full resize-y rounded-controle border border-regua-forte bg-superficie p-2 text-corpo text-tinta" />{Array.from(memoriasEmEdicao[f.id]).length > 500 && <p role="alert" className="text-pequeno text-bordo">A memória não pode passar de 500 caracteres.</p>}<div className="flex gap-2"><Botao variante="primario" tamanho="compacto" onClick={() => { if (!useAgenteStore.getState().editarMemoria(f.id, memoriasEmEdicao[f.id])) { toast("A memória não foi atualizada. Verifique o limite de tamanho."); return; } setMemoriasEmEdicao((atual) => { const proximo = { ...atual }; delete proximo[f.id]; return proximo; }); }}>Salvar</Botao><Botao variante="fantasma" tamanho="compacto" onClick={() => setMemoriasEmEdicao((atual) => { const proximo = { ...atual }; delete proximo[f.id]; return proximo; })}>Cancelar</Botao></div></div> : <p className="text-pequeno text-tinta [overflow-wrap:anywhere]">{f.texto}</p>}
+            <MetaMemoria fato={f} formatarData={formatadorDataMemoria} />
+            <div className="mt-2 flex flex-wrap gap-2"><Botao variante="fantasma" tamanho="compacto" onClick={() => setMemoriasEmEdicao((atual) => ({ ...atual, [f.id]: f.texto }))}>Editar</Botao><Botao variante="fantasma" tamanho="compacto" onClick={() => useAgenteStore.getState().apagarFato(f.id)}>Apagar</Botao></div>
           </li>)}</ul></section>}
-          {memoriasArquivadas.length > 0 && <details><summary className="meta cursor-pointer text-muted-foreground">Arquivadas ({memoriasArquivadas.length})</summary><ul className="mt-2 flex flex-col gap-2">{memoriasArquivadas.map((fato) => <li key={fato.id} className="rounded-controle border border-border p-3"><p className="text-pequeno text-foreground">{fato.texto}</p><MemoryMeta fact={fato} formatDate={formatadorDataMemoria} /><Botao variante="fantasma" tamanho="compacto" className="mt-2 min-h-11" onClick={() => useAgenteStore.getState().apagarFato(fato.id)}>Apagar</Botao></li>)}</ul></details>}
+          {memoriasArquivadas.length > 0 && <details><summary className="meta cursor-pointer text-tinta-suave">Arquivadas ({memoriasArquivadas.length})</summary><ul className="mt-2 flex flex-col gap-2">{memoriasArquivadas.map((fato) => <li key={fato.id} className="rounded-controle border border-regua p-3"><p className="text-pequeno text-tinta">{fato.texto}</p><MetaMemoria fato={fato} formatarData={formatadorDataMemoria} /><Botao variante="fantasma" tamanho="compacto" className="mt-2" onClick={() => useAgenteStore.getState().apagarFato(fato.id)}>Apagar</Botao></li>)}</ul></details>}
         </section>}
         </div>
         {!mostrarMemoria && mostrarRespostaRecente && (
           <button
             type="button"
-            className="absolute bottom-2 left-1/2 -translate-x-1/2 rounded-pilula border border-border bg-background px-3 py-1.5 text-pequeno text-foreground shadow-ficha focus-visible:outline-2 focus-visible:outline-primary"
+            className="absolute bottom-2 left-1/2 -translate-x-1/2 rounded-pilula border border-regua bg-superficie px-3 py-1.5 text-pequeno text-tinta shadow-ficha focus-visible:outline-2 focus-visible:outline-cristal"
             onClick={() => {
               if (rolagemRef.current) rolagemRef.current.scrollTop = rolagemRef.current.scrollHeight;
               estavaNoFimRef.current = true;
@@ -430,14 +431,14 @@ export default function PainelAgente({ aoAbrirConta, aoMostrarTarefas, aoFecharP
         )}
       </div>
 
-      {mensagemLonga && <p role="status" className="border-t border-border px-3 py-1.5 text-pequeno text-destructive [overflow-wrap:anywhere]">{mensagemLonga}</p>}
+      {mensagemLonga && <p role="status" className="border-t border-regua px-3 py-1.5 text-pequeno text-bordo [overflow-wrap:anywhere]">{mensagemLonga}</p>}
 
       {(erroAtual || mostrarBotaoConta || acessoNaoConfirmado) && (
-        <div className="painel-agente__erro border-border flex flex-col gap-2 border-t px-3 py-2">
-          {erroAtual && !erroDeSessao && <p className="painel-agente__erro-mensagem text-destructive">{erroAtual}</p>}
-          {mostrarBotaoConta && <p className="painel-agente__erro-conta text-muted-foreground">{t("agente.erro.sessao")}</p>}
+        <div className="flex flex-col gap-2 border-t border-regua px-3 py-2">
+          {erroAtual && !erroDeSessao && <p className="text-bordo [overflow-wrap:anywhere]">{erroAtual}</p>}
+          {mostrarBotaoConta && <p className="text-tinta-media [overflow-wrap:anywhere]">{t("agente.erro.sessao")}</p>}
           {acessoNaoConfirmado && (
-            <p className="painel-agente__erro-conta text-muted-foreground" role="status">
+            <p className="text-tinta-media [overflow-wrap:anywhere]" role="status">
               {t("agente.passo.acessoNaoConfirmado")}
             </p>
           )}
@@ -449,8 +450,8 @@ export default function PainelAgente({ aoAbrirConta, aoMostrarTarefas, aoFecharP
         </div>
       )}
 
-      {!mostrarMemoria && <footer className="border-t border-border p-2">
-        {caminhoConversa && <p className="mb-1 px-1 meta text-muted-foreground">Nota atual</p>}
+      {!mostrarMemoria && <footer className="border-t border-regua p-2">
+        {caminhoConversa && <p className="mb-1 px-1 meta text-tinta-suave">Nota atual</p>}
         <div className="flex items-end gap-2">
           <textarea
             value={rascunho}
@@ -465,9 +466,9 @@ export default function PainelAgente({ aoAbrirConta, aoMostrarTarefas, aoFecharP
             placeholder={caminhoConversa ? "Perguntar sobre esta nota" : "Perguntar ao agente"}
             aria-label={caminhoConversa ? "Perguntar sobre esta nota" : "Perguntar ao agente"}
             className={cn(
-              "max-h-24 min-h-11 w-full flex-1 resize-none rounded-controle border border-input",
-              "bg-background px-2 py-1.5 text-base text-foreground placeholder:text-muted-foreground",
-              "transition-colors duration-[140ms] ease-caderno focus:outline-none focus-visible:outline-2 focus-visible:outline-primary",
+              "max-h-24 min-h-9 w-full flex-1 resize-none rounded-controle border border-regua-forte",
+              "bg-superficie px-2 py-1.5 text-corpo text-tinta placeholder:text-tinta-suave",
+              "transition-colors duration-[140ms] ease-caderno focus:outline-none focus-visible:outline-2 focus-visible:outline-cristal",
             )}
           />
           <BotaoIcone
@@ -475,19 +476,19 @@ export default function PainelAgente({ aoAbrirConta, aoMostrarTarefas, aoFecharP
             titulo="Enviar"
             disabled={!rascunho.trim() || enviandoChat}
             onClick={enviar}
-            className="h-11 w-11"
+            className="h-9 w-9"
           />
         </div>
         <div className="mt-1 flex items-baseline justify-between gap-2 px-1">
           {usaCreditos && saldo ? (
             <MedidorCreditos saldo={saldo} t={t} idioma={idioma} />
           ) : usaCreditos ? null : (
-            <span className="meta text-muted-foreground">{textoMedidor}</span>
+            <span className="meta text-tinta-suave">{textoMedidor}</span>
           )}
           {/* A decisão do gateiro nunca some sem dizer nada (doc 11 §5.1, revisado
               13/09): "não vale" e "falhou" aparecem aqui. */}
       {caminhoConversa && analises[caminhoConversa] === "nao-vale" && (
-            <span className="meta text-muted-foreground">
+            <span className="meta text-tinta-suave">
               O agente leu esta nota e decidiu não participar por enquanto.
             </span>
           )}
@@ -511,17 +512,17 @@ function MedidorCreditos({ saldo, t, idioma }: MedidorCreditosProps) {
   return (
     <span className="meta flex items-baseline gap-2">
       {nivel !== "esgotado" && (
-        <span className={cn(nivel === "acabando" ? "text-warning" : "text-muted-foreground")}>
+        <span className={cn(nivel === "acabando" ? "text-ocre-tinta" : "text-tinta-suave")}>
           {Math.floor(sobra) === 1
             ? t("agente.creditos.restante")
             : t("agente.creditos.restantes", { restantes: formatarCreditos(sobra, idioma) })}
         </span>
       )}
       {nivel === "acabando" && (
-        <span className="text-warning">{t("agente.creditos.acabando")}</span>
+        <span className="text-ocre-tinta">{t("agente.creditos.acabando")}</span>
       )}
       {nivel === "esgotado" && (
-        <span className="text-destructive">
+        <span className="text-bordo">
           {t("agente.creditos.esgotado", {
             data: formatarRenovacao(saldo.renovaEm, idioma),
           })}
@@ -537,7 +538,7 @@ interface SugestaoInlineProps {
 
 function SugestaoInline({ sugestao }: SugestaoInlineProps) {
   const Icone = ICONES_TIPO[sugestao.tipo];
-  return <article className="flex items-start gap-2 rounded-controle border border-border bg-card px-3 py-2"><Icone size={14} strokeWidth={1.5} aria-hidden className="mt-0.5 shrink-0 text-muted-foreground" /><div className="min-w-0 flex-1"><div className="meta mb-1 text-muted-foreground">{ROTULOS_TIPO[sugestao.tipo]}</div><p className="whitespace-pre-wrap [overflow-wrap:anywhere] text-pequeno leading-relaxed text-foreground">{sugestao.texto}</p>{sugestao.caminhoNota && <button type="button" className="meta mt-1 min-h-11 text-primary underline-offset-2 hover:underline" onClick={() => useWorkspaceStore.getState().abrirDocumento(sugestao.caminhoNota!)}>Abrir {sugestao.caminhoNota}</button>}<div className="mt-2 flex gap-2"><BotaoIcone Icone={Copy} titulo="Copiar sugestão" tamanho={16} className="h-11 w-11" onClick={() => { void navigator.clipboard.writeText(sugestao.texto).then(() => toast("Sugestão copiada.")).catch(() => toast("Não foi possível copiar.")); }} /><BotaoIcone Icone={X} titulo="Dispensar sugestão" tamanho={16} className="h-11 w-11" onClick={() => useAgenteStore.getState().dispensarSugestao(sugestao.id)} /></div></div></article>;
+  return <article className="flex items-start gap-2 rounded-controle border border-regua bg-lavagem px-3 py-2"><Icone size={14} strokeWidth={1.5} aria-hidden className="mt-0.5 shrink-0 text-tinta-suave" /><div className="min-w-0 flex-1"><div className="meta mb-1 text-tinta-suave">{ROTULOS_TIPO[sugestao.tipo]}</div><p className="whitespace-pre-wrap [overflow-wrap:anywhere] text-pequeno leading-relaxed text-tinta">{sugestao.texto}</p>{sugestao.caminhoNota && <button type="button" className="meta mt-1 text-cristal underline-offset-2 hover:underline" onClick={() => useWorkspaceStore.getState().abrirDocumento(sugestao.caminhoNota!)}>Abrir {sugestao.caminhoNota}</button>}<div className="mt-2 flex gap-2"><BotaoIcone Icone={Copy} titulo="Copiar sugestão" onClick={() => { void navigator.clipboard.writeText(sugestao.texto).then(() => toast("Sugestão copiada.")).catch(() => toast("Não foi possível copiar.")); }} /><BotaoIcone Icone={X} titulo="Dispensar sugestão" onClick={() => useAgenteStore.getState().dispensarSugestao(sugestao.id)} /></div></div></article>;
 }
 
 function preferenciaJaSalva(fatos: Fato[], texto: string): boolean {
@@ -568,76 +569,76 @@ function lembrarPreferenciaDaMensagem(texto: string): void {
   }
 }
 
-interface MemoryMetaProps {
-  fact: Fato;
-  formatDate: Intl.DateTimeFormat;
+interface MetaMemoriaProps {
+  fato: Fato;
+  formatarData: Intl.DateTimeFormat;
 }
 
-function MemoryMeta({ fact, formatDate }: MemoryMetaProps) {
-  const source = fact.fonte === "usuario" ? "Salva por você" : fact.fonte === "conversa" ? "Da conversa" : fact.fonte === "nota" ? "Da nota" : "Registro antigo";
-  const category = fact.categoria === "preferencia" ? "Preferência" : fact.categoria === "glossario" ? "Glossário" : fact.categoria === "convencao" ? "Convenção" : undefined;
-  return <div className="mt-1 flex flex-col gap-1 text-pequeno text-muted-foreground">
-    <span>{[category, fact.escopo === "projeto" ? `Projeto: ${fact.caminhoProjeto ?? ""}` : fact.escopo === "vault" ? "Espaço de trabalho" : undefined, source].filter(Boolean).join(" · ")}</span>
-    {fact.notaOrigem && <span className="[overflow-wrap:anywhere]">Origem: {fact.notaOrigem}</span>}
-    {fact.trechoEvidencia && <span className="border-l border-border pl-2 [overflow-wrap:anywhere]">“{fact.trechoEvidencia}”</span>}
-    {Number.isFinite(Date.parse(fact.atualizadoEm ?? fact.criadoEm)) && <time dateTime={fact.atualizadoEm ?? fact.criadoEm}>{formatDate.format(new Date(fact.atualizadoEm ?? fact.criadoEm))}{fact.atualizadoEm ? " · atualizado" : ""}</time>}
+function MetaMemoria({ fato, formatarData }: MetaMemoriaProps) {
+  const origem = fato.fonte === "usuario" ? "Salva por você" : fato.fonte === "conversa" ? "Da conversa" : fato.fonte === "nota" ? "Da nota" : "Registro antigo";
+  const categoria = fato.categoria === "preferencia" ? "Preferência" : fato.categoria === "glossario" ? "Glossário" : fato.categoria === "convencao" ? "Convenção" : undefined;
+  return <div className="mt-1 flex flex-col gap-1 text-pequeno text-tinta-suave">
+    <span>{[categoria, fato.escopo === "projeto" ? `Projeto: ${fato.caminhoProjeto ?? ""}` : fato.escopo === "vault" ? "Espaço de trabalho" : undefined, origem].filter(Boolean).join(" · ")}</span>
+    {fato.notaOrigem && <span className="[overflow-wrap:anywhere]">Origem: {fato.notaOrigem}</span>}
+    {fato.trechoEvidencia && <span className="border-l border-regua pl-2 [overflow-wrap:anywhere]">“{fato.trechoEvidencia}”</span>}
+    {Number.isFinite(Date.parse(fato.atualizadoEm ?? fato.criadoEm)) && <time dateTime={fato.atualizadoEm ?? fato.criadoEm}>{formatarData.format(new Date(fato.atualizadoEm ?? fato.criadoEm))}{fato.atualizadoEm ? " · atualizado" : ""}</time>}
   </div>;
 }
 
-interface MemoryGroupProps {
-  title: string;
-  facts: Fato[];
-  formatDate: Intl.DateTimeFormat;
-  onConfirm(id: string): void;
-  onReject(id: string): void;
-  onDelete(id: string): void;
-  onEdit(id: string, texto: string): boolean;
+interface GrupoMemoriasProps {
+  titulo: string;
+  fatos: Fato[];
+  formatarData: Intl.DateTimeFormat;
+  aoConfirmar(id: string): void;
+  aoRejeitar(id: string): void;
+  aoApagar(id: string): void;
+  aoEditar(id: string, texto: string): boolean;
 }
 
-function MemoryGroup({ title, facts, formatDate, onConfirm, onReject, onDelete, onEdit }: MemoryGroupProps) {
-  const [drafts, setDrafts] = useState<Record<string, string>>({});
-  const [erroDrafts, setErroDrafts] = useState<Record<string, string>>({});
+function GrupoMemorias({ titulo, fatos, formatarData, aoConfirmar, aoRejeitar, aoApagar, aoEditar }: GrupoMemoriasProps) {
+  const [rascunhos, setRascunhos] = useState<Record<string, string>>({});
+  const [errosRascunho, setErrosRascunho] = useState<Record<string, string>>({});
   return (
     <section>
-      {title && <h3 className="meta mb-2 text-muted-foreground">{title}</h3>}
+      {titulo && <h3 className="meta mb-2 text-tinta-suave">{titulo}</h3>}
       <ul className="flex flex-col gap-2">
-        {[...facts].reverse().map((fact) => {
-          const legadoGrande = fact.estado === undefined && Array.from(fact.texto).length > 500;
-          const textoAcimaDoLimite = Array.from(drafts[fact.id] ?? "").length > 500;
+        {[...fatos].reverse().map((fato) => {
+          const legadoGrande = fato.estado === undefined && Array.from(fato.texto).length > 500;
+          const textoAcimaDoLimite = Array.from(rascunhos[fato.id] ?? "").length > 500;
           return (
-            <li key={fact.id} className="rounded-controle border border-border p-3">
-              {drafts[fact.id] !== undefined ? (
+            <li key={fato.id} className="rounded-controle border border-regua p-3">
+              {rascunhos[fato.id] !== undefined ? (
                 <div className="flex flex-col gap-2">
                   <textarea
                     aria-label="Editar memória"
-                    value={drafts[fact.id]}
-                    onChange={(e) => setDrafts((state) => ({ ...state, [fact.id]: e.target.value }))}
+                    value={rascunhos[fato.id]}
+                    onChange={(e) => setRascunhos((atual) => ({ ...atual, [fato.id]: e.target.value }))}
                     rows={3}
-                    className="min-h-20 w-full resize-y rounded-controle border border-input bg-background p-2 text-base text-foreground"
+                    className="w-full resize-y rounded-controle border border-regua-forte bg-superficie p-2 text-corpo text-tinta"
                   />
-                  {textoAcimaDoLimite && <p role="alert" className="text-pequeno text-destructive">A memória não pode passar de 500 caracteres.</p>}
-                  {erroDrafts[fact.id] && <p role="alert" className="text-pequeno text-destructive">{erroDrafts[fact.id]}</p>}
+                  {textoAcimaDoLimite && <p role="alert" className="text-pequeno text-bordo">A memória não pode passar de 500 caracteres.</p>}
+                  {errosRascunho[fato.id] && <p role="alert" className="text-pequeno text-bordo">{errosRascunho[fato.id]}</p>}
                   <div className="flex gap-2">
-                    <Botao variante="primario" tamanho="compacto" className="min-h-11" onClick={() => {
-                      if (textoAcimaDoLimite || !onEdit(fact.id, drafts[fact.id])) {
-                        setErroDrafts((state) => ({ ...state, [fact.id]: "A memória não foi atualizada. Verifique o limite de tamanho." }));
+                    <Botao variante="primario" tamanho="compacto" onClick={() => {
+                      if (textoAcimaDoLimite || !aoEditar(fato.id, rascunhos[fato.id])) {
+                        setErrosRascunho((atual) => ({ ...atual, [fato.id]: "A memória não foi atualizada. Verifique o limite de tamanho." }));
                         return;
                       }
-                      setDrafts((state) => { const next = { ...state }; delete next[fact.id]; return next; });
+                      setRascunhos((atual) => { const proximo = { ...atual }; delete proximo[fato.id]; return proximo; });
                     }}>Salvar</Botao>
-                    <Botao variante="fantasma" tamanho="compacto" className="min-h-11" onClick={() => setDrafts((state) => { const next = { ...state }; delete next[fact.id]; return next; })}>Cancelar</Botao>
+                    <Botao variante="fantasma" tamanho="compacto" onClick={() => setRascunhos((atual) => { const proximo = { ...atual }; delete proximo[fato.id]; return proximo; })}>Cancelar</Botao>
                   </div>
                 </div>
-              ) : <p className="text-pequeno text-foreground [overflow-wrap:anywhere]">{fact.texto}</p>}
-              <MemoryMeta fact={fact} formatDate={formatDate} />
-              {legadoGrande && <p className="mt-2 text-pequeno text-muted-foreground">Edite para até 500 caracteres antes de confirmar.</p>}
+              ) : <p className="text-pequeno text-tinta [overflow-wrap:anywhere]">{fato.texto}</p>}
+              <MetaMemoria fato={fato} formatarData={formatarData} />
+              {legadoGrande && <p className="mt-2 text-pequeno text-tinta-suave">Edite para até 500 caracteres antes de confirmar.</p>}
               <div className="mt-2 flex flex-wrap gap-2">
-                {fact.estado !== "confirmado" && <>
-                  <Botao variante="primario" tamanho="compacto" className="min-h-11" disabled={legadoGrande} onClick={() => onConfirm(fact.id)}>Confirmar</Botao>
-                  <Botao variante="fantasma" tamanho="compacto" className="min-h-11" onClick={() => onReject(fact.id)}>Rejeitar</Botao>
+                {fato.estado !== "confirmado" && <>
+                  <Botao variante="primario" tamanho="compacto" disabled={legadoGrande} onClick={() => aoConfirmar(fato.id)}>Confirmar</Botao>
+                  <Botao variante="fantasma" tamanho="compacto" onClick={() => aoRejeitar(fato.id)}>Rejeitar</Botao>
                 </>}
-                <Botao variante="fantasma" tamanho="compacto" className="min-h-11" onClick={() => setDrafts((state) => ({ ...state, [fact.id]: fact.texto }))}>Editar</Botao>
-                <Botao variante="fantasma" tamanho="compacto" className="min-h-11" onClick={() => onDelete(fact.id)}>Apagar</Botao>
+                <Botao variante="fantasma" tamanho="compacto" onClick={() => setRascunhos((atual) => ({ ...atual, [fato.id]: fato.texto }))}>Editar</Botao>
+                <Botao variante="fantasma" tamanho="compacto" onClick={() => aoApagar(fato.id)}>Apagar</Botao>
               </div>
             </li>
           );

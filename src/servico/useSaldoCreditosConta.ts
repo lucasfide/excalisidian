@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useContaStore } from "../estado/contaStore";
-import { consultarCreditos, type ResultadoCreditos } from "../servico/saldoCreditos";
-import { decidirModoServidor } from "../servico/modoServidor";
+import { consultarCreditos, type ResultadoCreditos } from "./saldoCreditos";
+import { decidirModoServidor } from "./modoServidor";
 import {
   estadoInicialCreditosConta,
   falhaRecuperacaoCreditos,
@@ -10,13 +10,13 @@ import {
   recuperarSessaoApos401ComOperacoes,
   resultadoConsultaCreditos,
   estadoSeguroParaSessao,
-} from "../servico/estado-creditos-conta";
+} from "./estadoCreditosConta";
 import type {
   ContaAtualCreditos,
   EstadoCreditoApresentacao,
   EstadoSaldoCreditosConta,
   ResultadoRecuperacaoSessao,
-} from "../types/creditos-conta";
+} from "./estadoCreditosConta";
 
 const TIMEOUT_APRESENTACAO_MS = 20_000;
 const consultasEmAndamento = new Map<string, Promise<ResultadoCreditos>>();
@@ -26,14 +26,14 @@ export interface ResultadoHookSaldoCreditosConta extends EstadoSaldoCreditosCont
 }
 
 function comTimeout<T>(operacao: Promise<T>, timeoutMs: number): Promise<T | null> {
-  let timer: ReturnType<typeof setTimeout> | undefined;
+  let temporizador: ReturnType<typeof setTimeout> | undefined;
   return Promise.race([
     operacao,
     new Promise<null>((resolve) => {
-      timer = setTimeout(() => resolve(null), timeoutMs);
+      temporizador = setTimeout(() => resolve(null), timeoutMs);
     }),
   ]).finally(() => {
-    if (timer !== undefined) clearTimeout(timer);
+    if (temporizador !== undefined) clearTimeout(temporizador);
   });
 }
 

@@ -2,8 +2,8 @@
 // estruturada, e interpreta com desconfiança. O agente NÃO escreve em nada: sugestão é
 // texto no painel, e o usuário decide o que fazer com ela (doc 11 §10.6).
 
-import { contarCodePoints, MAX_FATO_CHARS, ORCAMENTO_FATOS_PROMPT } from "./regras-memoria";
-import type { CandidatoFato } from "../types/memoria-agente";
+import { contarCodePoints, MAX_FATO_CHARS, ORCAMENTO_FATOS_PROMPT } from "./regrasMemoria";
+import type { CandidatoFato } from "./tipos";
 
 export type TipoSugestao =
   | "pergunta"

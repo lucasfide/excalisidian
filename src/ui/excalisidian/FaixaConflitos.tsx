@@ -3,7 +3,7 @@
 // faixa nunca renderiza nada quando a fila está vazia.
 //
 // Auto-posicionada com `fixed`, montada junto dos outros painéis e sobreposições em App.tsx —
-// mesma convenção de `BalaoAgente.tsx` (`fixed bottom-4 right-4`): quem é overlay se posiciona
+// convenção dos overlays do app (`fixed` com posição própria): quem é overlay se posiciona
 // sozinho, o `App.tsx` só monta. Aqui não há o risco do comentário de `Dialog.tsx` (ancestral
 // com `transform` confinando um `fixed`): este componente entra direto num filho do container
 // raiz, sem ancestral transformado entre os dois — conferido subindo a cadeia até a raiz —, e
@@ -12,8 +12,7 @@
 // Posição (revisão 1 do planejador, 2026-09-23): embaixo, centralizada, acima da
 // `BarraStatus` (`h-6` = 24px). Não em cima: o topo da janela é onde o dockview desenha as
 // abas, e a faixa ficava por cima delas. Também não no canto inferior direito: é lá que moram
-// o balão do agente (`BalaoAgente`, `bottom-4 right-4`) e os toasts — outro alvo ali criaria
-// disputa de atenção com esses dois. `bottom-8` (32px) é a altura da barra de status (24px)
+// os toasts — outro alvo ali criaria disputa de atenção com eles. `bottom-8` (32px) é a altura da barra de status (24px)
 // mais um respiro de 8px acima dela, os dois na escala numérica padrão do Tailwind que o resto
 // do app já usa para espaçamento (`gap-3`, `bottom-4`, etc. — os tokens do doc 06 cobrem cor,
 // fonte, raio e sombra, não espaçamento).

@@ -10,15 +10,15 @@
 import { load } from "@tauri-apps/plugin-store";
 
 import { hashVault } from "../indice/cache";
-import type { CandidatoFato, Fato } from "../types/memoria-agente";
+import type { CandidatoFato, Fato } from "./tipos";
 import {
   contarCodePoints,
   MAX_FATO_CHARS,
   normalizarFatoParaComparacao,
   ORCAMENTO_FATOS_PROMPT,
-} from "./regras-memoria";
+} from "./regrasMemoria";
 
-export { MAX_FATO_CHARS, ORCAMENTO_FATOS_PROMPT } from "./regras-memoria";
+export { MAX_FATO_CHARS, ORCAMENTO_FATOS_PROMPT } from "./regrasMemoria";
 
 export type Participacao = "aceito" | "recusado" | "adiado";
 
@@ -28,11 +28,11 @@ export interface Resumo {
   resumo: string;
 }
 
-export type { CandidatoFato, Fato } from "../types/memoria-agente";
+export type { CandidatoFato, Fato } from "./tipos";
 
 export interface ConversaSalva {
   atualizadaEm: string;
-  mensagens: import("../types/conversa-agente").MensagemConversaAgente[];
+  mensagens: import("./tipos").MensagemConversaAgente[];
 }
 
 const VERSAO = 1;

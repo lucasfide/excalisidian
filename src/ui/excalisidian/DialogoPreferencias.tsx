@@ -29,7 +29,7 @@ import { Botao, BotaoIcone, Campo, Dialog, GrupoBotoes, cn, type OpcaoGrupo } fr
 import { usePrefsStore, type Tema, type LarguraNota } from "../../estado/prefsStore";
 import { useAgenteStore } from "../../estado/agenteStore";
 import { useContaStore } from "../../estado/contaStore";
-import { useSaldoCreditosConta } from "../../hooks/use-saldo-creditos-conta";
+import { useSaldoCreditosConta } from "../../servico/useSaldoCreditosConta";
 import { confirmar } from "../../estado/dialogoStore";
 import { provedorDe } from "../../agente/provedores";
 import { verificarAtualizacao } from "../../app/atualizacao";
@@ -38,8 +38,7 @@ import type { ChaveTexto, TradutorDoApp } from "../../i18n/catalogo";
 import { useTexto } from "../../i18n/useTexto";
 import DialogoGlossario from "./DialogoGlossario";
 import SecaoSincronizacao from "./SecaoSincronizacao";
-import { CreditosAgente } from "../../components/features/creditos-agente";
-import "./preferencias-agente.css";
+import { CreditosAgente } from "./CreditosAgente";
 import {
   ABAS_PREFERENCIAS,
   abaInicial,
@@ -796,7 +795,7 @@ function AbaAgente({ idsVisiveis }: AbaAgenteProps) {
             usaCreditos ? (
               <div className="flex flex-col gap-1.5">
                 <CreditosAgente estado={creditos.estado} saldo={creditos.saldo} />
-                <p className="preferencias-agente__explicacao text-muted-foreground text-pequeno">
+                <p className="text-tinta-media text-pequeno">
                   {t("agente.passo.explicacaoCreditos")}
                 </p>
               </div>

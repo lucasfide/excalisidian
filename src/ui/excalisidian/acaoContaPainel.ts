@@ -1,5 +1,5 @@
 import type { Sessao } from "../../conta/tipos";
-import type { ResultadoRecuperacaoSessao } from "../../types/creditos-conta";
+import type { ResultadoRecuperacaoSessao } from "../../servico/estadoCreditosConta";
 
 export interface CondicaoContaPainel {
   usaProvedorComConta: boolean;

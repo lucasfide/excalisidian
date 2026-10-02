@@ -1,4 +1,6 @@
-// Tipos do agente de IA (doc 11 §2, §3, §5). Sem import aqui: folha de dependências.
+// Tipos do agente de IA (doc 11 §2, §3, §5). Só `import type` aqui: sem dependência em tempo de execução.
+
+import type { SugestaoAgente } from "./assistente";
 
 export type Dialeto = "openai" | "anthropic" | "gemini";
 
@@ -80,3 +82,84 @@ export type StatusAgente =
   | "pensando"
   | "pausado"
   | "erro";
+
+// --- Atividade, atualizações e avisos do painel ---
+
+export type FaseAtividadeAgente =
+  | "leitura-inicial"
+  | "buscando-notas-relacionadas"
+  | "preparando-contexto"
+  | "gerando-sugestoes"
+  | "respondendo";
+
+export interface AtividadeAgente {
+  id: string;
+  geracao: number;
+  path: string;
+  fase: FaseAtividadeAgente;
+  iniciadoEm: number;
+}
+
+export interface AtualizacoesAgente {
+  sugestoes: boolean;
+  resposta: boolean;
+}
+
+export interface VersoesAvisosAgente {
+  sugestoesPorNota: Record<string, number>;
+  memoriaVault: number;
+}
+
+export interface VersoesVistasAvisosAgente {
+  sugestoesPorNota: Record<string, number>;
+  memoriaVault: number;
+}
+
+// --- Conversa por nota ---
+
+export interface MensagemConversaAgente {
+  papel: "usuario" | "assistente";
+  texto: string;
+  id?: string;
+  tipo?: "mensagem" | "analise";
+  fase?: FaseAtividadeAgente;
+  estado?: "em-andamento" | "concluido" | "erro";
+  sugestoes?: SugestaoAgente[];
+  criadoEm?: string;
+  idsMemoria?: string[];
+}
+
+// --- Memória (fatos) ---
+
+export type CategoriaFato = "preferencia" | "glossario" | "convencao";
+export type EscopoFato = "vault" | "projeto";
+export type EstadoFato = "pendente" | "confirmado" | "substituido" | "rejeitado";
+export type FonteFato = "nota" | "conversa" | "usuario";
+
+/**
+ * `estado` e os campos estruturados são opcionais apenas para ler fatos legados.
+ * Fatos legados não são tratados como confirmados automaticamente.
+ */
+export interface Fato {
+  id: string;
+  texto: string;
+  notaOrigem: string | null;
+  criadoEm: string;
+  atualizadoEm?: string;
+  fonte?: FonteFato;
+  categoria?: CategoriaFato;
+  escopo?: EscopoFato;
+  caminhoProjeto?: string | null;
+  chave?: string;
+  trechoEvidencia?: string | null;
+  estado?: EstadoFato;
+}
+
+export interface CandidatoFato {
+  categoria: CategoriaFato;
+  escopo: EscopoFato;
+  caminhoProjeto?: string | null;
+  chave: string;
+  texto: string;
+  trechoEvidencia: string;
+}

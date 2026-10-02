@@ -1,5 +1,5 @@
 import { describe, expect, it, vi } from "vitest";
-import type { ContaAtualCreditos, EstadoCreditoApresentacao } from "../types/creditos-conta";
+import type { ContaAtualCreditos, EstadoCreditoApresentacao } from "./estadoCreditosConta";
 import {
   estadoInicialCreditosConta,
   falhaRecuperacaoCreditos,
@@ -8,7 +8,7 @@ import {
   recuperarSessaoApos401ComOperacoes,
   resultadoConsultaCreditos,
   estadoSeguroParaSessao,
-} from "./estado-creditos-conta";
+} from "./estadoCreditosConta";
 
 const sessaoPremium = { token: "token-a", email: "a@exemplo.test", plano: "premium" as const, expiraEm: 10 };
 const contaPremium: ContaAtualCreditos = { carregado: true, sessao: sessaoPremium };

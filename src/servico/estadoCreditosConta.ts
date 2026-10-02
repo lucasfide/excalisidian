@@ -1,10 +1,34 @@
-import type {
-  ContaAtualCreditos,
-  EstadoCreditoApresentacao,
-  EstadoCreditosConta,
-  ResultadoRecuperacaoSessao,
-} from "../types/creditos-conta";
+import type { Sessao } from "../conta/tipos";
 import type { SaldoCreditos } from "./creditos";
+
+export type EstadoCreditosConta =
+  | "inativo"
+  | "verificando"
+  | "sem-sessao"
+  | "plano-insuficiente"
+  | "consultando"
+  | "disponivel"
+  | "indisponivel-rede"
+  | "acesso-nao-confirmado";
+
+export interface EstadoSaldoCreditosConta {
+  estado: EstadoCreditosConta;
+  saldo: SaldoCreditos | null;
+  /** Identidade técnica para impedir que uma resposta de outra sessão libere saldo ou ação. */
+  identidadeSessao: string | null;
+}
+
+export interface ContaAtualCreditos {
+  carregado: boolean;
+  sessao: Sessao | null;
+}
+
+export type ResultadoRecuperacaoSessao =
+  | { estado: "expirada" }
+  | { estado: "token-atualizado"; sessao: Sessao }
+  | { estado: "acesso-nao-confirmado"; sessao: Sessao | null };
+
+export type EstadoCreditoApresentacao = EstadoSaldoCreditosConta;
 
 export interface EntradaEstadoCreditos {
   ativo: boolean;
@@ -55,7 +79,7 @@ export async function recuperarSessaoApos401ComOperacoes(
     return classificarRecuperacao(tokenEsperado, estadoInicial.sessao);
   }
 
-  let timer: ReturnType<typeof setTimeout> | undefined;
+  let temporizador: ReturnType<typeof setTimeout> | undefined;
   let cancelada = false;
   const confirmou = await Promise.race([
     (async () => {
@@ -69,13 +93,13 @@ export async function recuperarSessaoApos401ComOperacoes(
       }
     })(),
     new Promise<false>((resolve) => {
-      timer = setTimeout(() => {
+      temporizador = setTimeout(() => {
         cancelada = true;
         resolve(false);
       }, timeoutMs);
     }),
   ]);
-  if (timer !== undefined) clearTimeout(timer);
+  if (temporizador !== undefined) clearTimeout(temporizador);
 
   const sessaoAtual = operacoes.contaAtual().sessao;
   if (!confirmou) {

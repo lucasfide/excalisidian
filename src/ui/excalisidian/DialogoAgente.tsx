@@ -23,8 +23,8 @@ import type { ProvedorId, Thinking } from "../../agente/tipos";
 import { useTexto } from "../../i18n/useTexto";
 import { useContaStore } from "../../estado/contaStore";
 import { CONTA_DISPONIVEL } from "../../servico/base";
-import { podeConcluirAgentePorCreditos, useSaldoCreditosConta } from "../../hooks/use-saldo-creditos-conta";
-import { CreditosAgente } from "../../components/features/creditos-agente";
+import { podeConcluirAgentePorCreditos, useSaldoCreditosConta } from "../../servico/useSaldoCreditosConta";
+import { CreditosAgente } from "./CreditosAgente";
 import {
   montarConfigAgente,
   quantidadeEtapas,
@@ -32,7 +32,6 @@ import {
   trocarProvedor,
   type CamposRascunhoAgente,
 } from "./rascunhoAgente";
-import "./dialogo-agente.css";
 
 // "Mínimo" fora da lista: a família gpt-5.6 recusa reasoning_effort "minimal" (verificado
 // na API em 13/09 — aceita none/low/medium/high/xhigh). O valor continua no tipo e no
@@ -246,7 +245,7 @@ export default function DialogoAgente({ aoAbrirConta }: Props) {
       titulo="Configurar agente"
       descricao="Opcional. Nada é enviado sem a sua configuração, e o agente só acompanha uma nota depois que você aceita o convite."
       onFechar={fechar}
-      className="max-w-md escopo-assistente-agente"
+      className="max-w-md"
       acoes={
         <div className="flex w-full items-center justify-between">
           <Botao
@@ -302,7 +301,7 @@ export default function DialogoAgente({ aoAbrirConta }: Props) {
 
       <div key={etapa} className={CLASSE_ENTRADA_ETAPA}>
         {erroSalvar && (
-          <p className="mb-3 text-pequeno text-destructive" role="alert">
+          <p className="mb-3 text-pequeno text-bordo" role="alert">
             {t("agente.passo.erroSalvar")}
           </p>
         )}
@@ -321,14 +320,14 @@ export default function DialogoAgente({ aoAbrirConta }: Props) {
         <div className="flex flex-col gap-3">
           {provedor.exigeConta ? (
             aguardandoConta ? (
-              <p className="text-pequeno text-muted-foreground">
+              <p className="text-pequeno text-tinta-media">
                 {t("agente.passo.contaCarregando")}
               </p>
             ) : (
               <>
                 {semSessao && (
                   <>
-                    <p className="text-pequeno text-muted-foreground">
+                    <p className="text-pequeno text-tinta-media">
                       {t("agente.passo.contaSemSessao")}
                     </p>
                     {aoAbrirConta && (
@@ -345,12 +344,12 @@ export default function DialogoAgente({ aoAbrirConta }: Props) {
                 )}
                 {planoInsuficiente && (
                   <>
-                    <p className="text-pequeno text-muted-foreground">
+                    <p className="text-pequeno text-tinta-media">
                       {t("agente.passo.contaPlanoGratis")}
                     </p>
                     <button
                       type="button"
-                      className="self-start text-pequeno text-primary underline-offset-2 hover:underline"
+                      className="self-start text-pequeno text-cristal underline-offset-2 hover:underline"
                       onClick={() => setEtapa(1)}
                     >
                       {t("agente.passo.usarOutroProvedor")}
@@ -359,7 +358,7 @@ export default function DialogoAgente({ aoAbrirConta }: Props) {
                 )}
                 {acessoNaoConfirmado && (
                   <>
-                    <p className="text-pequeno text-muted-foreground" role="alert">
+                    <p className="text-pequeno text-tinta-media" role="alert">
                       {t("agente.passo.acessoNaoConfirmado")}
                     </p>
                     <Botao
@@ -381,7 +380,7 @@ export default function DialogoAgente({ aoAbrirConta }: Props) {
                       email={sessaoAtual?.email}
                       exibirEmail
                     />
-                    <p className="text-pequeno text-muted-foreground">
+                    <p className="text-pequeno text-tinta-media">
                       {t("agente.passo.explicacaoCreditos")}
                     </p>
                   </>

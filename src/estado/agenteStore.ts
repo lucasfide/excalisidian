@@ -25,10 +25,14 @@ import { traduzirAgora } from "../i18n/traduzirAgora";
 import { tokenDaSessaoAtual } from "../servico/sessao";
 import { buscarSaldoCreditos, consultarCreditos } from "../servico/saldoCreditos";
 import type { SaldoCreditos } from "../servico/creditos";
-import type { AtualizacoesAgente } from "../types/atualizacoes-agente";
-import type { AtividadeAgente, FaseAtividadeAgente } from "../types/atividade-agente";
-import type { MensagemConversaAgente } from "../types/conversa-agente";
-import type { VersoesAvisosAgente, VersoesVistasAvisosAgente } from "../types/avisos-agente";
+import type {
+  AtividadeAgente,
+  AtualizacoesAgente,
+  FaseAtividadeAgente,
+  MensagemConversaAgente,
+  VersoesAvisosAgente,
+  VersoesVistasAvisosAgente,
+} from "../agente/tipos";
 import { decidirModoServidor } from "../servico/modoServidor";
 import { somarUso, usoVazio } from "../agente/orcamento";
 import {

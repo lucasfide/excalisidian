@@ -1,7 +1,8 @@
 // Textos do domínio "vault": criação de vault (doc 12 §2 / doc 04 §13), consumidos por
 // `DialogoCriarVault`, `TelaBoasVindas` e `mensagensErroVault.ts`. Fatia de `catalogo.ts` —
 // ver o comentário de topo dele para as regras gerais (fonte da verdade, queda pro
-// português, redação).
+// português, redação). Também abriga os rótulos do painel lateral (`painelLateral.*`):
+// `CabecalhoPainelLateral`, `PainelLateral`, `PainelTarefas` e `App.tsx`.
 
 export const PT_BR_VAULT = {
   "vault.erro.nomeVazio": "Dê um nome ao vault.",
@@ -16,6 +17,12 @@ export const PT_BR_VAULT = {
     "abaixo ou abra a pasta onde ele está.",
   "vault.erroAbrir.generico":
     "Algo impediu a abertura do vault. Tente de novo ou escolha outro vault abaixo.",
+  "painelLateral.agente": "Agente",
+  "painelLateral.tarefas": "Tarefas",
+  "painelLateral.rotulo": "Painel lateral",
+  "painelLateral.colapsar": "Colapsar painel lateral",
+  "painelLateral.expandir": "Expandir painel lateral",
+  "painelLateral.largura": "Largura do painel lateral",
 } as const;
 
 // Partial, como o EN geral em catalogo.ts: uma tradução faltando não trava a edição, cai no
@@ -33,4 +40,10 @@ export const EN_VAULT: Partial<Record<keyof typeof PT_BR_VAULT, string>> = {
     "the folder where it is.",
   "vault.erroAbrir.generico":
     "Something kept the vault from opening. Try again or choose another vault below.",
+  "painelLateral.agente": "Agent",
+  "painelLateral.tarefas": "Tasks",
+  "painelLateral.rotulo": "Side panel",
+  "painelLateral.colapsar": "Collapse side panel",
+  "painelLateral.expandir": "Expand side panel",
+  "painelLateral.largura": "Side panel width",
 };

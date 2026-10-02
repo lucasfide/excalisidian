@@ -37,8 +37,9 @@ import DialogoPreferencias from "../ui/excalisidian/DialogoPreferencias";
 import DialogoAtualizacao from "../ui/excalisidian/DialogoAtualizacao";
 import { verificarAtualizacao } from "./atualizacao";
 import PainelLixeira from "../ui/excalisidian/PainelLixeira";
-import PainelLateralAgente, { mostrarTarefasNoPainel } from "../components/features/painel-lateral-agente";
-import ConviteAgenteToast from "../components/features/convite-agente-toast";
+import { useTexto } from "../i18n/useTexto";
+import PainelLateral, { mostrarTarefasNoPainel } from "../ui/excalisidian/PainelLateral";
+import ConviteAgente from "../ui/excalisidian/ConviteAgente";
 import FaixaConflitos from "../ui/excalisidian/FaixaConflitos";
 import DialogoAgente from "../ui/excalisidian/DialogoAgente";
 import RaizDialogos from "../ui/excalisidian/RaizDialogos";
@@ -99,6 +100,7 @@ export default function App() {
   const [painelFlutuanteAberto, setPainelFlutuanteAberto] = useState(false);
   const abrirPainelTimerRef = useRef<number | null>(null);
   const fecharPainelTimerRef = useRef<number | null>(null);
+  const t = useTexto();
   const tema = usePrefsStore((s) => s.tema);
   const sidebarColapsada = usePrefsStore((s) => s.sidebarColapsada);
   const alternarSidebar = usePrefsStore((s) => s.alternarSidebar);
@@ -476,7 +478,7 @@ export default function App() {
                 vault (doc 12 §4.4) — layout, painéis e listeners nascem de novo. */}
             <Workspace key={raiz} />
           </main>
-          <PainelLateralAgente aoAbrirConta={() => abrirPreferencias("conta")} />
+          <PainelLateral aoAbrirConta={() => abrirPreferencias("conta")} />
 
           {/* Canto superior direito da janela: antes era o dropdown nativo "abas escondidas"
               do dockview ("⌄ N"), que o usuário achava inútil e confundia com contagem de
@@ -489,7 +491,7 @@ export default function App() {
             >
               <BotaoIcone
                 Icone={PanelRightOpen}
-                titulo="Expandir painel lateral"
+                titulo={t("painelLateral.expandir")}
                 onClick={() => useTarefasStore.getState().alternarPainel()}
               />
             </div>
@@ -500,7 +502,7 @@ export default function App() {
       <BarraStatus />
       <RaizDialogos />
       <RaizSobreposicoes />
-      <ConviteAgenteToast />
+      <ConviteAgente />
       <FaixaConflitos />
       <DialogoAtualizacao />
       {/* Preferências e o assistente do agente dividem o mesmo z-[100], mas Dialog renderiza

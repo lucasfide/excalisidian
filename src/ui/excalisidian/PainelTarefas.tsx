@@ -12,6 +12,7 @@ import ModalTarefa from "./ModalTarefa";
 import { useHojeLocal } from "../../app/useHojeLocal";
 import { agruparTarefas, SECOES_ORDEM } from "../../tarefas/agrupamento";
 import { useTarefasStore } from "../../estado/tarefasStore";
+import { useTexto } from "../../i18n/useTexto";
 import type { Secao } from "../../tarefas/tipos";
 
 /**
@@ -58,6 +59,7 @@ interface PainelTarefasProps {
 }
 
 export default function PainelTarefas({ cabecalho }: PainelTarefasProps) {
+  const t = useTexto();
   const aberto = useTarefasStore((s) => s.painelAberto);
   const largura = useTarefasStore((s) => s.larguraPainel);
   const definirLargura = useTarefasStore((s) => s.definirLargura);
@@ -157,8 +159,8 @@ export default function PainelTarefas({ cabecalho }: PainelTarefasProps) {
         <div className="mx-auto h-full w-px bg-regua" />
       </div>}
       {cabecalho ?? <div className="flex items-center justify-between border-b border-regua px-3 py-2">
-        <span className="text-sm font-medium text-tinta">Tarefas</span>
-        <BotaoIcone Icone={PanelRightClose} titulo="Colapsar painel lateral" onClick={alternarPainel} />
+        <span className="text-sm font-medium text-tinta">{t("painelLateral.tarefas")}</span>
+        <BotaoIcone Icone={PanelRightClose} titulo={t("painelLateral.colapsar")} onClick={alternarPainel} />
       </div>}
       <div className="min-h-0 flex-1 overflow-y-auto px-3 py-2">
         {vazioTotal ? (

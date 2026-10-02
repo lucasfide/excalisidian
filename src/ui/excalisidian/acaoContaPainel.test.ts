@@ -3,7 +3,7 @@ import {
   acaoDepoisRecuperacaoSessao,
   deveMostrarBotaoContaPainel,
   tokenMudouDuranteRecuperacao,
-} from "./acao-conta-painel";
+} from "./acaoContaPainel";
 
 describe("ações de conta no painel do agente", () => {
   it("só oferece entrada para falha de sessão já carregada no provedor com conta", () => {

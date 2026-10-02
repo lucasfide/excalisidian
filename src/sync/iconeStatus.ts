@@ -35,9 +35,8 @@ export function iconeDeStatusSync(status: StatusSync): NomeIconeSync {
 }
 
 /** Token de cor (doc 06, tabela "Cor por estado" — só tokens que já existem em `globals.css`).
- * `"pausado"` usa a mesma cor de repouso (`tinta-media`) a 50% de opacidade, como o balão do
- * agente pausado (`BalaoAgente.tsx`) — por isso devolve o token junto com a flag `opacidade50`
- * em vez de inventar uma cor nova. */
+ * `"pausado"` usa a mesma cor de repouso (`tinta-media`) a 50% de opacidade — por isso devolve
+ * o token junto com a flag `opacidade50` em vez de inventar uma cor nova. */
 export interface CorStatusSync {
   token: "tinta-media" | "ocre" | "bordo";
   opacidade50: boolean;

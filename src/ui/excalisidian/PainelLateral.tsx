@@ -1,12 +1,12 @@
-import type { CSSProperties } from "react";
 import { useAgenteStore } from "../../estado/agenteStore";
 import { useTarefasStore } from "../../estado/tarefasStore";
-import PainelAgente from "../../ui/excalisidian/PainelAgente";
-import PainelTarefas from "../../ui/excalisidian/PainelTarefas";
-import CabecalhoPainelLateral from "./cabecalho-painel-lateral";
-import "./painel-lateral-agente.css";
+import { useTexto } from "../../i18n/useTexto";
+import { cn } from "../cn";
+import PainelAgente from "./PainelAgente";
+import PainelTarefas from "./PainelTarefas";
+import CabecalhoPainelLateral from "./CabecalhoPainelLateral";
 
-export interface PainelLateralAgenteProps {
+export interface PainelLateralProps {
   aoAbrirConta(): void;
 }
 
@@ -25,7 +25,8 @@ function fecharPainelLateral(): void {
   if (tarefas.painelAberto) tarefas.alternarPainel();
 }
 
-export default function PainelLateralAgente({ aoAbrirConta }: PainelLateralAgenteProps) {
+export default function PainelLateral({ aoAbrirConta }: PainelLateralProps) {
+  const t = useTexto();
   const habilitado = useAgenteStore((s) => s.config?.habilitado ?? false);
   const agenteAberto = useAgenteStore((s) => s.painelAberto && Boolean(s.config?.habilitado));
   const tarefasAberto = useTarefasStore((s) => s.painelAberto);
@@ -33,15 +34,22 @@ export default function PainelLateralAgente({ aoAbrirConta }: PainelLateralAgent
 
   return (
     <div
-      className={`painel-lateral-trabalho${agenteAberto ? " painel-lateral-trabalho--agente" : ""}`}
-      style={{ "--largura-painel-trabalho": `${larguraTarefas}px` } as CSSProperties}
+      className={cn(
+        "relative flex min-h-0 flex-none flex-col",
+        agenteAberto &&
+          "border-l border-regua max-lg:fixed max-lg:inset-x-0 max-lg:bottom-0 max-lg:z-[90] max-lg:h-[min(80dvh,42rem)] max-lg:w-full! max-lg:border-l-0 max-lg:border-t max-lg:shadow-sobreposicao",
+      )}
+      style={{ width: larguraTarefas }}
       hidden={!agenteAberto && !tarefasAberto}
     >
       <div
-        className="painel-lateral-trabalho__divisoria"
+        className={cn(
+          "absolute left-0 top-0 z-10 h-full w-2 -translate-x-1/2 cursor-col-resize touch-none",
+          agenteAberto && "max-lg:hidden",
+        )}
         hidden={!habilitado}
         role="separator"
-        aria-label="Largura do painel lateral"
+        aria-label={t("painelLateral.largura")}
         aria-orientation="vertical"
         aria-valuemin={280}
         aria-valuemax={480}
@@ -67,8 +75,10 @@ export default function PainelLateralAgente({ aoAbrirConta }: PainelLateralAgent
           evento.preventDefault();
           useTarefasStore.getState().definirLargura(larguraTarefas + (evento.key === "ArrowLeft" ? 16 : -16));
         }}
-      />
-      <div className="painel-lateral-trabalho__tarefas" hidden={agenteAberto}>
+      >
+        <div className="mx-auto h-full w-px bg-regua" />
+      </div>
+      <div className="flex min-h-0 flex-1 flex-col [&>#painel-tarefas]:min-h-0 [&>#painel-tarefas]:flex-1" hidden={agenteAberto}>
         <PainelTarefas cabecalho={habilitado ? (
           <CabecalhoPainelLateral
             ativo="tarefas"
