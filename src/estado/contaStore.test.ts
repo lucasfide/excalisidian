@@ -240,6 +240,14 @@ describe("contaStore", () => {
     expect(await useContaStore.getState().chaveDeEnvelopeAtual()).toBeNull();
   });
 
+  it("cofre indisponível ao ler a chave: chaveDeEnvelopeAtual devolve null em vez de rejeitar", async () => {
+    await useContaStore.getState().entrar("ana@exemplo.com", "segredo123");
+    cofreChaveDeEnvelope.falhar = true;
+    const aviso = vi.spyOn(console, "warn").mockImplementation(() => {});
+    expect(await useContaStore.getState().chaveDeEnvelopeAtual()).toBeNull();
+    aviso.mockRestore();
+  });
+
   it("chaveDeEnvelopeAtual sem sessão devolve null", async () => {
     expect(useContaStore.getState().sessao).toBeNull();
     expect(await useContaStore.getState().chaveDeEnvelopeAtual()).toBeNull();

@@ -119,7 +119,7 @@ src/
 │   ├── ServicoContaFake.ts   implementação em memória, para teste
 │   ├── ServicoContaFakeDev.ts conta de teste fixa em DEV, sem servidor de conta (doc 17 §10; plano 10)
 │   ├── ServicoContaHttp.ts   implementação real
-│   ├── cofreChaveDeEnvelope.ts guarda a `chaveDeEnvelope` da sincronização no cofre de senhas do Windows (doc 17 §2; plano 10)
+│   ├── cofreChaveDeEnvelope.ts guarda a `chaveDeEnvelope` da sincronização no cofre do sistema (doc 17 §2; plano 10)
 │   └── CofreChaveDeEnvelopeFake.ts implementação em memória de cofreChaveDeEnvelope, para teste (plano 10)
 ├── sync/                    sincronização cifrada ponta a ponta — doc 17, ADR-32/40
 │   ├── tipos.ts, cenaDeConflito.ts, colunasComparacao.ts, diffLinhas.ts,
@@ -253,9 +253,9 @@ plano 12), são dezenove comandos registrados em `lib.rs`:
 | `importar_papel_parede_home` | `(app, …) -> Result<..., String>` | idem |
 | `remover_papel_parede_home` | `(app) -> Result<(), String>` | idem |
 | `lixeira_sistema` | não implementado | só quando RF7.6 sair do P2 — ver a nota abaixo |
-| `ler_token_conta` | `(app, segredo: Segredo) -> Result<Option<String>, String>` | lê um segredo do cofre de senhas do Windows — token da conta ou `chaveDeEnvelope` da sincronização (doc 09 ADR-34; doc 17 §2) |
-| `gravar_token_conta` | `(app, segredo: Segredo, token: String) -> Result<(), String>` | grava um segredo no cofre de senhas do Windows, em vez de texto puro |
-| `apagar_token_conta` | `(app, segredo: Segredo) -> Result<(), String>` | apaga um segredo do cofre de senhas do Windows |
+| `ler_token_conta` | `(app, segredo: Segredo) -> Result<Option<String>, String>` | lê um segredo do cofre do sistema (Credential Manager, Keychain ou Secret Service) — token da conta ou `chaveDeEnvelope` da sincronização (doc 09 ADR-34; doc 17 §2) |
+| `gravar_token_conta` | `(app, segredo: Segredo, token: String) -> Result<(), String>` | grava um segredo no cofre do sistema, em vez de texto puro |
+| `apagar_token_conta` | `(app, segredo: Segredo) -> Result<(), String>` | apaga um segredo do cofre do sistema |
 | `vaults_abertos` | `(estado) -> Vec<String>` | chaves normalizadas dos vaults abertos em alguma janela (doc 17 §8.1) |
 | `tentar_travar_sync` | `(window, path: String, dono: String) -> bool` | trava um vault para `dono` (token aleatório gerado no TS a cada tentativa, `crypto.randomUUID()`); `false` se a chave já está travada por qualquer dono — NÃO reentrante, nem para a mesma janela/dono de antes (correção pós-revisão do commit 104fb5e: a janela designada do segundo plano, plano 12 Task 5, pode ser a mesma janela de um vault aberto, então o `label` sozinho não bastava — doc 17 §8.1) |
 | `liberar_trava_sync` | `(window, path: String, dono: String)` | libera a trava, só se `dono` for exatamente quem a tem (doc 17 §8.1) |
@@ -264,8 +264,8 @@ plano 12), são dezenove comandos registrados em `lib.rs`:
 `sessao-conta` e `chave-de-envelope` — fechado em `cofre.rs`: o nome de usuário da entrada no
 cofre vem sempre do enum, nunca de uma string livre vinda da tela (decisão 4 do plano
 `docs/superpowers/plans/2026-09-23-05-token-no-cofre.md`). Os três comandos continuam sendo a
-única superfície que conhece `keyring-core`, com persistência `Local` e inicialização
-preguiçosa da loja no primeiro uso.
+única superfície que conhece `keyring-core`, com uma loja nativa por sistema (`windows-native-keyring-store` com persistência `Local`; `apple-native-keyring-store` no Keychain de login; `zbus-secret-service-keyring-store` no Secret Service, em Rust puro) e inicialização
+preguiçosa da loja no primeiro uso. No Linux, sem chaveiro rodando (Secret Service ausente), os comandos devolvem erro e o app segue com a sessão só em memória (ADR-34); sistemas fora de Windows, macOS e Linux também devolvem erro.
 
 Sobre o `observar_vault`: o `@tauri-apps/plugin-fs` já expõe `watch` e `watchImmediate` com `delayMs`, e para um watcher simples isso bastaria. O comando próprio existe por um motivo específico — a seção Watcher abaixo exige processar **lotes** de eventos (um `git checkout` gera milhares em um segundo), e agrupar do lado Rust evita atravessar o IPC uma vez por arquivo. Se na Fatia 5 o `watch` do plugin se mostrar suficiente, use-o e apague este comando: um ponto de contato a menos com o Rust é ganho, não perda.
 
@@ -384,7 +384,7 @@ está registrada aqui, sem promessa de correção.
 | `atualizacaoStore` | estado do updater (verificação, download, aplicar) | não persiste |
 | `dialogoStore`, `sobreposicaoStore`, `revelacaoStore` | diálogos e sobreposições de UI abertos no momento | não persistem |
 | `papel-parede-home-store` | papel de parede da tela Início | `%APPDATA%/Excalisidian/` via `papel_parede.rs` |
-| `contaStore` | estado da conta (usuário, plano, token) | só o **token** persiste, no cofre do Windows (doc 09, ADR-34); se o cofre falhar, a sessão vale só até fechar o app |
+| `contaStore` | estado da conta (usuário, plano, token) | só o **token** persiste, no cofre do sistema (doc 09, ADR-34); se o cofre falhar, a sessão vale só até fechar o app |
 
 ### 7.1 `contaStore` × porta-token
 
@@ -448,7 +448,7 @@ Não é para ter cobertura alta. É para ter estes:
 
 Fora do MVP funcional, mas precisa existir antes de instalar em outra máquina:
 
-- `tauri.conf.json` com identificador, ícones e bundle `nsis` para Windows.
+- `tauri.conf.json` com identificador, ícones e bundle `nsis` para Windows; instaladores de macOS e Linux saem do `.github/workflows/release.yml` (`tauri.macos.conf.json`, `tauri.linux.conf.json`). A CI (`ci.yml`) compila e testa `src-tauri` também em `ubuntu-22.04` e `macos-latest`.
 - `src-tauri/capabilities/main.json` declarando as permissões dos plugins fs, dialog e store. As permissões são declaradas ali; o **escopo** de caminho é concedido em runtime pelo `escolher_vault`. O plugin-http (agente de IA, doc 11) também é escopado ali — por host, não por caminho.
 - Assinatura de código no Windows: sem certificado, o SmartScreen avisa na primeira instalação. Decisão do usuário (2026-09-04): aceitável por ora, mesmo distribuindo — ver `docs/superpowers/specs/2026-09-04-github-release-e-autoupdate-design.md`.
 - Updater: implementado (2026-09-04) via `tauri-plugin-updater`, assinatura minisign própria — ver o spec acima.

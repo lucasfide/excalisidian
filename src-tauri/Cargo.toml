@@ -27,10 +27,18 @@ walkdir = "2"
 notify = "8"
 notify-debouncer-full = "0.6"
 tauri-plugin-http = "2.6.0"
-# Cofre de credenciais do sistema para o token da conta (ADR-34). O crate genérico não traz
-# loja nenhuma: a loja nativa do Windows entra só em `[target.'cfg(windows)'.dependencies]`
-# abaixo, porque o app só empacota instalador para Windows (docs/05).
+# Cofre de credenciais do sistema para o token da conta e a chave de envelope (ADR-34). O crate
+# genérico não traz loja nenhuma: cada loja nativa entra só no seu sistema, abaixo.
 keyring-core = "1"
 
 [target.'cfg(windows)'.dependencies]
 windows-native-keyring-store = "1"
+
+# Keychain de login. Sem features padrão, `keychain` precisa ser ligada de propósito.
+[target.'cfg(target_os = "macos")'.dependencies]
+apple-native-keyring-store = { version = "1", default-features = false, features = ["keychain"] }
+
+# Secret Service (GNOME Keyring / KWallet) em Rust puro via zbus: não exige biblioteca C nova
+# (libdbus). `rt-async-io-crypto-rust` é a combinação sem OpenSSL; o cliente usado é o bloqueante.
+[target.'cfg(target_os = "linux")'.dependencies]
+zbus-secret-service-keyring-store = { version = "1", features = ["rt-async-io-crypto-rust"] }

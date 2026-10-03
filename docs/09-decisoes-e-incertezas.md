@@ -1558,6 +1558,15 @@ conferência manual do usuário assim que o servidor existir.
 5. **As chaves de API dos seis provedores de IA continuam do jeito que estão hoje**, em texto
    puro no `settings.json` — decisão do usuário, já registrada acima, mantida sem mudança.
 
+**Nota de 03/10/2026 — cofre nos três sistemas:** o cofre deixou de ser só do Windows. No macOS
+usa o Keychain de login (`apple-native-keyring-store` 1.0.2, sem entitlement nem assinatura
+especial) e no Linux usa o Secret Service — GNOME Keyring ou KWallet — em Rust puro
+(`zbus-secret-service-keyring-store` 1.0.1), que persiste entre reinícios, ao contrário do
+keyring do kernel. No Linux sem chaveiro rodando o comando devolve erro e a regra 2 acima vale:
+a sessão fica só em memória, sem erro de login. A CI compila e testa `src-tauri` nos três
+sistemas. **Pendente:** teste em máquina real de macOS e de Linux (entrar, fechar e reabrir o
+app mantendo a sessão e a chave da sincronização).
+
 ### ADR-35 · IA do Excalisidian é o sétimo provedor do agente
 
 **Contexto:** o catálogo de provedores do agente de IA (doc 11) já tem seis provedores de

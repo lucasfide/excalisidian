@@ -465,7 +465,15 @@ export const useContaStore = create<ContaState>((set, get) => {
     async chaveDeEnvelopeAtual() {
       const sessao = get().sessao;
       if (!sessao) return null;
-      return get().cofreChaveDeEnvelope.ler(sessao.email);
+      // Cofre indisponível (ex.: Linux sem chaveiro) vale como "sem chave neste computador":
+      // quem chama já trata `null`, e uma rejeição deixaria a seção Sincronização travada
+      // (ADR-34: falha do cofre nunca vira erro para o usuário).
+      try {
+        return await get().cofreChaveDeEnvelope.ler(sessao.email);
+      } catch (e) {
+        console.warn("Não foi possível ler a chave de envelope da sincronização no cofre do sistema.", e);
+        return null;
+      }
     },
 
     async sair() {

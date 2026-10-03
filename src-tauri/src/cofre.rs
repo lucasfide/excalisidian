@@ -2,20 +2,25 @@
 // sincronização — doc 17 §2). Este é o único módulo que conhece `keyring-core`: o resto do app
 // só vê `Option<String>` e `Result<(), String>`.
 //
+// Uma loja nativa por sistema: Credential Manager no Windows, Keychain de login no macOS e
+// Secret Service (GNOME Keyring ou KWallet) no Linux. A interface é a mesma nos três.
+//
 // Os três comandos abaixo não recebem serviço nem usuário livres. O usuário da entrada do
 // cofre vem sempre do enum `Segredo` — fechado a duas variantes — nunca de uma string livre
-// vinda da tela: a tela não escolhe qual credencial do Windows ler (decisão 4 do plano
+// vinda da tela: a tela não escolhe qual credencial do sistema ler (decisão 4 do plano
 // `docs/superpowers/plans/2026-09-23-05-token-no-cofre.md`, reafirmada no plano
 // `docs/superpowers/plans/2026-09-24-10-sincronizacao-na-tela.md`, Task 2).
 
+#[cfg(any(windows, target_os = "macos", target_os = "linux"))]
 use std::collections::HashMap;
-use std::sync::OnceLock;
+#[cfg(any(windows, target_os = "macos", target_os = "linux"))]
+use std::sync::Mutex;
 
 use tauri::AppHandle;
 
 /// Qual segredo ler/gravar/apagar no cofre. Fechado a duas variantes — sem uma terceira forma
 /// de passar um nome de usuário livre — para que os comandos nunca sirvam de leitor genérico de
-/// credenciais do Windows.
+/// credenciais do sistema.
 #[derive(serde::Deserialize)]
 #[serde(rename_all = "kebab-case")]
 pub enum Segredo {
@@ -39,40 +44,84 @@ impl Segredo {
 
 /// Verdadeiro se o valor pode ser gravado no cofre. Separada de `gravar_token_conta` para dar
 /// um teste que não toca no cofre de verdade.
+#[cfg_attr(
+    not(any(windows, target_os = "macos", target_os = "linux")),
+    allow(dead_code)
+)]
 fn token_valido(token: &str) -> bool {
     !token.is_empty()
 }
 
-/// Garante que a loja nativa do Windows foi escolhida como loja padrão do `keyring-core`.
+/// Garante que a loja nativa do sistema foi escolhida como loja padrão do `keyring-core`.
 /// Preguiçoso: só roda no primeiro comando chamado, não no `setup` do app — quem nunca entra
 /// numa conta não paga esse custo.
-#[cfg(windows)]
+///
+/// Só o sucesso fica guardado. Se o Secret Service estiver fora do ar (Linux sem chaveiro), o
+/// erro volta ao chamador e a próxima chamada tenta de novo, porque o chaveiro pode ter
+/// subido nesse meio-tempo.
+#[cfg(any(windows, target_os = "macos", target_os = "linux"))]
 fn garantir_loja() -> Result<(), String> {
-    static LOJA: OnceLock<Result<(), String>> = OnceLock::new();
-    LOJA.get_or_init(|| {
-        let loja = windows_native_keyring_store::Store::new().map_err(|e| e.to_string())?;
-        keyring_core::set_default_store(loja);
-        Ok(())
-    })
-    .clone()
+    static PRONTA: Mutex<bool> = Mutex::new(false);
+    let mut pronta = PRONTA.lock().map_err(|e| e.to_string())?;
+    if *pronta {
+        return Ok(());
+    }
+    criar_loja_nativa()?;
+    *pronta = true;
+    Ok(())
+}
+
+#[cfg(windows)]
+fn criar_loja_nativa() -> Result<(), String> {
+    let loja = windows_native_keyring_store::Store::new().map_err(|e| e.to_string())?;
+    keyring_core::set_default_store(loja);
+    Ok(())
+}
+
+// Keychain de login comum (`keychain::Store::new()` usa o domínio User): não pede entitlement
+// nem assinatura especial. A loja "protected" exige perfil de provisionamento e fica de fora.
+#[cfg(target_os = "macos")]
+fn criar_loja_nativa() -> Result<(), String> {
+    let loja = apple_native_keyring_store::keychain::Store::new().map_err(|e| e.to_string())?;
+    keyring_core::set_default_store(loja);
+    Ok(())
+}
+
+// Secret Service persiste entre reinícios (o keyring do kernel, keyutils, não persiste).
+// Sem chaveiro rodando, `Store::new()` falha e o app trata como cofre indisponível (ADR-34).
+#[cfg(target_os = "linux")]
+fn criar_loja_nativa() -> Result<(), String> {
+    let loja = zbus_secret_service_keyring_store::Store::new().map_err(|e| e.to_string())?;
+    keyring_core::set_default_store(loja);
+    Ok(())
 }
 
 /// Entrada do cofre para um segredo desta instalação: serviço = identificador do app
-/// (`app.config().identifier`), usuário = `segredo.usuario()`, persistência `Local` — o segredo
-/// pertence a esta máquina. O padrão da loja, `Enterprise`, viajaria entre máquinas de um
-/// domínio corporativo, o que não queremos.
-#[cfg(windows)]
+/// (`app.config().identifier`), usuário = `segredo.usuario()`.
+#[cfg(any(windows, target_os = "macos", target_os = "linux"))]
 fn entrada(app: &AppHandle, segredo: &Segredo) -> Result<keyring_core::Entry, String> {
     garantir_loja()?;
     let servico = app.config().identifier.clone();
-    let mut modificadores = HashMap::new();
-    modificadores.insert("persistence", "Local");
-    keyring_core::Entry::new_with_modifiers(&servico, segredo.usuario(), &modificadores)
+    keyring_core::Entry::new_with_modifiers(&servico, segredo.usuario(), &modificadores())
         .map_err(|e| e.to_string())
 }
 
-/// Lê o valor salvo no cofre. Credencial inexistente não é erro: devolve `None`.
+/// Windows: persistência `Local` — o segredo pertence a esta máquina. O padrão da loja,
+/// `Enterprise`, viajaria entre máquinas de um domínio corporativo, o que não queremos.
 #[cfg(windows)]
+fn modificadores() -> HashMap<&'static str, &'static str> {
+    HashMap::from([("persistence", "Local")])
+}
+
+/// macOS (Keychain de login) e Linux (coleção padrão do Secret Service) já guardam por usuário
+/// nesta máquina; nenhum modificador é necessário.
+#[cfg(any(target_os = "macos", target_os = "linux"))]
+fn modificadores() -> HashMap<&'static str, &'static str> {
+    HashMap::new()
+}
+
+/// Lê o valor salvo no cofre. Credencial inexistente não é erro: devolve `None`.
+#[cfg(any(windows, target_os = "macos", target_os = "linux"))]
 #[tauri::command]
 pub fn ler_token_conta(app: AppHandle, segredo: Segredo) -> Result<Option<String>, String> {
     match entrada(&app, &segredo)?.get_password() {
@@ -84,7 +133,7 @@ pub fn ler_token_conta(app: AppHandle, segredo: Segredo) -> Result<Option<String
 
 /// Grava o valor no cofre. Valor vazio é recusado — gravar string vazia não tem sentido e
 /// esconderia um bug de quem chama.
-#[cfg(windows)]
+#[cfg(any(windows, target_os = "macos", target_os = "linux"))]
 #[tauri::command]
 pub fn gravar_token_conta(app: AppHandle, segredo: Segredo, token: String) -> Result<(), String> {
     if !token_valido(&token) {
@@ -96,7 +145,7 @@ pub fn gravar_token_conta(app: AppHandle, segredo: Segredo, token: String) -> Re
 }
 
 /// Apaga o valor do cofre. Apagar o que não existe não é erro.
-#[cfg(windows)]
+#[cfg(any(windows, target_os = "macos", target_os = "linux"))]
 #[tauri::command]
 pub fn apagar_token_conta(app: AppHandle, segredo: Segredo) -> Result<(), String> {
     match entrada(&app, &segredo)?.delete_credential() {
@@ -105,16 +154,15 @@ pub fn apagar_token_conta(app: AppHandle, segredo: Segredo) -> Result<(), String
     }
 }
 
-// Fora do Windows não existe loja nativa configurada — o app só empacota instalador para
-// Windows (docs/05). Os três comandos compilam em qualquer sistema operacional, mas devolvem
-// erro sem depender de nenhuma loja de credenciais.
-#[cfg(not(windows))]
+// Sistemas fora dos três (BSDs, por exemplo) não têm loja configurada. Os três comandos
+// compilam em qualquer sistema, mas devolvem erro sem depender de nenhuma loja de credenciais.
+#[cfg(not(any(windows, target_os = "macos", target_os = "linux")))]
 #[tauri::command]
 pub fn ler_token_conta(_app: AppHandle, _segredo: Segredo) -> Result<Option<String>, String> {
     Err("cofre indisponível neste sistema".to_string())
 }
 
-#[cfg(not(windows))]
+#[cfg(not(any(windows, target_os = "macos", target_os = "linux")))]
 #[tauri::command]
 pub fn gravar_token_conta(
     _app: AppHandle,
@@ -124,7 +172,7 @@ pub fn gravar_token_conta(
     Err("cofre indisponível neste sistema".to_string())
 }
 
-#[cfg(not(windows))]
+#[cfg(not(any(windows, target_os = "macos", target_os = "linux")))]
 #[tauri::command]
 pub fn apagar_token_conta(_app: AppHandle, _segredo: Segredo) -> Result<(), String> {
     Err("cofre indisponível neste sistema".to_string())
@@ -158,6 +206,9 @@ mod testes {
 
     #[test]
     fn os_dois_segredos_mapeiam_para_nomes_diferentes() {
-        assert_ne!(Segredo::SessaoConta.usuario(), Segredo::ChaveDeEnvelope.usuario());
+        assert_ne!(
+            Segredo::SessaoConta.usuario(),
+            Segredo::ChaveDeEnvelope.usuario()
+        );
     }
 }

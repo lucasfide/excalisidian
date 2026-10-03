@@ -1,7 +1,7 @@
 name: CI
 on:
   push:
-    branches: [main]
+    branches: [main, servicos-online]
   pull_request:
 jobs:
   verificar:
@@ -23,3 +23,31 @@ jobs:
       - run: npm test
       - run: cargo fmt --manifest-path src-tauri/Cargo.toml --check
       - run: cargo check --manifest-path src-tauri/Cargo.toml
+  rust-multiplataforma:
+    # Prova que `src-tauri` (inclusive o cofre de credenciais, ADR-34) compila e passa nos
+    # testes em Linux e macOS, que o Windows não cobre.
+    strategy:
+      fail-fast: false
+      matrix:
+        platform: [ubuntu-22.04, macos-latest]
+    runs-on: ${{ matrix.platform }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+      - uses: dtolnay/rust-toolchain@stable
+      - uses: swatinem/rust-cache@v2
+        with:
+          workspaces: src-tauri
+      - name: Instalar dependências do Linux
+        if: matrix.platform == 'ubuntu-22.04'
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y libwebkit2gtk-4.1-dev libappindicator3-dev librsvg2-dev patchelf xdg-utils
+      # `tauri::generate_context!` embute `frontendDist` (../dist) na compilação.
+      - run: npm ci
+      - run: npm run build
+      - run: cargo check --manifest-path src-tauri/Cargo.toml
+      - run: cargo test --manifest-path src-tauri/Cargo.toml
