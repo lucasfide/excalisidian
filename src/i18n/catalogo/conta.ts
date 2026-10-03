@@ -25,6 +25,13 @@ export const PT_BR_CONTA = {
   // Decisão 8 do plano ADR-39: visível só no modo "criar conta" (ADR-33).
   "conta.avisoCriar":
     "Sua senha também protege as notas sincronizadas e não pode ser recuperada — nem por nós. As notas neste computador continuam a salvo. Guarde a senha num gerenciador de senhas.",
+  // Aceite dos termos no modo "criar conta": a frase é montada em pedaços porque os dois nomes
+  // são links (LinksLegais.tsx). "legal.*" também serve à seção Licenças e créditos.
+  "conta.termos.antes": "Ao criar a conta, você concorda com os ",
+  "conta.termos.meio": " e a ",
+  "conta.termos.depois": ".",
+  "legal.termos": "Termos de uso",
+  "legal.privacidade": "Política de privacidade",
 } as const;
 
 // Partial, como o EN geral em catalogo.ts: uma tradução faltando não trava a edição, cai no
@@ -51,4 +58,9 @@ export const EN_CONTA: Partial<Record<keyof typeof PT_BR_CONTA, string>> = {
   "conta.erro.expirada": "Your session expired. Sign in again.",
   "conta.avisoCriar":
     "Your password also protects your synced notes and cannot be recovered — not even by us. Notes on this computer remain safe. Store your password in a password manager.",
+  "conta.termos.antes": "By creating an account, you agree to the ",
+  "conta.termos.meio": " and the ",
+  "conta.termos.depois": ".",
+  "legal.termos": "Terms of use",
+  "legal.privacidade": "Privacy policy",
 };

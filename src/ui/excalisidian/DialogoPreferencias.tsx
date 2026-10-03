@@ -38,6 +38,7 @@ import type { ChaveTexto, TradutorDoApp } from "../../i18n/catalogo";
 import { useTexto } from "../../i18n/useTexto";
 import DialogoGlossario from "./DialogoGlossario";
 import SecaoSincronizacao from "./SecaoSincronizacao";
+import { AvisoTermosConta, LinksLegaisLicencas } from "./LinksLegais";
 import { CreditosAgente } from "./CreditosAgente";
 import {
   ABAS_PREFERENCIAS,
@@ -480,6 +481,7 @@ function AbaGeral({
               <p>{t("prefs.geral.licencas.linha3")}</p>
               <p>{t("prefs.geral.licencas.linha4")}</p>
               <p className="text-tinta-suave">{t("prefs.geral.licencas.aviso")}</p>
+              <LinksLegaisLicencas />
             </div>
           }
         />
@@ -680,6 +682,7 @@ function SecaoConta({ idsVisiveis }: { idsVisiveis?: Set<string> }) {
             {t("conta.avisoCriar")}
           </p>
         )}
+        {acaoAtual === "criar" && <AvisoTermosConta />}
         <div className="flex flex-wrap gap-2">
           <Botao type="submit" variante="primario" tamanho="compacto" disabled={ocupado}>
             {t(acaoAtual === "criar" ? "conta.criar" : "conta.entrar")}
