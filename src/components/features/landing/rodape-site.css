@@ -1,0 +1,13 @@
+.rodape-site { position: relative; z-index: 1; display: grid; gap: .9rem; width: min(100% - 2rem, 92rem); margin: 0 auto; padding-block: 2rem 2.5rem; border-top: 1px solid var(--border); color: var(--muted-foreground); font-size: .8125rem; line-height: 1.55; }
+.rodape-site__linha { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: .5rem 1.5rem; }
+.rodape-site__marca { display: inline-flex; align-items: center; gap: .6rem; min-height: 44px; color: var(--foreground); font-family: var(--fonte-display); font-size: 1.1rem; text-decoration: none; }
+.rodape-site__marca img { width: 1.5rem; height: 1.5rem; object-fit: contain; }
+.rodape-site__links { display: flex; flex-wrap: wrap; gap: 0 1.5rem; }
+.rodape-site__links a { display: inline-flex; min-height: 44px; align-items: center; color: var(--muted-foreground); font-family: var(--fonte-mono); font-size: .68rem; letter-spacing: .08em; text-decoration: none; text-transform: uppercase; transition: color 180ms ease; }
+.rodape-site__links a:hover, .rodape-site__links a:focus-visible { color: var(--primary); }
+.rodape-site__vendedor, .rodape-site__aviso { max-width: 70ch; margin: 0; overflow-wrap: anywhere; }
+.rodape-site__vendedor a { color: var(--primary); }
+.rodape-site__aviso { font-family: var(--fonte-mono); font-size: .68rem; letter-spacing: .04em; }
+@media (min-width: 640px) { .rodape-site { width: min(100% - 4rem, 92rem); } }
+@media (min-width: 1280px) { .rodape-site { width: min(100% - 7rem, 96rem); } }
+@media (prefers-reduced-motion: reduce) { .rodape-site__links a { transition: none; } }

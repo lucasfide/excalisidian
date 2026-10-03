@@ -70,3 +70,10 @@ Preservar H1, “Só isso.” e “(Com IA, se você quiser)”. Remover frases 
 - Luna medium: exemplos técnicos em feature-study, incluindo quatro períodos da lista de tarefas.
 - Luna low: conteúdo das seções e remoção de IA/âncoras.
 - Coordenador: integração, CSS da página, build, testes e inspeção visual do preview em desktop/mobile. Alterações restritas à LP.
+
+## Planos e páginas legais (03/10/2026)
+
+- A home ganhou a seção 04 Planos por pedido do dono do produto. Esse pedido substitui a restrição anterior de mencionar IA só no H1.
+- Páginas novas: `/planos/`, `/termos/`, `/privacidade/`, `/en/terms/` e `/en/privacy/`.
+- Dados em `src/data/planos.ts` (planos e preços) e `src/data/empresa.ts` (identidade de quem vende, com marcadores a preencher).
+- Textos legais em `docs/legal/`.

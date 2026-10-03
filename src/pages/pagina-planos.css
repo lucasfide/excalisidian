@@ -1,0 +1,625 @@
+/* Página /planos/. Só tokens do site (landing-theme.css e globals.css); variáveis --border,
+ * --primary etc. vêm do bloco .landing-page de landing-page.css. */
+
+.pagina-planos__conteudo {
+  position: relative;
+  width: min(100% - 2rem, 92rem);
+  margin-inline: auto;
+}
+
+.pagina-planos__kicker,
+.pagina-planos__marca,
+.pagina-planos__etiqueta,
+.pagina-planos__seletor legend {
+  font-family: var(--fonte-mono);
+  font-size: 0.68rem;
+  letter-spacing: 0.1em;
+  line-height: 1.2;
+  text-transform: uppercase;
+}
+
+.pagina-planos__kicker {
+  margin: 0 0 1rem;
+  color: var(--primary);
+}
+
+/* Abertura */
+.pagina-planos__abertura {
+  padding-block: 3.5rem 2rem;
+}
+
+.pagina-planos__abertura h1 {
+  max-width: 18ch;
+  margin: 0;
+  font-family: var(--fonte-display);
+  font-size: clamp(2.2rem, 7vw, 4.8rem);
+  font-weight: 500;
+  letter-spacing: -0.04em;
+  line-height: 1.04;
+}
+
+.pagina-planos__subtitulo {
+  max-width: 52ch;
+  margin: 1.5rem 0 0;
+  color: var(--muted-foreground);
+  font-size: 1rem;
+  line-height: 1.6;
+}
+
+.pagina-planos__fatos {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  margin: 2rem 0 0;
+  padding: 0;
+  border-top: 1px solid var(--border);
+  border-bottom: 1px solid var(--border);
+  list-style: none;
+}
+
+.pagina-planos__fatos li {
+  display: flex;
+  align-items: center;
+  gap: 0.6rem;
+  min-height: 3rem;
+  padding: 0.6rem 0.75rem;
+  color: var(--color-tinta-media);
+  font-size: 0.8125rem;
+  line-height: 1.35;
+}
+
+.pagina-planos__fatos li::before {
+  content: "/";
+  color: var(--primary);
+  font-family: var(--fonte-mono);
+}
+
+.pagina-planos__fatos li:nth-child(even) {
+  border-left: 1px solid var(--border);
+}
+
+.pagina-planos__fatos li:nth-child(n + 3) {
+  border-top: 1px solid var(--border);
+}
+
+/* Controles */
+.pagina-planos__controles {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: flex-end;
+  gap: 1rem 1.5rem;
+  margin-bottom: 1.5rem;
+}
+
+.pagina-planos__seletor {
+  min-width: 0;
+  margin: 0;
+  padding: 0;
+  border: 0;
+}
+
+.pagina-planos__seletor legend {
+  margin-bottom: 0.5rem;
+  padding: 0;
+  color: var(--muted-foreground);
+}
+
+.pagina-planos__seletor-opcoes {
+  display: inline-flex;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-ficha);
+  background: var(--card);
+}
+
+.pagina-planos__opcao {
+  position: relative;
+  display: inline-flex;
+  min-width: 5rem;
+  min-height: 44px;
+  align-items: center;
+  justify-content: center;
+  padding-inline: 1rem;
+  color: var(--color-tinta-media);
+  font-size: 1rem;
+  cursor: pointer;
+  transition: color 180ms ease, background 180ms ease;
+}
+
+.pagina-planos__opcao + .pagina-planos__opcao {
+  border-left: 1px solid var(--border);
+}
+
+.pagina-planos__opcao input {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  margin: 0;
+  opacity: 0;
+  cursor: pointer;
+}
+
+.pagina-planos__opcao:hover {
+  color: var(--foreground);
+}
+
+.pagina-planos__opcao:has(input:checked) {
+  background: color-mix(in srgb, var(--primary) 16%, var(--card));
+  color: var(--foreground);
+  font-weight: 600;
+}
+
+.pagina-planos__opcao:has(input:focus-visible) {
+  outline: 2px solid var(--primary);
+  outline-offset: 2px;
+}
+
+.pagina-planos__economia {
+  flex-basis: 100%;
+  margin: 0;
+  color: var(--muted-foreground);
+  font-size: 0.875rem;
+  line-height: 1.5;
+}
+
+/* Cartões */
+.pagina-planos__cartoes {
+  display: grid;
+  gap: 1rem;
+  max-width: 48rem;
+}
+
+.pagina-planos__cartao {
+  display: flex;
+  flex-direction: column;
+  gap: 1.5rem;
+  padding: 1.5rem;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-ficha);
+  background: var(--card);
+}
+
+.pagina-planos__cartao[data-recomendado="true"] {
+  border-color: var(--primary);
+  background: color-mix(in srgb, var(--primary) 12%, var(--card));
+}
+
+.pagina-planos__cartao-titulo {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.5rem 0.9rem;
+}
+
+.pagina-planos__cartao h3 {
+  margin: 0;
+  font-family: var(--fonte-display);
+  font-size: 1.75rem;
+  font-weight: 500;
+  letter-spacing: -0.02em;
+  line-height: 1.1;
+}
+
+.pagina-planos__etiqueta {
+  padding: 0.3rem 0.5rem;
+  border: 1px solid var(--primary);
+  border-radius: var(--radius-controle);
+  color: var(--primary);
+}
+
+.pagina-planos__para-quem {
+  margin: 0.6rem 0 0;
+  color: var(--muted-foreground);
+  font-size: 0.9375rem;
+  line-height: 1.5;
+}
+
+.pagina-planos__preco-linha {
+  margin: 0;
+}
+
+.pagina-planos__preco-valor {
+  font-family: var(--fonte-display);
+  font-size: clamp(2.4rem, 5vw, 3.2rem);
+  font-weight: 500;
+  letter-spacing: -0.03em;
+  line-height: 1;
+}
+
+.pagina-planos__preco-periodo {
+  display: block;
+  margin-top: 0.35rem;
+  color: var(--muted-foreground);
+  font-size: 0.9375rem;
+}
+
+.pagina-planos__preco-detalhe {
+  margin: 0.6rem 0 0;
+  color: var(--color-tinta-media);
+  font-size: 0.875rem;
+  line-height: 1.5;
+}
+
+.pagina-planos__acao {
+  display: grid;
+  gap: 0.75rem;
+}
+
+.pagina-planos__botao {
+  display: inline-flex;
+  min-height: 44px;
+  align-items: center;
+  justify-content: center;
+  box-sizing: border-box;
+  padding: 0.7rem 1.1rem;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-controle);
+  background: transparent;
+  color: var(--foreground);
+  font-family: inherit;
+  font-size: 1rem;
+  font-weight: 600;
+  text-decoration: none;
+  transition: background 180ms ease, border-color 180ms ease;
+}
+
+.pagina-planos__botao--primario {
+  border-color: var(--primary);
+  background: var(--primary);
+  color: var(--primary-foreground);
+}
+
+.pagina-planos__botao--primario:hover {
+  background: color-mix(in srgb, var(--primary) 88%, var(--primary-foreground));
+}
+
+.pagina-planos__botao--secundario:hover {
+  border-color: var(--primary);
+  background: color-mix(in srgb, var(--primary) 8%, transparent);
+}
+
+.pagina-planos__botao--inativo {
+  border-style: dashed;
+  color: var(--muted-foreground);
+  cursor: not-allowed;
+}
+
+.pagina-planos__botao:focus-visible {
+  outline: 2px solid var(--primary);
+  outline-offset: 2px;
+}
+
+.pagina-planos__ajuda,
+.pagina-planos__risco {
+  margin: 0;
+  color: var(--muted-foreground);
+  font-size: 0.8125rem;
+  line-height: 1.5;
+}
+
+.pagina-planos__beneficios {
+  display: grid;
+  align-content: start;
+  gap: 0.9rem;
+  margin: 0;
+  padding: 1.5rem 0 0;
+  border-top: 1px solid var(--border);
+  list-style: none;
+}
+
+.pagina-planos__beneficios li {
+  position: relative;
+  padding-left: 1.4rem;
+  font-size: 0.9375rem;
+  line-height: 1.45;
+}
+
+.pagina-planos__beneficios li::before {
+  position: absolute;
+  left: 0;
+  content: "/";
+  color: var(--primary);
+  font-family: var(--fonte-mono);
+}
+
+.pagina-planos__beneficios small {
+  display: block;
+  margin-top: 0.25rem;
+  color: var(--muted-foreground);
+  font-size: 0.8125rem;
+  line-height: 1.5;
+}
+
+/* Seções numeradas */
+.pagina-planos__secao {
+  display: grid;
+  gap: 2rem;
+  margin-top: 4rem;
+  padding-block: 3rem 1rem;
+  border-top: 1px solid var(--border);
+}
+
+.pagina-planos__cabeca {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr);
+  gap: 1.5rem;
+  align-items: start;
+}
+
+.pagina-planos__marca {
+  padding-top: 0.5rem;
+  color: var(--primary);
+}
+
+.pagina-planos__cabeca h2,
+.pagina-planos__final h2 {
+  margin: 0;
+  font-family: var(--fonte-display);
+  font-size: clamp(1.9rem, 4.5vw, 3.2rem);
+  font-weight: 500;
+  letter-spacing: -0.04em;
+  line-height: 1.06;
+}
+
+.pagina-planos__cabeca .pagina-planos__kicker {
+  margin-bottom: 0.75rem;
+}
+
+.pagina-planos__texto {
+  display: grid;
+  gap: 1rem;
+  max-width: 62ch;
+}
+
+.pagina-planos__texto p {
+  margin: 0;
+  color: var(--color-tinta-media);
+  font-size: 1rem;
+  line-height: 1.65;
+}
+
+/* Tabela */
+.pagina-planos__tabela-moldura {
+  border: 1px solid var(--border);
+  border-radius: var(--radius-ficha);
+  background: var(--card);
+}
+
+.pagina-planos__tabela {
+  width: 100%;
+  table-layout: fixed;
+  border-collapse: collapse;
+  font-size: 0.8125rem;
+  line-height: 1.4;
+  text-align: left;
+}
+
+.pagina-planos__tabela th,
+.pagina-planos__tabela td {
+  padding: 0.75rem 0.5rem;
+  border-bottom: 1px solid var(--border);
+  vertical-align: top;
+  overflow-wrap: anywhere;
+}
+
+.pagina-planos__tabela tbody tr:last-child th,
+.pagina-planos__tabela tbody tr:last-child td {
+  border-bottom: 0;
+}
+
+.pagina-planos__tabela thead th {
+  font-family: var(--fonte-mono);
+  font-size: 0.68rem;
+  font-weight: 400;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--muted-foreground);
+}
+
+.pagina-planos__tabela thead th:first-child,
+.pagina-planos__tabela tbody th {
+  width: 40%;
+  padding-left: 0.75rem;
+}
+
+.pagina-planos__tabela tbody th {
+  font-weight: 400;
+  color: var(--foreground);
+}
+
+.pagina-planos__tabela td {
+  color: var(--color-tinta-media);
+}
+
+.pagina-planos__tabela [data-recomendado="true"] {
+  background: color-mix(in srgb, var(--primary) 8%, transparent);
+}
+
+.pagina-planos__tabela thead th[data-recomendado="true"] {
+  color: var(--primary);
+}
+
+/* Perguntas */
+.pagina-planos__perguntas {
+  border-top: 1px solid var(--border);
+  max-width: 62rem;
+}
+
+.pagina-planos__pergunta {
+  border-bottom: 1px solid var(--border);
+}
+
+.pagina-planos__pergunta summary {
+  display: flex;
+  min-height: 44px;
+  align-items: center;
+  justify-content: space-between;
+  gap: 1rem;
+  padding-block: 1rem;
+  font-size: 1rem;
+  font-weight: 500;
+  line-height: 1.4;
+  cursor: pointer;
+  list-style: none;
+}
+
+.pagina-planos__pergunta summary::-webkit-details-marker {
+  display: none;
+}
+
+.pagina-planos__pergunta summary::after {
+  flex-shrink: 0;
+  content: "+";
+  color: var(--primary);
+  font-family: var(--fonte-mono);
+  font-size: 1.25rem;
+}
+
+.pagina-planos__pergunta[open] summary::after {
+  content: "\2212";
+}
+
+.pagina-planos__pergunta summary:hover {
+  color: var(--primary);
+}
+
+.pagina-planos__pergunta summary:focus-visible {
+  outline: 2px solid var(--primary);
+  outline-offset: 2px;
+}
+
+.pagina-planos__resposta {
+  display: grid;
+  gap: 0.9rem;
+  max-width: 62ch;
+  padding-bottom: 1.5rem;
+  color: var(--color-tinta-media);
+  font-size: 0.9375rem;
+  line-height: 1.65;
+}
+
+.pagina-planos__resposta p {
+  margin: 0;
+}
+
+.pagina-planos__resposta a {
+  color: var(--primary);
+}
+
+/* Faixa final */
+.pagina-planos__final {
+  display: grid;
+  justify-items: start;
+  gap: 1.25rem;
+  margin-top: 4rem;
+  padding-block: 3rem 4rem;
+  border-top: 1px solid var(--border);
+}
+
+.pagina-planos__final h2 {
+  max-width: 18ch;
+}
+
+.pagina-planos__final p {
+  max-width: 52ch;
+  margin: 0;
+  color: var(--muted-foreground);
+  line-height: 1.6;
+}
+
+.pagina-planos__final .pagina-planos__botao {
+  min-width: 12rem;
+}
+
+@media (min-width: 640px) {
+  .pagina-planos__conteudo {
+    width: min(100% - 4rem, 92rem);
+  }
+
+  .pagina-planos__fatos {
+    grid-template-columns: repeat(4, minmax(0, 1fr));
+  }
+
+  .pagina-planos__fatos li:nth-child(n + 3) {
+    border-top: 0;
+  }
+
+  .pagina-planos__fatos li:not(:first-child) {
+    border-left: 1px solid var(--border);
+  }
+
+  .pagina-planos__economia {
+    flex-basis: auto;
+    padding-bottom: 0.75rem;
+  }
+
+  .pagina-planos__tabela {
+    font-size: 0.9375rem;
+  }
+
+  .pagina-planos__tabela th,
+  .pagina-planos__tabela td {
+    padding: 1rem 0.75rem;
+  }
+}
+
+@media (min-width: 768px) {
+  .pagina-planos__abertura {
+    padding-block: 4.5rem 2.5rem;
+  }
+
+  .pagina-planos__cartao {
+    padding: 2rem;
+  }
+
+  .pagina-planos__tabela thead th:first-child,
+  .pagina-planos__tabela tbody th {
+    width: 46%;
+    padding-left: 1.25rem;
+  }
+}
+
+@media (min-width: 1024px) {
+  .pagina-planos__cartoes {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+    max-width: none;
+  }
+
+  .pagina-planos__cartao {
+    padding: 1.75rem;
+  }
+
+  /* Subgrade: topo, preço, botão e lista começam na mesma altura nos três cartões. */
+  .pagina-planos__cartoes {
+    row-gap: 0;
+  }
+
+  .pagina-planos__cartao {
+    display: grid;
+    grid-row: span 4;
+    grid-template-rows: subgrid;
+    row-gap: 1.5rem;
+    align-content: start;
+  }
+
+  .pagina-planos__secao {
+    grid-template-columns: minmax(16rem, 1fr) minmax(0, 2fr);
+    gap: 3rem;
+  }
+
+  .pagina-planos__secao > :not(.pagina-planos__cabeca) {
+    min-width: 0;
+  }
+}
+
+@media (min-width: 1280px) {
+  .pagina-planos__conteudo {
+    width: min(100% - 7rem, 96rem);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .pagina-planos__opcao,
+  .pagina-planos__botao {
+    transition: none;
+  }
+}

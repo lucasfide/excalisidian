@@ -5,7 +5,7 @@
 .lp-brand-lettering { width: auto; height: 1.1rem; }
 .lp-header-navigation { display: none; align-items: center; justify-content: center; gap: clamp(.75rem, 2vw, 1.75rem); margin-inline: auto; }
 .lp-header-navigation a { min-height: 44px; display: inline-flex; align-items: center; color: var(--muted-foreground); font-size: .8125rem; text-decoration: none; transition: color 180ms ease; }
-.lp-header-navigation a:hover, .lp-header-navigation a:focus-visible { color: var(--primary); }
+.lp-header-navigation a:hover, .lp-header-navigation a:focus-visible, .lp-header-navigation a[aria-current="page"] { color: var(--primary); }
 .lp-download-direct { display: inline-flex; gap: .6rem; align-items: center; margin-left: auto; padding: .6rem .9rem; min-height: 44px; border: 1px solid var(--primary); border-radius: .3rem; background: var(--primary); color: var(--primary-foreground); text-decoration: none; font-size: .875rem; font-weight: 600; }
 .lp-download-direct:hover { background: color-mix(in srgb, var(--primary) 88%, var(--primary-foreground)); }
 .lp-download-section { position: sticky; top: 0; display: grid; box-sizing: border-box; min-height: 100vh; min-height: 100svh; width: 100vw; align-items: center; isolation: isolate; overflow: hidden; padding: 4rem 1.25rem; background: url("/landing/a-morte-de-socrates.jpg") center / cover; }

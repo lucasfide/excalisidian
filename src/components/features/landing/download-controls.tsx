@@ -8,7 +8,7 @@ import "./download-controls.css";
 
 const anchors = [
   ["inicio", "Início"], ["notas", "Notas"], ["diagramas", "Diagramas"],
-  ["tarefas", "Tarefas"], ["download", "Download"],
+  ["tarefas", "Tarefas"], ["planos", "Planos"], ["download", "Download"],
 ];
 
 function currentSystem() {
@@ -16,7 +16,14 @@ function currentSystem() {
 }
 
 interface SystemIconProps { system: DesktopSystem | null; }
-interface DownloadHeaderProps { hidden: boolean; }
+interface DownloadHeaderProps { hidden?: boolean; paginaAtual?: "inicio" | "planos" | "legal"; base?: string; }
+
+/** Instalador do sistema detectado. Sem sistema reconhecido, aponta para a seção de download da home (`base` leva até ela). */
+export function useLinkDownload(base = "") {
+  const [system] = useState(currentSystem);
+  const download = landingDownloads.find(option => option.system === system);
+  return { system, download, href: download?.url ?? `${base}#download` };
+}
 function SystemIcon({ system }: SystemIconProps) {
   if (system === "macos") return <Apple size={19} aria-hidden="true" />;
   if (system === "linux") return <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" aria-hidden="true"><path d="M7 10V7a5 5 0 0 1 10 0v3c1.7 2.2 3 5 2 8l-3 2H8l-3-2c-1-3 .3-5.8 2-8Z" /><ellipse cx="12" cy="15" rx="4" ry="5" /><path d="m10 8 2 2 2-2M8 20l-4 2h5m7-2 4 2h-5" /><circle cx="10" cy="6" r=".5" fill="currentColor" /><circle cx="14" cy="6" r=".5" fill="currentColor" /></svg>;
@@ -24,16 +31,21 @@ function SystemIcon({ system }: SystemIconProps) {
   return <Monitor size={19} aria-hidden="true" />;
 }
 
-export function DownloadHeader({ hidden }: DownloadHeaderProps) {
-  const [system] = useState(currentSystem);
-  const download = landingDownloads.find(option => option.system === system);
+export function DownloadHeader({ hidden = false, paginaAtual = "inicio", base: baseDaPagina }: DownloadHeaderProps) {
+  // Fora da home (/planos/, /termos/, /en/terms/) as seções ficam acima; `base` é o caminho até a raiz.
+  const base = baseDaPagina ?? (paginaAtual === "planos" ? "../" : "");
+  const { system, download, href } = useLinkDownload(base);
+  const destino = (id: string) => {
+    if (id !== "planos") return `${base}#${id}`;
+    return paginaAtual === "planos" ? "./" : `${base}planos/`;
+  };
 
   return <header className="lp-header" data-hidden={hidden}>
-    <a href="#inicio" className="lp-brand" aria-label="Excalisidian, início"><img className="lp-brand-icon" src="/excalisidian-icon.png" width="30" height="30" alt="" /><img className="lp-brand-lettering" src="/excalisidian-lettering.png" alt="Excalisidian" /></a>
-    <nav className="lp-header-navigation" aria-label="Seções da página">
-      {anchors.map(([id, label]) => <a href={`#${id}`} key={id}>{label}</a>)}
+    <a href={`${base}#inicio`} className="lp-brand" aria-label="Excalisidian, início"><img className="lp-brand-icon" src="/excalisidian-icon.png" width="30" height="30" alt="" /><img className="lp-brand-lettering" src="/excalisidian-lettering.png" alt="Excalisidian" /></a>
+    <nav className="lp-header-navigation" aria-label="Seções do site">
+      {anchors.map(([id, label]) => <a href={destino(id)} key={id} aria-current={id === paginaAtual ? "page" : undefined}>{label}</a>)}
     </nav>
-    <a className="lp-download-direct" href={download?.url ?? "#download"} title={download ? `${download.label} · ${download.architecture}` : "Escolha seu sistema operacional"}>
+    <a className="lp-download-direct" href={href} title={download ? `${download.label} · ${download.architecture}` : "Escolha seu sistema operacional"}>
       <SystemIcon system={system} /><span>Download</span>
     </a>
   </header>;
