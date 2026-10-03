@@ -1,15 +1,49 @@
 import type { Moeda, Periodo, PrecoPlano } from "../types/planos";
 
+const FUSOS_DO_BRASIL = new Set([
+  "America/Sao_Paulo",
+  "America/Bahia",
+  "America/Fortaleza",
+  "America/Recife",
+  "America/Maceio",
+  "America/Belem",
+  "America/Araguaina",
+  "America/Santarem",
+  "America/Manaus",
+  "America/Cuiaba",
+  "America/Campo_Grande",
+  "America/Porto_Velho",
+  "America/Boa_Vista",
+  "America/Rio_Branco",
+  "America/Eirunepe",
+  "America/Noronha",
+]);
+
+function fusoDoSistema(): string {
+  try {
+    return Intl.DateTimeFormat().resolvedOptions().timeZone ?? "";
+  } catch {
+    return "";
+  }
+}
+
+function idiomasDoNavegador(): readonly string[] {
+  if (typeof navigator === "undefined") return [];
+  if (navigator.languages?.length) return navigator.languages;
+  return navigator.language ? [navigator.language] : [];
+}
+
 /**
- * pt, pt-BR e variantes sem região (ou com região BR) cobram em reais. Qualquer outro idioma,
- * inclusive pt-PT, cobra em dólares: o preço em R$ é só para o Brasil.
+ * A moeda sai da região, sem serviço externo e sem geolocalização por IP:
+ * 1. o fuso horário do sistema é um dos fusos do Brasil; senão
+ * 2. algum idioma do navegador tem região BR (pt-BR, en-BR...); senão
+ * 3. dólar. O preço em R$ é só para o Brasil (pt-PT, por exemplo, cobra em dólar).
+ * Sem argumentos, lê o fuso e os idiomas do sistema; os testes passam os dois.
  */
-export function moedaPadraoPorIdioma(idioma: string | null | undefined): Moeda {
-  if (!idioma) return "USD";
-  const partes = idioma.toLowerCase().split(/[-_]/);
-  if (partes[0] !== "pt") return "USD";
-  const regioes = partes.slice(1).filter(parte => parte.length === 2);
-  return regioes.length === 0 || regioes.includes("br") ? "BRL" : "USD";
+export function moedaPorRegiao(fuso: string | null = fusoDoSistema(), idiomas: readonly string[] = idiomasDoNavegador()): Moeda {
+  if (fuso && FUSOS_DO_BRASIL.has(fuso)) return "BRL";
+  const temRegiaoBrasil = idiomas.some(idioma => idioma.toLowerCase().split(/[-_]/).slice(1).includes("br"));
+  return temRegiaoBrasil ? "BRL" : "USD";
 }
 
 /** Inteiro sem centavos (R$ 35, US$ 8); com duas casas só quando não for inteiro (R$ 20,75). */

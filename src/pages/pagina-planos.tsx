@@ -6,7 +6,7 @@ import { PerguntasFrequentes } from "../components/features/landing/planos/pergu
 import { SeletorOpcoes } from "../components/features/landing/planos/seletor-opcoes";
 import { TabelaComparacao } from "../components/features/landing/planos/tabela-comparacao";
 import { maiorEconomiaAnual, planos } from "../data/planos";
-import { formatarMoeda, moedaPadraoPorIdioma } from "../lib/precos-planos";
+import { formatarMoeda, moedaPorRegiao } from "../lib/precos-planos";
 import type { Moeda, Periodo } from "../types/planos";
 import "./landing-page.css";
 import "./landing-theme.css";
@@ -29,13 +29,9 @@ const fatos = [
   "Cancelar não apaga nada do seu computador",
 ];
 
-function idiomaDoNavegador() {
-  return typeof navigator === "undefined" ? undefined : navigator.language;
-}
-
 export function PaginaPlanos() {
   const [periodo, setPeriodo] = useState<Periodo>("anual");
-  const [moeda, setMoeda] = useState<Moeda>(() => moedaPadraoPorIdioma(idiomaDoNavegador()));
+  const [moeda, setMoeda] = useState<Moeda>(() => moedaPorRegiao());
   const { href: hrefBaixar } = useLinkDownload("../");
 
   return (

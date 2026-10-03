@@ -1,0 +1,20 @@
+.faixa-planos { grid-column: 1 / -1; display: grid; gap: 1.5rem; margin-top: 1rem; min-width: 0; }
+.faixa-planos__blocos { display: grid; gap: 1rem; margin: 0; padding: 0; list-style: none; }
+.faixa-planos__bloco { display: grid; gap: .4rem; padding: 1.25rem 0 1.5rem; border-top: 1px solid var(--border); }
+.faixa-planos__bloco[data-recomendado="true"] { border-top: 2px solid var(--primary); background: linear-gradient(to bottom, color-mix(in srgb, var(--primary) 9%, transparent), transparent 70%); }
+.faixa-planos__nome { display: flex; flex-wrap: wrap; align-items: center; gap: .75rem; font-family: var(--fonte-display); font-size: 1.25rem; font-weight: 500; letter-spacing: -.02em; }
+.faixa-planos__bloco[data-recomendado="true"] .faixa-planos__nome, .faixa-planos__bloco[data-recomendado="true"] .faixa-planos__preco, .faixa-planos__bloco[data-recomendado="true"] .faixa-planos__cobranca, .faixa-planos__bloco[data-recomendado="true"] .faixa-planos__creditos { padding-inline: 1rem; }
+.faixa-planos__etiqueta { padding: .2rem .5rem; border: 1px solid var(--primary); border-radius: .15rem; color: var(--primary); font: .62rem var(--fonte-mono); letter-spacing: .04em; }
+.faixa-planos__preco { display: flex; align-items: baseline; gap: .6rem; margin-top: .6rem; }
+.faixa-planos__valor { font-family: var(--fonte-display); font-size: clamp(2.4rem, 4.4vw, 3.6rem); font-weight: 500; letter-spacing: -.04em; line-height: 1; }
+.faixa-planos__por-mes { color: var(--muted-foreground); font: .72rem var(--fonte-mono); }
+.faixa-planos__cobranca { color: var(--color-tinta-media); font-size: .9rem; }
+.faixa-planos__creditos { margin-top: .4rem; color: var(--primary); font: .72rem var(--fonte-mono); }
+.faixa-planos__rodape { display: grid; gap: 1rem; align-items: center; padding-top: 1.25rem; border-top: 1px solid var(--border); }
+.faixa-planos__gratis { max-width: 52ch; color: var(--color-tinta-media); font-size: .9rem; line-height: 1.55; }
+.faixa-planos__gratis strong { color: var(--foreground); font-weight: 600; }
+.faixa-planos__rodape .landing-page__cta { justify-self: start; }
+@media (min-width: 768px) {
+  .faixa-planos__blocos { grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 2rem; }
+  .faixa-planos__rodape { grid-template-columns: minmax(0, 1fr) auto; gap: 2rem; }
+}

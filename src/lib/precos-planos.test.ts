@@ -6,30 +6,51 @@ import {
   equivalenteMensalDoAnual,
   formatarCreditos,
   formatarMoeda,
-  moedaPadraoPorIdioma,
+  moedaPorRegiao,
 } from "./precos-planos";
 import { linhasComparacao, maiorEconomiaAnual, menorPrecoMensalEquivalente, planos } from "../data/planos";
 
 // Intl separa símbolo e número com espaço inseparável; os testes comparam com espaço comum.
 const normalizar = (texto: string) => texto.replace(/ /g, " ");
 
-describe("moeda padrão pelo idioma do navegador", () => {
+describe("moeda pela região", () => {
   it.each([
-    ["pt-BR", "BRL"],
-    ["pt", "BRL"],
-    ["PT-br", "BRL"],
-    ["pt_BR", "BRL"],
-    ["pt-PT", "USD"],
-    ["en-US", "USD"],
-    ["es-ES", "USD"],
-    ["", "USD"],
-  ])("%s usa %s", (idioma, esperada) => {
-    expect(moedaPadraoPorIdioma(idioma)).toBe(esperada);
+    "America/Sao_Paulo",
+    "America/Bahia",
+    "America/Fortaleza",
+    "America/Recife",
+    "America/Maceio",
+    "America/Belem",
+    "America/Araguaina",
+    "America/Santarem",
+    "America/Manaus",
+    "America/Cuiaba",
+    "America/Campo_Grande",
+    "America/Porto_Velho",
+    "America/Boa_Vista",
+    "America/Rio_Branco",
+    "America/Eirunepe",
+    "America/Noronha",
+  ])("o fuso %s cobra em reais, mesmo com navegador em inglês", fuso => {
+    expect(moedaPorRegiao(fuso, ["en-US"])).toBe("BRL");
   });
 
-  it("sem idioma conhecido, cai em dólar", () => {
-    expect(moedaPadraoPorIdioma(undefined)).toBe("USD");
-    expect(moedaPadraoPorIdioma(null)).toBe("USD");
+  it("fora do Brasil, algum idioma com região BR cobra em reais", () => {
+    expect(moedaPorRegiao("Europe/Lisbon", ["en-US", "pt-BR"])).toBe("BRL");
+    expect(moedaPorRegiao("America/New_York", ["en-BR"])).toBe("BRL");
+    expect(moedaPorRegiao("", ["pt_br"])).toBe("BRL");
+  });
+
+  it("sem fuso nem região do Brasil, cobra em dólar", () => {
+    expect(moedaPorRegiao("America/New_York", ["en-US"])).toBe("USD");
+    expect(moedaPorRegiao("Europe/Lisbon", ["pt-PT", "pt"])).toBe("USD");
+    expect(moedaPorRegiao("America/Argentina/Buenos_Aires", ["es-AR"])).toBe("USD");
+    expect(moedaPorRegiao("", [])).toBe("USD");
+    expect(moedaPorRegiao(null, [])).toBe("USD");
+  });
+
+  it("idioma pt sem região não basta: a região é que decide", () => {
+    expect(moedaPorRegiao("Europe/Berlin", ["pt"])).toBe("USD");
   });
 });
 

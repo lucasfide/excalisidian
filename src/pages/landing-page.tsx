@@ -7,8 +7,9 @@ import {
   DownloadSection,
 } from "../components/features/landing/download-controls";
 import { RodapeSite } from "../components/features/landing/rodape-site";
-import { menorPrecoMensalEquivalente } from "../data/planos";
-import { formatarMoeda, moedaPadraoPorIdioma } from "../lib/precos-planos";
+import { EstudoPlanos } from "../components/features/landing/estudo-planos";
+import { FaixaPlanos } from "../components/features/landing/faixa-planos";
+import { moedaPorRegiao } from "../lib/precos-planos";
 import "./landing-page.css";
 import "./landing-theme.css";
 const navigation = [
@@ -19,14 +20,11 @@ const navigation = [
   { href: "#planos", label: "Planos" },
   { href: "#download", label: "Download" },
 ];
-function PrecoDeEntrada() {
-  const [moeda] = useState(() => moedaPadraoPorIdioma(typeof navigator === "undefined" ? undefined : navigator.language));
-  return <>{formatarMoeda(menorPrecoMensalEquivalente(moeda), moeda)}</>;
-}
 export function LandingPage() {
   const pageRef = useRef<HTMLElement>(null);
   const downloadRef = useRef<HTMLDivElement>(null);
   const [downloadFocused, setDownloadFocused] = useState(false);
+  const [moeda] = useState(() => moedaPorRegiao());
   useEffect(() => {
     const sections = pageRef.current?.querySelectorAll<HTMLElement>(
       ".landing-page__story, .lp-download-section",
@@ -137,41 +135,18 @@ export function LandingPage() {
           <div>
             <p className="landing-page__kicker">Planos</p>
             <h2 id="planos-home-titulo">
-              Suas notas em todos os computadores.
+              Sincronize tudo.
+              <br />
+              Cifrado de ponta a ponta.
             </h2>
             <p>
-              Se você escreve em mais de um computador, ou quer a IA pronta para
-              usar, há dois planos opcionais.
+              Sincronização cifrada ponta a ponta entre computadores e IA pronta
+              para usar, sem chave própria. Os dois são opcionais: o app
+              continua completo e grátis, sem conta.
             </p>
           </div>
-          <div className="landing-page__planos-detalhe">
-            <ul className="landing-page__beneficios">
-              <li>
-                <strong>Sincronização cifrada ponta a ponta</strong>
-                <span>
-                  Suas notas em todos os seus computadores. O servidor não
-                  consegue ler nada.
-                </span>
-              </li>
-              <li>
-                <strong>IA do Excalisidian, sem chave própria</strong>
-                <span>
-                  Entre com a sua conta e use a IA direto no app, sem configurar
-                  nada.
-                </span>
-              </li>
-            </ul>
-            <p className="landing-page__tranquilidade">
-              O app continua grátis e completo, sem conta.
-            </p>
-            <p className="landing-page__preco-entrada">
-              A partir de <strong><PrecoDeEntrada /></strong> por mês no plano
-              anual
-            </p>
-            <a className="landing-page__cta" href="planos/">
-              Conhecer os planos
-            </a>
-          </div>
+          <EstudoPlanos />
+          <FaixaPlanos moeda={moeda} />
         </section>
       </div>
       <div className="landing-page__download" ref={downloadRef}>

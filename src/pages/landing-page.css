@@ -211,65 +211,7 @@ html:has(.landing-page) { scroll-behavior: smooth; scroll-padding-top: 6rem; }
 @keyframes landing-reveal { from { opacity: .25; transform: translateY(1.2rem); } to { opacity: 1; transform: translateY(0); } }
 @media (prefers-reduced-motion: reduce) { html:has(.landing-page) { scroll-behavior: auto; } .landing-page__revealed { animation: none; } }
 
-/* Seção 04: planos */
-.landing-page__planos-detalhe {
-  grid-column: 2;
-  display: grid;
-  gap: 1.5rem;
-  min-width: 0;
-  padding: 1.5rem;
-  border: 1px solid var(--border);
-  border-radius: var(--radius-ficha);
-  background: var(--card);
-}
-
-.landing-page__beneficios {
-  display: grid;
-  gap: 1.25rem;
-  margin: 0;
-  padding: 0;
-  list-style: none;
-}
-
-.landing-page__beneficios li {
-  display: grid;
-  gap: 0.3rem;
-  padding-left: 1rem;
-  border-left: 2px solid var(--primary);
-}
-
-.landing-page__beneficios strong {
-  color: var(--foreground);
-  font-weight: 600;
-}
-
-.landing-page__beneficios span {
-  color: var(--muted-foreground);
-  font-size: 0.9rem;
-  line-height: 1.5;
-}
-
-.landing-page__story .landing-page__planos-detalhe p {
-  max-width: none;
-  margin: 0;
-}
-
-.landing-page__story .landing-page__tranquilidade {
-  color: var(--color-tinta-media);
-  font-size: 0.9rem;
-}
-
-.landing-page__story .landing-page__preco-entrada {
-  padding-top: 1.25rem;
-  border-top: 1px solid var(--border);
-  color: var(--color-tinta-media);
-}
-
-.landing-page__preco-entrada strong {
-  color: var(--foreground);
-  font-weight: 600;
-}
-
+/* Seção 04: planos (estudo em estudo-planos.css, preços em faixa-planos.css) */
 .landing-page__cta {
   display: inline-flex;
   min-height: 44px;

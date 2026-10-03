@@ -1,0 +1,95 @@
+/* Estudo da seção 04: usa a moldura de feature-study.css; aqui só o que é próprio. */
+.estudo-planos .feature-study__bar { padding-block: 0; gap: .6rem; }
+.estudo-planos__abas { display: flex; align-self: stretch; gap: .25rem; }
+.estudo-planos__aba { position: relative; min-height: 3rem; padding-inline: .8rem; border: 0; background: none; color: var(--muted-foreground); font: .68rem var(--font-mono); cursor: pointer; transition: color 180ms; }
+.estudo-planos__aba::after { content: ""; position: absolute; inset: auto .8rem -1px; height: 2px; background: var(--primary); transform: scaleX(0); transition: transform 200ms; }
+.estudo-planos__aba:hover { color: var(--foreground); }
+.estudo-planos__aba[aria-selected="true"] { color: var(--foreground); }
+.estudo-planos__aba[aria-selected="true"]::after { transform: scaleX(1); }
+.estudo-planos__aba:focus-visible, .estudo-planos__acao:focus-visible, .estudo-planos__botao:focus-visible, .estudo-planos__colar:focus-visible { outline: 2px solid var(--primary); outline-offset: -2px; }
+
+.estudo-planos__painel { position: relative; display: grid; gap: 1rem; padding: 1.25rem 1rem 1.25rem; align-content: start; }
+.estudo-planos__paineis { display: grid; }
+.estudo-planos__paineis > * { grid-area: 1 / 1; min-width: 0; }
+.estudo-planos__paineis > [hidden] { display: block; visibility: hidden; }
+
+/* Janelas pequenas (notebook, desktop e a nota da aba IA) */
+.estudo-planos__janela { display: grid; grid-template-rows: auto 1fr auto; min-width: 0; border: 1px solid var(--border); border-radius: .25rem; background: var(--card); }
+.estudo-planos__janela-barra { display: flex; align-items: center; gap: .4rem; padding: .45rem .6rem; border-bottom: 1px solid var(--border); color: var(--muted-foreground); font: .66rem var(--font-mono); }
+.estudo-planos__janela-corpo { display: grid; align-content: start; gap: .5rem; padding: 1rem .75rem; }
+.estudo-planos__linha { display: block; margin-inline: -.3rem; padding: .15rem .3rem; border-radius: .15rem; color: var(--color-tinta-media); font: .74rem/1.45 var(--font-mono); overflow-wrap: anywhere; }
+.estudo-planos__linha--titulo { color: var(--foreground); font-weight: 500; }
+.estudo-planos__linha--livre { font: .85rem/1.55 var(--font-sans); }
+.estudo-planos__linha--link { color: var(--primary); }
+.estudo-planos__linha[data-novo="true"], .estudo-planos__linha[data-chegou="true"] { animation: estudo-planos-destaque 1.4s ease-out; }
+.estudo-planos__estado { display: flex; align-items: center; gap: .4rem; padding: .4rem .6rem; border-top: 1px solid var(--border); color: var(--muted-foreground); font: .6rem var(--font-mono); }
+.estudo-planos__estado::before { content: ""; width: .4rem; height: .4rem; border-radius: 50%; background: var(--color-tinta-suave); transition: background 200ms; }
+.estudo-planos__estado[data-ocupado="true"] { color: var(--primary); }
+.estudo-planos__estado[data-ocupado="true"]::before { background: var(--primary); }
+
+/* Sincronizar: janela, fio com o que o servidor vê, janela */
+.estudo-planos__sync { display: grid; grid-template-columns: minmax(0, 1fr); }
+.estudo-planos__meio { display: flex; flex-direction: column; align-items: center; justify-content: center; align-self: center; }
+.estudo-planos__fio { position: relative; flex: none; width: 2px; height: 1.5rem; background: var(--border); overflow: hidden; }
+.estudo-planos__fio::after { content: ""; position: absolute; inset: 0; background: var(--primary); transform: scaleY(0); transform-origin: top; }
+.estudo-planos__sync:not([data-etapa="parado"]) .estudo-planos__fio--ida::after,
+.estudo-planos__sync[data-etapa="recebendo"] .estudo-planos__fio--volta::after,
+.estudo-planos__sync[data-etapa="chegou"] .estudo-planos__fio--volta::after { transform: scaleY(1); transition: transform 650ms linear; }
+.estudo-planos__cifra { display: grid; justify-items: center; gap: .15rem; width: 6.5rem; padding: .6rem .4rem .5rem; border: 1px dashed var(--color-regua-forte); border-radius: .25rem; color: var(--muted-foreground); text-align: center; transition: border-color 200ms, color 200ms, background 200ms; }
+.estudo-planos__cifra-texto { max-width: 5.2rem; font: .68rem/1.4 var(--font-mono); }
+.estudo-planos__cifra-rotulo { color: var(--color-tinta-suave); font: .6rem var(--font-mono); }
+.estudo-planos__cifra[data-vendo="true"] { border-style: solid; border-color: var(--primary); background: color-mix(in srgb, var(--primary) 12%, var(--card)); color: var(--foreground); }
+
+.estudo-planos__acao { display: inline-flex; align-items: center; justify-content: center; justify-self: start; gap: .5rem; min-height: 44px; padding-inline: 1rem; border: 1px solid var(--primary); border-radius: .25rem; background: color-mix(in srgb, var(--primary) 10%, transparent); color: var(--foreground); font-size: .85rem; cursor: pointer; transition: background 180ms; }
+.estudo-planos__acao:hover { background: color-mix(in srgb, var(--primary) 20%, transparent); }
+.estudo-planos__acao[aria-disabled="true"] { cursor: progress; opacity: .6; }
+.estudo-planos__legenda { display: grid; gap: .4rem; color: var(--muted-foreground); font-size: .8rem; line-height: 1.5; }
+.estudo-planos__mono-pequeno { color: var(--primary); font: .68rem var(--font-mono); }
+.estudo-planos__aviso { position: absolute; width: 1px; height: 1px; overflow: hidden; clip-path: inset(50%); white-space: nowrap; }
+
+/* IA: nota e cartão de sugestão do agente */
+.estudo-planos__ia { display: grid; gap: .75rem; }
+.estudo-planos__janela--nota .estudo-planos__janela-corpo { min-height: 9.5rem; }
+.estudo-planos__colar { display: inline-flex; align-items: center; justify-self: start; gap: .5rem; min-height: 44px; padding-inline: .7rem; border: 1px dashed var(--primary); border-radius: .25rem; background: none; color: var(--primary); font: .72rem var(--font-mono); cursor: pointer; }
+.estudo-planos__colar:hover { background: color-mix(in srgb, var(--primary) 10%, transparent); }
+.estudo-planos__cartao { display: grid; align-content: start; gap: .9rem; padding: 1rem; border: 1px solid color-mix(in srgb, var(--primary) 45%, var(--border)); border-radius: .25rem; background: color-mix(in srgb, var(--primary) 6%, var(--card)); }
+.estudo-planos__cartao-topo { display: flex; align-items: center; gap: .4rem; color: var(--primary); font: .66rem var(--font-mono); }
+.estudo-planos__cartao-texto { color: var(--foreground); font-size: .88rem; line-height: 1.5; }
+.estudo-planos__cartao-texto code { color: var(--primary); font: .78rem var(--font-mono); overflow-wrap: anywhere; }
+.estudo-planos__cartao-acoes { display: flex; flex-wrap: wrap; gap: .5rem; }
+.estudo-planos__botao { display: inline-flex; align-items: center; gap: .4rem; min-height: 44px; padding-inline: .8rem; border: 1px solid var(--border); border-radius: .25rem; background: none; color: var(--color-tinta-media); font-size: .8rem; cursor: pointer; transition: border-color 180ms, color 180ms, background 180ms; }
+.estudo-planos__botao:hover { border-color: var(--color-regua-forte); color: var(--foreground); }
+.estudo-planos__botao--principal { border-color: var(--primary); background: var(--primary); color: var(--primary-foreground); font-weight: 600; }
+.estudo-planos__botao--principal:hover { border-color: var(--primary); background: color-mix(in srgb, var(--primary) 85%, var(--foreground)); color: var(--primary-foreground); }
+
+@keyframes estudo-planos-destaque { from { background: color-mix(in srgb, var(--primary) 28%, transparent); } to { background: transparent; } }
+
+@media (min-width: 640px) {
+  .estudo-planos__painel { padding: 1.5rem 1.25rem 1.25rem; }
+  .estudo-planos__sync { grid-template-columns: minmax(0, 1fr) 8.5rem minmax(0, 1fr); }
+  .estudo-planos__meio { flex-direction: row; }
+  .estudo-planos__fio { flex: 1; width: auto; min-width: .4rem; height: 2px; }
+  .estudo-planos__fio::after { transform: scaleX(0); transform-origin: left; }
+  .estudo-planos__sync:not([data-etapa="parado"]) .estudo-planos__fio--ida::after,
+  .estudo-planos__sync[data-etapa="recebendo"] .estudo-planos__fio--volta::after,
+  .estudo-planos__sync[data-etapa="chegou"] .estudo-planos__fio--volta::after { transform: scaleX(1); }
+  .estudo-planos__ia { grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); }
+}
+
+@media (min-width: 1024px) and (max-width: 1279px) {
+  .estudo-planos__painel { padding-inline: .75rem; }
+  .estudo-planos__sync { grid-template-columns: minmax(0, 1fr) 7.25rem minmax(0, 1fr); }
+  .estudo-planos__cifra { width: 5.75rem; }
+  .estudo-planos__linha { font-size: .68rem; }
+  .estudo-planos__linha--livre { font-size: .8rem; }
+}
+
+@media (min-width: 1280px) {
+  .estudo-planos__painel { padding: 1.75rem 1.5rem 1.5rem; }
+  .estudo-planos__sync { grid-template-columns: minmax(0, 1fr) 11rem minmax(0, 1fr); }
+  .estudo-planos__cifra { width: 7.5rem; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .estudo-planos *, .estudo-planos *::before, .estudo-planos *::after { animation: none !important; transition: none !important; }
+}
