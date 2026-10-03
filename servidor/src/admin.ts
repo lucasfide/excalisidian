@@ -1,4 +1,7 @@
 // servidor/src/admin.ts
+// (`apagar-conta <email> --confirmar` e `acessos <email> [desde] [ate]` vieram depois, com a
+// empresa vendedora: LGPD art. 18 VI e Marco Civil art. 15 — doc 18 §4, ADR-46. `acessos` é a
+// única saída do servidor que mostra IP.)
 // Ponto de entrada de `excalisidian-admin` (Task 6, doc 18 §4; `vaults`/`apagar-vault` vieram
 // depois, no plano "sincronização mais simples", Task 1; `superior`/`uso` vieram com a IA no
 // servidor, doc 18 §5): sete comandos, lendo a mesma
@@ -23,6 +26,7 @@ import { abrirBanco, type BancoSqlite } from "./banco";
 import { ArmazenamentoSqlite, bytesUsadosPelaConta } from "./armazenamentoSync";
 import { carregarConfig } from "./config";
 import { COTA_POR_FAIXA, periodoDe, saldoDaConta, type FaixaIa } from "./creditosIa";
+import { listarRegistrosAcesso } from "./registrosAcesso";
 
 interface LinhaConta {
   id: number;
@@ -192,6 +196,86 @@ export async function apagarVaultDaConta(
   await armazenamento.apagar(vaultId);
 }
 
+export interface ResumoContaApagada {
+  email: string;
+  vaults: number;
+  bytes: number;
+  registrosAcessoMantidos: number;
+}
+
+/** O que `apagar-conta` apagaria: quantos vaults e quantos bytes de pacotes. Só números. */
+export function resumoParaApagarConta(banco: BancoSqlite, email: string): { vaults: number; bytes: number } {
+  const conta = buscarContaPorEmail(banco, email);
+  if (!conta) {
+    throw new Error(`e-mail nao encontrado: ${normalizarEmail(email)}`);
+  }
+  const { total } = banco.prepare(`select count(*) as total from vaults where conta_id = ?`).get(conta.id) as {
+    total: number;
+  };
+  return { vaults: total, bytes: bytesUsadosPelaConta(banco, conta.id) };
+}
+
+/** `apagar-conta <email> --confirmar` (LGPD art. 18, VI; GDPR art. 17): apaga a conta e tudo o
+ * que é dela — sessões, vaults (metadados e arquivos de pacote em disco, pelo mesmo caminho de
+ * `apagar-vault`) e contadores de créditos. NÃO apaga `registros_acesso`: a guarda de 6 meses é
+ * obrigação legal (Marco Civil, art. 15) e a tabela não depende da conta (ADR-46). Repetir o
+ * comando depois de uma interrupção é seguro: cada passo é idempotente. */
+export async function apagarContaCompleta(
+  banco: BancoSqlite,
+  pastaDados: string,
+  email: string,
+): Promise<ResumoContaApagada> {
+  const conta = buscarContaPorEmail(banco, email);
+  if (!conta) {
+    throw new Error(`e-mail nao encontrado: ${normalizarEmail(email)}`);
+  }
+  const bytes = bytesUsadosPelaConta(banco, conta.id);
+  const ids = (banco.prepare(`select id from vaults where conta_id = ?`).all(conta.id) as { id: string }[]).map(
+    (linha) => linha.id,
+  );
+  const armazenamento = new ArmazenamentoSqlite(banco, pastaDados, conta.id);
+  for (const id of ids) {
+    await armazenamento.apagar(id);
+  }
+  banco.transaction(() => {
+    banco.prepare(`delete from uso_ia where conta_id = ?`).run(conta.id);
+    banco.prepare(`delete from sessoes where conta_id = ?`).run(conta.id);
+    banco.prepare(`delete from contas where id = ?`).run(conta.id);
+  })();
+  const { total } = banco
+    .prepare(`select count(*) as total from registros_acesso where email_conta = ?`)
+    .get(conta.email) as { total: number };
+  return { email: conta.email, vaults: ids.length, bytes, registrosAcessoMantidos: total };
+}
+
+const PADRAO_SO_DATA = /^\d{4}-\d{2}-\d{2}$/;
+
+/** Lê `AAAA-MM-DD` (dia inteiro, UTC) ou um instante ISO completo (ex.: `2026-10-03T14:00:00Z`).
+ * No `ate`, uma data sem hora vale até o fim daquele dia. */
+function lerInstanteDeAcessos(texto: string, fimDoDia: boolean): number {
+  const completo = PADRAO_SO_DATA.test(texto) ? `${texto}T00:00:00.000Z` : texto;
+  const ms = Date.parse(completo);
+  if (!Number.isFinite(ms)) {
+    throw new Error(`data invalida: ${texto} (use AAAA-MM-DD ou AAAA-MM-DDTHH:MM:SSZ)`);
+  }
+  return PADRAO_SO_DATA.test(texto) && fimDoDia ? ms + 24 * 60 * 60 * 1000 - 1 : ms;
+}
+
+/** `acessos <email> [desde] [ate]`: registros de acesso da conta (por e-mail, valem também para
+ * conta já apagada), um por linha, em UTC. É a única saída do servidor que mostra IP — para
+ * atender ordem judicial (Marco Civil, art. 15 §3). */
+export function acessosDaConta(banco: BancoSqlite, email: string, desde?: string, ate?: string): string {
+  const emailNormalizado = normalizarEmail(email);
+  const desdeMs = desde ? lerInstanteDeAcessos(desde, false) : undefined;
+  const ateMs = ate ? lerInstanteDeAcessos(ate, true) : undefined;
+  const registros = listarRegistrosAcesso(banco, emailNormalizado, desdeMs, ateMs);
+  if (registros.length === 0) return "nenhum registro de acesso.";
+  return [
+    `${emailNormalizado} — ${registros.length} registro(s), horario UTC`,
+    ...registros.map((r) => `${new Date(r.instante).toISOString()}\t${r.ip}\t${r.evento}`),
+  ].join("\n");
+}
+
 /** Corpo dos comandos, separado de `main()` para os testes chamarem sem passar por
  * `process.argv`/`process.exit`. Devolve o texto a imprimir; lança em caso de erro de uso. */
 export async function executarComando(
@@ -200,7 +284,7 @@ export async function executarComando(
   argumentos: string[],
   agoraMs: number = Date.now(),
 ): Promise<string> {
-  const [comando, primeiroArgumento, segundoArgumento] = argumentos;
+  const [comando, primeiroArgumento, segundoArgumento, terceiroArgumento] = argumentos;
 
   switch (comando) {
     case "premium": {
@@ -236,8 +320,32 @@ export async function executarComando(
       await apagarVaultDaConta(banco, pastaDados, primeiroArgumento, segundoArgumento);
       return `${normalizarEmail(primeiroArgumento)}: vault ${segundoArgumento} apagado`;
     }
+    case "apagar-conta": {
+      if (!primeiroArgumento || primeiroArgumento.startsWith("--")) {
+        throw new Error("uso: excalisidian-admin apagar-conta <email> --confirmar");
+      }
+      const resumo = resumoParaApagarConta(banco, primeiroArgumento);
+      if (segundoArgumento !== "--confirmar") {
+        throw new Error(
+          `${normalizarEmail(primeiroArgumento)}: isto apaga a conta, ${resumo.vaults} vault(s) e ${resumo.bytes} bytes ` +
+            `na nuvem, as sessoes e os creditos, sem volta. Para confirmar: ` +
+            `excalisidian-admin apagar-conta ${primeiroArgumento} --confirmar`,
+        );
+      }
+      const apagada = await apagarContaCompleta(banco, pastaDados, primeiroArgumento);
+      return (
+        `${apagada.email}: conta apagada (${apagada.vaults} vault(s), ${apagada.bytes} bytes). ` +
+        `${apagada.registrosAcessoMantidos} registro(s) de acesso mantido(s) ate vencer 6 meses (obrigacao legal).`
+      );
+    }
+    case "acessos": {
+      if (!primeiroArgumento) throw new Error("uso: excalisidian-admin acessos <email> [desde] [ate]");
+      return acessosDaConta(banco, primeiroArgumento, segundoArgumento, terceiroArgumento);
+    }
     default:
-      throw new Error("uso: excalisidian-admin <premium|superior|gratis|contas|uso|vaults|apagar-vault> [email] [id]");
+      throw new Error(
+        "uso: excalisidian-admin <premium|superior|gratis|contas|uso|vaults|apagar-vault|apagar-conta|acessos> [email] [id|--confirmar|desde] [ate]",
+      );
   }
 }
 

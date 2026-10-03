@@ -123,6 +123,26 @@ const MIGRACOES: readonly Migracao[] = [
       );
     `);
   },
+  // Migração 7 (Marco Civil da Internet, art. 15; doc 18 §1 e §4, ADR-46): registros de acesso,
+  // guardados por 6 meses. Aditiva — só cria tabela e índices, nada do que já existe muda.
+  // `conta_id` NÃO é chave estrangeira e `email_conta` repete o e-mail do momento do acesso, de
+  // propósito: o registro precisa sobreviver à exclusão da conta (`apagar-conta`) e continuar
+  // achável pelo e-mail para atender uma ordem judicial. `instante` é epoch UTC em ms.
+  (db) => {
+    db.exec(`
+      create table registros_acesso (
+        id integer primary key autoincrement,
+        conta_id integer not null,
+        email_conta text not null,
+        ip text not null,
+        instante integer not null,
+        evento text not null check (evento in ('criar-conta', 'entrar', 'renovar', 'uso'))
+      );
+      create index idx_registros_acesso_instante on registros_acesso(instante);
+      create index idx_registros_acesso_email on registros_acesso(email_conta, instante);
+      create index idx_registros_acesso_uso on registros_acesso(conta_id, ip, evento, instante);
+    `);
+  },
 ];
 
 export function abrirBanco(pastaDados: string): BancoSqlite {

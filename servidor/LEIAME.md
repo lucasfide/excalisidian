@@ -347,3 +347,49 @@ lucas@vps:~$ excalisidian-admin apagar-vault email-da-pessoa@example.com id-do-v
 
 Devolve uma linha de confirmação, ou um erro se o e-mail não tem conta ou o vault não existe
 (ou não é dessa conta) — nunca apaga silenciosamente um id digitado errado.
+
+## Apagar uma conta **[muda a VPS]**
+
+Para atender um pedido de exclusão de dados (LGPD art. 18, VI; GDPR art. 17). Primeiro, sem
+confirmar, para ver o que seria apagado (não apaga nada):
+
+```
+lucas@vps:~$ excalisidian-admin apagar-conta email-da-pessoa@example.com
+```
+
+Ele responde quantos vaults e quantos bytes seriam apagados e repete o comando com
+`--confirmar`. Para apagar de verdade:
+
+```
+lucas@vps:~$ excalisidian-admin apagar-conta email-da-pessoa@example.com --confirmar
+```
+
+Apaga a conta, as sessões, os vaults (metadados e arquivos de pacote em disco) e os contadores
+de créditos. No fim mostra só números (vaults, bytes, registros de acesso mantidos), nunca
+conteúdo. **Não** apaga os registros de acesso da seção abaixo: a guarda de 6 meses é obrigação
+legal e eles seguem até vencer. Os arquivos continuam nos computadores da pessoa; só a cópia na
+nuvem some. O backup diário ainda terá a conta até girar (7 dias). Se o comando for interrompido,
+pode rodar de novo.
+
+## Registros de acesso (Marco Civil da Internet) **[a migração muda o banco da VPS]**
+
+O servidor grava, por 6 meses (183 dias), a data e a hora de uso de cada conta a partir de um
+endereço IP (criar conta, entrar, renovar e, no máximo uma vez por hora por IP, uso). É
+obrigação legal, em sigilo: nunca aparece no log nem em rota da API. O próprio serviço apaga o
+que passou de 183 dias, ao subir e a cada 24 h. Nada a configurar.
+
+Na primeira atualização depois desta mudança, o servidor cria a tabela `registros_acesso`
+sozinho ao subir (migração 7, só acrescenta; nada que existe é alterado). Atualize como na seção
+"Atualização"; o `excalisidian-admin` instalado em `/usr/local/bin` não precisa ser recopiado.
+
+Para atender uma ordem judicial, os registros de uma conta (inclusive de conta já apagada,
+pelo e-mail guardado), do mais antigo ao mais novo, em horário UTC:
+
+```
+lucas@vps:~$ excalisidian-admin acessos email-da-pessoa@example.com
+lucas@vps:~$ excalisidian-admin acessos email-da-pessoa@example.com 2026-09-01 2026-09-30
+```
+
+`desde` e `ate` são opcionais: `AAAA-MM-DD` (dia inteiro, em UTC) ou `AAAA-MM-DDTHH:MM:SSZ`.
+Cada linha é `instante  IP  evento`. É a única saída do servidor que mostra IP; não cole a saída
+em lugar nenhum além da resposta à ordem.

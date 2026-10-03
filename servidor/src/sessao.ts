@@ -6,6 +6,7 @@
 import crypto from "node:crypto";
 import type { FastifyReply, FastifyRequest } from "fastify";
 import type { BancoSqlite } from "./banco";
+import { registrarUsoSeNovaHora } from "./registrosAcesso";
 import type { PlanoAssinatura } from "./tipos";
 
 /** 30 dias, em milissegundos — mesma unidade de `Sessao.expiraEm` (epoch em ms) do app. */
@@ -153,6 +154,7 @@ export function resolverSessao(
 }
 
 export interface ResultadoRenovar {
+  contaId: number;
   token: string;
   email: string;
   plano: PlanoAssinatura;
@@ -209,7 +211,7 @@ export function renovarSessao(banco: BancoSqlite, tokenAntigo: string, agora: nu
     const emCache = cacheDoBanco(banco).get(nova.id);
     if (!emCache) return undefined; // defensivo: dentro da janela isto sempre deveria existir
 
-    return { token: emCache.token, email: linha.email, plano: linha.plano, expiraEm: emCache.expiraEm };
+    return { contaId: linha.contaId, token: emCache.token, email: linha.email, plano: linha.plano, expiraEm: emCache.expiraEm };
   }
 
   if (linha.expiraEm < agora) return undefined;
@@ -218,7 +220,7 @@ export function renovarSessao(banco: BancoSqlite, tokenAntigo: string, agora: nu
   banco.prepare(`update sessoes set substituida_por = ?, substituida_em = ? where id = ?`).run(sessaoNova.id, agora, linha.id);
   cacheDoBanco(banco).set(sessaoNova.id, { token: sessaoNova.token, expiraEm: sessaoNova.expiraEm });
 
-  return { token: sessaoNova.token, email: linha.email, plano: linha.plano, expiraEm: sessaoNova.expiraEm };
+  return { contaId: linha.contaId, token: sessaoNova.token, email: linha.email, plano: linha.plano, expiraEm: sessaoNova.expiraEm };
 }
 
 export function extrairBearer(request: FastifyRequest): string | undefined {
@@ -246,6 +248,9 @@ export async function exigirSessao(request: FastifyRequest, reply: FastifyReply)
   }
   request.conta = { id: linha.contaId, email: linha.email, plano: linha.plano };
   request.tokenSessao = token;
+  // Registro de acesso (Marco Civil, ADR-46): `uso` no primeiro pedido autenticado de cada hora
+  // por (conta, IP). Só depois da sessão válida — pedido que falha na autenticação não grava.
+  registrarUsoSeNovaHora(banco, request.conta, request.ip, Date.now());
 }
 
 /**

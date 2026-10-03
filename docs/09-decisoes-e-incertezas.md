@@ -1952,12 +1952,20 @@ código significa que qualquer um pode copiar, modificar e **revender o app** �
 funcionalidades que se pretende cobrar. Isso não é erro de terceiros: é escolha de licença
 própria. Se a intenção é cobrar e proteger o produto, o caminho é trocar a licença do app para
 proprietária (ou source-available com restrição de revenda) — as versões já publicadas sob MIT
-continuam MIT para quem as baixou, então a mudança só vale de uma versão para frente. Decisão
-do usuário, não tomada aqui; nenhuma ação foi feita sobre o `LICENSE`.
+continuam MIT para quem as baixou, então a mudança só vale de uma versão para frente. **Decisão do
+dono (03/10/2026):** a partir da próxima versão o app deixa de ser MIT e passa a ser
+proprietário com código visível ("Excalisidian Source-Available License", `LICENSE`): ler o
+código é livre; copiar, modificar para distribuir, redistribuir, sublicenciar e vender não. O
+uso do app segue os Termos de uso. Versões já publicadas continuam MIT; terceiros seguem as
+próprias licenças; `CONTRIBUTING.md` exige cessão de direito de relicenciar nas contribuições.
 
 **Pendência registrada:** a lista de avisos cobre Excalidraw, o editor vendorizado e as
 fontes, mas não reproduz o texto de cada um dos demais pacotes npm (todos permissivos). Montar
-a lista completa antes de um lançamento público que não seja beta.
+a lista completa antes de um lançamento público que não seja beta. **Resolvida (03/10/2026):**
+`scripts/gerar-licencas-terceiros.mjs` (`npm run licencas`) gera a lista completa de pacotes
+npm e crates Rust no fim do `THIRD_PARTY_LICENSES.md`. Cinco crates MPL-2.0 do Tauri são usadas
+sem modificação, com o aviso de onde está o código-fonte. 71 pacotes não publicam arquivo de
+licença; entram com a licença declarada no manifesto, autoria e repositório.
 
 **Condição de reversão:** se o produto voltar a ser distribuído só como uso pessoal, nada
 disso precisa ser desfeito — manter os avisos não custa nada e já está no lugar. Só o item 3
@@ -2113,3 +2121,45 @@ abrir o formulário.
 **Condição de reversão:** se a IA própria voltar a expor escolhas configuráveis de modelo,
 web search ou limite que justifiquem uma revisão, reavaliar o fluxo de dois passos; não adicionar
 esses controles enquanto o servidor mantiver modelos lógicos e ausência de limite em dólar.
+
+### ADR-46 · Apagar conta e registros de acesso (Marco Civil)
+
+**Contexto:** o Excalisidian passa a cobrar por meio de uma empresa (CNPJ). Isso traz duas
+obrigações legais que o servidor ainda não cumpria: (1) a pessoa pode pedir a exclusão dos
+próprios dados (LGPD art. 18, VI; GDPR art. 17); (2) empresa que oferece aplicação na internet
+com fins econômicos deve guardar, por 6 meses e em sigilo, os registros de acesso — data e hora
+de uso a partir de um endereço IP (Marco Civil da Internet, Lei 12.965/2014, art. 15). As duas
+obrigações se tocam: apagar a conta não pode apagar o que a lei manda guardar.
+
+**Decisão:** (a) `excalisidian-admin apagar-conta <email> --confirmar` apaga a conta e tudo o que
+é dela (sessões, vaults com metadados e arquivos de pacote, contadores de créditos) e mostra só
+números; sem `--confirmar` apenas informa o que apagaria. Os arquivos continuam nos computadores
+da pessoa. A conta ainda existe nos backups até girarem (7 dias), o que a política de privacidade
+diz. (b) Tabela `registros_acesso`, sem chave estrangeira e com o e-mail do momento, para
+sobreviver à exclusão da conta e continuar achável por ele. Grava em criar conta, entrar e
+renovar, e `uso` no primeiro pedido autenticado de cada hora por (conta, IP); pedido que falha na
+autenticação não grava. Retenção de 183 dias, apagada pelo próprio processo do servidor ao subir
+e a cada 24 h. O IP não entra no log, não sai por rota HTTP e só aparece em
+`excalisidian-admin acessos <email> [desde] [ate]`, para atender ordem judicial. Detalhes em
+`docs/18-servidor.md` §3 e §4.
+
+**Alternativa rejeitada:** apagar também os registros de acesso junto com a conta. Atende o
+pedido de exclusão, mas descumpre a guarda de 6 meses. Também rejeitado: gravar um registro por
+pedido (cresce sem necessidade, o art. 15 pede o registro de acesso, não de cada chamada) e fazer
+a limpeza no script de backup das 03:00 (a obrigação não deve depender de um timer externo).
+
+**Consequências:** o servidor passa a guardar IP, dado pessoal, por 6 meses; isso entra na
+política de privacidade (finalidade: obrigação legal) junto com a frase "some dos backups em até
+7 dias". O limite entre "apagar a pedido" e "guardar por lei" é esta separação de tabelas: quem
+alterar `apagar-conta` não deve tocar em `registros_acesso`. A ordem judicial é atendida na VPS,
+por quem tem acesso a ela, sem rota na API. Gravar um registro por hora e IP é uma escolha de
+volume, não de lei; o art. 15 não define granularidade.
+
+**Isto não é aconselhamento jurídico.** Os artigos, o prazo de 6 meses e o tratamento dos
+backups refletem a leitura do dono do produto e do assistente; confirmar com advogado ou
+contador antes de depender deles, em especial a retenção em backups e a base legal do IP no
+GDPR.
+
+**Condição de reversão:** se o advogado ou a lei pedir prazo, granularidade ou lugar de guarda
+diferentes, mudar `RETENCAO_REGISTROS_ACESSO_MS` e `INTERVALO_REGISTRO_USO_MS` em
+`servidor/src/registrosAcesso.ts`, sem mexer no resto.

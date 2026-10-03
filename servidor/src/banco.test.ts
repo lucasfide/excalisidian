@@ -27,7 +27,7 @@ describe("abrirBanco", () => {
     expect(modo).toBe("wal");
 
     const linhas = db.prepare("select versao from migracoes_versao order by versao").all();
-    expect(linhas).toEqual([{ versao: 1 }, { versao: 2 }, { versao: 3 }, { versao: 4 }, { versao: 5 }, { versao: 6 }]);
+    expect(linhas).toEqual([{ versao: 1 }, { versao: 2 }, { versao: 3 }, { versao: 4 }, { versao: 5 }, { versao: 6 }, { versao: 7 }]);
 
     db.close();
   });
@@ -38,9 +38,23 @@ describe("abrirBanco", () => {
     expect(() => migrar(db)).not.toThrow();
 
     const linhas = db.prepare("select versao from migracoes_versao order by versao").all();
-    expect(linhas).toEqual([{ versao: 1 }, { versao: 2 }, { versao: 3 }, { versao: 4 }, { versao: 5 }, { versao: 6 }]);
+    expect(linhas).toEqual([{ versao: 1 }, { versao: 2 }, { versao: 3 }, { versao: 4 }, { versao: 5 }, { versao: 6 }, { versao: 7 }]);
 
     db.close();
+  });
+
+  it("migração 7 (registros de acesso) é aditiva: um banco na versão 6, com dados, ganha só a tabela nova", () => {
+    const antigo = abrirBanco(pastaTemporaria);
+    antigo
+      .prepare(`insert into contas (email, sal, hash, plano, criada_em) values ('a@x.com', x'01', x'02', 'premium', 1)`)
+      .run();
+    antigo.exec(`drop table registros_acesso; delete from migracoes_versao where versao = 7;`);
+    antigo.close();
+
+    const novo = abrirBanco(pastaTemporaria);
+    expect(novo.prepare(`select email, plano from contas`).all()).toEqual([{ email: "a@x.com", plano: "premium" }]);
+    expect(novo.prepare(`select count(*) as n from registros_acesso`).get()).toEqual({ n: 0 });
+    novo.close();
   });
 
   it("abrir o banco duas vezes (dois processos simulados) não dá erro", () => {

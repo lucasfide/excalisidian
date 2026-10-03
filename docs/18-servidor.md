@@ -24,6 +24,13 @@ Onde o servidor e esses contratos divergirem, o servidor está errado.
   prova de identidade — nunca a senha), as sessões de quem está conectado, e os pacotes lacrados
   da sincronização. Nenhum desses pacotes ele consegue abrir. Para a IA, guarda só a conta de
   créditos de cada mês (números, nunca texto).
+- Uma quarta coisa existe por obrigação legal, não por produto: os **registros de acesso** (Marco
+  Civil da Internet, art. 15, ADR-46). Cada linha diz que uma conta (por id e pelo e-mail do
+  momento) usou o serviço a partir de um endereço IP num certo instante, com o tipo de evento
+  (`criar-conta`, `entrar`, `renovar` ou `uso`). Ficam 6 meses (183 dias), em sigilo, numa tabela
+  à parte (`registros_acesso`) que não depende da conta: apagar a conta não apaga estes registros.
+  Nunca saem por rota HTTP, nunca vão para o log; só o dono do produto os lê, na VPS, com
+  `excalisidian-admin acessos` (§4), para atender ordem judicial.
 - Os pedidos de IA de contas premium passam por ele a caminho do fornecedor de IA: o texto das
   notas atravessa o servidor, mas não é guardado nem registrado em log (§5).
 - Os outros serviços que já rodam na VPS continuam como estão. Só as portas da web (80 e 443)
@@ -59,7 +66,9 @@ Onde o servidor e esses contratos divergirem, o servidor está errado.
 - **Espaço:** 5 GiB de pacotes por conta premium; acima → 507.
 - **Tamanho:** um lote ou parte de retrato acima de 8 MiB + 28 bytes → 413.
 - **Logs:** método, rota sem parâmetros, status e duração. Nunca e-mail, token, prova, corpo ou
-  id de vault.
+  id de vault. **Nem IP:** o log (stdout, `journalctl`) segue sem endereço IP. O IP existe em um
+  único lugar, a tabela `registros_acesso` (§4), que não é log: não vai para stdout e nenhuma rota
+  a devolve.
 - **Registro de IA:** cada pedido que chega ao fornecedor gera uma linha JSON a mais no stdout
   (além da linha da requisição), com `evento: "ia"`, o modelo lógico, `resultado` (`ok` ou
   `falha`), `duracaoFornecedorMs` e `tentativas`. Na falha vêm também `motivo` (`http`, `tempo`,
@@ -91,6 +100,32 @@ Onde o servidor e esses contratos divergirem, o servidor está errado.
   `excalisidian-admin apagar-vault <email> <id>` (confere que o vault é dessa conta antes de
   apagar metadados e arquivos; os arquivos continuam em qualquer computador já sincronizado, só
   a cópia na nuvem some). Passo a passo no `servidor/LEIAME.md`.
+- **Apagar conta** (LGPD art. 18, VI; GDPR art. 17):
+  `excalisidian-admin apagar-conta <email> --confirmar`. Sem `--confirmar` nada é apagado: o
+  comando só diz quantos vaults e bytes seriam apagados e como confirmar. Com ele, apaga a conta e
+  tudo o que é dela: sessões, vaults (metadados **e** arquivos de pacote em disco, pelo mesmo
+  caminho do `apagar-vault`) e os contadores de créditos. No fim mostra só números (quantos vaults,
+  quantos bytes, quantos registros de acesso foram mantidos), nunca conteúdo. **Não** apaga os
+  registros de acesso (abaixo). O comando pode ser repetido com segurança se for interrompido. O
+  backup diário (acima) guarda 7 dias: a conta apagada ainda existe nos backups até eles girarem,
+  então a política de privacidade deve dizer que ela some dos backups em até 7 dias. Os arquivos
+  continuam em qualquer computador já sincronizado; só a cópia na nuvem some.
+- **Registros de acesso** (Marco Civil da Internet, art. 15; ADR-46): empresa que oferece
+  aplicação na internet com fins econômicos guarda, por 6 meses e em sigilo, a data e a hora de uso
+  a partir de um IP. Tabela `registros_acesso`: id da conta e e-mail da conta no momento (sem chave
+  estrangeira, para sobreviver à exclusão), IP (`request.ip`, já correto atrás do Caddy), instante
+  em UTC (ms) e evento. Grava em **criar conta**, **entrar** e **renovar** (só quando deu certo) e
+  `uso` no primeiro pedido autenticado de cada hora por (conta, IP), para não gravar uma linha por
+  pedido; pedido que falha na autenticação (401, 429, prova errada) não grava. **Retenção:** o
+  próprio processo do servidor apaga o que tem mais de 183 dias ao subir e depois a cada 24 h
+  (um `setInterval` com `unref`, `agendarLimpezaDeRegistrosAcesso` em `principal.ts`). Escolhido
+  em vez do script de backup das 03:00 porque a retenção legal não deve depender de um timer
+  externo que pode ser desligado, e porque o serviço reinicia a cada atualização, o que já
+  dispara uma limpeza. Os registros entram nos backups de 7 dias como o resto do banco.
+  **Ordem judicial:** `excalisidian-admin acessos <email> [desde] [ate]` lista os registros da
+  conta (um por linha: instante UTC, IP, evento), inclusive de conta já apagada, pelo e-mail
+  guardado. `desde` e `ate` são `AAAA-MM-DD` (o dia inteiro, em UTC) ou `AAAA-MM-DDTHH:MM:SSZ`.
+  É a única saída do servidor que mostra IP; fica restrita a quem tem acesso à VPS.
 - **Chave da IA:** `sudo excalisidian-configurar-ia`, na VPS, pede a chave sem mostrá-la na
   tela, grava `/etc/excalisidian/ia.env` e reinicia o serviço (§5.3).
 - **Sessões:** `renovar` é tolerante a chamadas simultâneas com o mesmo token (várias

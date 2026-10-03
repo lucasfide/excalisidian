@@ -13,6 +13,7 @@ import type { FastifyInstance, FastifyReply, FastifyRequest } from "fastify";
 import { LimiteDeTentativas } from "./limiteDeTentativas";
 import { gastarTempoDeEmailInexistente, gerarSal, provaConfere, derivarHashDaProva } from "./prova";
 import { criarSessao, exigirPremium, exigirSessao, extrairBearer, renovarSessao, revogarSessaoPorToken } from "./sessao";
+import { registrarAcesso } from "./registrosAcesso";
 import type { SessaoResposta } from "./tipos";
 import { ArmazenamentoSqlite, bytesUsadosPelaConta, COTA_BYTES_POR_CONTA, TAMANHO_MAXIMO_PACOTE } from "./armazenamentoSync";
 
@@ -117,6 +118,7 @@ export async function rotasApi(
       }
 
       const sessao = criarSessao(banco, contaId, agora());
+      registrarAcesso(banco, { id: contaId, email: emailNormalizado }, request.ip, "criar-conta", agora());
       return reply.code(200).send(sessaoResposta(emailNormalizado, "gratis", sessao.token, sessao.expiraEm));
     },
   );
@@ -150,6 +152,7 @@ export async function rotasApi(
       if (!confere) return reply.code(401).send();
 
       const sessao = criarSessao(banco, conta.id, agora());
+      registrarAcesso(banco, { id: conta.id, email: conta.email }, request.ip, "entrar", agora());
       return reply.code(200).send(sessaoResposta(conta.email, conta.plano, sessao.token, sessao.expiraEm));
     },
   );
@@ -165,6 +168,7 @@ export async function rotasApi(
     const resultado = renovarSessao(banco, token, agora());
     if (!resultado) return reply.code(401).send();
 
+    registrarAcesso(banco, { id: resultado.contaId, email: resultado.email }, request.ip, "renovar", agora());
     return reply.code(200).send(sessaoResposta(resultado.email, resultado.plano, resultado.token, resultado.expiraEm));
   });
 
