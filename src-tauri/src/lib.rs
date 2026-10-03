@@ -111,7 +111,9 @@ pub fn run() {
                     .lock()
                     .unwrap()
                     .remove(&label);
-                window.state::<trava_sync::TravasSync>().liberar_todas(&label);
+                window
+                    .state::<trava_sync::TravasSync>()
+                    .liberar_todas(&label);
             }
         })
         .run(tauri::generate_context!())

@@ -79,7 +79,12 @@ pub fn tentar_travar_sync(
 
 /// Libera a trava de `path`, só se `dono` for exatamente quem a tem.
 #[tauri::command]
-pub fn liberar_trava_sync(_window: Window, travas: State<'_, TravasSync>, path: String, dono: String) {
+pub fn liberar_trava_sync(
+    _window: Window,
+    travas: State<'_, TravasSync>,
+    path: String,
+    dono: String,
+) {
     let chave = normalizar_chave(&path);
     travas.liberar(&chave, &dono);
 }
