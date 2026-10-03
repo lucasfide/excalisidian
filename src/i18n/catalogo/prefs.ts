@@ -23,12 +23,12 @@ export const PT_BR_PREFS = {
   "prefs.geral.atualizacoes.descricao": "Versão {versao}",
   "prefs.geral.atualizacoes.botao": "Verificar atualizações",
 
-  // ADR-42 (doc 09): atribuição de terceiros — o MIT exige o aviso de copyright e o texto da
+  // ADR-42 (doc 09): atribuição de terceiros — as licenças de terceiros exigem o aviso de copyright e o texto da
   // licença junto das cópias distribuídas (o instalador já leva LICENSE e
   // THIRD_PARTY_LICENSES.md via bundle.resources); isto aqui é a versão curta, visível.
   "prefs.geral.licencas.titulo": "Licenças e créditos",
   "prefs.geral.licencas.linha1":
-    "Excalisidian — MIT · Copyright (c) 2026 Lucas Fidelis de Cristo",
+    "Excalisidian — código visível, todos os direitos reservados · Copyright (c) 2026 Lucas Fidelis de Cristo",
   "prefs.geral.licencas.linha2":
     "Diagramas: Excalidraw embutido via @excalidraw/excalidraw — MIT · Copyright (c) 2020 Excalidraw.",
   "prefs.geral.licencas.linha3":
@@ -121,7 +121,7 @@ export const EN_PREFS: Partial<Record<keyof typeof PT_BR_PREFS, string>> = {
   "prefs.geral.atualizacoes.botao": "Check for updates",
 
   "prefs.geral.licencas.titulo": "Licenses and credits",
-  "prefs.geral.licencas.linha1": "Excalisidian — MIT · Copyright (c) 2026 Lucas Fidelis de Cristo",
+  "prefs.geral.licencas.linha1": "Excalisidian — source-available, all rights reserved · Copyright (c) 2026 Lucas Fidelis de Cristo",
   "prefs.geral.licencas.linha2":
     "Diagrams: Excalidraw embedded via @excalidraw/excalidraw — MIT · Copyright (c) 2020 Excalidraw.",
   "prefs.geral.licencas.linha3":

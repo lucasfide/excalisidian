@@ -28,6 +28,8 @@
     "active": true,
     "targets": "nsis",
     "createUpdaterArtifacts": true,
+    "copyright": "Copyright (c) 2026 Lucas Fidelis de Cristo. All rights reserved.",
+    "license": "LicenseRef-Excalisidian",
     "resources": {
       "../LICENSE": "licenses/LICENSE",
       "../THIRD_PARTY_LICENSES.md": "licenses/THIRD_PARTY_LICENSES.md"

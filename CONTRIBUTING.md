@@ -33,6 +33,13 @@ npm test
 Os dois precisam passar. A CI roda a mesma coisa, mais `cargo check` e `cargo fmt --check`
 no `src-tauri`.
 
+## Licença das contribuições
+
+O código do Excalisidian é proprietário com código visível (veja `LICENSE`). Ao enviar uma
+contribuição (PR, patch ou sugestão de código), você concede ao titular do projeto o direito
+perpétuo, mundial e gratuito de usá-la, modificá-la, distribuí-la e relicenciá-la sob
+qualquer licença. Sem isso, contribuições externas travariam futuras mudanças de licença.
+
 ## Releases
 
 Só o mantenedor publica releases — veja o fluxo em

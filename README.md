@@ -113,7 +113,7 @@ Veja `CONTRIBUTING.md`.
 
 ## Licença
 
-MIT — veja `LICENSE`. Licenças de terceiros embutidos em `THIRD_PARTY_LICENSES.md`.
+Código visível, licença proprietária (Excalisidian Source-Available License) — veja `LICENSE`. Versões publicadas antes da mudança continuam MIT. Licenças de terceiros embutidos em `THIRD_PARTY_LICENSES.md`.
 
 ## Documentação
 

@@ -1,6 +1,7 @@
 {
   "name": "excalisidian",
   "private": true,
+  "license": "SEE LICENSE IN LICENSE",
   "version": "0.5.6",
   "type": "module",
   "scripts": {
@@ -12,6 +13,7 @@
     "tauri:build:macos": "tauri build --config src-tauri/tauri.macos.conf.json",
     "test": "vitest run",
     "versao": "node scripts/lancar-versao.mjs",
+    "licencas": "node scripts/gerar-licencas-terceiros.mjs",
     "postinstall": "node scripts/copiar-assets-excalidraw.mjs"
   },
   "dependencies": {
