@@ -10,7 +10,8 @@
 - Na sincronização, o conteúdo, os nomes de arquivo e o nome do vault vão cifrados. Não conseguimos ler. Vemos apenas quantos pacotes existem, o tamanho aproximado e quando chegaram.
 - Na IA do Excalisidian, o texto das suas notas passa pelo nosso servidor a caminho do fornecedor de IA. Não o guardamos nem o registramos. O fornecedor pode estar fora do Brasil.
 - Na IA com chave própria, o texto vai direto do seu computador ao provedor que você escolheu, sem passar por nós.
-- Você pode pedir acesso, correção ou exclusão dos seus dados em [[EMAIL_CONTATO]].
+- O pagamento é processado pela Stripe. Nós não vemos o número do seu cartão.
+- Você pode pedir acesso, correção ou exclusão dos seus dados em support@excalisidian.com.
 
 ## 1. Quem é o controlador e como falar conosco
 
@@ -19,9 +20,9 @@ O controlador dos dados tratados pelos serviços online do Excalisidian é:
 - Razão social: [[RAZAO_SOCIAL]]
 - CNPJ: [[CNPJ]]
 - Endereço: [[ENDERECO]]
-- E-mail: [[EMAIL_CONTATO]]
+- E-mail: support@excalisidian.com
 
-Encarregado pelo tratamento de dados pessoais (LGPD, art. 41): [[NOME_DO_ENCARREGADO]], pelo e-mail [[EMAIL_CONTATO]].
+Encarregado pelo tratamento de dados pessoais (LGPD, art. 41): [[NOME_DO_ENCARREGADO]], pelo e-mail support@excalisidian.com.
 
 Esta política cobre o app Excalisidian, o site excalisidian.com e os serviços online opcionais (conta, sincronização e IA do Excalisidian). Ela segue a Lei Geral de Proteção de Dados (LGPD, Lei 13.709/2018) e, para quem está na União Europeia, o GDPR (Regulamento 2016/679). As regras do contrato estão nos [Termos de uso](/termos/).
 
@@ -38,7 +39,7 @@ Por padrão o Excalisidian é um app local. Só tratamos dados nossos quando voc
 | **Usa a IA do Excalisidian** | O texto que o app envia no pedido (trechos e resumos de notas, a conversa com o agente), que só atravessa o servidor; por conta e por mês, apenas números: custo, quantidade de pedidos e tokens de entrada e saída; uma linha de registro técnico sem identificação (seção 7). | Repassar o pedido ao fornecedor de IA, devolver a resposta e contar os créditos. | Execução de contrato (art. 7, V / art. 6(1)(b)). O pedido só sai depois que você configura a IA e aceita o convite do agente ou inicia uma conversa. |
 | **Usa a IA com chave própria** | Nada passa por nós. O texto e a sua chave vão direto do seu computador ao provedor escolhido. | Não tratamos esses dados. | O tratamento é entre você e o provedor, que é o responsável por ele. |
 | **Visita o site** | O servidor que hospeda o site pode registrar o seu endereço IP e dados técnicos da conexão. O site não usa cookies nem ferramentas de análise (seção 11). | Entregar a página e manter o site seguro. | Legítimo interesse (art. 7, IX / art. 6(1)(f)). |
-| **Compra um plano** | O intermediário de pagamento trata os dados do cartão ou de outro meio. Nós recebemos a confirmação e o estado da assinatura (plano, período, situação) e os dados necessários para emitir documentos fiscais. Não vemos o número do cartão. | Cobrar, renovar, reembolsar e cumprir obrigações fiscais. | Execução de contrato (art. 7, V / art. 6(1)(b)) e obrigação legal (art. 7, II / art. 6(1)(c)). |
+| **Compra um plano** | A Stripe trata os dados do cartão. Dela recebemos o nome, o e-mail, o país e os dados de cobrança informados no pagamento, o plano e o estado da assinatura (período, situação) e dados resumidos do cartão, como bandeira e últimos dígitos, nunca o número completo. Para a nota fiscal, os dados exigidos pela legislação fiscal são enviados ao [[EMISSOR_DE_NOTA_FISCAL]]. Não vemos o número do cartão. | Cobrar, renovar, reembolsar e cumprir obrigações fiscais. | Execução de contrato (art. 7, V / art. 6(1)(b)) e obrigação legal (art. 7, II / art. 6(1)(c)). |
 | **Fala com o atendimento** | O e-mail e o conteúdo da mensagem. | Responder, resolver o problema, reembolsar. | Execução de contrato e legítimo interesse (art. 7, V e IX / art. 6(1)(b) e (f)). |
 
 Não vendemos dados pessoais. Não usamos seus dados para publicidade. Não tomamos decisões automatizadas com efeito jurídico sobre você: as respostas da IA são sugestões de texto.
@@ -90,6 +91,8 @@ As salvaguardas que de fato existem são estas:
 - o agente de IA é opcional, vem desligado e só envia algo depois do seu aceite;
 - a IA com chave própria evita o nosso servidor por completo, e com Ollama nada sai do seu computador.
 
+Os dados de pagamento podem ser tratados pela Stripe fora do Brasil, inclusive nos Estados Unidos (grupo Stripe, Inc.), com as salvaguardas contratuais da Stripe, descritas na política dela.
+
 A transferência é necessária para prestar o serviço que você contratou (LGPD, art. 33, IX, combinado com o art. 7, V; GDPR, art. 49(1)(b)). Se você não quiser que o texto das suas notas saia do seu computador, use apenas o app local ou o Ollama.
 
 ## 7. Registros técnicos
@@ -116,7 +119,7 @@ O endereço IP também é usado para atender a conexão e para limitar tentativa
 | Registros de acesso (IP, data e hora, evento) | 6 meses, depois são apagados automaticamente. Ficam mesmo que a conta seja apagada. |
 | Backups do servidor | 7 dias. Um dado apagado pode ainda existir nos backups até esse prazo passar. |
 | Registros técnicos de requisição | Sem dados pessoais. Ficam no registro do sistema do servidor pelo tempo que o sistema os mantém. |
-| Dados de pagamento | Ficam com o intermediário de pagamento. Os documentos fiscais são guardados pelo prazo exigido em lei. |
+| Dados de pagamento | A Stripe guarda pelo prazo dela. Nós guardamos o registro das cobranças e as notas fiscais pelo prazo exigido pela legislação fiscal e tributária. |
 | Mensagens de atendimento | Pelo tempo necessário para resolver o assunto e cumprir obrigações legais. |
 
 ## 9. Com quem compartilhamos (operadores e suboperadores)
@@ -126,7 +129,9 @@ Só compartilhamos o necessário para prestar o serviço:
 - **[[HOSPEDAGEM_DO_SERVIDOR]]:** hospeda o servidor da conta, da sincronização e da IA. Guarda os dados cifrados da sincronização e a base de contas.
 - **OpenRouter** e os **provedores de inferência de IA** para os quais ele encaminha, limitados aos que declaram não guardar nem treinar com os dados: recebem o texto dos pedidos da IA do Excalisidian.
 - **GitHub:** distribui o app e as atualizações. Vê o IP de quem baixa ou consulta atualizações.
-- **Intermediário de pagamento** (a definir; esta política será atualizada com o nome dele antes da primeira cobrança): processa os pagamentos e é responsável pelos dados de cartão.
+- **Stripe Brasil Soluções de Pagamento – Instituição de Pagamento Ltda.** (CNPJ 22.121.209/0001-46): processa os pagamentos e guarda os dados de cartão. Para prevenção a fraude e obrigações regulatórias próprias, a Stripe atua também como controladora independente, sob a política de privacidade dela.
+- **[[EMISSOR_DE_NOTA_FISCAL]]:** emite as notas fiscais.
+- **Contabilidade:** recebe os dados fiscais das vendas para cumprir obrigações legais.
 - **Hospedagem do site:** entrega as páginas de excalisidian.com.
 
 Também podemos divulgar dados se uma lei ou uma ordem de autoridade competente exigir.
@@ -146,13 +151,13 @@ Pela LGPD (art. 18) e, quando se aplica, pelo GDPR, você pode pedir:
 - oposição ao tratamento feito com base em legítimo interesse;
 - limitação do tratamento (GDPR).
 
-Como pedir: escreva para [[EMAIL_CONTATO]], a partir do e-mail da conta, para sabermos que é você. Respondemos em até 15 dias.
+Como pedir: escreva para support@excalisidian.com, a partir do e-mail da conta, para sabermos que é você. Respondemos em até 15 dias.
 
 Algumas observações práticas:
 
 - **Seus arquivos** já estão com você, no seu computador, em Markdown. Não temos cópia legível deles.
 - **Cópia na nuvem:** como ela é cifrada e não conseguimos abri-la, não temos como exportá-la em formato legível. Podemos apagá-la.
-- **Excluir a conta:** peça por [[EMAIL_CONTATO]], a partir do e-mail da conta. Em até 15 dias apagamos a conta, as sessões, os vaults na nuvem e os contadores de créditos. A conta some das cópias de segurança em até 7 dias depois, quando o backup gira. Os registros de acesso (seção 7) são a exceção: ficam até completar 6 meses, porque a lei manda.
+- **Excluir a conta:** peça por support@excalisidian.com, a partir do e-mail da conta. Em até 15 dias apagamos a conta, as sessões, os vaults na nuvem e os contadores de créditos. A conta some das cópias de segurança em até 7 dias depois, quando o backup gira. Os registros de acesso (seção 7) são a exceção: ficam até completar 6 meses, porque a lei manda.
 - **Trocar o e-mail:** hoje o app não tem tela para isso. Se o e-mail estiver errado, fale conosco.
 - **Reclamação:** você pode reclamar à Autoridade Nacional de Proteção de Dados (ANPD) ou, se estiver na União Europeia, à autoridade de proteção de dados do seu país.
 
@@ -188,6 +193,6 @@ Podemos atualizar esta política. Para mudanças relevantes, avisamos por e-mail
 
 ## 15. Contato
 
-Dúvidas, pedidos de direitos e questões de privacidade: [[EMAIL_CONTATO]].
+Dúvidas, pedidos de direitos e questões de privacidade: support@excalisidian.com.
 
 [[RAZAO_SOCIAL]] · CNPJ [[CNPJ]] · [[ENDERECO]] · Encarregado: [[NOME_DO_ENCARREGADO]]

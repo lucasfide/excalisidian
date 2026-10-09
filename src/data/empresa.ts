@@ -5,7 +5,7 @@ export const empresa = {
   razaoSocial: "[[RAZAO_SOCIAL]]",
   cnpj: "[[CNPJ]]",
   endereco: "[[ENDERECO]]",
-  emailContato: "[[EMAIL_CONTATO]]",
+  emailContato: "support@excalisidian.com",
   hospedagemDoServidor: "[[HOSPEDAGEM_DO_SERVIDOR]]",
 } as const;
 

@@ -22,7 +22,7 @@ export interface Plano {
   creditosPorMes: number | null;
   beneficios: BeneficioPlano[];
   precos: Record<Moeda, PrecoPlano>;
-  /** null enquanto o intermediário de pagamento não foi escolhido. */
+  /** Link de assinatura na Stripe. null até os produtos serem criados lá. */
   urlAssinatura: Record<Periodo, string | null>;
 }
 

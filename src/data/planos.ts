@@ -2,8 +2,8 @@ import { equivalenteMensalDoAnual, economiaAnualValor, formatarCreditos } from "
 import type { LinhaComparacao, Moeda, Plano } from "../types/planos";
 
 // Fonte única dos planos. A página /planos/ e a seção de planos da home leem daqui.
-// urlAssinatura: o intermediário de pagamento ainda não foi escolhido, então todos os links são
-// null. Quando for, o ÚNICO lugar a editar é este (um link por plano e período).
+// urlAssinatura: o intermediário de pagamento é a Stripe. Os links entram quando os produtos forem criados
+// lá; até lá todos são null. Então o ÚNICO lugar a editar é este (um link por plano e período).
 export const planos: Plano[] = [
   {
     id: "gratis",

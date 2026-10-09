@@ -12,8 +12,8 @@ function Contato() {
   return ehMarcador(email) ? <>{email}</> : <a href={`mailto:${email}`}>{email}</a>;
 }
 
-// Respostas só afirmam o que está decidido (contexto de planos, 03/10/2026). Moeda cobrada,
-// impostos e meios de pagamento dependem do intermediário, que ainda não foi escolhido.
+// Respostas só afirmam o que está decidido (contexto de planos, 03/10/2026). Pagamento: Stripe, cartão de
+// crédito, R$ no Brasil e US$ fora. Não prometer Pix, boleto nem outras bandeiras.
 const perguntas: Pergunta[] = [
   {
     id: "credito",
@@ -100,9 +100,9 @@ const perguntas: Pergunta[] = [
     pergunta: "Em que moeda vou pagar?",
     resposta: (
       <p>
-        Os preços desta página são em reais (R$) para o Brasil e em dólares (US$) para o resto do mundo. A moeda da
-        cobrança, os impostos e os meios de pagamento dependem do intermediário de pagamento, que ainda não foi
-        escolhido. Esses detalhes serão informados aqui antes de a assinatura abrir.
+        No Brasil, a cobrança é em reais (R$). Fora do Brasil, é em dólares (US$). O pagamento é por cartão de
+        crédito e é processado pela Stripe. O emissor do seu cartão pode cobrar tarifas próprias em compra em outra
+        moeda.
       </p>
     ),
   },

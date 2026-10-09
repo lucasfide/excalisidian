@@ -21,7 +21,7 @@ Excalisidian is provided by:
 - Company name: [[RAZAO_SOCIAL]]
 - Brazilian company tax ID (CNPJ): [[CNPJ]]
 - Address: [[ENDERECO]]
-- Contact and support e-mail: [[EMAIL_CONTATO]]
+- Contact and support e-mail: support@excalisidian.com
 
 In this text, "we" means that company and "you" means the person who uses the app or the services.
 
@@ -84,20 +84,20 @@ Prices in Brazilian reais (R$) apply to Brazil; prices in US dollars apply to th
 
 ## 6. Cancellation and end of the subscription
 
-You can cancel at any time, from your subscription page or by e-mailing [[EMAIL_CONTATO]]. Paid access continues until the end of the period you have already paid for.
+You can cancel at any time, from the Stripe subscription page, which you reach through the manage-subscription link (in the app or in the receipt e-mail), or by e-mailing support@excalisidian.com. Paid access continues until the end of the period you have already paid for.
 
 When the subscription ends, whether by cancellation, non-payment or refund:
 
 - sync and Excalisidian AI stop, and the account goes back to the Free plan;
 - the files on your computer are **never** affected, and the app keeps working in full;
 - the encrypted copy in the cloud is kept, paused, and may be deleted after 90 days. If you subscribe again before then, sync continues from where it stopped;
-- you can ask us to delete the cloud copy sooner, at any time. You can also ask us to delete the whole account, at [[EMAIL_CONTATO]] (see the Privacy policy).
+- you can ask us to delete the cloud copy sooner, at any time. You can also ask us to delete the whole account, at support@excalisidian.com (see the Privacy policy).
 
 We may suspend or end access to the online services if you break these terms, in particular section 9. When possible, we will warn you first.
 
 ## 7. Refunds and right of withdrawal
 
-**14-day refund.** It applies to the first paid charge on the account. If you ask within 14 days of it, we refund the full amount, in any country, without needing a reason. Switching from Marco Aurélio to Sêneca, or the other way round, does not reopen this period. Just write to [[EMAIL_CONTATO]] from the account e-mail. The refund goes to the same payment method, within the time the payment intermediary takes.
+**14-day refund.** It applies to the first paid charge on the account. If you ask within 14 days of it, we refund the full amount, in any country, without needing a reason. Switching from Marco Aurélio to Sêneca, or the other way round, does not reopen this period. Just write to support@excalisidian.com from the account e-mail. The refund goes to the same payment method, within the time Stripe takes.
 
 **Withdrawal in Brazil.** For purchases made in Brazil, the right of withdrawal in the Brazilian Consumer Protection Code (art. 49) also applies: seven days from the date of purchase, for purchases made outside a physical store. The 14-day refund above is longer and, in Brazil, exists alongside that right. Nothing in these terms reduces the rights the law gives you as a consumer.
 
@@ -105,7 +105,11 @@ We may suspend or end access to the online services if you break these terms, in
 
 ## 8. Payment
 
-Billing is handled by a payment intermediary, which processes the payment and holds your card or other payment details. We do not see or store your card number. The intermediary's rules apply to the part of the payment that is theirs.
+Billing is handled by Stripe Brasil Soluções de Pagamento – Instituição de Pagamento Ltda. (CNPJ 22.121.209/0001-46, São Paulo/SP), which processes the payment by credit card (Visa and Mastercard) and holds your card details, under its own rules and privacy policy. We do not see or store your card number. Stripe's rules apply to the part of the payment that is theirs.
+
+If you pay in reais, you are charged in reais. If you pay in US dollars, you are charged in dollars. Your card issuer may charge its own fees, such as currency conversion fees or the Brazilian IOF tax.
+
+We issue a service invoice (NFS-e, a Brazilian service invoice) for each charge.
 
 If a payment fails, we may try again and notify you by e-mail. Without payment, the subscription ends, as described in section 6.
 
@@ -192,6 +196,6 @@ If you live in the European Union or anywhere else where local law gives you pro
 
 ## 18. Contact
 
-Questions, refund requests, cancellation and privacy matters: [[EMAIL_CONTATO]].
+Questions, refund requests, cancellation and privacy matters: support@excalisidian.com.
 
 [[RAZAO_SOCIAL]] · CNPJ [[CNPJ]] · [[ENDERECO]]

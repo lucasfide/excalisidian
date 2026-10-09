@@ -19,7 +19,7 @@ O Excalisidian é fornecido por:
 - Razão social: [[RAZAO_SOCIAL]]
 - CNPJ: [[CNPJ]]
 - Endereço: [[ENDERECO]]
-- E-mail de contato e atendimento: [[EMAIL_CONTATO]]
+- E-mail de contato e atendimento: support@excalisidian.com
 
 Neste texto, "nós" é essa empresa e "você" é a pessoa que usa o app ou os serviços.
 
@@ -82,20 +82,20 @@ Preços em reais valem para o Brasil; preços em dólares valem para o resto do 
 
 ## 6. Cancelamento e fim da assinatura
 
-Você pode cancelar a qualquer momento, pela página da sua assinatura ou pedindo por e-mail a [[EMAIL_CONTATO]]. O acesso pago continua até o fim do período já pago.
+Você pode cancelar a qualquer momento, pela página de assinatura da Stripe, que você alcança pelo link de gerenciar assinatura (no app ou no e-mail de recibo), ou pedindo por e-mail a support@excalisidian.com. O acesso pago continua até o fim do período já pago.
 
 Quando a assinatura termina, por cancelamento, falta de pagamento ou reembolso:
 
 - a sincronização e a IA do Excalisidian param, e a conta volta ao plano Grátis;
 - os arquivos no seu computador **nunca** são afetados, e o app continua funcionando por inteiro;
 - a cópia cifrada que está na nuvem fica guardada, parada, e pode ser apagada depois de 90 dias. Se você voltar a assinar antes disso, a sincronização continua de onde parou;
-- você pode pedir para apagarmos a cópia na nuvem antes, a qualquer momento. Também pode pedir para apagar a conta inteira, por [[EMAIL_CONTATO]] (veja a Política de privacidade).
+- você pode pedir para apagarmos a cópia na nuvem antes, a qualquer momento. Também pode pedir para apagar a conta inteira, por support@excalisidian.com (veja a Política de privacidade).
 
 Podemos suspender ou encerrar o acesso aos serviços online se você violar estes termos, em especial a seção 9. Quando for possível, avisamos antes.
 
 ## 7. Reembolso e direito de arrependimento
 
-**Reembolso de 14 dias.** Vale para a primeira cobrança paga da conta. Se você pedir em até 14 dias dela, devolvemos o valor integral, em qualquer país, sem precisar de justificativa. Trocar de Marco Aurélio para Sêneca, ou o contrário, não reabre esse prazo. Basta escrever para [[EMAIL_CONTATO]] a partir do e-mail da conta. A devolução é feita pelo mesmo meio de pagamento, no prazo do intermediário de pagamento.
+**Reembolso de 14 dias.** Vale para a primeira cobrança paga da conta. Se você pedir em até 14 dias dela, devolvemos o valor integral, em qualquer país, sem precisar de justificativa. Trocar de Marco Aurélio para Sêneca, ou o contrário, não reabre esse prazo. Basta escrever para support@excalisidian.com a partir do e-mail da conta. A devolução é feita pelo mesmo meio de pagamento, no prazo da Stripe.
 
 **Arrependimento no Brasil.** Para quem compra no Brasil, vale também o direito de arrependimento do Código de Defesa do Consumidor (art. 49): sete dias a contar da contratação, para compras feitas fora de estabelecimento comercial. O reembolso de 14 dias acima é mais longo e, no Brasil, convive com esse direito. Nada nestes termos reduz os direitos que a lei dá a você como consumidor.
 
@@ -103,7 +103,11 @@ Podemos suspender ou encerrar o acesso aos serviços online se você violar este
 
 ## 8. Pagamento
 
-A cobrança é feita por um intermediário de pagamento, que processa o pagamento e guarda os dados do seu cartão ou outro meio. Nós não vemos nem guardamos o número do seu cartão. As regras do intermediário valem para a parte do pagamento que é dele.
+A cobrança é feita pela Stripe Brasil Soluções de Pagamento – Instituição de Pagamento Ltda. (CNPJ 22.121.209/0001-46, São Paulo/SP), que processa o pagamento por cartão de crédito (Visa e Mastercard) e guarda os dados do seu cartão, sob as regras e a política de privacidade dela. Nós não vemos nem guardamos o número do seu cartão. As regras da Stripe valem para a parte do pagamento que é dela.
+
+Quem paga em reais é cobrado em reais. Quem paga em dólares é cobrado em dólar. O emissor do seu cartão pode cobrar tarifas próprias, como as de câmbio ou o IOF.
+
+Emitimos uma nota fiscal de serviço (NFS-e) de cada cobrança.
 
 Se o pagamento falhar, podemos tentar de novo e avisar por e-mail. Sem pagamento, a assinatura termina, como na seção 6.
 
@@ -190,6 +194,6 @@ Se você mora na União Europeia ou em outro lugar onde a lei local lhe dá prot
 
 ## 18. Contato
 
-Dúvidas, pedidos de reembolso, cancelamento e questões de privacidade: [[EMAIL_CONTATO]].
+Dúvidas, pedidos de reembolso, cancelamento e questões de privacidade: support@excalisidian.com.
 
 [[RAZAO_SOCIAL]] · CNPJ [[CNPJ]] · [[ENDERECO]]
