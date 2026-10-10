@@ -34,6 +34,10 @@ pub fn revelar_pasta(path: String) -> Result<(), String> {
     }
     #[cfg(not(any(windows, target_os = "macos")))]
     {
-        Err("Abrir pasta não é suportado neste sistema operacional.".to_string())
+        std::process::Command::new("xdg-open")
+            .arg(path)
+            .spawn()
+            .map_err(|e| e.to_string())?;
+        Ok(())
     }
 }
