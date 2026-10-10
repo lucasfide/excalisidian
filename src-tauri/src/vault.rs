@@ -32,11 +32,41 @@ pub struct EntradaArquivo {
 /// NÃO persiste entre execuções: precisa ser chamado a cada boot, com o caminho salvo.
 /// `pub(crate)` porque `janelas.rs` reaproveita (abrir janela nova e criar vault também
 /// precisam do escopo, e duplicar a chamada ao plugin de FS não tem vantagem nenhuma).
-pub(crate) fn conceder_escopo(app: &AppHandle, path: &str) -> Result<(), String> {
-    app.fs_scope()
-        .allow_directory(path, true)
+pub(crate) fn conceder_escopo<R: tauri::Runtime>(
+    app: &tauri::AppHandle<R>,
+    path: &str,
+) -> Result<(), String> {
+    let escopo = app.fs_scope();
+    let raiz = std::path::Path::new(path);
+    escopo
+        .allow_directory(raiz, true)
+        .map_err(|e| e.to_string())?;
+    // O `**` do escopo acima não casa componente que começa com ponto no Linux e no macOS
+    // (o glob exige ponto literal em Unix; no Windows não). Sem estas linhas, as pastas ocultas
+    // do próprio app dão "forbidden path". `.git` e afins continuam fechados de propósito.
+    let config = raiz.join(PASTA_CONFIG_VAULT);
+    let lixeira = raiz.join(".trash");
+    let indice_lixeira = lixeira.join(".index.json");
+    let indice_lixeira_tmp = lixeira.join(format!(".index.json.{EXT_TMP}"));
+    escopo
+        .allow_directory(config, true)
+        .map_err(|e| e.to_string())?;
+    escopo
+        .allow_directory(lixeira, true)
+        .map_err(|e| e.to_string())?;
+    escopo
+        .allow_file(indice_lixeira)
+        .map_err(|e| e.to_string())?;
+    escopo
+        .allow_file(indice_lixeira_tmp)
         .map_err(|e| e.to_string())
 }
+
+/// Espelham `PASTA_CONFIG_VAULT` e `EXT_TMP` de `src/app/constantes.ts` (ambos derivados de
+/// `APP_ID = "excalisidian"`; no Rust não há a constante única).
+/// Os dois lados precisam andar juntos: mudou o identificador lá, mude aqui.
+const PASTA_CONFIG_VAULT: &str = ".excalisidian";
+const EXT_TMP: &str = "excalisidian-tmp";
 
 /// Abre o diálogo nativo de escolher pasta. Se o usuário escolher, concede o escopo e
 /// devolve o caminho absoluto. Se cancelar, devolve `None`.
@@ -154,4 +184,40 @@ fn tempo_ms(t: Option<std::time::SystemTime>) -> u64 {
     t.and_then(|t| t.duration_since(UNIX_EPOCH).ok())
         .map(|d| d.as_millis() as u64)
         .unwrap_or(0)
+}
+
+#[cfg(test)]
+mod testes_escopo {
+    use super::*;
+
+    #[test]
+    fn escopo_libera_pastas_do_app_e_mantem_outras_ocultas_fechadas() {
+        let app = tauri::test::mock_builder()
+            .plugin(tauri_plugin_fs::init())
+            .build(tauri::test::mock_context(tauri::test::noop_assets()))
+            .expect("app de teste");
+        let vault = std::env::temp_dir().join("excalisidian-teste-escopo");
+        std::fs::create_dir_all(&vault).unwrap();
+        conceder_escopo(app.handle(), vault.to_str().unwrap()).unwrap();
+
+        let escopo = app.fs_scope();
+        let liberados = [
+            "nota.md",
+            ".excalisidian/tarefas.json",
+            ".excalisidian/tarefas.json.excalisidian-tmp",
+            ".excalisidian/vault.json",
+            ".trash",
+            ".trash/x.md",
+            ".trash/.index.json",
+            ".trash/.index.json.excalisidian-tmp",
+        ];
+        for rel in liberados {
+            assert!(escopo.is_allowed(vault.join(rel)), "deveria liberar {rel}");
+        }
+        assert!(
+            !escopo.is_allowed(vault.join(".git/config")),
+            ".git deve ficar fechado"
+        );
+        assert!(!escopo.is_allowed(vault.parent().unwrap().join("fora.md")));
+    }
 }

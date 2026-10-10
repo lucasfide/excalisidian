@@ -31,6 +31,9 @@ tauri-plugin-http = "2.6.0"
 # genérico não traz loja nenhuma: cada loja nativa entra só no seu sistema, abaixo.
 keyring-core = "1"
 
+[dev-dependencies]
+tauri = { version = "2", features = ["test"] }
+
 [target.'cfg(windows)'.dependencies]
 windows-native-keyring-store = "1"
 
