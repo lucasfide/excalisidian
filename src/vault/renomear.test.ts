@@ -23,6 +23,12 @@ const { disco, vaultState } = vi.hoisted(() => {
         disco.set(para, disco.get(de)!);
         disco.delete(de);
       },
+      async listarPasta(dir: string) {
+        const prefixo = dir ? `${dir}/` : "";
+        return [...disco.keys()]
+          .filter((k) => k.startsWith(prefixo) && !k.slice(prefixo.length).includes("/"))
+          .map((k) => ({ nome: k.slice(prefixo.length), isDir: false }));
+      },
       absoluto: (p: string) => p,
     },
     links: { backlinks: backlinksFake },
@@ -243,6 +249,18 @@ describe("renomearArquivo — atualiza links dentro de .draw.md sem tocar a cena
       vaultState.adapter.existe = existeOriginal;
       vaultState.adapter.mover = moverOriginal;
     }
+  });
+
+  it("mudar só a caixa em disco que diferencia caixa não sobrescreve o homônimo (Linux)", async () => {
+    // disco do teste já diferencia caixa: "nota.md" e "Nota.md" são dois arquivos.
+    disco.set("nota.md", "# nota\n\nA.\n");
+    disco.set("Nota.md", "# Nota\n\nB.\n");
+    const r = await renomearArquivo("nota.md", "Nota");
+    expect(r.ok).toBe(true);
+    expect(r.pathNovo).toBe("Nota (2).md");
+    expect(disco.get("Nota.md")).toBe("# Nota\n\nB.\n");
+    expect(disco.get("Nota (2).md")).toContain("A.");
+    expect(disco.has("nota.md")).toBe(false);
   });
 
   it("não produz um .draw.md diferente quando nenhum link do desenho aponta para o arquivo renomeado", async () => {

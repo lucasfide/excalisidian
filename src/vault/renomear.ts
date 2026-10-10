@@ -101,8 +101,13 @@ export async function renomearArquivo(
   // Mudou só a caixa das letras ("nota.md" → "Nota.md"): em disco que não diferencia caixa
   // (Windows, macOS) `existe` responderia que o nome já está ocupado — é o próprio arquivo.
   // Não há colisão possível; move direto.
+  // No Linux o disco diferencia caixa: pode existir outro arquivo com exatamente o nome novo,
+  // e mover direto o sobrescreveria. Só vai direto se a pasta não tem entrada com esse nome.
   if (pathDesejado.toLowerCase() === pathAntigo.toLowerCase()) {
-    return aplicarMovimentacao(pathAntigo, pathDesejado);
+    const irmaos = await vault.adapter.listarPasta(dir);
+    if (!irmaos.some((e) => e.nome === nomeNovo)) {
+      return aplicarMovimentacao(pathAntigo, pathDesejado);
+    }
   }
 
   // Nunca falha por nome ocupado (doc 04): resolve com o mesmo padrão de numeração de
