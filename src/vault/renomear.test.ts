@@ -218,6 +218,33 @@ describe("renomearArquivo — atualiza links dentro de .draw.md sem tocar a cena
     expect(disco.get("Sistema (2).md")).toBe("# Sistema (2)\n");
   });
 
+  it("mudar só a caixa da letra em disco que não diferencia caixa não vira 'Nome (2)'", async () => {
+    // Simula Windows/macOS: o disco acha "Nota.md" quando só existe "nota.md".
+    const existeOriginal = vaultState.adapter.existe;
+    const moverOriginal = vaultState.adapter.mover;
+    vaultState.adapter.existe = async (p: string) =>
+      [...disco.keys()].some((k) => k.toLowerCase() === p.toLowerCase());
+    vaultState.adapter.mover = async (de: string, para: string) => {
+      disco.set(para, disco.get(de)!);
+      if (de !== para) disco.delete(de);
+    };
+    const { toast } = await import("sonner");
+    vi.mocked(toast).mockClear();
+    try {
+      disco.set("nota.md", "# nota\n");
+      const r = await renomearArquivo("nota.md", "Nota");
+      expect(r.ok).toBe(true);
+      expect(r.pathNovo).toBe("Nota.md");
+      expect(disco.has("Nota.md")).toBe(true);
+      expect(disco.has("nota.md")).toBe(false);
+      expect(disco.has("Nota (2).md")).toBe(false);
+      expect(toast).not.toHaveBeenCalled();
+    } finally {
+      vaultState.adapter.existe = existeOriginal;
+      vaultState.adapter.mover = moverOriginal;
+    }
+  });
+
   it("não produz um .draw.md diferente quando nenhum link do desenho aponta para o arquivo renomeado", async () => {
     const idx = construirIndiceResolucao(["Outra.md", "Diagrama.draw.md"]);
     vaultState.resolver = (alvo, origem) => resolverLink(idx, alvo, origem);

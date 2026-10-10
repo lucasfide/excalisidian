@@ -98,6 +98,13 @@ export async function renomearArquivo(
     return { ok: true, pathNovo: pathAntigo, notasAtualizadas: 0, linksAtualizados: 0 };
   }
 
+  // Mudou só a caixa das letras ("nota.md" → "Nota.md"): em disco que não diferencia caixa
+  // (Windows, macOS) `existe` responderia que o nome já está ocupado — é o próprio arquivo.
+  // Não há colisão possível; move direto.
+  if (pathDesejado.toLowerCase() === pathAntigo.toLowerCase()) {
+    return aplicarMovimentacao(pathAntigo, pathDesejado);
+  }
+
   // Nunca falha por nome ocupado (doc 04): resolve com o mesmo padrão de numeração de
   // criar.ts — "Nome (2)", "Nome (3)"... — em vez de rejeitar o rename.
   const { base } = dividirExtensao(nomeNovo);
