@@ -61,6 +61,22 @@ fn tipo_de(kind: &EventKind) -> Option<&'static str> {
     }
 }
 
+/// Raiz contra a qual os caminhos dos eventos são comparados. No macOS o FSEvents devolve
+/// caminhos já resolvidos (sem link simbólico); se o vault foi aberto por um link, o
+/// `strip_prefix` com a raiz original falharia em todo evento. Por isso resolve o link aqui,
+/// caindo no caminho original se não der. No Windows não resolve: `canonicalize` devolve
+/// `\\?\C:\...` e os eventos do ReadDirectoryChangesW vêm sem esse prefixo.
+fn raiz_para_eventos(raiz: &Path) -> std::path::PathBuf {
+    #[cfg(not(windows))]
+    {
+        std::fs::canonicalize(raiz).unwrap_or_else(|_| raiz.to_path_buf())
+    }
+    #[cfg(windows)]
+    {
+        raiz.to_path_buf()
+    }
+}
+
 fn relativo(raiz: &Path, abs: &Path) -> Option<String> {
     let rel = abs.strip_prefix(raiz).ok()?;
     let s: Vec<String> = rel
@@ -85,7 +101,7 @@ pub fn observar_vault(
     path: String,
 ) -> Result<(), String> {
     let raiz = std::path::PathBuf::from(&path);
-    let raiz_handler = raiz.clone();
+    let raiz_handler = raiz_para_eventos(&raiz);
     let app_handler = app.clone();
     let label = window.label().to_string();
 
@@ -142,4 +158,35 @@ pub fn observar_vault(
         .unwrap()
         .insert(window.label().to_string(), debouncer);
     Ok(())
+}
+
+#[cfg(test)]
+mod testes {
+    use super::*;
+    use std::path::PathBuf;
+
+    #[cfg(unix)]
+    #[test]
+    fn relativo_funciona_com_vault_aberto_por_link_simbolico() {
+        let base =
+            std::env::temp_dir().join(format!("excalisidian-watcher-{}", std::process::id()));
+        let _ = std::fs::remove_dir_all(&base);
+        let real = base.join("real");
+        std::fs::create_dir_all(real.join("sub")).unwrap();
+        let link = base.join("link");
+        std::os::unix::fs::symlink(&real, &link).unwrap();
+
+        // O FSEvents (macOS) devolve o caminho já resolvido, sem o link simbólico.
+        let evento = std::fs::canonicalize(&real).unwrap().join("sub/a.md");
+        let raiz = raiz_para_eventos(&link);
+        assert_eq!(relativo(&raiz, &evento).as_deref(), Some("sub/a.md"));
+
+        let _ = std::fs::remove_dir_all(&base);
+    }
+
+    #[test]
+    fn raiz_inexistente_cai_no_caminho_original() {
+        let p = PathBuf::from("/nao/existe/excalisidian-xyz");
+        assert_eq!(raiz_para_eventos(&p), p);
+    }
 }
