@@ -8,6 +8,7 @@ const host = process.env.TAURI_DEV_HOST;
 // https://vite.dev/config/
 export default defineConfig(async () => ({
   plugins: [react(), tailwindcss()],
+  envPrefix: ["VITE_", "TAURI_ENV_"],
 
   // Ajustes para o Tauri, aplicados só em `tauri dev` / `tauri build`.
   clearScreen: false,

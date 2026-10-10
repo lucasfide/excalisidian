@@ -18,6 +18,7 @@ import type {
 import type { NonDeletedExcalidrawElement } from "@excalidraw/excalidraw/element/types";
 import "@excalidraw/excalidraw/index.css";
 import "./excalidraw-excalisidian.css";
+import "./excalidraw-mobile.css";
 import LinkDoElemento from "../ui/excalisidian/LinkDoElemento";
 
 import { useVaultStore } from "../estado/vaultStore";
@@ -42,6 +43,7 @@ import { alvoDeLinkWiki } from "./linkElemento";
 import { buscarSugestoesLink, type SugestaoLink } from "../indice/sugestoesLink";
 import IconeArquivo from "../ui/IconeArquivo";
 import { acharFormaVaziaNoPonto } from "./selecaoFormaVazia";
+import { useTexto } from "../i18n/useTexto";
 
 const DEBOUNCE_MS = 800;
 const PASSO_GRADE = 20;
@@ -69,17 +71,122 @@ interface Props {
   conteudoInicial: string;
   versao: number;
   onEditar: (md: string) => void;
+  /** Habilita ajustes exclusivos do shell mobile; ausente mantém a UI desktop. */
+  mobileShell?: boolean;
   /** Segunda vista do mesmo arquivo aberta via split (doc 09): sem sincronização em tempo
    * real entre vistas, editar dos dois lados sobrescreve em silêncio — trava a edição aqui. */
   somenteLeitura?: boolean;
+}
+
+interface PropsExtrasCanvasMobile {
+  api: ExcalidrawImperativeAPI | null;
+  elemento?: NonDeletedExcalidrawElement;
+  dica: string;
+  rotuloLink: string;
+  rotuloEditarLink: string;
+}
+
+function ExtrasCanvasMobile({
+  api,
+  elemento,
+  dica,
+  rotuloLink,
+  rotuloEditarLink,
+}: PropsExtrasCanvasMobile) {
+  const [linkAberto, setLinkAberto] = useState(false);
+  const linkRef = useRef<HTMLDivElement | null>(null);
+  const idPainel = elemento ? `canvas-link-${elemento.id}` : undefined;
+
+  useEffect(() => {
+    if (!linkAberto) return;
+
+    const fecharFora = (evento: PointerEvent) => {
+      if (!linkRef.current?.contains(evento.target as Node)) {
+        setLinkAberto(false);
+      }
+    };
+    const fecharEscape = (evento: KeyboardEvent) => {
+      if (evento.key === "Escape") setLinkAberto(false);
+    };
+
+    document.addEventListener("pointerdown", fecharFora, true);
+    document.addEventListener("keydown", fecharEscape);
+    return () => {
+      document.removeEventListener("pointerdown", fecharFora, true);
+      document.removeEventListener("keydown", fecharEscape);
+    };
+  }, [linkAberto]);
+
+  return (
+    <div className="excalisidian-canvas__mobile-extras">
+      {!linkAberto && (
+        <div className="excalisidian-canvas__mobile-hint" role="note" aria-live="polite">
+          {dica}
+        </div>
+      )}
+      {api && elemento && idPainel && (
+        <div ref={linkRef} className="excalisidian-canvas__mobile-link">
+          <button
+            type="button"
+            className="excalisidian-canvas__mobile-link-trigger"
+            aria-haspopup="dialog"
+            aria-expanded={linkAberto}
+            aria-controls={idPainel}
+            aria-label={rotuloLink}
+            title={rotuloLink}
+            onClick={() => setLinkAberto((aberto) => !aberto)}
+          >
+            {rotuloLink}
+          </button>
+          {linkAberto && (
+            <div
+              id={idPainel}
+              className="excalisidian-canvas__mobile-link-popover"
+              role="dialog"
+              aria-label={rotuloEditarLink}
+            >
+              <LinkDoElemento api={api} elemento={elemento} />
+            </div>
+          )}
+        </div>
+      )}
+    </div>
+  );
+}
+
+function chaveDicaToqueCanvas(
+  appState: UIAppState,
+  somenteLeitura: boolean,
+  elementoSelecionado: boolean,
+):
+  | "canvas.dicaLeitura"
+  | "canvas.dicaSelecao"
+  | "canvas.dicaTexto"
+  | "canvas.dicaImagem"
+  | "canvas.dicaPadrao" {
+  if (somenteLeitura) {
+    return "canvas.dicaLeitura";
+  }
+  if (elementoSelecionado) {
+    return "canvas.dicaSelecao";
+  }
+  if (appState.activeTool.type === "text") {
+    return "canvas.dicaTexto";
+  }
+  if (appState.activeTool.type === "image") {
+    return "canvas.dicaImagem";
+  }
+  return "canvas.dicaPadrao";
 }
 
 export default function EditorDesenho({
   caminho,
   conteudoInicial,
   onEditar,
+  mobileShell = false,
   somenteLeitura = false,
 }: Props) {
+  const t = useTexto();
   const apiRef = useRef<ExcalidrawImperativeAPI | null>(null);
   const raizRef = useRef<HTMLDivElement | null>(null);
   const gradeRef = useRef<HTMLDivElement | null>(null);
@@ -491,16 +598,29 @@ export default function EditorDesenho({
   // link (Ctrl+K) não tem gancho pra autocomplete. Slot público `renderTopRightUI`, canto
   // superior direito — não esconde nada nativo. Só aparece com exatamente 1 elemento
   // selecionado (link em multi-seleção não tem um alvo único pra editar).
-  const renderTopRightUI = useCallback((_isMobile: boolean, appState: UIAppState) => {
-    if (somenteLeitura) return null;
+  const renderTopRightUI = useCallback((isMobile: boolean, appState: UIAppState) => {
     const api = apiRef.current;
-    if (!api) return null;
     const ids = Object.keys(appState.selectedElementIds ?? {});
-    if (ids.length !== 1) return null;
-    const elemento = api.getSceneElements().find((el) => el.id === ids[0]);
-    if (!elemento) return null;
+    const elemento = api && ids.length === 1
+      ? api.getSceneElements().find((el) => el.id === ids[0])
+      : undefined;
+
+    if (mobileShell && isMobile) {
+      return (
+        <ExtrasCanvasMobile
+          key={elemento?.id ?? "canvas"}
+          api={api}
+          elemento={somenteLeitura ? undefined : elemento}
+          dica={t(chaveDicaToqueCanvas(appState, somenteLeitura, Boolean(elemento)))}
+          rotuloLink={t("canvas.link")}
+          rotuloEditarLink={t("canvas.editarLink")}
+        />
+      );
+    }
+
+    if (somenteLeitura || !api || !elemento || ids.length !== 1) return null;
     return <LinkDoElemento api={api} elemento={elemento} />;
-  }, [somenteLeitura]);
+  }, [mobileShell, somenteLeitura, t]);
 
   const aoAbrirLink = useCallback(
     (elemento: NonDeletedExcalidrawElement, evento: CustomEvent) => {
@@ -527,7 +647,9 @@ export default function EditorDesenho({
   return (
     <div
       ref={raizRef}
-      className="excalisidian-canvas relative h-full w-full"
+      className={`excalisidian-canvas relative h-full w-full${
+        mobileShell ? " excalisidian-canvas--mobile-shell" : ""
+      }`}
     >
       <div
         ref={gradeRef}

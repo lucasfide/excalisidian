@@ -4,8 +4,7 @@
 
 import { create } from "zustand";
 
-import { TauriVaultAdapter } from "../vault/TauriVaultAdapter";
-import type { EntradaArquivo } from "../vault/VaultAdapter";
+import type { EntradaArquivo, VaultAdapter } from "../vault/VaultAdapter";
 import { montarArvore, tipoDoArquivo, type NoArvore } from "../vault/arvore";
 import { parsearNota, type FileMeta } from "../indice/parser";
 import {
@@ -57,7 +56,7 @@ const LINKS_VAZIO: IndiceLinks = {
 };
 
 interface VaultState {
-  adapter: TauriVaultAdapter | null;
+  adapter: VaultAdapter | null;
   raiz: string;
   entradas: EntradaArquivo[];
   arvore: NoArvore | null;
@@ -70,7 +69,7 @@ interface VaultState {
   links: IndiceLinks;
   statusIndice: StatusIndice;
 
-  definirAdapter(adapter: TauriVaultAdapter): Promise<void>;
+  definirAdapter(adapter: VaultAdapter): Promise<void>;
   recarregarArvore(): Promise<void>;
   reindexar(): Promise<void>;
   /** Relê o vault por inteiro. Para quando não dá pra confiar nos eventos incrementais: o
@@ -273,7 +272,8 @@ export const useVaultStore = create<VaultState>((set, get) => ({
       // Foi a nossa própria gravação atômica? Então ignora (doc 02 §10).
       try {
         const texto = await adapter.lerTexto(ev.path);
-        if (deveIgnorarEvento(adapter.absoluto(ev.path), await hashConteudo(texto))) {
+        const caminhoDoEvento = `${adapter.raiz().replace(/[/\\]+$/, "")}/${ev.path}`;
+        if (deveIgnorarEvento(caminhoDoEvento, await hashConteudo(texto))) {
           continue;
         }
       } catch {

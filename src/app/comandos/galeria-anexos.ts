@@ -47,7 +47,8 @@ export async function comandoCopiarImagem(path: string): Promise<void> {
 export async function comandoAbrirPastaAnexos(): Promise<void> {
   try {
     const adapter = adapterAtual();
-    await invoke("revelar_pasta", { path: adapter.absoluto("anexos") });
+    const caminho = `${adapter.raiz().replace(/[/\\]+$/, "")}/${"anexos".replace(/^\/+/, "")}`;
+    await invoke("revelar_pasta", { path: caminho });
   } catch {
     toast.error("Não foi possível abrir a pasta de anexos.");
   }

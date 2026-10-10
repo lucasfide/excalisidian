@@ -2,11 +2,15 @@ import React from "react";
 import ReactDOM from "react-dom/client";
 
 import App from "./app/App";
+import { ehPlataformaMobile } from "./app/plataforma-mobile";
 import { registrarCapturaDeErros } from "./app/capturaDeErros";
 import LimiteDeErro from "./ui/excalisidian/LimiteDeErro";
 import "./estilos/globals.css";
 
 registrarCapturaDeErros();
+
+const AppMobile = React.lazy(() => import("./components/features/mobile/mobile-app"));
+const mobile = ehPlataformaMobile(import.meta.env.TAURI_ENV_PLATFORM);
 
 // O `LimiteDeErro` aqui é a rede de segurança da RAIZ. O outro, dentro de App.tsx, cobre só a
 // sidebar + workspace — tudo que fica fora dele (BarraStatus, RaizDialogos, RaizSobreposicoes,
@@ -19,7 +23,13 @@ ReactDOM.createRoot(document.getElementById("root") as HTMLElement).render(
       onFechar={() => window.location.reload()}
       rotuloFechar="Recarregar"
     >
-      <App />
+      {mobile ? (
+        <React.Suspense fallback={null}>
+          <AppMobile />
+        </React.Suspense>
+      ) : (
+        <App />
+      )}
     </LimiteDeErro>
   </React.StrictMode>,
 );

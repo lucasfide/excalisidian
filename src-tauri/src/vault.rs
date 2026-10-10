@@ -13,6 +13,7 @@ use std::time::UNIX_EPOCH;
 
 use serde::Serialize;
 use tauri::AppHandle;
+#[cfg(desktop)]
 use tauri_plugin_dialog::DialogExt;
 use tauri_plugin_fs::FsExt;
 use walkdir::WalkDir;
@@ -40,6 +41,7 @@ pub(crate) fn conceder_escopo(app: &AppHandle, path: &str) -> Result<(), String>
 
 /// Abre o diálogo nativo de escolher pasta. Se o usuário escolher, concede o escopo e
 /// devolve o caminho absoluto. Se cancelar, devolve `None`.
+#[cfg(desktop)]
 #[tauri::command]
 pub async fn escolher_vault(app: AppHandle) -> Result<Option<String>, String> {
     // Comando async: roda fora da thread principal do event loop, então `blocking_pick_folder`

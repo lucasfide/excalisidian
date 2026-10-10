@@ -19,17 +19,18 @@ tauri = { version = "2", features = [] }
 tauri-plugin-fs = { version = "2", features = ["watch"] }
 tauri-plugin-dialog = "2"
 tauri-plugin-store = "2"
-tauri-plugin-updater = "2"
-tauri-plugin-process = "2"
 serde = { version = "1", features = ["derive"] }
 serde_json = "1"
 walkdir = "2"
+# Dependências usadas apenas nas plataformas desktop. Tauri fornece `cfg(desktop)` ao crate,
+# enquanto o Cargo filtra dependências pelos target_os reais.
+[target.'cfg(not(any(target_os = "android", target_os = "ios")))'.dependencies]
 notify = "8"
 notify-debouncer-full = "0.6"
 tauri-plugin-http = "2.6.0"
-# Cofre de credenciais do sistema para o token da conta (ADR-34). O crate genérico não traz
-# loja nenhuma: a loja nativa do Windows entra só em `[target.'cfg(windows)'.dependencies]`
-# abaixo, porque o app só empacota instalador para Windows (docs/05).
+tauri-plugin-updater = "2"
+tauri-plugin-process = "2"
+# Cofre de credenciais da conta, usado somente no desktop.
 keyring-core = "1"
 
 [target.'cfg(windows)'.dependencies]

@@ -10,6 +10,14 @@ import { confirmar } from "./dialogoStore";
 import { useRevelacaoStore } from "./revelacaoStore";
 import { flusharCanvas } from "../canvas/flushCanvas";
 import { tipoDoArquivo } from "../vault/arvore";
+import type { NavegacaoMobile } from "../types/navegacao-mobile";
+
+let navegacaoMobile: NavegacaoMobile | null = null;
+
+/** Instala ou remove a navegação sem Dockview usada pela casca mobile. */
+export function instalarNavegacaoMobile(navegador: NavegacaoMobile | null): void {
+  navegacaoMobile = navegador;
+}
 
 function nomeCurto(path: string): string {
   const n = path.slice(path.lastIndexOf("/") + 1);
@@ -120,6 +128,10 @@ export const useWorkspaceStore = create<WorkspaceState>((set, get) => ({
   },
 
   abrirDocumentoQuandoPronto(path) {
+    if (navegacaoMobile) {
+      get().abrirDocumento(path);
+      return;
+    }
     if (get().api) {
       get().abrirDocumento(path);
       return;
@@ -132,6 +144,14 @@ export const useWorkspaceStore = create<WorkspaceState>((set, get) => ({
   },
 
   abrirDocumento(path, opcoes) {
+    if (navegacaoMobile) {
+      if (opcoes?.revelar) {
+        useRevelacaoStore.getState().pedir(path, opcoes.revelar);
+      }
+      void useDocumentosStore.getState().abrir(path);
+      navegacaoMobile.abrirDocumento(path, opcoes);
+      return;
+    }
     const { api } = get();
     if (!api) return;
     void useDocumentosStore.getState().abrir(path);
@@ -196,6 +216,11 @@ export const useWorkspaceStore = create<WorkspaceState>((set, get) => ({
   },
 
   abrirComoTexto(path) {
+    if (navegacaoMobile) {
+      void useDocumentosStore.getState().abrir(path);
+      navegacaoMobile.abrirComoTexto(path);
+      return;
+    }
     const { api } = get();
     if (!api) return;
     void useDocumentosStore.getState().abrir(path);
@@ -209,6 +234,10 @@ export const useWorkspaceStore = create<WorkspaceState>((set, get) => ({
   },
 
   abrirInicio() {
+    if (navegacaoMobile) {
+      navegacaoMobile.abrirInicio();
+      return;
+    }
     const { api } = get();
     if (!api) return;
     const existente = api.getPanel(ID_PAINEL_INICIO);
@@ -228,6 +257,10 @@ export const useWorkspaceStore = create<WorkspaceState>((set, get) => ({
   renomearDocumento(antigo, novo) {
     const { api } = get();
     useDocumentosStore.getState().renomearNoMapa(antigo, novo);
+    if (navegacaoMobile) {
+      navegacaoMobile.renomearDocumento(antigo, novo);
+      return;
+    }
     if (!api) return;
     // Recria TODOS os painéis que apontam para o caminho antigo (o mesmo arquivo
     // pode estar aberto em vários painéis via split).
@@ -414,6 +447,10 @@ export const useWorkspaceStore = create<WorkspaceState>((set, get) => ({
   },
 
   fecharAbasDoCaminho(path) {
+    if (navegacaoMobile) {
+      navegacaoMobile.fecharAbasDoCaminho(path);
+      return;
+    }
     const { api } = get();
     if (!api) return;
     for (const p of api.panels.filter((p) => pathDoPainel(p) === path)) p.api.close();

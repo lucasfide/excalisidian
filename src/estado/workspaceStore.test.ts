@@ -21,7 +21,11 @@ vi.mock("./dialogoStore", () => ({
   confirmar: () => confirmar(),
 }));
 
-import { useWorkspaceStore } from "./workspaceStore";
+import {
+  instalarNavegacaoMobile,
+  useWorkspaceStore,
+} from "./workspaceStore";
+import type { NavegacaoMobile } from "../types/navegacao-mobile";
 import { useRevelacaoStore } from "./revelacaoStore";
 
 const ws = () => useWorkspaceStore.getState();
@@ -52,6 +56,7 @@ beforeEach(() => {
     fechadosRecentes: [],
     documentoPendente: null,
   });
+  instalarNavegacaoMobile(null);
   useRevelacaoStore.setState({ pendente: null });
 });
 
@@ -465,5 +470,75 @@ describe("workspaceStore — fechar pelo menu da aba (só o quadro da aba)", () 
     expect(b.api.close).toHaveBeenCalled();
     expect(inicio.api.close).not.toHaveBeenCalled();
     expect(c.api.close).not.toHaveBeenCalled();
+  });
+});
+
+describe("workspaceStore — delegate explícito de navegação mobile", () => {
+  function navegadorMobile() {
+    return {
+      abrirDocumento: vi.fn<NavegacaoMobile["abrirDocumento"]>(),
+      abrirComoTexto: vi.fn<NavegacaoMobile["abrirComoTexto"]>(),
+      abrirInicio: vi.fn<NavegacaoMobile["abrirInicio"]>(),
+      renomearDocumento: vi.fn<NavegacaoMobile["renomearDocumento"]>(),
+      fecharAbasDoCaminho: vi.fn<NavegacaoMobile["fecharAbasDoCaminho"]>(),
+    };
+  }
+
+  it("abre documento e revela trecho pelo delegate, sem Dockview", () => {
+    const navegador = navegadorMobile();
+    const api = apiFalsa();
+    useWorkspaceStore.setState({ api: api as never });
+    instalarNavegacaoMobile(navegador);
+
+    ws().abrirDocumento("Nota.md", { revelar: "trecho" });
+
+    expect(abrir).toHaveBeenCalledWith("Nota.md");
+    expect(useRevelacaoStore.getState().pendente).toEqual(
+      expect.objectContaining({ path: "Nota.md", texto: "trecho" }),
+    );
+    expect(navegador.abrirDocumento).toHaveBeenCalledWith("Nota.md", {
+      revelar: "trecho",
+    });
+    expect(api.addPanel).not.toHaveBeenCalled();
+  });
+
+  it("encaminha abertura pendente e abertura como texto sem exigir API", () => {
+    const navegador = navegadorMobile();
+    instalarNavegacaoMobile(navegador);
+
+    ws().abrirDocumentoQuandoPronto("Boas-vindas.md");
+    ws().abrirComoTexto("Cena.draw.md");
+
+    expect(navegador.abrirDocumento).toHaveBeenCalledWith("Boas-vindas.md", undefined);
+    expect(navegador.abrirComoTexto).toHaveBeenCalledWith("Cena.draw.md");
+    expect(abrir).toHaveBeenNthCalledWith(1, "Boas-vindas.md");
+    expect(abrir).toHaveBeenNthCalledWith(2, "Cena.draw.md");
+    expect(ws().documentoPendente).toBeNull();
+  });
+
+  it("encaminha início, rename e exclusão para a casca mobile", () => {
+    const navegador = navegadorMobile();
+    instalarNavegacaoMobile(navegador);
+
+    ws().abrirInicio();
+    ws().renomearDocumento("Antes.md", "Depois.md");
+    ws().fecharAbasDoCaminho("Depois.md");
+
+    expect(navegador.abrirInicio).toHaveBeenCalledOnce();
+    expect(renomearNoMapa).toHaveBeenCalledWith("Antes.md", "Depois.md");
+    expect(navegador.renomearDocumento).toHaveBeenCalledWith("Antes.md", "Depois.md");
+    expect(navegador.fecharAbasDoCaminho).toHaveBeenCalledWith("Depois.md");
+  });
+
+  it("remover o delegate restaura o comportamento desktop sem API", () => {
+    const navegador = navegadorMobile();
+    instalarNavegacaoMobile(navegador);
+    instalarNavegacaoMobile(null);
+
+    ws().abrirDocumento("Nota.md");
+
+    expect(navegador.abrirDocumento).not.toHaveBeenCalled();
+    expect(abrir).not.toHaveBeenCalled();
+    expect(ws().documentoPendente).toBeNull();
   });
 });

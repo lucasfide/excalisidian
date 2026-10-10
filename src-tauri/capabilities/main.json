@@ -3,6 +3,7 @@
   "identifier": "main",
   "description": "Permissões das janelas do Excalisidian: a principal e uma por vault aberto (doc 12).",
   "windows": ["main", "vault-*"],
+  "platforms": ["linux", "macOS", "windows"],
   "permissions": [
     "core:default",
     "core:window:allow-close",

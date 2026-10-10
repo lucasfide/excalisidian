@@ -6,7 +6,7 @@
 
 import { useEffect, useMemo, useRef, type CSSProperties } from "react";
 import type { Extension } from "@codemirror/state";
-import { EditorView } from "@codemirror/view";
+import { EditorView, tooltips } from "@codemirror/view";
 import {
   AtomicCodeMirrorEditor,
   type AtomicCodeMirrorEditorHandle,
@@ -77,6 +77,9 @@ interface Props {
    * variável CSS pro wrapper: quem lê é `.cm-content` via `tokens-excalisidian.css`, não este
    * componente — o scroll continua acontecendo em largura total (ver nota lá). */
   larguraColuna?: string;
+  /** Limita tooltips do CodeMirror à área do editor, usada pelo shell mobile para evitar
+   * cabeçalho e teclado do sistema. O padrão preserva o posicionamento desktop. */
+  mobileShell?: boolean;
   /** Entrega a `EditorView` montada (e `null` ao desmontar) — a barra de formatação
    * acoplada vive fora do editor, no PainelDocumento, e precisa dela pra aplicar os comandos. */
   aoMontarView?(view: EditorView | null): void;
@@ -89,12 +92,17 @@ export default function EditorNota({
   onBlur,
   somenteLeitura = false,
   larguraColuna,
+  mobileShell = false,
   aoMontarView,
 }: Props) {
   const handleRef = useRef<AtomicCodeMirrorEditorHandle | null>(null);
   // O pacote só relê `extensions` quando `documentId` (= caminho) muda, e é exatamente quando
   // este memo muda — então o caminho acima do título acompanha renomear/mover.
-  const extensoes = useMemo(() => [...EXTENSOES, caminhoDaNota(caminho)], [caminho]);
+  const extensoes = useMemo(() => [
+    ...EXTENSOES,
+    caminhoDaNota(caminho),
+    ...(mobileShell ? [tooltips({ tooltipSpace: (view) => view.dom.getBoundingClientRect() })] : []),
+  ], [caminho, mobileShell]);
 
   // Revelação de trecho vinda da busca (doc 13 §2.2/§1.5): não usa `initialRevealText` —
   // este efeito cobre os dois casos (nota montando e nota já montada) com o mesmo código,
