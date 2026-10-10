@@ -1,0 +1,114 @@
+.mobile-app {
+  --background: var(--color-papel);
+  --foreground: var(--color-tinta);
+  --primary: var(--color-cristal);
+  --primary-foreground: var(--color-superficie);
+  --muted: var(--color-lavagem);
+  --muted-foreground: var(--color-tinta-suave);
+  --card: var(--color-superficie);
+  --border: var(--color-regua);
+  --destructive: var(--color-bordo);
+  --radius-control: var(--radius-controle);
+  --radius-card: var(--radius-ficha);
+  color: var(--foreground);
+  background: var(--background);
+  height: 100dvh;
+  min-height: 100%;
+  padding: var(--mobile-safe-area-top, env(safe-area-inset-top)) var(--mobile-safe-area-right, env(safe-area-inset-right)) var(--mobile-safe-area-bottom, env(safe-area-inset-bottom)) var(--mobile-safe-area-left, env(safe-area-inset-left));
+  display: flex;
+  flex-direction: column;
+}
+
+.mobile-app__button,
+.mobile-app__row,
+.mobile-app__input {
+  min-height: 48px;
+  font: inherit;
+}
+
+.mobile-app__input {
+  font-size: 16px;
+}
+
+.mobile-app__header,
+.mobile-app__actions,
+.mobile-app__row {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  padding: 0.75rem;
+}
+
+.mobile-app__header { display: flex; flex-direction: column; align-items: stretch; gap: 0.5rem; border-bottom: 1px solid var(--border); padding: 0.75rem; }
+.mobile-app__document-heading { display: flex; align-items: flex-start; gap: 0.5rem; min-width: 0; }
+.mobile-app__document-heading .mobile-app__button { flex: 0 0 auto; }
+.mobile-app__document-status { min-width: 0; overflow-wrap: anywhere; color: var(--muted-foreground); }
+.mobile-app__document-actions { display: flex; flex-wrap: wrap; justify-content: flex-end; gap: 0.5rem; }
+.mobile-app .cm-tooltip:has([role="toolbar"][aria-label="Formatação do texto"]) {
+  max-width: calc(100vw - 1rem);
+  box-sizing: border-box;
+  overflow-x: hidden;
+  overflow-y: auto;
+  overscroll-behavior: contain;
+}
+.mobile-app .cm-tooltip:has([role="toolbar"][aria-label="Formatação do texto"]) > .group {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  max-width: 100%;
+}
+.mobile-app .cm-tooltip:has([role="toolbar"][aria-label="Formatação do texto"]) > .group > [role="toolbar"] {
+  min-width: 0;
+  max-width: 100%;
+  flex-wrap: wrap;
+}
+.mobile-app .cm-tooltip:has([role="toolbar"][aria-label="Formatação do texto"]) > .group > [role="toolbar"] > div {
+  display: flex;
+  flex-wrap: wrap;
+  min-width: 0;
+  max-width: 100%;
+  opacity: 1;
+}
+.mobile-app .cm-tooltip:has([role="toolbar"][aria-label="Formatação do texto"]) > .group > [role="toolbar"] > div > div {
+  min-width: 0;
+  max-width: 100%;
+  flex-wrap: wrap;
+}
+.mobile-app .cm-tooltip:has([role="toolbar"][aria-label="Formatação do texto"]) > .group > div {
+  background-color: var(--card);
+  border-color: var(--border);
+}
+.mobile-app .cm-tooltip:has([role="toolbar"][aria-label="Formatação do texto"]) > .group > div:last-child > div {
+  opacity: 1;
+}
+.mobile-app .cm-tooltip:has([role="toolbar"][aria-label="Formatação do texto"]) button {
+  min-width: 44px;
+  min-height: 44px;
+}
+.mobile-app__content { min-height: 0; flex: 1; overflow: auto; padding: 1rem; }
+.mobile-app__actions { flex-wrap: wrap; }
+.mobile-app__row { justify-content: space-between; border-bottom: 1px solid var(--border); }
+.mobile-app__button { border: 1px solid var(--border); border-radius: var(--radius-control); background: var(--card); color: var(--foreground); padding: 0.5rem 0.875rem; }
+.mobile-app__button--primary { background: var(--primary); color: var(--primary-foreground); }
+.mobile-app__input { width: 100%; border: 1px solid var(--border); border-radius: var(--radius-control); background: var(--card); color: var(--foreground); padding: 0.5rem 0.75rem; }
+.mobile-app__notice { padding: 0.75rem; color: var(--muted-foreground); }
+.mobile-app__error { color: var(--foreground); background: var(--muted); padding: 0.75rem; }
+.mobile-app__title { min-width: 0; flex: 1; font-family: var(--font-display); overflow-wrap: anywhere; }
+
+@media (min-width: 640px) and (max-height: 500px) and (orientation: landscape) {
+  .mobile-app__header--document {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) auto;
+    align-items: center;
+    column-gap: 0.75rem;
+    row-gap: 0.25rem;
+  }
+
+  .mobile-app__document-heading { grid-column: 1; grid-row: 1; }
+  .mobile-app__document-actions { grid-column: 2; grid-row: 1; }
+  .mobile-app__document-status { grid-column: 1 / -1; grid-row: 2; }
+}
+
+.mobile-app__editor { min-height: 0; flex: 1; overflow: hidden; }
+.mobile-app__editor .cm-editor { height: 100%; font-size: 16px; }
+.mobile-app__canvas { min-height: 0; flex: 1; position: relative; }

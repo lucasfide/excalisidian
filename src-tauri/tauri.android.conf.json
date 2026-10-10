@@ -1,0 +1,14 @@
+{
+  "app": {
+    "windows": [
+      {
+        "title": "Excalisidian"
+      }
+    ]
+  },
+  "bundle": {
+    "targets": null,
+    "createUpdaterArtifacts": false,
+    "windows": null
+  }
+}

@@ -1,0 +1,365 @@
+/* Ajustes do canvas embutido no shell mobile. A prop opt-in e o wrapper do app
+   mantêm este layout fora do editor desktop. */
+.mobile-app .excalisidian-canvas--mobile-shell .excalidraw .App-toolbar-container {
+  --canvas-mobile-tools-reserved-width: 52px;
+  position: relative;
+  display: flex;
+  align-items: flex-start;
+  gap: 0.5rem;
+  width: 100%;
+  max-width: 100%;
+  min-width: 0;
+  box-sizing: border-box;
+}
+
+.mobile-app .excalisidian-canvas--mobile-shell .excalidraw .App-toolbar--mobile {
+  flex: 1 1 0;
+  width: auto;
+  min-width: 0;
+  max-width: 100%;
+  box-sizing: border-box;
+}
+
+.mobile-app .excalisidian-canvas--mobile-shell .excalidraw .App-toolbar--mobile .Stack_horizontal {
+  display: flex;
+  flex-wrap: wrap;
+  grid-template-columns: none;
+  grid-auto-flow: row;
+  grid-auto-columns: auto;
+  align-items: center;
+  justify-content: center;
+  gap: 0.125rem;
+  max-width: 100%;
+}
+
+.mobile-app .excalisidian-canvas--mobile-shell .excalidraw .App-toolbar--mobile .ToolIcon {
+  min-width: 44px;
+  min-height: 44px;
+  flex: 0 0 auto;
+}
+
+.mobile-app .excalisidian-canvas--mobile-shell .excalidraw .App-toolbar--mobile .ToolIcon__icon,
+.mobile-app .excalisidian-canvas--mobile-shell .excalidraw .App-toolbar__extra-tools-trigger {
+  width: 44px;
+  min-width: 44px;
+  height: 44px;
+  min-height: 44px;
+  box-sizing: border-box;
+}
+
+.mobile-app .excalisidian-canvas--mobile-shell .excalidraw .App-toolbar__extra-tools-dropdown button,
+.mobile-app .excalisidian-canvas--mobile-shell .excalidraw .App-toolbar__extra-tools-dropdown [role="button"],
+.mobile-app .excalisidian-canvas--mobile-shell .excalidraw .App-toolbar__extra-tools-dropdown .ToolIcon {
+  min-width: 44px;
+  min-height: 44px;
+  box-sizing: border-box;
+}
+
+.mobile-app .excalisidian-canvas--mobile-shell .excalidraw .excalisidian-canvas__mobile-extras {
+  flex: 0 0 44px;
+  width: 44px;
+  min-width: 44px;
+  min-height: 44px;
+}
+
+.mobile-app .excalisidian-canvas--mobile-shell .excalidraw .excalisidian-canvas__mobile-link-trigger {
+  width: 44px;
+  min-width: 44px;
+  height: 44px;
+  min-height: 44px;
+  border: 1px solid var(--color-regua);
+  border-radius: var(--radius-controle);
+  background: var(--color-superficie);
+  color: var(--color-tinta);
+  font: inherit;
+  cursor: pointer;
+}
+
+.mobile-app .excalisidian-canvas--mobile-shell .excalidraw .excalisidian-canvas__mobile-link-trigger:focus-visible {
+  outline: 2px solid var(--color-cristal);
+  outline-offset: 2px;
+}
+
+.mobile-app .excalisidian-canvas--mobile-shell .excalidraw .excalisidian-canvas__mobile-link-popover {
+  position: absolute;
+  z-index: 5;
+  top: calc(100% + 0.375rem);
+  right: calc(var(--canvas-mobile-tools-reserved-width) + 0.5rem);
+  width: min(16rem, calc(100vw - 2rem), calc(100% - var(--canvas-mobile-tools-reserved-width) - 0.5rem));
+  max-width: calc(100% - var(--canvas-mobile-tools-reserved-width) - 0.5rem);
+}
+
+.mobile-app .excalisidian-canvas--mobile-shell .excalidraw .excalisidian-canvas__mobile-link-popover > * {
+  width: 100%;
+  max-width: 100%;
+  box-sizing: border-box;
+}
+
+.mobile-app .excalisidian-canvas--mobile-shell .excalidraw .excalisidian-canvas__mobile-link-popover input {
+  min-width: 0;
+  min-height: 44px;
+  box-sizing: border-box;
+  font-size: 16px;
+}
+
+.mobile-app .excalisidian-canvas--mobile-shell .excalidraw .excalisidian-canvas__mobile-link-popover button {
+  min-height: 44px;
+}
+
+.mobile-app .excalisidian-canvas--mobile-shell .excalidraw .excalisidian-canvas__mobile-hint {
+  position: absolute;
+  z-index: 2;
+  top: calc(100% + 0.5rem);
+  right: calc(var(--canvas-mobile-tools-reserved-width) + 0.5rem);
+  left: 0;
+  padding: 0.5rem 0.625rem;
+  border: 1px solid var(--color-regua);
+  border-radius: var(--radius-controle);
+  background: var(--color-superficie);
+  color: var(--color-tinta);
+  font-size: 0.75rem;
+  line-height: 1.4;
+  pointer-events: none;
+  overflow-wrap: anywhere;
+}
+
+.mobile-app .excalisidian-canvas--mobile-shell .excalidraw .HintViewer {
+  display: none;
+}
+
+.mobile-app .excalisidian-canvas--mobile-shell .excalidraw .mobile-misc-tools-container {
+  top: calc(100% + 0.5rem);
+  right: 0;
+  width: 44px;
+  box-sizing: border-box;
+}
+
+.mobile-app .excalisidian-canvas--mobile-shell .excalidraw .mobile-misc-tools-container .ToolIcon,
+.mobile-app .excalisidian-canvas--mobile-shell .excalidraw .mobile-misc-tools-container .default-sidebar-trigger {
+  min-width: 44px;
+  min-height: 44px;
+  box-sizing: border-box;
+}
+
+.mobile-app .excalisidian-canvas--mobile-shell .excalidraw .mobile-misc-tools-container .ToolIcon__icon,
+.mobile-app .excalisidian-canvas--mobile-shell .excalidraw .mobile-misc-tools-container .default-sidebar-trigger .ToolIcon__icon {
+  width: 44px;
+  min-width: 44px;
+  height: 44px;
+  min-height: 44px;
+  box-sizing: border-box;
+}
+
+@media (orientation: landscape) and (min-width: 640px) and (max-height: 500px) {
+  .mobile-app .excalisidian-canvas--mobile-shell .excalidraw .App-toolbar-container {
+    --canvas-mobile-tools-reserved-width: 176px;
+  }
+
+  .mobile-app .excalisidian-canvas--mobile-shell .excalidraw .mobile-misc-tools-container {
+    top: calc(100% + 0.5rem);
+    right: 0;
+    display: flex;
+    flex-direction: row;
+    flex-wrap: nowrap;
+    width: max-content;
+    height: 44px;
+    border: 1px solid var(--sidebar-border-color);
+    border-radius: var(--border-radius-lg);
+    box-sizing: border-box;
+  }
+
+  .mobile-app .excalisidian-canvas--mobile-shell .excalidraw .mobile-misc-tools-container > .ToolIcon,
+  .mobile-app .excalisidian-canvas--mobile-shell .excalidraw .mobile-misc-tools-container > .default-sidebar-trigger {
+    flex: 0 0 44px;
+    width: 44px;
+    height: 44px;
+  }
+}
+
+.mobile-app .excalisidian-canvas--mobile-shell .excalidraw .App-bottom-bar .App-toolbar-content button,
+.mobile-app .excalisidian-canvas--mobile-shell .excalidraw .App-bottom-bar .App-toolbar-content [role="button"],
+.mobile-app .excalisidian-canvas--mobile-shell .excalidraw .App-bottom-bar .App-toolbar-content .ToolIcon {
+  min-width: 44px;
+  min-height: 44px;
+  box-sizing: border-box;
+}
+
+.mobile-app .excalisidian-canvas--mobile-shell .excalidraw .App-bottom-bar > .Island {
+  min-height: 0;
+}
+
+.mobile-app .excalisidian-canvas--mobile-shell .excalidraw .App-mobile-menu {
+  min-height: 0;
+  max-height: calc(
+    100dvh - var(--mobile-safe-area-top, env(safe-area-inset-top)) -
+      var(--mobile-safe-area-bottom, env(safe-area-inset-bottom)) - 7rem
+  );
+  overflow-x: hidden;
+  overflow-y: auto;
+  overscroll-behavior: contain;
+}
+
+.mobile-app .excalisidian-canvas--mobile-shell .excalidraw .App-mobile-menu .color-picker-container {
+  grid-template-columns: minmax(0, 1fr) 1px 44px;
+  column-gap: 0.375rem;
+  width: 100%;
+  min-width: 0;
+  max-width: 100%;
+  box-sizing: border-box;
+}
+
+.mobile-app .excalisidian-canvas--mobile-shell .excalidraw .App-mobile-menu .color-picker__top-picks {
+  justify-content: flex-start;
+  gap: 0.375rem;
+  width: 100%;
+  min-width: 0;
+  padding: 0.25rem;
+  overflow-x: auto;
+  overflow-y: hidden;
+  box-sizing: border-box;
+  -webkit-overflow-scrolling: touch;
+}
+
+.mobile-app .excalisidian-canvas--mobile-shell .excalidraw .App-mobile-menu .color-picker__button,
+.mobile-app .excalisidian-canvas--mobile-shell .excalidraw .App-mobile-menu .color-picker__button.active-color {
+  flex: 0 0 44px;
+  width: 44px;
+  min-width: 44px;
+  height: 44px;
+  min-height: 44px;
+  box-sizing: border-box;
+}
+
+.mobile-app .excalisidian-canvas--mobile-shell .excalidraw .App-mobile-menu .buttonList {
+  --button-width: 44px;
+  --button-height: 44px;
+  min-width: 0;
+  max-width: 100%;
+  flex-wrap: wrap;
+}
+
+.mobile-app .excalisidian-canvas--mobile-shell .excalidraw .App-mobile-menu .buttonList label,
+.mobile-app .excalisidian-canvas--mobile-shell .excalidraw .App-mobile-menu .buttonList button,
+.mobile-app .excalisidian-canvas--mobile-shell .excalidraw .App-mobile-menu .buttonList .zIndexButton {
+  min-width: 44px;
+  min-height: 44px;
+  box-sizing: border-box;
+}
+
+.mobile-app .excalisidian-canvas--mobile-shell .excalidraw .App-mobile-menu .ToolIcon {
+  width: 44px;
+  min-width: 44px;
+  height: 44px;
+  min-height: 44px;
+  box-sizing: border-box;
+}
+
+.mobile-app .excalisidian-canvas--mobile-shell .excalidraw .App-mobile-menu .range-input {
+  height: 44px;
+  min-height: 44px;
+  background: transparent;
+  touch-action: pan-x;
+}
+
+.mobile-app .excalisidian-canvas--mobile-shell .excalidraw .App-mobile-menu .range-input::-webkit-slider-runnable-track {
+  height: 4px;
+  border-radius: 2px;
+  background: var(--color-slider-track);
+}
+
+.mobile-app .excalisidian-canvas--mobile-shell .excalidraw .App-mobile-menu .range-input::-moz-range-track {
+  height: 4px;
+  border-radius: 2px;
+  background: var(--color-slider-track);
+}
+
+/* A paleta de cores é portada para dentro da raiz .excalidraw, fora de
+   .App-mobile-menu. Estes seletores mantêm os alvos e a rolagem no mobile. */
+.mobile-app .excalisidian-canvas--mobile-shell .excalidraw .color-picker-content {
+  width: 100%;
+  min-width: 0;
+  max-width: 100%;
+  max-height: min(
+    calc(var(--radix-popover-content-available-height, 100dvh) - 1.5rem),
+    calc(
+      100dvh - var(--mobile-safe-area-top, env(safe-area-inset-top, 0px)) -
+        var(--mobile-safe-area-bottom, env(safe-area-inset-bottom, 0px)) - 3rem
+    )
+  );
+  min-height: 0;
+  overflow-x: hidden;
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  box-sizing: border-box;
+  -webkit-overflow-scrolling: touch;
+}
+
+.mobile-app .excalisidian-canvas--mobile-shell .excalidraw .color-picker-content--default {
+  width: 100%;
+  min-width: 0;
+  max-width: 100%;
+  grid-template-columns: repeat(auto-fit, minmax(44px, 1fr));
+  grid-auto-rows: minmax(44px, auto);
+  gap: 0.25rem;
+  box-sizing: border-box;
+}
+
+.mobile-app .excalisidian-canvas--mobile-shell .excalidraw .color-picker-content .color-input-container {
+  grid-column: 1 / -1;
+  min-width: 0;
+  max-width: 100%;
+  box-sizing: border-box;
+}
+
+.mobile-app .excalisidian-canvas--mobile-shell .excalidraw .color-picker__button--large,
+.mobile-app .excalisidian-canvas--mobile-shell .excalidraw .color-picker-swatch {
+  width: 44px;
+  min-width: 44px;
+  height: 44px;
+  min-height: 44px;
+  box-sizing: border-box;
+}
+
+.mobile-app .excalisidian-canvas--mobile-shell .excalidraw .color-picker-content--canvas-colors {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.25rem;
+  min-width: 0;
+  max-width: 100%;
+  box-sizing: border-box;
+}
+
+.mobile-app .excalisidian-canvas--mobile-shell .excalidraw .color-picker-content--canvas-colors .color-picker-swatch {
+  flex: 0 0 44px;
+  margin: 0;
+}
+
+.mobile-app .excalisidian-canvas--mobile-shell .excalidraw .color-picker__input-label {
+  grid-template-columns: auto minmax(0, 1fr) auto auto;
+  min-width: 0;
+  min-height: 44px;
+  box-sizing: border-box;
+}
+
+.mobile-app .excalisidian-canvas--mobile-shell .excalidraw .color-picker-input {
+  width: 100%;
+  min-width: 0;
+  height: 44px;
+  min-height: 44px;
+  font-size: 16px;
+  box-sizing: border-box;
+}
+
+.mobile-app .excalisidian-canvas--mobile-shell .excalidraw .color-picker__input-hash {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 44px;
+}
+
+.mobile-app .excalisidian-canvas--mobile-shell .excalidraw .color-picker__input-label button,
+.mobile-app .excalisidian-canvas--mobile-shell .excalidraw .color-picker__input-label [role="button"] {
+  min-width: 44px;
+  min-height: 44px;
+  box-sizing: border-box;
+}
