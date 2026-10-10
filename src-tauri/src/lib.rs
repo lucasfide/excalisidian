@@ -39,8 +39,79 @@ fn conceder_escopo_sync_teste(app: &tauri::AppHandle) -> Result<(), String> {
         .map_err(|e| e.to_string())
 }
 
+/// O AppImage é feito no Ubuntu 22.04 e leva dentro dele um `libwayland-client` antigo (1.20).
+/// Com Mesa novo (distros rolling), o `libEGL` do sistema é carregado junto com essa cópia velha e o
+/// `WebKitWebProcess` aborta na partida com `EGL_BAD_PARAMETER`. O WebKit cria o processo filho
+/// herdando o ambiente do principal, então definir `LD_PRELOAD` aqui faz o filho usar a cópia do
+/// sistema, que é compatível com as bibliotecas antigas do pacote. Fora do AppImage nada muda.
+#[cfg(target_os = "linux")]
+fn preferir_libwayland_do_sistema() {
+    if std::env::var_os("APPIMAGE").is_none() {
+        return;
+    }
+    // `/usr/lib` por último: no Fedora com multilib ele guarda a cópia de 32 bits.
+    let candidatas = [
+        "/usr/lib64/libwayland-client.so.0",
+        "/usr/lib/x86_64-linux-gnu/libwayland-client.so.0",
+        "/usr/lib/libwayland-client.so.0",
+    ];
+    let Some(lib) = candidatas.iter().find(|c| std::path::Path::new(c).exists()) else {
+        return;
+    };
+    let atual = std::env::var("LD_PRELOAD").ok();
+    if let Some(novo) = ld_preload_com_libwayland(atual.as_deref(), lib) {
+        std::env::set_var("LD_PRELOAD", novo);
+    }
+}
+
+/// Calcula o novo `LD_PRELOAD`; `None` quando já contém `libwayland-client` (não mexe).
+#[cfg(target_os = "linux")]
+fn ld_preload_com_libwayland(atual: Option<&str>, lib: &str) -> Option<String> {
+    match atual {
+        Some(a) if a.contains("libwayland-client") => None,
+        Some(a) if !a.is_empty() => Some(format!("{lib}:{a}")),
+        _ => Some(lib.to_string()),
+    }
+}
+
+#[cfg(all(test, target_os = "linux"))]
+mod testes {
+    use super::ld_preload_com_libwayland;
+
+    #[test]
+    fn sem_valor_ou_vazio_usa_so_a_lib() {
+        assert_eq!(
+            ld_preload_com_libwayland(None, "/x/lw.so.0"),
+            Some("/x/lw.so.0".into())
+        );
+        assert_eq!(
+            ld_preload_com_libwayland(Some(""), "/x/lw.so.0"),
+            Some("/x/lw.so.0".into())
+        );
+    }
+
+    #[test]
+    fn ja_contem_libwayland_nao_mexe() {
+        assert_eq!(
+            ld_preload_com_libwayland(Some("/a/libwayland-client.so.0"), "/x/lw.so.0"),
+            None
+        );
+    }
+
+    #[test]
+    fn valor_existente_recebe_a_lib_na_frente() {
+        assert_eq!(
+            ld_preload_com_libwayland(Some("/a/b.so"), "/x/lw.so.0"),
+            Some("/x/lw.so.0:/a/b.so".into())
+        );
+    }
+}
+
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {
+    #[cfg(target_os = "linux")]
+    preferir_libwayland_do_sistema();
+
     let mut builder = tauri::Builder::default();
 
     // Updater e reinício do processo só existem em desktop — o plugin não compila para mobile.
