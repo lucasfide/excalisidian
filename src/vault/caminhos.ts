@@ -2,6 +2,8 @@
 // chave canônica é o caminho em minúsculas (o Windows compara caminho case-insensitive).
 // Validação de nome de arquivo do Windows vive aqui também.
 
+import { traduzirAgora } from "../i18n/traduzirAgora";
+
 /** Normaliza para uso interno: "/" como separador, sem "/" no fim, NFC. */
 export function normalizarCaminho(p: string): string {
   return p
@@ -80,9 +82,11 @@ export function sanitizarNome(
   opcoes?: { vaiReceberExtensao?: boolean },
 ): string | null {
   const semProibidos = semControle(nome.replace(new RegExp(RE_PROIBIDOS.source, "g"), "-"));
+  // O app esconde tudo que começa com ponto (walk_vault, watcher): nome assim nunca aparece.
+  const semPontoNoInicio = semProibidos.replace(/^[.\s]+/g, "");
   const s = opcoes?.vaiReceberExtensao
-    ? semProibidos.trim()
-    : semProibidos.replace(/[.\s]+$/g, "").trim();
+    ? semPontoNoInicio.trim()
+    : semPontoNoInicio.replace(/[.\s]+$/g, "").trim();
   if (s.length === 0 || ehReservado(s)) return null;
   return s;
 }
@@ -114,6 +118,9 @@ export function validarNomeArquivo(nome: string): { ok: boolean; motivo?: string
   }
   if (RE_PROIBIDOS.test(nome)) {
     return { ok: false, motivo: 'O nome não pode conter < > : " / \\ | ? *.' };
+  }
+  if (nome.startsWith(".")) {
+    return { ok: false, motivo: traduzirAgora("vault.erro.nomeComecaComPonto") };
   }
   if (temControle(nome)) {
     return { ok: false, motivo: "O nome não pode conter caracteres de controle." };

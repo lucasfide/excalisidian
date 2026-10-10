@@ -8,6 +8,7 @@ export const PT_BR_VAULT = {
   "vault.erro.nomeVazio": "Dê um nome ao vault.",
   "vault.erro.nomeInvalido":
     'O nome não pode ter / \\ : * ? " < > | nem começar com ponto.',
+  "vault.erro.nomeComecaComPonto": "O nome não pode começar com ponto.",
   "vault.erro.existe": "Já existe uma pasta com esse nome nesse local.",
   "vault.erro.paiIndisponivel": "Não foi possível acessar o local escolhido.",
   "vault.erroAbrir.titulo": "Não foi possível abrir o vault",
@@ -36,6 +37,7 @@ export const EN_VAULT: Partial<Record<keyof typeof PT_BR_VAULT, string>> = {
   "vault.erro.nomeVazio": "Give the vault a name.",
   "vault.erro.nomeInvalido":
     'The name cannot contain / \\ : * ? " < > | or start with a dot.',
+  "vault.erro.nomeComecaComPonto": "The name can't start with a dot.",
   "vault.erro.existe": "A folder with this name already exists here.",
   "vault.erro.paiIndisponivel": "Could not access the chosen location.",
   "vault.erroAbrir.titulo": "Couldn't open the vault",

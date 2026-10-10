@@ -84,3 +84,23 @@ describe("normalização de caminho", () => {
     );
   });
 });
+
+describe("nome que começa com ponto (o app esconde tudo que começa com '.')", () => {
+  it("validarNomeArquivo recusa nome que começa com ponto, com o motivo do catálogo", () => {
+    const r = validarNomeArquivo(".ideias.md");
+    expect(r.ok).toBe(false);
+    expect(r.motivo).toBe("O nome não pode começar com ponto.");
+    expect(validarNomeArquivo(".draw.md").ok).toBe(false);
+  });
+
+  it("sanitizarNome tira os pontos do começo em vez de recusar", () => {
+    expect(sanitizarNome(".ideias")).toBe("ideias");
+    expect(sanitizarNome("..ideias", { vaiReceberExtensao: true })).toBe("ideias");
+    expect(sanitizarNome(". .ideias")).toBe("ideias");
+  });
+
+  it("sanitizarNome devolve null se só sobrar ponto", () => {
+    expect(sanitizarNome("...")).toBeNull();
+    expect(sanitizarNome("..", { vaiReceberExtensao: true })).toBeNull();
+  });
+});
