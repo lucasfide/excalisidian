@@ -41,11 +41,16 @@ fn conceder_escopo_sync_teste(app: &tauri::AppHandle) -> Result<(), String> {
 
 /// O AppImage é feito no Ubuntu 22.04 e leva dentro dele um `libwayland-client` antigo (1.20).
 /// Com Mesa novo (distros rolling), o `libEGL` do sistema é carregado junto com essa cópia velha e o
-/// `WebKitWebProcess` aborta na partida com `EGL_BAD_PARAMETER`. O WebKit cria o processo filho
-/// herdando o ambiente do principal, então definir `LD_PRELOAD` aqui faz o filho usar a cópia do
-/// sistema, que é compatível com as bibliotecas antigas do pacote. Fora do AppImage nada muda.
+/// `WebKitWebProcess` aborta na partida com `EGL_BAD_PARAMETER`. Por isso o `LD_PRELOAD` aponta para a
+/// cópia do sistema e o binário se reexecuta uma vez: o processo principal já carregou a cópia velha
+/// antes do `main`. O hook do Tauri força `GDK_BACKEND=x11` por causa disso (tauri#8541); com a lib
+/// do sistema garantida, trocamos para Wayland nativo, que respeita a escala fracionária (via
+/// XWayland o app fica maior que os outros). `EXCALISIDIAN_FORCAR_X11` mantém o x11 em máquina
+/// onde o Wayland nativo der problema. Fora do AppImage nada muda.
 #[cfg(target_os = "linux")]
-fn preferir_libwayland_do_sistema() {
+fn preparar_ambiente_appimage() {
+    use std::os::unix::process::CommandExt;
+
     if std::env::var_os("APPIMAGE").is_none() {
         return;
     }
@@ -55,12 +60,50 @@ fn preferir_libwayland_do_sistema() {
         "/usr/lib/x86_64-linux-gnu/libwayland-client.so.0",
         "/usr/lib/libwayland-client.so.0",
     ];
+    // Sem a lib do sistema, Wayland nativo com a cópia antiga é o caso que quebrava: fica em x11.
     let Some(lib) = candidatas.iter().find(|c| std::path::Path::new(c).exists()) else {
         return;
     };
+
+    let mut trocou_backend = false;
+    if std::env::var_os("EXCALISIDIAN_FORCAR_X11").is_none() {
+        let gdk_backend = std::env::var("GDK_BACKEND").ok();
+        let wayland_display = std::env::var("WAYLAND_DISPLAY").ok();
+        if let Some(backend) =
+            backend_gdk_para_appimage(gdk_backend.as_deref(), wayland_display.as_deref())
+        {
+            std::env::set_var("GDK_BACKEND", backend);
+            trocou_backend = true;
+        }
+    }
+
     let atual = std::env::var("LD_PRELOAD").ok();
     if let Some(novo) = ld_preload_com_libwayland(atual.as_deref(), lib) {
         std::env::set_var("LD_PRELOAD", novo);
+        if let Ok(exe) = std::env::current_exe() {
+            // `exec` só volta em caso de erro. Na segunda execução o `LD_PRELOAD` já tem a lib,
+            // então não há laço.
+            let _erro = std::process::Command::new(exe)
+                .args(std::env::args_os().skip(1))
+                .exec();
+        }
+        // Sem a reexecução o principal ficou com a lib antiga: volta para x11.
+        if trocou_backend {
+            std::env::set_var("GDK_BACKEND", "x11");
+        }
+    }
+}
+
+/// Backend GDK a impor no AppImage: `Some("wayland")` quando há sessão Wayland e o backend é o
+/// `x11` que o hook do pacote força; `None` em qualquer outro caso (não mexe).
+#[cfg(target_os = "linux")]
+fn backend_gdk_para_appimage(
+    gdk_backend: Option<&str>,
+    wayland_display: Option<&str>,
+) -> Option<&'static str> {
+    match (gdk_backend, wayland_display) {
+        (Some("x11"), Some(d)) if !d.is_empty() => Some("wayland"),
+        _ => None,
     }
 }
 
@@ -76,7 +119,7 @@ fn ld_preload_com_libwayland(atual: Option<&str>, lib: &str) -> Option<String> {
 
 #[cfg(all(test, target_os = "linux"))]
 mod testes {
-    use super::ld_preload_com_libwayland;
+    use super::{backend_gdk_para_appimage, ld_preload_com_libwayland};
 
     #[test]
     fn sem_valor_ou_vazio_usa_so_a_lib() {
@@ -105,12 +148,35 @@ mod testes {
             Some("/x/lw.so.0:/a/b.so".into())
         );
     }
+
+    #[test]
+    fn x11_com_wayland_display_vira_wayland() {
+        assert_eq!(
+            backend_gdk_para_appimage(Some("x11"), Some("wayland-1")),
+            Some("wayland")
+        );
+    }
+
+    #[test]
+    fn x11_sem_wayland_display_nao_mexe() {
+        assert_eq!(backend_gdk_para_appimage(Some("x11"), None), None);
+        assert_eq!(backend_gdk_para_appimage(Some("x11"), Some("")), None);
+    }
+
+    #[test]
+    fn outro_backend_nao_mexe() {
+        assert_eq!(
+            backend_gdk_para_appimage(Some("wayland"), Some("wayland-1")),
+            None
+        );
+        assert_eq!(backend_gdk_para_appimage(None, Some("wayland-1")), None);
+    }
 }
 
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {
     #[cfg(target_os = "linux")]
-    preferir_libwayland_do_sistema();
+    preparar_ambiente_appimage();
 
     let mut builder = tauri::Builder::default();
 
