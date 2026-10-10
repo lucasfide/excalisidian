@@ -1494,7 +1494,7 @@ export const useAgenteStore = create<AgenteState>((set, get) => {
       if (!raiz) return "Nenhum vault aberto.";
       try {
         const base = await appDataDir();
-        const caminho = await join(base, "com.excalisidian.app", ...pastaAgenteRelativa(raiz).split("/"));
+        const caminho = await join(base, ...pastaAgenteRelativa(raiz).split("/"));
         await invoke("revelar_pasta", { path: caminho });
         return null;
       } catch (e) {

@@ -27,6 +27,16 @@ vi.mock("@tauri-apps/plugin-store", () => ({
   },
 }));
 
+const { invokeMock } = vi.hoisted(() => ({ invokeMock: vi.fn(async (..._a: unknown[]): Promise<unknown> => undefined) }));
+vi.mock("@tauri-apps/api/core", () => ({
+  invoke: (...args: unknown[]) => invokeMock(...args),
+}));
+// `appDataDir()` real já termina no identificador do app (~/.local/share/com.excalisidian.app).
+vi.mock("@tauri-apps/api/path", () => ({
+  appDataDir: async () => "/dados/com.excalisidian.app",
+  join: async (...partes: string[]) => partes.join("/"),
+}));
+
 const emitMock = vi.fn(async (..._args: unknown[]) => {});
 vi.mock("@tauri-apps/api/event", () => ({
   emit: (...args: unknown[]) => emitMock(...args),
@@ -107,6 +117,7 @@ vi.mock("./vaultStore", () => ({
 }));
 
 import { useAgenteStore } from "./agenteStore";
+import { pastaAgenteRelativa } from "../agente/memoria";
 import { completar, listarModelos } from "../agente/cliente";
 import { FalhaAgente } from "../agente/tipos";
 import type { ConfigAgente } from "../agente/tipos";
@@ -1566,5 +1577,17 @@ describe("agenteStore — ajustes da revisão final", () => {
     liberar({ usados: 5, total: 100, renovaEm: Date.now() + 3_600_000 });
     await busca;
     expect(st().saldoCreditos?.usados).toBe(5);
+  });
+});
+
+describe("agenteStore — abrir a pasta do agente", () => {
+  it("revela <appDataDir>/<pastaAgenteRelativa>, sem repetir o identificador do app", async () => {
+    invokeMock.mockClear();
+    useAgenteStore.setState({ raiz: "/vault/teste" });
+    const erro = await st().abrirPasta();
+    expect(erro).toBeNull();
+    expect(invokeMock).toHaveBeenCalledWith("revelar_pasta", {
+      path: `/dados/com.excalisidian.app/${pastaAgenteRelativa("/vault/teste")}`,
+    });
   });
 });
