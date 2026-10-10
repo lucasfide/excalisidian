@@ -319,10 +319,13 @@ async function souJanelaDesignadaReal(): Promise<boolean> {
   return menorLabel === getCurrentWebviewWindow().label;
 }
 
-async function existePastaReal(caminho: string): Promise<boolean> {
+/** `vault_existe` (Rust, `is_dir`) não depende de permissão de escopo; o `exists` do
+ * plugin-fs lança para um vault que nenhuma janela abriu nesta execução, e isso o fazia
+ * passar por "pasta apagada" e nunca sincronizar. */
+export async function existePastaReal(caminho: string): Promise<boolean> {
   try {
-    const { exists } = await import("@tauri-apps/plugin-fs");
-    return await exists(caminho);
+    const { invoke } = await import("@tauri-apps/api/core");
+    return await invoke<boolean>("vault_existe", { path: caminho });
   } catch {
     return false;
   }

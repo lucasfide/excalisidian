@@ -7,7 +7,22 @@
 
 import { describe, it, expect, vi, beforeEach } from "vitest";
 
-import { executarRodada, iniciarSegundoPlano, rodarVault, type DepsSegundoPlano } from "./segundoPlano";
+const { invokeMock, existsMock } = vi.hoisted(() => ({
+  invokeMock: vi.fn(),
+  existsMock: vi.fn(),
+}));
+vi.mock("@tauri-apps/api/core", () => ({ invoke: invokeMock }));
+// `exists` do plugin-fs exige permissão concedida; para um vault que nenhuma janela abriu
+// nesta execução ele lança.
+vi.mock("@tauri-apps/plugin-fs", () => ({ exists: existsMock }));
+
+import {
+  executarRodada,
+  existePastaReal,
+  iniciarSegundoPlano,
+  rodarVault,
+  type DepsSegundoPlano,
+} from "./segundoPlano";
 import type { EstadoSync } from "./estadoSync";
 import type { ContextoCiclo, ResultadoCiclo } from "./motor";
 import type { ServicoSync } from "./ServicoSync";
@@ -466,5 +481,29 @@ describe("iniciarSegundoPlano", () => {
     await vi.advanceTimersByTimeAsync(5000);
     expect(listarVaults.mock.calls.length).toBe(chamadasAntes);
     vi.useRealTimers();
+  });
+});
+
+describe("existePastaReal", () => {
+  beforeEach(() => {
+    invokeMock.mockReset();
+    existsMock.mockReset();
+    existsMock.mockRejectedValue(new Error("forbidden path"));
+  });
+
+  it("vault que nenhuma janela abriu (sem permissão no plugin-fs) existe se o Rust diz que existe", async () => {
+    invokeMock.mockResolvedValue(true);
+    expect(await existePastaReal("/vault/fechado")).toBe(true);
+    expect(invokeMock).toHaveBeenCalledWith("vault_existe", { path: "/vault/fechado" });
+  });
+
+  it("pasta que o Rust diz que não existe é pasta apagada", async () => {
+    invokeMock.mockResolvedValue(false);
+    expect(await existePastaReal("/vault/sumiu")).toBe(false);
+  });
+
+  it("falha do comando conta como pasta que não existe", async () => {
+    invokeMock.mockRejectedValue(new Error("x"));
+    expect(await existePastaReal("/vault/x")).toBe(false);
   });
 });
