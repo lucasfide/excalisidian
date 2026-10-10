@@ -23,15 +23,13 @@ export interface ConfigVault {
 
 const DEFAULT_CONFIG: ConfigVault = { version: 1 };
 
-export async function lerConfigVault(): Promise<ConfigVault> {
+/** Distingue "não existe" (padrão) de "existe mas a leitura falhou" (permissão, arquivo
+ * travado): no segundo caso lança, para quem for regravar não apagar o que está no disco. */
+async function lerOuLancar(): Promise<ConfigVault> {
   const adapter = useVaultStore.getState().adapter;
   if (!adapter) return { ...DEFAULT_CONFIG };
-  let bruto: string;
-  try {
-    bruto = await adapter.lerTexto(CAMINHO_CONFIG);
-  } catch {
-    return { ...DEFAULT_CONFIG }; // arquivo ainda não existe
-  }
+  if (!(await adapter.existe(CAMINHO_CONFIG))) return { ...DEFAULT_CONFIG };
+  const bruto = await adapter.lerTexto(CAMINHO_CONFIG);
   try {
     const dado = JSON.parse(bruto) as Partial<ConfigVault>;
     return { ...DEFAULT_CONFIG, ...dado, version: dado.version ?? 1 };
@@ -40,12 +38,25 @@ export async function lerConfigVault(): Promise<ConfigVault> {
   }
 }
 
+export async function lerConfigVault(): Promise<ConfigVault> {
+  try {
+    return await lerOuLancar();
+  } catch {
+    return { ...DEFAULT_CONFIG }; // leitura falhou: o app abre com o padrão, sem gravar nada
+  }
+}
+
 /** Read-modify-write: lê o que está no disco, aplica `patch` por cima e regrava. Campos que
  * `patch` não menciona (incluindo os que este módulo nem modela) ficam intactos. */
 export async function gravarConfigVault(patch: Partial<ConfigVault>): Promise<void> {
   const adapter = useVaultStore.getState().adapter;
   if (!adapter) return;
-  const atual = await lerConfigVault();
+  let atual: ConfigVault;
+  try {
+    atual = await lerOuLancar();
+  } catch {
+    return; // existe mas não foi possível ler: falha silenciosa, o arquivo fica como está
+  }
   const novo: ConfigVault = { ...atual, ...patch };
   await adapter.criarPasta(PASTA_CONFIG_VAULT);
   await adapter.escreverTexto(CAMINHO_CONFIG, JSON.stringify(novo, null, 2));

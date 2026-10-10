@@ -17,6 +17,11 @@ export const PT_BR_VAULT = {
     "abaixo ou abra a pasta onde ele está.",
   "vault.erroAbrir.generico":
     "Algo impediu a abertura do vault. Tente de novo ou escolha outro vault abaixo.",
+  "tarefas.erro.corrompido":
+    "Não foi possível ler as tarefas. O arquivo pode estar corrompido; ele não será " +
+    "sobrescrito até você criar uma tarefa nova.",
+  "tarefas.erro.leitura":
+    "Não foi possível abrir as tarefas. Nada foi apagado; feche e abra o vault para tentar de novo.",
   "painelLateral.agente": "Agente",
   "painelLateral.tarefas": "Tarefas",
   "painelLateral.rotulo": "Painel lateral",
@@ -40,6 +45,11 @@ export const EN_VAULT: Partial<Record<keyof typeof PT_BR_VAULT, string>> = {
     "the folder where it is.",
   "vault.erroAbrir.generico":
     "Something kept the vault from opening. Try again or choose another vault below.",
+  "tarefas.erro.corrompido":
+    "Couldn't read your tasks. The file may be corrupted; it won't be overwritten until you " +
+    "create a new task.",
+  "tarefas.erro.leitura":
+    "Couldn't open your tasks. Nothing was deleted; close and reopen the vault to try again.",
   "painelLateral.agente": "Agent",
   "painelLateral.tarefas": "Tasks",
   "painelLateral.rotulo": "Side panel",

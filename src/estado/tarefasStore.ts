@@ -11,6 +11,7 @@ import type { Tarefa, Comentario, Secao } from "../tarefas/tipos";
 import { parseTarefas, serializarTarefas, tarefasIlegivel } from "../tarefas/formatoTarefas";
 import { secaoDe, dataDaSecao, agruparTarefas } from "../tarefas/agrupamento";
 import { renormalizarSecao } from "../tarefas/ordem";
+import { traduzirAgora } from "../i18n/traduzirAgora";
 import { useVaultStore } from "./vaultStore";
 
 export const CAMINHO_TAREFAS = ".excalisidian/tarefas.json";
@@ -43,6 +44,10 @@ let timer: number | undefined;
  * uma carga que falhou/corrompeu: nesse estado o guard não bate, mas `tarefas` fica vazio,
  * então a 1ª gravação só acontece quando o usuário cria uma tarefa (doc 10 §2.2). */
 let ultimoJson: string | null = null;
+/** `true` quando a última carga FALHOU ao ler (permissão, arquivo travado): o que está no disco
+ * pode estar íntegro e a lista em memória está vazia, então gravar apagaria as tarefas reais.
+ * Só um `carregar()` bem-sucedido libera a gravação. */
+let leituraFalhou = false;
 
 function novoId(prefixo: "t" | "c"): string {
   return `${prefixo}-${crypto.randomUUID().slice(0, 8)}`;
@@ -142,6 +147,7 @@ export const useTarefasStore = create<TarefasState>(() => ({
 
   async carregar() {
     window.clearTimeout(timer);
+    leituraFalhou = false;
     const adapter = useVaultStore.getState().adapter;
     if (!adapter) {
       ultimoJson = serializarTarefas({ versao: 1, tarefas: [] });
@@ -152,7 +158,7 @@ export const useTarefasStore = create<TarefasState>(() => ({
       if (await adapter.existe(CAMINHO_TAREFAS)) {
         const texto = await adapter.lerTexto(CAMINHO_TAREFAS);
         if (tarefasIlegivel(texto)) {
-          toast("Não foi possível ler as tarefas. O arquivo pode estar corrompido; ele não será sobrescrito até você criar uma tarefa nova.");
+          toast(traduzirAgora("tarefas.erro.corrompido"));
           ultimoJson = serializarTarefas({ versao: 1, tarefas: [] });
           useTarefasStore.setState({ tarefas: [], carregado: true, tarefaAberta: null });
           return;
@@ -165,7 +171,8 @@ export const useTarefasStore = create<TarefasState>(() => ({
         useTarefasStore.setState({ tarefas: [], carregado: true, tarefaAberta: null });
       }
     } catch {
-      toast("Não foi possível ler as tarefas. O arquivo pode estar corrompido; ele não será sobrescrito até você criar uma tarefa nova.");
+      toast(traduzirAgora("tarefas.erro.leitura"));
+      leituraFalhou = true;
       ultimoJson = serializarTarefas({ versao: 1, tarefas: [] });
       useTarefasStore.setState({ tarefas: [], carregado: true, tarefaAberta: null });
     }
@@ -293,6 +300,7 @@ export const useTarefasStore = create<TarefasState>(() => ({
     window.clearTimeout(timer);
     const adapter = useVaultStore.getState().adapter;
     if (!adapter) return true;
+    if (leituraFalhou) return true; // nunca grava por cima de um arquivo que não conseguimos ler
     const json = serializarTarefas({ versao: 1, tarefas: useTarefasStore.getState().tarefas });
     if (json === ultimoJson) return true;
     try {

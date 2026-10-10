@@ -31,6 +31,8 @@ vi.mock("@tauri-apps/plugin-store", () => ({
   }),
 }));
 
+import { toast } from "sonner";
+import { traduzirAgora } from "../i18n/traduzirAgora";
 import { useTarefasStore, CAMINHO_TAREFAS } from "./tarefasStore";
 
 const HOJE = "2026-09-09";
@@ -65,6 +67,34 @@ describe("tarefasStore — carga e CRUD", () => {
     expect(useTarefasStore.getState().tarefas).toEqual([]);
     await useTarefasStore.getState()._persistirAgora();
     expect(disco.get(CAMINHO_TAREFAS)).toBe("{ corrompido");
+  });
+
+  it("corrompido mostra o texto de corrompido", async () => {
+    disco.set(CAMINHO_TAREFAS, "{ corrompido");
+    await useTarefasStore.getState().carregar();
+    expect(toast).toHaveBeenCalledWith(traduzirAgora("tarefas.erro.corrompido"));
+  });
+
+  it("leitura que falha: avisa 'não foi possível abrir' e não grava por cima do arquivo", async () => {
+    const original = JSON.stringify({ versao: 1, tarefas: [{ id: "t-1", titulo: "x", vencimento: "2026-09-10", ordem: 10, concluida: false, concluidaEm: null, criadaEm: "z", comentarios: [] }] });
+    disco.set(CAMINHO_TAREFAS, original);
+    adapterStub.lerTexto.mockRejectedValueOnce(new Error("forbidden path"));
+    await useTarefasStore.getState().carregar();
+    expect(toast).toHaveBeenCalledWith(traduzirAgora("tarefas.erro.leitura"));
+    expect(toast).not.toHaveBeenCalledWith(traduzirAgora("tarefas.erro.corrompido"));
+    useTarefasStore.getState().criar("hoje", "Nova", HOJE);
+    await useTarefasStore.getState()._persistirAgora();
+    expect(adapterStub.escreverTexto).not.toHaveBeenCalled();
+    expect(disco.get(CAMINHO_TAREFAS)).toBe(original);
+  });
+
+  it("depois de uma leitura bem-sucedida a gravação volta a funcionar", async () => {
+    adapterStub.existe.mockRejectedValueOnce(new Error("travado"));
+    await useTarefasStore.getState().carregar();
+    await useTarefasStore.getState().carregar();
+    useTarefasStore.getState().criar("hoje", "Nova", HOJE);
+    await useTarefasStore.getState()._persistirAgora();
+    expect(disco.get(CAMINHO_TAREFAS)).toContain("Nova");
   });
 
   it("criar adiciona tarefa com vencimento e ordem da seção", async () => {

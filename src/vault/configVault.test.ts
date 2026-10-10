@@ -4,7 +4,12 @@ const { disco, vaultState } = vi.hoisted(() => {
   const disco = new Map<string, string>();
   const vaultState = {
     adapter: {
+      falhaLeitura: false,
+      async existe(p: string) {
+        return disco.has(p);
+      },
       async lerTexto(p: string) {
+        if (vaultState.adapter.falhaLeitura) throw new Error("forbidden path");
         if (!disco.has(p)) throw new Error("ENOENT");
         return disco.get(p)!;
       },
@@ -25,6 +30,7 @@ import { lerConfigVault, gravarConfigVault } from "./configVault";
 
 beforeEach(() => {
   disco.clear();
+  vaultState.adapter.falhaLeitura = false;
 });
 
 describe("lerConfigVault", () => {
@@ -70,5 +76,15 @@ describe("gravarConfigVault", () => {
     await gravarConfigVault({ customOrder: { "": ["A.md"] } });
     const gravado = JSON.parse(disco.get(".excalisidian/vault.json")!);
     expect(gravado).toEqual({ version: 1, customOrder: { "": ["A.md"] } });
+  });
+});
+
+describe("gravarConfigVault com leitura falhando", () => {
+  it("arquivo existe mas a leitura falha: não regrava por cima", async () => {
+    const original = JSON.stringify({ version: 1, customOrder: { "": ["B.md", "A.md"] } });
+    disco.set(".excalisidian/vault.json", original);
+    vaultState.adapter.falhaLeitura = true;
+    await gravarConfigVault({ sortMode: "custom" });
+    expect(disco.get(".excalisidian/vault.json")).toBe(original);
   });
 });
