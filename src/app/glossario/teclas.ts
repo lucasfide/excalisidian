@@ -23,3 +23,9 @@ export function rotulosDoCombo(combo: ComboTeclas, mac: boolean): string[] {
 export function ehMac(): boolean {
   return typeof navigator !== "undefined" && /Mac/.test(navigator.userAgent);
 }
+
+/** Rótulo curto de um atalho para mostrar sob um botão ou num campo: "CTRL T" no
+ * Windows/Linux, "⌘ T" no macOS. */
+export function rotuloDoAtalho(combo: ComboTeclas, mac: boolean): string {
+  return rotulosDoCombo(combo, mac).join(" ").toUpperCase();
+}

@@ -6,6 +6,7 @@
 
 import { Search } from "lucide-react";
 
+import { ehMac, rotuloDoAtalho } from "../../app/glossario/teclas";
 import { useSobreposicaoStore } from "../../estado/sobreposicaoStore";
 
 export default function CampoBuscaSidebar() {
@@ -22,7 +23,7 @@ export default function CampoBuscaSidebar() {
     >
       <Search size={16} strokeWidth={1.5} className="shrink-0 text-tinta-suave" aria-hidden />
       <span className="flex-1 text-corpo text-tinta-suave">Buscar</span>
-      <span className="meta text-tinta-suave">CTRL O</span>
+      <span className="meta text-tinta-suave">{rotuloDoAtalho("Mod-o", ehMac())}</span>
     </button>
   );
 }

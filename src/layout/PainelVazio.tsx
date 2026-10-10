@@ -4,6 +4,7 @@
 import { useEffect } from "react";
 import { FilePlus, SquarePen } from "lucide-react";
 
+import { ehMac, rotuloDoAtalho } from "../app/glossario/teclas";
 import { comandoNovaNota, comandoNovoDesenho } from "../app/comandos/criacao";
 import { usePapelParedeHomeStore } from "../estado/papel-parede-home-store";
 import { usePrefsStore } from "../estado/prefsStore";
@@ -54,7 +55,7 @@ export default function PainelVazio() {
                 >
                   Nova nota
                 </Botao>
-                <span className="meta text-tinta-suave">CTRL T</span>
+                <span className="meta text-tinta-suave">{rotuloDoAtalho("Mod-t", ehMac())}</span>
               </div>
               <div className="flex flex-col items-center gap-1">
                 <Botao
@@ -64,7 +65,7 @@ export default function PainelVazio() {
                 >
                   Novo desenho
                 </Botao>
-                <span className="meta text-tinta-suave">CTRL D</span>
+                <span className="meta text-tinta-suave">{rotuloDoAtalho("Mod-d", ehMac())}</span>
               </div>
             </div>
           </EstadoVazio>
