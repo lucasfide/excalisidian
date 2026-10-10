@@ -22,7 +22,9 @@ import {
 import type { ProvedorId, Thinking } from "../../agente/tipos";
 import { useTexto } from "../../i18n/useTexto";
 import { useContaStore } from "../../estado/contaStore";
-import { CONTA_DISPONIVEL } from "../../servico/base";
+import { SERVICOS_ONLINE_LIBERADOS } from "../../servico/base";
+import { provedorDisponivel } from "../../agente/disponibilidade";
+import SeloBeta from "./SeloBeta";
 import { podeConcluirAgentePorCreditos, useSaldoCreditosConta } from "../../servico/useSaldoCreditosConta";
 import { CreditosAgente } from "./CreditosAgente";
 import {
@@ -86,7 +88,7 @@ export default function DialogoAgente({ aoAbrirConta }: Props) {
   const reconfigurando = useRef(config !== null);
   const [etapa, setEtapa] = useState(config ? 2 : 1);
   const [r, setR] = useState<CamposRascunhoAgente>(() =>
-    rascunhoInicial(config, CONTA_DISPONIVEL),
+    rascunhoInicial(config, SERVICOS_ONLINE_LIBERADOS),
   );
   const [modelos, setModelos] = useState<string[] | null>(null);
   const [avisoLista, setAvisoLista] = useState<string | null>(null);
@@ -500,29 +502,36 @@ interface PassoProvedorProps {
 }
 
 function PassoProvedor({ valor, onEscolher }: PassoProvedorProps) {
-  // CONTA_DISPONIVEL (servico/base.ts) é o interruptor geral: com a tela de conta pronta
-  // ele é `true` e todo provedor aparece; um `false` de emergência voltaria a esconder
-  // qualquer provedor que só autentica por sessão de conta, sem tirá-lo do catálogo.
-  const provedoresVisiveis = PROVEDORES.filter((p) => CONTA_DISPONIVEL || !p.exigeConta);
+  // SERVICOS_ONLINE_LIBERADOS (servico/base.ts) é o interruptor geral: com `false` (beta), o
+  // provedor que só autentica por sessão de conta aparece desabilitado, com o selo Beta.
+  const t = useTexto();
   return (
     <div role="radiogroup" aria-label="Provedor" className="flex flex-col gap-1.5">
-      {provedoresVisiveis.map((p) => {
-        const ativo = p.id === valor;
+      {PROVEDORES.map((p) => {
+        const disponivel = provedorDisponivel(p);
+        const ativo = disponivel && p.id === valor;
         return (
           <button
             key={p.id}
             type="button"
             role="radio"
             aria-checked={ativo}
+            disabled={!disponivel}
             onClick={() => onEscolher(p.id)}
             className={cn(
               "flex flex-col items-start gap-0.5 rounded-controle border px-3 py-2 text-left",
+              "disabled:pointer-events-none disabled:opacity-50",
               "transition-colors duration-[140ms] ease-caderno",
               ativo ? "border-cristal bg-lavagem" : "border-regua hover:bg-lavagem",
             )}
           >
-            <span className="text-[13px] font-medium text-tinta">{p.nome}</span>
-            <span className="meta text-tinta-suave">{p.descricao}</span>
+            <span className="flex items-center gap-2 text-[13px] font-medium text-tinta">
+              {p.nome}
+              {!disponivel && <SeloBeta />}
+            </span>
+            <span className="meta text-tinta-suave">
+              {disponivel ? p.descricao : t("beta.curto")}
+            </span>
           </button>
         );
       })}

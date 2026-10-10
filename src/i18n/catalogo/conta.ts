@@ -3,6 +3,11 @@
 // português, redação).
 
 export const PT_BR_CONTA = {
+  "beta.selo": "Beta",
+  "beta.titulo": "Serviços online em beta",
+  "beta.texto":
+    "Conta, IA do Excalisidian e sincronização em nuvem ainda estão em teste e chegam numa próxima versão. Suas notas e desenhos continuam funcionando normalmente neste computador.",
+  "beta.curto": "Em beta. Chega numa próxima versão.",
   "conta.titulo": "Conta",
   "conta.carregando": "Verificando sua conta…",
   "conta.descricaoDeslogado":
@@ -37,6 +42,11 @@ export const PT_BR_CONTA = {
 // Partial, como o EN geral em catalogo.ts: uma tradução faltando não trava a edição, cai no
 // português em tempo de execução (tradutor.ts). cobertura.test.ts cobra a completude.
 export const EN_CONTA: Partial<Record<keyof typeof PT_BR_CONTA, string>> = {
+  "beta.selo": "Beta",
+  "beta.titulo": "Online services in beta",
+  "beta.texto":
+    "Account, Excalisidian AI and cloud sync are still being tested and will arrive in a future version. Your notes and drawings keep working normally on this computer.",
+  "beta.curto": "In beta. Coming in a future version.",
   "conta.titulo": "Account",
   "conta.carregando": "Checking your account…",
   "conta.descricaoDeslogado":

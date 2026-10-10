@@ -38,6 +38,8 @@ import type { ChaveTexto, TradutorDoApp } from "../../i18n/catalogo";
 import { useTexto } from "../../i18n/useTexto";
 import DialogoGlossario from "./DialogoGlossario";
 import SecaoSincronizacao from "./SecaoSincronizacao";
+import SeloBeta from "./SeloBeta";
+import { SERVICOS_ONLINE_LIBERADOS } from "../../servico/base";
 import { AvisoTermosConta, LinksLegaisLicencas } from "./LinksLegais";
 import { CreditosAgente } from "./CreditosAgente";
 import {
@@ -222,6 +224,9 @@ export default function DialogoPreferencias({ onFechar, secaoInicial }: Props) {
                   >
                     <Icone size={16} strokeWidth={1.5} aria-hidden />
                     {rotuloAba(item, t)}
+                    {!SERVICOS_ONLINE_LIBERADOS && (item === "conta" || item === "sincronizacao") && (
+                      <SeloBeta />
+                    )}
                   </button>
                 );
               })}
@@ -292,6 +297,14 @@ export default function DialogoPreferencias({ onFechar, secaoInicial }: Props) {
       {glossarioAberto && <DialogoGlossario onFechar={() => setGlossarioAberto(false)} />}
     </>
   );
+}
+
+// Aviso de beta no lugar de Conta e Sincronização enquanto os serviços online estão desligados
+// (`SERVICOS_ONLINE_LIBERADOS`). Reaproveita `LinhaConfig`: mesma tipografia das descrições.
+function AvisoBeta({ id, idsVisiveis }: { id: "conta" | "sincronizacao"; idsVisiveis?: Set<string> }) {
+  const t = useTexto();
+  if (idsVisiveis && !idsVisiveis.has(id)) return null;
+  return <LinhaConfig id={id} titulo={t("beta.titulo")} descricao={t("beta.texto")} />;
 }
 
 // Linha de configuração (doc 06): título + descrição à esquerda, controle à direita, réguas
@@ -551,6 +564,12 @@ function AbaAparencia({ idsVisiveis }: { idsVisiveis?: Set<string> }) {
 // `idsVisiveis`: Conta é UMA entrada só ("conta") — a busca das Configurações não entra dentro
 // da seção, mostra ela inteira quando casa.
 function SecaoConta({ idsVisiveis }: { idsVisiveis?: Set<string> }) {
+  // Hooks ficam em `SecaoContaReal`; aqui só a escolha, sem hook condicional.
+  if (!SERVICOS_ONLINE_LIBERADOS) return <AvisoBeta id="conta" idsVisiveis={idsVisiveis} />;
+  return <SecaoContaReal idsVisiveis={idsVisiveis} />;
+}
+
+function SecaoContaReal({ idsVisiveis }: { idsVisiveis?: Set<string> }) {
   const sessao = useContaStore((s) => s.sessao);
   const carregado = useContaStore((s) => s.carregado);
   const ocupado = useContaStore((s) => s.ocupado);
@@ -707,6 +726,7 @@ function SecaoConta({ idsVisiveis }: { idsVisiveis?: Set<string> }) {
 // conteúdo varia demais por estado de conta/plano/vault para indexar linha a linha.
 function AbaSincronizacao({ idsVisiveis }: { idsVisiveis?: Set<string> }) {
   if (idsVisiveis && !idsVisiveis.has("sincronizacao")) return null;
+  if (!SERVICOS_ONLINE_LIBERADOS) return <AvisoBeta id="sincronizacao" />;
   return (
     <div id="sincronizacao">
       <SecaoSincronizacao />

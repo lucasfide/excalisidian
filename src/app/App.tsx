@@ -32,6 +32,7 @@ import { criarConteudoInicial } from "../vault/conteudoInicial";
 import BarraStatus from "../ui/excalisidian/BarraStatus";
 import ConteudoSidebar from "../ui/excalisidian/ConteudoSidebar";
 import IconeSincronizacao from "../ui/excalisidian/IconeSincronizacao";
+import { SERVICOS_ONLINE_LIBERADOS } from "../servico/base";
 import ArvoreEBacklinks from "../ui/excalisidian/ArvoreEBacklinks";
 import DialogoPreferencias from "../ui/excalisidian/DialogoPreferencias";
 import DialogoAtualizacao from "../ui/excalisidian/DialogoAtualizacao";
@@ -155,7 +156,8 @@ export default function App() {
   // chega tarde") — instalado uma vez por janela, como o efeito acima. Não depende da ordem
   // de boot: os `subscribe` cobrem o vault abrindo e a conta carregando DEPOIS deste efeito
   // (ver `cicloDeVidaSync.ts`).
-  useEffect(() => instalarCicloDeVidaSync(), []);
+  // Com os serviços online em beta nada de sincronização liga.
+  useEffect(() => (SERVICOS_ONLINE_LIBERADOS ? instalarCicloDeVidaSync() : undefined), []);
 
   useEffect(() => {
     void usePrefsStore.getState().carregar();
@@ -164,6 +166,7 @@ export default function App() {
   // Conta é opcional: `carregar()` só renova um token salvo (se houver) e nunca bloqueia
   // a abertura do app nem aparece na tela — ver contaStore.ts.
   useEffect(() => {
+    if (!SERVICOS_ONLINE_LIBERADOS) return; // beta: não renova token nem lê o cofre do sistema
     void useContaStore.getState().carregar();
   }, []);
 
@@ -440,9 +443,11 @@ export default function App() {
                   titulo="Lixeira"
                   onClick={() => setLixeiraAberta(true)}
                 />
-                <IconeSincronizacao
-                  onAbrirConfiguracoes={() => abrirPreferencias("sincronizacao")}
-                />
+                {SERVICOS_ONLINE_LIBERADOS && (
+                  <IconeSincronizacao
+                    onAbrirConfiguracoes={() => abrirPreferencias("sincronizacao")}
+                  />
+                )}
                 <BotaoIcone
                   Icone={Settings}
                   titulo="Configurações"

@@ -76,6 +76,8 @@ import { useDocumentosStore } from "./documentosStore";
 import { useWorkspaceStore } from "./workspaceStore";
 import { useVaultStore } from "./vaultStore";
 import { useContaStore } from "./contaStore";
+import { configUsavel } from "../agente/disponibilidade";
+import { SERVICOS_ONLINE_LIBERADOS } from "../servico/base";
 
 const CHAVE_CONFIG = "agente";
 // Doc 12 §6 / doc 04 §5.1: config do agente é preferência da máquina como tema e largura da
@@ -973,6 +975,11 @@ export const useAgenteStore = create<AgenteState>((set, get) => {
     usoSessao: usoVazio(),
     saldoCreditos: null,
     atualizarSaldo: async () => {
+      // Serviços online em beta: sem consulta de saldo, sem leitura da sessão.
+      if (!SERVICOS_ONLINE_LIBERADOS) {
+        zerarSaldo();
+        return;
+      }
       const cfg = get().config;
       // Mesmo padrão de contaStore: `import.meta.env.DEV` literal para o ramo sumir do build de
       // produção. Com a conta de teste do DEV (servidor local), não há saldo real para buscar.
@@ -1012,7 +1019,8 @@ export const useAgenteStore = create<AgenteState>((set, get) => {
       try {
         const store = await load("settings.json", { autoSave: false });
         const salva = await store.get<ConfigAgente>(CHAVE_CONFIG);
-        if (ehConfigAgente(salva)) {
+        // Config salva com provedor indisponível (IA do Excalisidian em beta) = agente não configurado.
+        if (ehConfigAgente(salva) && configUsavel(salva)) {
           const atual = get().config;
           const mudou = !atual || !mesmaConfig(atual, salva);
           if (mudou) {
@@ -1301,7 +1309,7 @@ export const useAgenteStore = create<AgenteState>((set, get) => {
       // sessão mudou (entrar/sair/renovar) enquanto o agente estava parado num erro
       // definitivo (sessao/plano): reavalia. Isto só lê e reage a `useContaStore` — nunca
       // escreve nele — então não pode disparar este mesmo assinante de volta (sem laço).
-      useContaStore.subscribe((state, prev) => {
+      if (SERVICOS_ONLINE_LIBERADOS) useContaStore.subscribe((state, prev) => {
         if (state.sessao !== prev.sessao) {
           // o saldo é da conta anterior: some já e, com o painel aberto, é buscado de novo
           zerarSaldo();

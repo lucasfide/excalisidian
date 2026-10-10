@@ -34,6 +34,7 @@ import { type Idioma } from "../../i18n/idioma";
 import { usePrefsStore } from "../../estado/prefsStore";
 import type { TipoSugestao } from "../../agente/assistente";
 import type { FaseAtividadeAgente, Fato } from "../../agente/tipos";
+import { SERVICOS_ONLINE_LIBERADOS } from "../../servico/base";
 import { recuperarSessaoApos401 } from "../../servico/useSaldoCreditosConta";
 import { normalizarFatoParaComparacao } from "../../agente/regrasMemoria";
 import {
@@ -223,7 +224,7 @@ export default function PainelAgente({ aoAbrirConta, aoMostrarTarefas, aoFecharP
   // fica `null` quando a busca falha — o medidor some, nunca um número inventado no lugar.
   const usaCreditos = provedorId ? provedorDe(provedorId).exigeConta : false;
   const saldo = useAgenteStore((s) => s.saldoCreditos);
-  const mostrarBotaoConta = deveMostrarBotaoContaPainel({
+  const mostrarBotaoConta = SERVICOS_ONLINE_LIBERADOS && deveMostrarBotaoContaPainel({
     usaProvedorComConta: usaCreditos,
     contaCarregada,
     sessaoPresente: sessao !== null,

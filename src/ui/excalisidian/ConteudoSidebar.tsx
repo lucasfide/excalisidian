@@ -13,6 +13,7 @@ import BotaoOrdenacao from "./BotaoOrdenacao";
 import CampoBuscaSidebar from "./CampoBuscaSidebar";
 import SeletorVault from "./SeletorVault";
 import IconeSincronizacao from "./IconeSincronizacao";
+import { SERVICOS_ONLINE_LIBERADOS } from "../../servico/base";
 
 interface Props {
   onAbrirLixeira(): void;
@@ -75,7 +76,9 @@ export default function ConteudoSidebar({
             titulo="Galeria de anexos"
             onClick={() => useSobreposicaoStore.getState().abrir("galeria")}
           />
-          <IconeSincronizacao onAbrirConfiguracoes={() => onAbrirPreferencias("sincronizacao")} />
+          {SERVICOS_ONLINE_LIBERADOS && (
+            <IconeSincronizacao onAbrirConfiguracoes={() => onAbrirPreferencias("sincronizacao")} />
+          )}
           <BotaoIcone
             Icone={Settings}
             titulo="Configurações"

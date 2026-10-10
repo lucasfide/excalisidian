@@ -7,6 +7,13 @@ vi.stubGlobal("window", globalThis);
 const { stores } = vi.hoisted(() => ({
   stores: new Map<string, Map<string, unknown>>(),
 }));
+// Estes testes cobrem o código dos serviços online, que só liga com a chave aberta; o app
+// publicado a deixa fechada (beta) — ver disponibilidade.test.ts.
+vi.mock("../servico/base", async (orig) => ({
+  ...(await orig<typeof import("../servico/base")>()),
+  SERVICOS_ONLINE_LIBERADOS: true,
+}));
+
 vi.mock("@tauri-apps/plugin-store", () => ({
   load: async (nome: string) => {
     if (!stores.has(nome)) stores.set(nome, new Map());

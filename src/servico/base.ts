@@ -11,7 +11,6 @@ export function hostDoServico(): string {
   return new URL(BASE_URL_SERVICO).host;
 }
 
-// Chave única que liga o provedor de IA autenticado por conta na interface. A tela de
-// conta existe desde o plano 03 (contaStore chama `definirTokenDaSessao` em todo
-// login/logout/carga inicial), então o provedor próprio pode aparecer no assistente.
-export const CONTA_DISPONIVEL = true;
+/** Conta, IA do Excalisidian e sincronização em nuvem. `false` enquanto estão em beta: o app
+ * mostra o aviso de beta no lugar dessas telas e não liga nada que fale com o servidor. */
+export const SERVICOS_ONLINE_LIBERADOS = false;

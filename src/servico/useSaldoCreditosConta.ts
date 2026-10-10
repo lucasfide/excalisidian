@@ -2,6 +2,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useContaStore } from "../estado/contaStore";
 import { consultarCreditos, type ResultadoCreditos } from "./saldoCreditos";
 import { decidirModoServidor } from "./modoServidor";
+import { SERVICOS_ONLINE_LIBERADOS } from "./base";
 import {
   estadoInicialCreditosConta,
   falhaRecuperacaoCreditos,
@@ -101,7 +102,9 @@ async function consultarComRecuperacao(
 }
 
 /** Consulta o saldo para apresentação independente de configuração ou ativação do agente. */
-export function useSaldoCreditosConta(ativo: boolean): ResultadoHookSaldoCreditosConta {
+export function useSaldoCreditosConta(ativoPedido: boolean): ResultadoHookSaldoCreditosConta {
+  // Serviços online em beta: nunca consulta saldo.
+  const ativo = ativoPedido && SERVICOS_ONLINE_LIBERADOS;
   const carregado = useContaStore((estado) => estado.carregado);
   const sessao = useContaStore((estado) => estado.sessao);
   const [estadoSalvo, setEstadoSalvo] = useState<EstadoCreditoApresentacao>({

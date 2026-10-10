@@ -22,6 +22,7 @@ import { flusharTudoAntesDeSair, type ResultadoFlushGeral } from "../estado/flus
 import { usePrefsStore } from "../estado/prefsStore";
 import { useAgenteStore } from "../estado/agenteStore";
 import { useContaStore } from "../estado/contaStore";
+import { SERVICOS_ONLINE_LIBERADOS } from "../servico/base";
 
 const EVENTO_FLUSH_PEDIDO = "app://flush-pedido";
 const EVENTO_FLUSH_RESPOSTA = "app://flush-resposta";
@@ -165,7 +166,7 @@ export function instalarOuvintesEntreJanelas(): () => void {
     void useAgenteStore.getState().carregar();
     // `sincronizarComCofre`, não `carregar`: `carregar` faz `renovar`, que troca o token no
     // servidor — o token velho (do pedido do agente em andamento, ou de outra janela) daria 401.
-    void useContaStore.getState().sincronizarComCofre();
+    if (SERVICOS_ONLINE_LIBERADOS) void useContaStore.getState().sincronizarComCofre();
   }).then((unlisten) => {
     if (cancelado) unlisten();
     else limpezas.push(unlisten);
