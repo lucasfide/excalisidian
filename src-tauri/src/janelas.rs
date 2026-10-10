@@ -135,6 +135,8 @@ pub async fn abrir_janela_vault(
         .title(titulo)
         .inner_size(LARGURA, ALTURA)
         .min_inner_size(LARGURA_MINIMA, ALTURA_MINIMA)
+        // Mesmo Ctrl+/Ctrl-/Ctrl+0 da janela principal (`zoomHotkeysEnabled` em tauri.conf.json).
+        .zoom_hotkeys_enabled(true)
         .build()
         .map_err(|e| e.to_string())?;
 

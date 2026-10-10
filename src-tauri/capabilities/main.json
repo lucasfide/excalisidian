@@ -8,6 +8,7 @@
     "core:window:allow-close",
     "core:window:allow-destroy",
     "core:window:allow-set-title",
+    "core:webview:allow-set-webview-zoom",
     "dialog:allow-open",
     "store:default",
     "fs:allow-read-text-file",
