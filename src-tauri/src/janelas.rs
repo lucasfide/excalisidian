@@ -26,7 +26,16 @@ pub struct EstadoJanelas(pub Mutex<HashMap<String, String>>);
 /// mudam aqui também.
 const LARGURA: f64 = 1200.0;
 const ALTURA: f64 = 800.0;
+// No Linux, em gerenciador de janelas lado a lado (Hyprland etc.), o compositor espreme a
+// janela que pede um mínimo maior que o espaço dela e a imagem do app sai distorcida; por
+// isso o mínimo lá é menor.
+#[cfg(target_os = "linux")]
+const LARGURA_MINIMA: f64 = 480.0;
+#[cfg(target_os = "linux")]
+const ALTURA_MINIMA: f64 = 360.0;
+#[cfg(not(target_os = "linux"))]
 const LARGURA_MINIMA: f64 = 900.0;
+#[cfg(not(target_os = "linux"))]
 const ALTURA_MINIMA: f64 = 600.0;
 
 /// Chave de `EstadoJanelas`: minúsculas, `\` virando `/`, sem barra final. Assim
