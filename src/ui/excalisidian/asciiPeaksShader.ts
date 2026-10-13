@@ -28,7 +28,9 @@ const TAMANHO_CELULA_PX = 26;
  * com mais tinta. Só os símbolos monoespaçados comuns, sem depender de fonte com glifos raros.
  * Exportada só pro teste conferir que a rampa nunca fica vazia (o shader divide por ela). */
 export const RAMPA_CARACTERES = [" ", ".", ":", "o", "0", "8", "@"];
-const RESOLUCAO_INTERNA_MAX_DPR = 1;
+// 1 -> 1.5: em tela de alta densidade (devicePixelRatio 2) o limite 1 deixava o fundo ampliado
+// quase 3x e borrado; 1.5 equilibra nitidez e custo de GPU.
+const RESOLUCAO_INTERNA_MAX_DPR = 1.5;
 const FATOR_REDUCAO_RESOLUCAO = 0.6;
 /** Raio (em px de CLIENTE, o mesmo espaço de `uTamanhoCelula` antes da conversão pro buffer) do
  * brilho/deslocamento de cada ponto do rastro do mouse. 240px (subiu de 190 — pedido do
